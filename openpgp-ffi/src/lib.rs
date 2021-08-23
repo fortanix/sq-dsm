@@ -36,7 +36,7 @@
 //! [RFC 6637]: https://tools.ietf.org/html/rfc6637
 //! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
-//! [sequoia-core]: ../sequoia_core
+//! [sequoia-core]: super::sequoia_core
 //!
 //!
 //! # Dear User,
@@ -70,7 +70,7 @@
 //! closely resembles this crate.
 //!
 //! [The Rules]: #the-rules
-//! [corresponding Rust crate]: ../sequoia_openpgp/index.html
+//! [corresponding Rust crate]: super::sequoia_openpgp
 //!
 //!
 //! # Examples
@@ -134,7 +134,7 @@
 //! or the allocation for the string failed, which is considered
 //! undefined behavior.
 //!
-//! [`pgp_fingerprint_to_string`]: fingerprint/struct.Fingerprint.html#method.pgp_fingerprint_to_string
+//! [`pgp_fingerprint_to_string`]: fingerprint::Fingerprint::pgp_fingerprint_to_string()
 //!
 //! Failing functions signal failure either in-band (e.g. `NULL`, or
 //! -1), using `pgp_status_t`, and may store complex error information
@@ -145,16 +145,16 @@
 //! on the other hand, will return `NULL` and store a complex error at
 //! the location given using the `errp` parameter.
 //!
-//! [`pgp_fingerprint_from_hex`]: fingerprint/struct.Fingerprint.html#method.pgp_fingerprint_from_hex
-//! [`pgp_packet_parser_from_bytes`]: parse/fn.pgp_packet_parser_from_bytes.html
+//! [`pgp_fingerprint_from_hex`]: fingerprint::Fingerprint::pgp_fingerprint_from_hex()
+//! [`pgp_packet_parser_from_bytes`]: parse::pgp_packet_parser_from_bytes()
 //!
 //! Errors may be inspected using [`pgp_error_status`], and formatted
 //! as an error message using [`pgp_error_to_string`].  Errors must be freed
 //! using [`pgp_error_free`].
 //!
-//! [`pgp_error_status`]: error/fn.pgp_error_status.html
-//! [`pgp_error_to_string`]: error/fn.pgp_error_to_string.html
-//! [`pgp_error_free`]: error/fn.pgp_error_free.html
+//! [`pgp_error_status`]: error::pgp_error_status()
+//! [`pgp_error_to_string`]: error::pgp_error_to_string()
+//! [`pgp_error_free`]: error::pgp_error_free()
 //!
 //! ## Types
 //!
@@ -173,8 +173,8 @@
 //! from a hexadecimal number, and then [pretty-print] it for user
 //! consumption:
 //!
-//! [parse a fingerprint]: fingerprint/fn.pgp_fingerprint_from_hex.html
-//! [pretty-print]: fingerprint/fn.pgp_fingerprint_to_string.html
+//! [parse a fingerprint]: fingerprint::pgp_fingerprint_from_hex()
+//! [pretty-print]: fingerprint::pgp_fingerprint_to_string()
 //!
 //! ```c
 //! #include <assert.h>
@@ -281,7 +281,7 @@
 //! data, and later use `PGP_ARMOR_KIND_FILE` to check what we got in
 //! the end.
 //!
-//! [constructor]: armor/fn.pgp_armor_reader_from_bytes.html
+//! [constructor]: armor::pgp_armor_reader_from_bytes()
 //!
 //! ```c
 //! #include <assert.h>

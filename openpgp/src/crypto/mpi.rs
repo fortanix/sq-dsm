@@ -8,10 +8,10 @@
 //! [RFC 6637] to store curves and coordinates used in elliptic curve
 //! cryptography (ECC).
 //!
-//!   [public keys]: enum.PublicKey.html
-//!   [secret keys]: enum.SecretKeyMaterial.html
-//!   [ciphertexts]: enum.Ciphertext.html
-//!   [signatures]: enum.Signature.html
+//!   [public keys]: PublicKey
+//!   [secret keys]: SecretKeyMaterial
+//!   [ciphertexts]: Ciphertext
+//!   [signatures]: Signature
 //!   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
 //!   [RFC 6637]: https://tools.ietf.org/html/rfc6637
 
@@ -291,7 +291,6 @@ impl std::hash::Hash for MPI {
 /// The memory will be cleared when the object is dropped.  Used by
 /// [`SecretKeyMaterial`] to protect secret keys.
 ///
-///   [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
 #[derive(Clone)]
 pub struct ProtectedMPI {
     /// Integer value as big-endian.
@@ -433,7 +432,7 @@ impl fmt::Debug for ProtectedMPI {
 /// Provides a typed and structured way of storing multiple MPIs (and
 /// the occasional elliptic curve) in [`Key`] packets.
 ///
-///   [`Key`]: ../../packet/enum.Key.html
+///   [`Key`]: super::super::packet::Key
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -606,8 +605,7 @@ impl Arbitrary for PublicKey {
 /// [`Key`] packets.  Secret key components are protected by storing
 /// them using [`ProtectedMPI`].
 ///
-///   [`Key`]: ../../packet/enum.Key.html
-///   [`ProtectedMPI`]: struct.ProtectedMPI.html
+///   [`Key`]: super::super::packet::Key
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -881,7 +879,7 @@ impl Default for SecretKeyChecksum {
 /// Provides a typed and structured way of storing multiple MPIs in
 /// [`PKESK`] packets.
 ///
-///   [`PKESK`]: ../../packet/enum.PKESK.html
+///   [`PKESK`]: super::super::packet::PKESK
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -976,7 +974,7 @@ impl Arbitrary for Ciphertext {
 /// Provides a typed and structured way of storing multiple MPIs in
 /// [`Signature`] packets.
 ///
-///   [`Signature`]: ../../packet/enum.Signature.html
+///   [`Signature`]: super::super::packet::Signature
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.

@@ -154,9 +154,9 @@ impl SKESK4 {
     /// least as strong as the `payload_algo` as not to weaken the
     /// security of the payload encryption.
     ///
-    ///   [`SymmetricAlgorithm`]: ../../types/enum.SymmetricAlgorithm.html
-    ///   [`SEIP`]: ../enum.SEIP.html
-    ///   [`AED`]: ../enum.AED.html
+    ///   [`SymmetricAlgorithm`]: super::super::types::SymmetricAlgorithm
+    ///   [`SEIP`]: super::SEIP
+    ///   [`AED`]: super::AED
     pub fn with_password(payload_algo: SymmetricAlgorithm,
                          esk_algo: SymmetricAlgorithm,
                          s2k: S2K,
@@ -215,7 +215,7 @@ impl SKESK4 {
     /// but stored in the packet.  If the packet is serialized again,
     /// it is written out.
     ///
-    ///   [`S2K`]: ../../crypto/enum.S2K.html
+    ///   [`S2K`]: super::super::crypto::S2K
     pub fn esk(&self) -> Result<Option<&[u8]>> {
         self.esk.as_ref()
             .map(|esko| esko.as_ref().map(|esk| &esk[..]))
@@ -315,7 +315,7 @@ impl Arbitrary for SKESK4 {
 ///
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.3
 ///
-/// This feature is [experimental](../../index.html#experimental-features).
+/// This feature is [experimental](super::super#experimental-features).
 #[derive(Clone, Debug)]
 pub struct SKESK5 {
     /// Common fields.
@@ -448,9 +448,9 @@ impl SKESK5 {
     /// least as strong as the `payload_algo` as not to weaken the
     /// security of the payload encryption.
     ///
-    ///   [`SymmetricAlgorithm`]: ../../types/enum.SymmetricAlgorithm.html
-    ///   [`SEIP`]: ../enum.SEIP.html
-    ///   [`AED`]: ../enum.AED.html
+    ///   [`SymmetricAlgorithm`]: super::super::types::SymmetricAlgorithm
+    ///   [`SEIP`]: super::SEIP
+    ///   [`AED`]: super::AED
     pub fn with_password(payload_algo: SymmetricAlgorithm,
                          esk_algo: SymmetricAlgorithm,
                          esk_aead: AEADAlgorithm, s2k: S2K,
@@ -541,7 +541,7 @@ impl SKESK5 {
     /// but stored in the packet.  If the packet is serialized again,
     /// it is written out.
     ///
-    ///   [`S2K`]: ../../crypto/enum.S2K.html
+    ///   [`S2K`]: super::super::crypto::S2K
     pub fn aead_iv(&self) -> Result<&[u8]> {
         self.aead_iv.as_ref()
             .map(|iv| &iv[..])

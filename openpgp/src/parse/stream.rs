@@ -11,9 +11,6 @@
 //!   - or [`Decryptor`] to decrypt and verify an encrypted and
 //!     possibly signed message.
 //!
-//!   [`Verifier`]: struct.Verifier.html
-//!   [`DetachedVerifier`]: struct.DetachedVerifier.html
-//!   [`Decryptor`]: struct.Decryptor.html
 //!
 //! Consuming OpenPGP messages is more difficult than producing them.
 //! When we produce the message, we control the packet structure being
@@ -25,8 +22,6 @@
 //! need to provide an object that implements [`VerificationHelper`],
 //! and for the [`Decryptor`] also [`DecryptionHelper`].
 //!
-//! [`VerificationHelper`]: trait.VerificationHelper.html
-//! [`DecryptionHelper`]: trait.DecryptionHelper.html
 //!
 //! The [`VerificationHelper`] trait give certificates for the
 //! signature verification to the [`Verifier`] or [`Decryptor`], let
@@ -39,15 +34,15 @@
 //! use a cached session key, or one that has been explicitly provided
 //! to the decryption operation.
 //!
-//!   [`PKESK`]: ../../packet/enum.PKESK.html
-//!   [`SKESK`]: ../../packet/enum.SKESK.html
+//!   [`PKESK`]: super::super::packet::PKESK
+//!   [`SKESK`]: super::super::packet::SKESK
 //!
 //! The [`Verifier`] and [`Decryptor`] are filters: they consume
 //! OpenPGP data from a reader, file, or bytes, and implement
 //! [`io::Read`] that can be used to read the verified and/or
 //! decrypted data.
 //!
-//!   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+//!   [`io::Read`]: std::io::Read
 //!
 //! [`DetachedVerifier`] does not provide the [`io::Read`] interface,
 //! because in this case, the data to be verified is easily available
@@ -63,8 +58,8 @@
 //! and the [`Decryptor` examples] for how to verify the message and
 //! its structure.
 //!
-//!   [`Verifier` examples]: struct.Verifier.html#examples
-//!   [`Decryptor` examples]: struct.Decryptor.html#examples
+//!   [`Verifier` examples]: Verifier#examples
+//!   [`Decryptor` examples]: Decryptor#examples
 //!
 //! ```
 //! # fn main() -> sequoia_openpgp::Result<()> {
@@ -163,8 +158,8 @@ const TRACE : bool = false;
 /// The default can be changed using [`VerifierBuilder::buffer_size`]
 /// and [`DecryptorBuilder::buffer_size`].
 ///
-///   [`VerifierBuilder::buffer_size`]: struct.VerifierBuilder.html#method.buffer_size
-///   [`DecryptorBuilder::buffer_size`]: struct.DecryptorBuilder.html#method.buffer_size
+///   [`VerifierBuilder::buffer_size`]: VerifierBuilder::buffer_size()
+///   [`DecryptorBuilder::buffer_size`]: DecryptorBuilder::buffer_size()
 pub const DEFAULT_BUFFER_SIZE: usize = 25 * 1024 * 1024;
 
 /// Result of a signature verification.
@@ -173,8 +168,6 @@ pub const DEFAULT_BUFFER_SIZE: usize = 25 * 1024 * 1024;
 /// [`GoodChecksum`], or there was some [`VerificationError`]
 /// explaining the verification failure.
 ///
-///  [`GoodChecksum`]: struct.GoodChecksum.html
-///  [`VerificationError`]: enum.VerificationError.html
 pub type VerificationResult<'a> =
     std::result::Result<GoodChecksum<'a>, VerificationError<'a>>;
 
@@ -188,8 +181,6 @@ pub type VerificationResult<'a> =
 /// `GoodChecksum` is used in [`VerificationResult`].  See also
 /// [`VerificationError`].
 ///
-///   [`VerificationResult`]: type.VerificationResult.html
-///   [`VerificationError`]: enum.VerificationError.html
 ///
 /// A signature is considered good if and only if all of the following
 /// conditions are met:
@@ -199,7 +190,7 @@ pub type VerificationResult<'a> =
 ///   - The signature is alive at the specified time (the time
 ///     parameter passed to, e.g., [`VerifierBuilder::with_policy`]).
 ///
-///       [`VerifierBuilder::with_policy`]: struct.VerifierBuilder.html#method.with_policy
+///       [`VerifierBuilder::with_policy`]: VerifierBuilder::with_policy()
 ///
 ///   - The certificate is alive and not revoked as of the signature's
 ///     creation time.
@@ -218,7 +209,6 @@ pub type VerificationResult<'a> =
 /// method.
 ///
 ///   [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
-///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
 #[derive(Debug)]
 pub struct GoodChecksum<'a> {
     /// The signature.
@@ -242,14 +232,12 @@ assert_send_and_sync!(GoodChecksum<'_>);
 /// `VerificationError` is used in [`VerificationResult`].  See also
 /// [`GoodChecksum`].
 ///
-///   [`VerificationResult`]: type.VerificationResult.html
-///   [`GoodChecksum`]: struct.GoodChecksum.html
 ///
 /// You can either explicitly match on the variants, or convert to
 /// [`Error`] using [`From`].
 ///
-///   [`Error`]: ../../enum.Error.html
-///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///   [`Error`]: super::super::Error
+///   [`From`]: std::convert::From
 #[derive(Debug)]
 pub enum VerificationError<'a> {
     /// Malformed signature (no signature creation subpacket, etc.)
@@ -408,8 +396,7 @@ impl<'a> VerificationErrorInternal<'a> {
 /// combined on top.  This structure is passed to
 /// [`VerificationHelper::check`] for verification.
 ///
-///  [encryption, signing, and compression layers]: enum.MessageLayer.html
-///  [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
+///  [encryption, signing, and compression layers]: MessageLayer
 ///
 /// The most common structure is an optionally encrypted, optionally
 /// compressed, and optionally signed message, i.e. if the message is
@@ -430,8 +417,7 @@ impl<'a> VerificationErrorInternal<'a> {
 /// [`Signature::level`].
 ///
 ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
-///   [`MessageLayer`]: enum.MessageLayer.html
-///   [`Signature::level`]: ../../packet/enum.Signature.html#method.level
+///   [`Signature::level`]: super::super::packet::Signature::level()
 ///
 /// Consider the following structure.  This is a set of notarizing
 /// signatures *N* over a set of signatures *S* over the literal data:
@@ -521,8 +507,6 @@ impl<'a> IntoIterator for MessageStructure<'a> {
 /// [`MessageStructure`] yields the individual message layers.
 ///
 ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
-///   [`MessageStructure`]: struct.MessageStructure.html
-///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
 #[derive(Debug)]
 pub enum MessageLayer<'a> {
     /// Represents an compression container.
@@ -550,7 +534,7 @@ pub enum MessageLayer<'a> {
         sym_algo: SymmetricAlgorithm,
         /// AEAD algorithm used, if any.
         ///
-        /// This feature is [experimental](../../index.html#experimental-features).
+        /// This feature is [experimental](super::super#experimental-features).
         aead_algo: Option<AEADAlgorithm>,
     },
     /// Represents a signature group.
@@ -564,8 +548,6 @@ pub enum MessageLayer<'a> {
     /// applicable.
     ///
     ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
-    ///   [`VerificationResult`]: type.VerificationResult.html
-    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
     SignatureGroup {
         /// The results of the signature verifications.
         results: Vec<VerificationResult<'a>>,
@@ -734,15 +716,12 @@ enum IMessageLayer {
 /// on how certificates for signature verification are looked up, or
 /// what message structure is considered acceptable.
 ///
-///   [`Verifier`]: struct.Verifier.html
-///   [`DetachedVerifier`]: struct.DetachedVerifier.html
-///   [`Decryptor`]: struct.Decryptor.html
 ///
 /// It also allows you to inspect each packet that is processed during
 /// verification or decryption, optionally providing a [`Map`] for
 /// each packet.
 ///
-///   [`Map`]: ../map/struct.Map.html
+///   [`Map`]: super::map::Map
 pub trait VerificationHelper {
     /// Inspects the message.
     ///
@@ -818,7 +797,6 @@ pub trait VerificationHelper {
     /// signature verifications.  See [`MessageStructure`] for more
     /// information.
     ///
-    /// [`MessageStructure`]: struct.MessageStructure.html
     ///
     /// When verifying a message, this callback will be called exactly
     /// once per message *after* the last signature has been verified
@@ -826,20 +804,19 @@ pub trait VerificationHelper {
     /// returned by this function will abort reading, and the error
     /// will be propagated via the [`io::Read`] operation.
     ///
-    ///   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+    ///   [`io::Read`]: std::io::Read
     ///
     /// After this method was called, [`Verifier::message_processed`]
     /// and [`Decryptor::message_processed`] return `true`.
     ///
-    ///   [`Verifier::message_processed`]: struct.Verifier.html#method.message_processed
-    ///   [`Decryptor::message_processed`]: struct.Decryptor.html#method.message_processed
+    ///   [`Verifier::message_processed`]: Verifier::message_processed()
+    ///   [`Decryptor::message_processed`]: Decryptor::message_processed()
     ///
     /// When verifying a detached signature using the
     /// [`DetachedVerifier`], this method will be called with a
     /// [`MessageStructure`] containing exactly one layer, a signature
     /// group.
     ///
-    ///   [`DetachedVerifier`]: struct.DetachedVerifier.html
     ///
     /// # Examples
     ///
@@ -914,8 +891,7 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// To create a `Verifier`, create a [`VerifierBuilder`] using
 /// [`Parse`], and customize it to your needs.
 ///
-///   [`VerifierBuilder`]: struct.VerifierBuilder.html
-///   [`Parse`]: ../trait.Parse.html
+///   [`Parse`]: super::Parse
 ///
 /// Signature verification requires processing the whole message
 /// first.  Therefore, OpenPGP implementations supporting streaming
@@ -928,13 +904,11 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// seen a positive verification.  See [`Verifier::message_processed`]
 /// for more information.
 ///
-///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
-///   [`Verifier::message_processed`]: #method.message_processed
+///   [`Verifier::message_processed`]: MessageStructure::message_processed()
 ///
 /// See [`GoodChecksum`] for what it means for a signature to be
 /// considered valid.
 ///
-///   [`GoodChecksum`]: struct.GoodChecksum.html
 ///
 /// # Examples
 ///
@@ -1023,8 +997,7 @@ assert_send_and_sync!(Verifier<'_, H> where H: VerificationHelper);
 /// This allows the customization of [`Verifier`], which can
 /// be built using [`VerifierBuilder::with_policy`].
 ///
-///   [`Verifier`]: struct.Verifier.html
-///   [`VerifierBuilder::with_policy`]: struct.VerifierBuilder.html#method.with_policy
+///   [`VerifierBuilder::with_policy`]: VerifierBuilder::with_policy()
 pub struct VerifierBuilder<'a> {
     message: Box<dyn BufferedReader<Cookie> + 'a>,
     buffer_size: usize,
@@ -1073,7 +1046,6 @@ impl<'a> VerifierBuilder<'a> {
     /// By default, we buffer up to 25 megabytes of net message data
     /// (see [`DEFAULT_BUFFER_SIZE`]).  This changes the default.
     ///
-    ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
     ///
     /// # Examples
     ///
@@ -1130,8 +1102,7 @@ impl<'a> VerifierBuilder<'a> {
     /// packets contents, and is not recommended unless you know that
     /// the packets are small.
     ///
-    ///   [`Map`]: ../map/struct.Map.html
-    ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    ///   [`Map`]: super::map::Map
     ///
     /// # Examples
     ///
@@ -1186,7 +1157,6 @@ impl<'a> VerifierBuilder<'a> {
     /// relative to time `time`, or the current time, if `time` is
     /// `None`.  `helper` is the [`VerificationHelper`] to use.
     ///
-    ///   [`VerificationHelper`]: trait.VerificationHelper.html
     ///
     /// # Examples
     ///
@@ -1272,8 +1242,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// Data read from this `Verifier` using [`io::Read`] has been
     /// authenticated.
     ///
-    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
-    ///   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+    ///   [`io::Read`]: std::io::Read
     ///
     /// If the function returns `false`, the message did not fit into
     /// the internal buffer, and therefore data read from this
@@ -1373,8 +1342,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// [`DetachedVerifierBuilder`] using [`Parse`], and customize it to
 /// your needs.
 ///
-///   [`DetachedVerifierBuilder`]: struct.DetachedVerifierBuilder.html
-///   [`Parse`]: ../trait.Parse.html
+///   [`Parse`]: super::Parse
 ///
 /// See [`GoodChecksum`] for what it means for a signature to be
 /// considered valid.  When the signature(s) are processed,
@@ -1382,9 +1350,6 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// [`MessageStructure`] containing exactly one layer, a signature
 /// group.
 ///
-///   [`GoodChecksum`]: struct.GoodChecksum.html
-///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
-///   [`MessageStructure`]: struct.MessageStructure.html
 ///
 /// # Examples
 ///
@@ -1434,8 +1399,7 @@ assert_send_and_sync!(DetachedVerifier<'_, H> where H: VerificationHelper);
 /// This allows the customization of [`DetachedVerifier`], which can
 /// be built using [`DetachedVerifierBuilder::with_policy`].
 ///
-///   [`DetachedVerifier`]: struct.DetachedVerifier.html
-///   [`DetachedVerifierBuilder::with_policy`]: struct.DetachedVerifierBuilder.html#method.with_policy
+///   [`DetachedVerifierBuilder::with_policy`]: DetachedVerifierBuilder::with_policy()
 pub struct DetachedVerifierBuilder<'a> {
     signatures: Box<dyn BufferedReader<Cookie> + 'a>,
     mapping: bool,
@@ -1485,8 +1449,7 @@ impl<'a> DetachedVerifierBuilder<'a> {
     /// packets contents, and is not recommended unless you know that
     /// the packets are small.
     ///
-    ///   [`Map`]: ../map/struct.Map.html
-    ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    ///   [`Map`]: super::map::Map
     ///
     /// # Examples
     ///
@@ -1542,9 +1505,6 @@ impl<'a> DetachedVerifierBuilder<'a> {
     /// [`MessageStructure`] containing exactly one layer, a signature
     /// group.
     ///
-    ///   [`VerificationHelper`]: trait.VerificationHelper.html
-    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
-    ///   [`MessageStructure`]: struct.MessageStructure.html
     ///
     /// # Examples
     ///
@@ -1660,8 +1620,7 @@ enum Mode {
 /// To create a `Decryptor`, create a [`DecryptorBuilder`] using
 /// [`Parse`], and customize it to your needs.
 ///
-///   [`DecryptorBuilder`]: struct.DecryptorBuilder.html
-///   [`Parse`]: ../trait.Parse.html
+///   [`Parse`]: super::Parse
 ///
 /// Signature verification and detection of ciphertext tampering
 /// requires processing the whole message first.  Therefore, OpenPGP
@@ -1675,13 +1634,11 @@ enum Mode {
 /// positive verification.  See [`Decryptor::message_processed`] for
 /// more information.
 ///
-///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
-///   [`Decryptor::message_processed`]: #method.message_processed
+///   [`Decryptor::message_processed`]: MessageStructure::message_processed()
 ///
 /// See [`GoodChecksum`] for what it means for a signature to be
 /// considered valid.
 ///
-///   [`GoodChecksum`]: struct.GoodChecksum.html
 ///
 /// # Examples
 ///
@@ -1793,8 +1750,7 @@ assert_send_and_sync!(Decryptor<'_, H>
 /// This allows the customization of [`Decryptor`], which can
 /// be built using [`DecryptorBuilder::with_policy`].
 ///
-///   [`Decryptor`]: struct.Decryptor.html
-///   [`DecryptorBuilder::with_policy`]: struct.DecryptorBuilder.html#method.with_policy
+///   [`DecryptorBuilder::with_policy`]: DecryptorBuilder::with_policy()
 pub struct DecryptorBuilder<'a> {
     message: Box<dyn BufferedReader<Cookie> + 'a>,
     buffer_size: usize,
@@ -1843,7 +1799,6 @@ impl<'a> DecryptorBuilder<'a> {
     /// By default, we buffer up to 25 megabytes of net message data
     /// (see [`DEFAULT_BUFFER_SIZE`]).  This changes the default.
     ///
-    ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
     ///
     /// # Examples
     ///
@@ -1910,8 +1865,7 @@ impl<'a> DecryptorBuilder<'a> {
     /// packets contents, and is not recommended unless you know that
     /// the packets are small.
     ///
-    ///   [`Map`]: ../map/struct.Map.html
-    ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    ///   [`Map`]: super::map::Map
     ///
     /// # Examples
     ///
@@ -1977,8 +1931,6 @@ impl<'a> DecryptorBuilder<'a> {
     /// `None`.  `helper` is the [`VerificationHelper`] and
     /// [`DecryptionHelper`] to use.
     ///
-    ///   [`VerificationHelper`]: trait.VerificationHelper.html
-    ///   [`DecryptionHelper`]: trait.DecryptionHelper.html
     ///
     /// # Examples
     ///
@@ -2053,7 +2005,6 @@ impl<'a> DecryptorBuilder<'a> {
 /// provide the [`Decryptor`] without imposing any policy on how the
 /// session key is decrypted.
 ///
-///   [`Decryptor`]: struct.Decryptor.html
 pub trait DecryptionHelper {
     /// Decrypts the message.
     ///
@@ -2065,13 +2016,13 @@ pub trait DecryptionHelper {
     /// and session key.  `decrypt` returns `true` if the decryption
     /// was successful.
     ///
-    ///   [`PKESK`]: ../../packet/enum.PKESK.html
-    ///   [`SKESK`]: ../../packet/enum.SKESK.html
+    ///   [`PKESK`]: super::super::packet::PKESK
+    ///   [`SKESK`]: super::super::packet::SKESK
     ///
     /// If a symmetric algorithm is given, it should be passed on to
     /// [`PKESK::decrypt`].
     ///
-    ///   [`PKESK::decrypt`]: ../../packet/enum.PKESK.html#method.decrypt
+    ///   [`PKESK::decrypt`]: super::super::packet::PKESK::decrypt()
     ///
     /// If the message is decrypted using a [`PKESK`] packet, then the
     /// fingerprint of the certificate containing the encryption
@@ -2226,8 +2177,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     /// Data read from this `Verifier` using [`io::Read`] has been
     /// authenticated.
     ///
-    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
-    ///   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+    ///   [`io::Read`]: std::io::Read
     ///
     /// If the function returns `false`, the message did not fit into
     /// the internal buffer, and therefore data read from this

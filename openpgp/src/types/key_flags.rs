@@ -22,7 +22,7 @@ use crate::types::Bitfield;
 /// semantic equality and serialized equality is that semantic
 /// equality ignores differences in the amount of padding.
 ///
-///   [`KeyFlags::normalized_eq`]: #method.normalized_eq
+///   [`KeyFlags::normalized_eq`]: KeyFlags::normalized_eq()
 ///
 /// # Examples
 ///

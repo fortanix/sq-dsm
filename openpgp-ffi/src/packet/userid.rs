@@ -20,7 +20,7 @@ use crate::MoveIntoRaw;
 ///
 /// Wraps [`sequoia-openpgp::packet::UserID`].
 ///
-/// [`sequoia-openpgp::packet::UserID`]: ../../../sequoia_openpgp/packet/struct.UserID.html
+/// [`sequoia-openpgp::packet::UserID`]: super::super::super::sequoia_openpgp::packet::UserID
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq")]
 pub struct UserID(openpgp::packet::UserID);

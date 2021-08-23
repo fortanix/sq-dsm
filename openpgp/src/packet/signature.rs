@@ -99,20 +99,18 @@
 //! [its documentation] for details.
 //!
 //! [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
-//! [`Signature`]: ../enum.Signature.html
+//! [`Signature`]: super::Signature
 //! [version 3]: https://tools.ietf.org/html/rfc1991#section-5.2.2
 //! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
 //! [version 5]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-version-4-and-5-signature-p
 //! [notations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-//! [`Signature4`]: struct.Signature4.html
-//! [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
-//! [`PacketParser`]: ../../parse/index.html
-//! [`SignatureBuilder`]: struct.SignatureBuilder.html
+//! [streaming `Signer`]: super::super::serialize::stream::Signer
+//! [`PacketParser`]: super::super::parse
 //! [hints]: https://tools.ietf.org/html/rfc4880#section-5.13
-//! [`Signature::normalize`]: ../enum.Signature.html#method.normalize
-//! [`SubpacketArea`]: subpacket/struct.SubpacketArea.html
-//! [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
-//! [its documentation]: subpacket/struct.SubpacketAreas.html
+//! [`Signature::normalize`]: super::Signature::normalize()
+//! [`SubpacketArea`]: subpacket::SubpacketArea
+//! [`SubpacketAreas`]: subpacket::SubpacketAreas
+//! [its documentation]: subpacket::SubpacketAreas
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -208,9 +206,7 @@ pub(crate) const SIG_BACKDATE_BY: u64 = 60;
 /// A `SignatureField` derefs to a [`SubpacketAreas`].
 ///
 /// [`Signature`]: https://tools.ietf.org/html/rfc4880#section-5.2
-/// [`Signature4`]: struct.Signature4.html
-/// [`SignatureBuilder`]: struct.SignatureBuilder.html
-/// [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
+/// [`SubpacketAreas`]: subpacket::SubpacketAreas
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SignatureFields {
     /// Version of the signature packet. Must be 4.
@@ -293,16 +289,16 @@ impl SignatureFields {
 /// [`SignatureBuilder::sign_message`]), it is usually better to use
 /// the [streaming `Signer`] for that.
 ///
-///   [`Signature`]: ../enum.Signature.html
-///   [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
-///   [`SignatureBuilder::sign_message`]: #method.sign_message
+///   [`Signature`]: super::Signature
+///   [streaming `Signer`]: super::super::serialize::stream::Signer
+///   [`SignatureBuilder::sign_message`]: SignatureBuilder::sign_message()
 ///
 /// Oftentimes, you won't want to create a new signature from scratch,
 /// but modify a copy of an existing signature.  This is
 /// straightforward to do since `SignatureBuilder` implements [`From`]
 /// for Signature.
 ///
-///   [`From`]: https://doc.rust-lang.org/stable/std/convert/trait.From.html
+///   [`From`]: std::convert::From
 ///
 /// When converting a `Signature` to a `SignatureBuilder`, the hash
 /// algorithm is reset to the default hash algorithm
@@ -336,9 +332,9 @@ impl SignatureFields {
 ///
 ///   [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
-///   [`suppress_signature_creation_time`]: #method.suppress_signature_creation_time
+///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
+///   [`suppress_signature_creation_time`]: SignatureBuilder::suppress_signature_creation_time()
 ///
 /// Similarly, most OpenPGP implementations cannot verify a signature
 /// if neither the [`Issuer`] subpacket nor the [`Issuer Fingerprint`]
@@ -358,9 +354,9 @@ impl SignatureFields {
 ///
 ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
 ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-///   [`Signer`]: ../../crypto/trait.Signer.html
-///   [`set_issuer`]: #method.set_issuer
-///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+///   [`Signer`]: super::super::crypto::Signer
+///   [`set_issuer`]: SignatureBuilder::set_issuer()
+///   [`set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
 ///
 /// To finalize the builder, call [`sign_hash`], [`sign_message`],
 /// [`sign_direct_key`], [`sign_subkey_binding`],
@@ -369,22 +365,21 @@ impl SignatureFields {
 /// [`sign_timestamp`], as appropriate.  These functions turn the
 /// `SignatureBuilder` into a valid `Signature`.
 ///
-///   [`sign_hash`]: #method.sign_hash
-///   [`sign_message`]: #method.sign_message
-///   [`sign_direct_key`]: #method.sign_direct_key
-///   [`sign_subkey_binding`]: #method.sign_subkey_binding
-///   [`sign_primary_key_binding`]: #method.sign_primary_key_binding
-///   [`sign_userid_binding`]: #method.sign_userid_binding
-///   [`sign_user_attribute_binding`]: #method.sign_user_attribute_binding
-///   [`sign_standalone`]: #method.sign_standalone
-///   [`sign_timestamp`]: #method.sign_timestamp
+///   [`sign_hash`]: SignatureBuilder::sign_hash()
+///   [`sign_message`]: SignatureBuilder::sign_message()
+///   [`sign_direct_key`]: SignatureBuilder::sign_direct_key()
+///   [`sign_subkey_binding`]: SignatureBuilder::sign_subkey_binding()
+///   [`sign_primary_key_binding`]: SignatureBuilder::sign_primary_key_binding()
+///   [`sign_userid_binding`]: SignatureBuilder::sign_userid_binding()
+///   [`sign_user_attribute_binding`]: SignatureBuilder::sign_user_attribute_binding()
+///   [`sign_standalone`]: SignatureBuilder::sign_standalone()
+///   [`sign_timestamp`]: SignatureBuilder::sign_timestamp()
 ///
 /// This structure `Deref`s to its containing [`SignatureFields`]
 /// structure, which in turn `Deref`s to its subpacket areas
 /// (a [`SubpacketAreas`]).
 ///
-///   [`SignatureFields`]: struct.SignatureFields.html
-///   [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
+///   [`SubpacketAreas`]: subpacket::SubpacketAreas
 ///
 /// # Examples
 ///
@@ -393,7 +388,7 @@ impl SignatureFields {
 /// signatures.  See the [`Preferences`] trait for how preferences
 /// like these are looked up.
 ///
-/// [`Preferences`]: ../../cert/trait.Preferences.html
+/// [`Preferences`]: super::super::cert::Preferences
 ///
 /// ```
 /// use sequoia_openpgp as openpgp;
@@ -505,7 +500,7 @@ impl SignatureBuilder {
     /// packet.
     ///
     ///   [Standalone Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`SignatureType::Standalone`]: ../../types/enum.SignatureType.html#variant.Standalone
+    ///   [`SignatureType::Standalone`]: super::super::types::SignatureType::Standalone
     ///
     /// This function checks that the [signature type] (passed to
     /// [`SignatureBuilder::new`], set via
@@ -513,16 +508,16 @@ impl SignatureBuilder {
     /// `SignatureBuilder::From`) is [`SignatureType::Standalone`] or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`SignatureType::Timestamp`]: ../../types/enum.SignatureType.html#variant.Timestamp
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`SignatureType::Timestamp`]: super::super::types::SignatureType::Timestamp
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -533,9 +528,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -544,8 +539,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// # Examples
     ///
@@ -609,14 +604,14 @@ impl SignatureBuilder {
     ///
     ///
     ///   [Standalone Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`SignatureBuilder::sign_standalone`]: #method.sign_standalone
+    ///   [`SignatureBuilder::sign_standalone`]: SignatureBuilder::sign_standalone()
     ///   [Timestamp Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     ///   [timestamping services]: https://en.wikipedia.org/wiki/Trusted_timestamping
     ///   [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
-    ///   [`SignatureBuilder::set_signature_target`]: #method.set_signature_target
+    ///   [`SignatureBuilder::set_signature_target`]: SignatureBuilder::set_signature_target()
     ///   [Embedded Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
-    ///   [`SignatureBuilder::set_embedded_signature`]: #method.set_embedded_signature
+    ///   [`SignatureBuilder::set_embedded_signature`]: SignatureBuilder::set_embedded_signature()
     ///
     /// This function checks that the [signature type] (passed to
     /// [`SignatureBuilder::new`], set via
@@ -624,16 +619,16 @@ impl SignatureBuilder {
     /// `SignatureBuilder::From`) is [`SignatureType::Timestamp`] or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`SignatureType::Timestamp`]: ../../types/enum.SignatureType.html#variant.Timestamp
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`SignatureType::Timestamp`]: super::super::types::SignatureType::Timestamp
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -644,9 +639,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -655,8 +650,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// # Examples
     ///
@@ -718,7 +713,7 @@ impl SignatureBuilder {
     /// This function is also used to create a [Key Revocation
     /// Signature], which revokes the certificate.
     ///
-    ///   [preferences]: ../../cert/trait.Preferences.html
+    ///   [preferences]: super::super::cert::Preferences
     ///   [Direct Key Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
     ///   [Preferred Symmetric Algorithms]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
     ///   [Key Revocation Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
@@ -730,17 +725,17 @@ impl SignatureBuilder {
     /// [`SignatureType::KeyRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`SignatureType::DirectKey`]: ../../types/enum.SignatureType.html#variant.DirectKey
-    ///   [`SignatureType::KeyRevocation`]: ../../types/enum.SignatureType.html#variant.KeyRevocation
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`SignatureType::DirectKey`]: super::super::types::SignatureType::DirectKey
+    ///   [`SignatureType::KeyRevocation`]: super::super::types::SignatureType::KeyRevocation
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -751,9 +746,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -762,8 +757,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// If `pk` is set to `None` the signature will be computed over the public key
     /// retrieved from the `signer` parameter, i.e. a self-signature will be created.
@@ -775,7 +770,7 @@ impl SignatureBuilder {
     /// Set the default value for the [Preferred Symmetric Algorithms
     /// subpacket]:
     ///
-    /// [Preferred Symmetric Algorithms subpacket]: #method.set_preferred_symmetric_algorithms
+    /// [Preferred Symmetric Algorithms subpacket]: SignatureBuilder::set_preferred_symmetric_algorithms()
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -867,20 +862,20 @@ impl SignatureBuilder {
     /// [`PositiveCertification`], [`CertificationRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`GenericCertification`]: ../../types/enum.SignatureType.html#variant.GenericCertification
-    ///   [`PersonaCertification`]: ../../types/enum.SignatureType.html#variant.PersonaCertification
-    ///   [`CasualCertification`]: ../../types/enum.SignatureType.html#variant.CasualCertification
-    ///   [`PositiveCertification`]: ../../types/enum.SignatureType.html#variant.PositiveCertification
-    ///   [`CertificationRevocation`]: ../../types/enum.SignatureType.html#variant.CertificationRevocation
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`GenericCertification`]: super::super::types::SignatureType::GenericCertification
+    ///   [`PersonaCertification`]: super::super::types::SignatureType::PersonaCertification
+    ///   [`CasualCertification`]: super::super::types::SignatureType::CasualCertification
+    ///   [`PositiveCertification`]: super::super::types::SignatureType::PositiveCertification
+    ///   [`CertificationRevocation`]: super::super::types::SignatureType::CertificationRevocation
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -891,9 +886,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -902,8 +897,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// If `pk` is set to `None` the signature will be computed over the public key
     /// retrieved from the `signer` parameter, i.e. a self-signature will be created.
@@ -916,7 +911,7 @@ impl SignatureBuilder {
     /// be used when addressing the certificate via the associated
     /// User ID:
     ///
-    /// [Preferred Symmetric Algorithms subpacket]: #method.set_preferred_symmetric_algorithms
+    /// [Preferred Symmetric Algorithms subpacket]: SignatureBuilder::set_preferred_symmetric_algorithms()
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -994,7 +989,7 @@ impl SignatureBuilder {
     /// This function is also used to create subkey revocations.
     ///
     ///   [subkey binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`SignatureBuilder::sign_primary_key_binding`]: #method.sign_primary_key_binding
+    ///   [`SignatureBuilder::sign_primary_key_binding`]: SignatureBuilder::sign_primary_key_binding()
     ///
     /// This function checks that the [signature type] (passed to
     /// [`SignatureBuilder::new`], set via
@@ -1003,17 +998,17 @@ impl SignatureBuilder {
     /// [`SignatureType::SubkeyBinding`], [`SignatureType::SubkeyRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`SignatureType::SubkeyBinding`]: ../../types/enum.SignatureType.html#variant.SubkeyBinding
-    ///   [`SignatureType::SubkeyRevocation`]: ../../types/enum.SignatureType.html#variant.SubkeyRevocation
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`SignatureType::SubkeyBinding`]: super::super::types::SignatureType::SubkeyBinding
+    ///   [`SignatureType::SubkeyRevocation`]: super::super::types::SignatureType::SubkeyRevocation
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -1024,9 +1019,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -1035,8 +1030,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// If `pk` is set to `None` the signature will be computed over the public key
     /// retrieved from the `signer` parameter.
@@ -1115,9 +1110,9 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_embedded_signature`]).
     ///
     ///   [primary key binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`SignatureBuilder::sign_subkey_binding`]: #method.sign_subkey_binding
+    ///   [`SignatureBuilder::sign_subkey_binding`]: SignatureBuilder::sign_subkey_binding()
     ///   [`Embedded Signature`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
-    ///   [`SignatureBuilder::set_embedded_signature`]: #method.set_embedded_signature
+    ///   [`SignatureBuilder::set_embedded_signature`]: SignatureBuilder::set_embedded_signature()
     ///
     /// All subkeys that make signatures of any sort (signature
     /// subkeys, certification subkeys, and authentication subkeys)
@@ -1150,16 +1145,16 @@ impl SignatureBuilder {
     /// [`SignatureType::PrimaryKeyBinding`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`SignatureType::PrimaryKeyBinding`]: ../../types/enum.SignatureType.html#variant.PrimaryKeyBinding
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`SignatureType::PrimaryKeyBinding`]: super::super::types::SignatureType::PrimaryKeyBinding
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -1170,9 +1165,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -1181,8 +1176,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// # Examples
     ///
@@ -1276,20 +1271,20 @@ impl SignatureBuilder {
     /// [`PositiveCertification`], [`CertificationRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`GenericCertification`]: ../../types/enum.SignatureType.html#variant.GenericCertification
-    ///   [`PersonaCertification`]: ../../types/enum.SignatureType.html#variant.PersonaCertification
-    ///   [`CasualCertification`]: ../../types/enum.SignatureType.html#variant.CasualCertification
-    ///   [`PositiveCertification`]: ../../types/enum.SignatureType.html#variant.PositiveCertification
-    ///   [`CertificationRevocation`]: ../../types/enum.SignatureType.html#variant.CertificationRevocation
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`GenericCertification`]: super::super::types::SignatureType::GenericCertification
+    ///   [`PersonaCertification`]: super::super::types::SignatureType::PersonaCertification
+    ///   [`CasualCertification`]: super::super::types::SignatureType::CasualCertification
+    ///   [`PositiveCertification`]: super::super::types::SignatureType::PositiveCertification
+    ///   [`CertificationRevocation`]: super::super::types::SignatureType::CertificationRevocation
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -1300,9 +1295,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -1311,8 +1306,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// If `pk` is set to `None` the signature will be computed over the public key
     /// retrieved from the `signer` parameter, i.e. a self-signature will be created.
@@ -1398,8 +1393,8 @@ impl SignatureBuilder {
     /// is useful if you want to create a [`Signature`] for an
     /// unsupported signature type.
     ///
-    ///   [`SignatureBuilder::sign_userid_binding`]: #method.sign_userid_binding
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`SignatureBuilder::sign_userid_binding`]: SignatureBuilder::sign_userid_binding()
+    ///   [`Signature`]: super::Signature
     ///
     /// The `Signature`'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -1413,9 +1408,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -1424,8 +1419,8 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     pub fn sign_hash(mut self, signer: &mut dyn Signer,
                      mut hash: Box<dyn hash::Digest>)
         -> Result<Signature>
@@ -1446,7 +1441,7 @@ impl SignatureBuilder {
     /// Normally, you'll want to use the [streaming `Signer`] to sign
     /// a message.
     ///
-    ///  [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    ///  [streaming `Signer`]: super::super::serialize::stream::Signer
     ///
     /// OpenPGP supports two types of signatures over messages: binary
     /// and text.  The text version normalizes line endings.  But,
@@ -1461,17 +1456,17 @@ impl SignatureBuilder {
     /// `SignatureBuilder::From`) is [`Binary`], [`Text`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: ../../types/enum.SignatureType.html
-    ///   [`SignatureBuilder::new`]: #method.new
-    ///   [`SignatureBuilder::set_type`]: #method.set_type
-    ///   [`Binary`]: ../../types/enum.SignatureType.html#variant.Binary
-    ///   [`Text`]: ../../types/enum.SignatureType.html#variant.Text
-    ///   [`SignatureType::Unknown`]: ../../types/enum.SignatureType.html#variant.Unknown
+    ///   [signature type]: super::super::types::SignatureType
+    ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
+    ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
+    ///   [`Binary`]: super::super::types::SignatureType::Binary
+    ///   [`Text`]: super::super::types::SignatureType::Text
+    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
     ///
-    ///   [`Signature`]: ../enum.Signature.html
+    ///   [`Signature`]: super::Signature
     ///
     /// If neither an [`Issuer`] subpacket (set using
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
@@ -1482,9 +1477,9 @@ impl SignatureBuilder {
     /// `Fingerprint`, respectively.
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///   [`SignatureBuilder::set_issuer`]: SignatureBuilder::set_issuer()
     ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`SignatureBuilder::set_issuer_fingerprint`]: SignatureBuilder::set_issuer_fingerprint()
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
     /// current time is added to the hashed area if the `Signature
@@ -1493,15 +1488,15 @@ impl SignatureBuilder {
     /// [`preserve_signature_creation_time`] method.
     ///
     ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
-    ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+    ///   [`set_signature_creation_time`]: SignatureBuilder::set_signature_creation_time()
+    ///   [`preserve_signature_creation_time`]: SignatureBuilder::preserve_signature_creation_time()
     ///
     /// # Examples
     ///
     /// Signs a document.  For large messages, you should use the
     /// [streaming `Signer`], which streams the message's content.
     ///
-    ///  [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    ///  [streaming `Signer`]: super::super::serialize::stream::Signer
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -1704,7 +1699,7 @@ impl From<Signature4> for SignatureBuilder {
 /// version-specific methods.
 ///
 ///   [version 4]: https://tools.ietf.org/html/rfc4880#section-5.2
-///   [`Signature`]: ../enum.Signature.html
+///   [`Signature`]: super::Signature
 #[derive(Clone)]
 pub struct Signature4 {
     /// CTB packet header fields.
@@ -1782,9 +1777,9 @@ impl PartialEq for Signature4 {
     /// the unhashed area, you should instead use the
     /// [`Signature4::normalized_eq`] method.
     ///
-    /// [`level`]: #method.level
-    /// [`computed_digest`]: #method.computed_digest
-    /// [`Signature4::normalized_eq`]: #method.normalized_eq
+    /// [`level`]: Signature4::level()
+    /// [`computed_digest`]: Signature4::computed_digest()
+    /// [`Signature4::normalized_eq`]: Signature4::normalized_eq()
     fn eq(&self, other: &Signature4) -> bool {
         self.cmp(other) == Ordering::Equal
     }
@@ -1821,7 +1816,6 @@ impl Signature4 {
     /// If you want to sign something, consider using the [`SignatureBuilder`]
     /// interface.
     ///
-    /// [`SignatureBuilder`]: struct.SignatureBuilder.html
     pub fn new(typ: SignatureType, pk_algo: PublicKeyAlgorithm,
                hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
                unhashed_area: SubpacketArea,
@@ -1879,7 +1873,7 @@ impl Signature4 {
     ///
     /// This is set by the [`PacketParser`] when parsing the message.
     ///
-    /// [`PacketParser`]: ../../parse/struct.PacketParser.html
+    /// [`PacketParser`]: super::super::parse::PacketParser
     pub fn computed_digest(&self) -> Option<&[u8]> {
         self.computed_digest.as_ref().map(|d| &d[..])
     }
@@ -1997,7 +1991,7 @@ impl crate::packet::Signature {
     /// Unlike [`Signature::normalize`], this method ignores
     /// authenticated packets in the unhashed subpacket area.
     ///
-    ///   [`Signature::normalize`]: #method.normalize
+    ///   [`Signature::normalize`]: Signature4::normalize()
     ///
     /// # Examples
     ///
@@ -2042,7 +2036,7 @@ impl crate::packet::Signature {
     /// using this function, and then deduplicating using the
     /// [`Signature::normalized_eq`] predicate.
     ///
-    ///   [`Signature::normalized_eq`]: #method.normalized_eq
+    ///   [`Signature::normalized_eq`]: Signature4::normalized_eq()
     ///
     /// This comparison function ignores the unhashed subpacket area
     /// when comparing two signatures.  This prevents a malicious
@@ -2056,7 +2050,7 @@ impl crate::packet::Signature {
     /// Unlike [`Signature::normalize`], this method ignores
     /// authenticated packets in the unhashed subpacket area.
     ///
-    ///   [`Signature::normalize`]: #method.normalize
+    ///   [`Signature::normalize`]: Signature4::normalize()
     ///
     /// # Examples
     ///
@@ -2107,12 +2101,12 @@ impl crate::packet::Signature {
     /// This is an alternate implementation of [`Hash`], which does
     /// not hash the unhashed subpacket area.
     ///
-    ///   [`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html
+    ///   [`Hash`]: std::hash::Hash
     ///
     /// Unlike [`Signature::normalize`], this method ignores
     /// authenticated packets in the unhashed subpacket area.
     ///
-    ///   [`Signature::normalize`]: #method.normalize
+    ///   [`Signature::normalize`]: Signature4::normalize()
     pub fn normalized_hash<H>(&self, state: &mut H)
         where H: Hasher
     {
@@ -2221,7 +2215,7 @@ impl crate::packet::Signature {
     /// signature while avoiding denial of service attacks by merging
     /// in bad information.
     ///
-    ///   [`Signature::normalized_eq`]: #method.normalized_eq
+    ///   [`Signature::normalized_eq`]: Signature4::normalized_eq()
     ///
     /// The merge strategy is as follows:
     ///
@@ -2248,7 +2242,7 @@ impl crate::packet::Signature {
     ///     authenticated.  Subpackets commonly found in unhashed
     ///     areas are issuer information and embedded signatures.
     ///
-    ///       [`Subpacket::authenticated`]: signature/subpacket/struct.SubPacket.html#method.authenticated
+    ///       [`Subpacket::authenticated`]: signature::subpacket::SubPacket::authenticated()
     pub fn merge(mut self, other: Signature) -> Result<Signature> {
         self.merge_internal(&other)?;
         Ok(self)

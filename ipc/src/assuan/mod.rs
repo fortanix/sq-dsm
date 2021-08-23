@@ -41,16 +41,13 @@ lalrpop_util::lalrpop_mod!(
 /// command is sent lazily, i.e. it is only sent if you poll for the
 /// responses.
 ///
-/// [`Connection::send`]: #method.send
+/// [`Connection::send`]: Client::send()
 ///
 /// `Client` implements [`Stream`] to return all server responses
 /// until the first [`Response::Ok`], [`Response::Error`], or
 /// [`Response::Inquire`].
 ///
 /// [`Stream`]: #impl-Stream
-/// [`Response::Ok`]: enum.Response.html#variant.Ok
-/// [`Response::Error`]: enum.Response.html#variant.Error
-/// [`Response::Inquire`]: enum.Response.html#variant.Inquire
 ///
 /// [`Response::Ok`] and [`Response::Error`] indicate success and
 /// failure.  [`Response::Inquire`] means that the server requires
@@ -58,8 +55,8 @@ lalrpop_util::lalrpop_mod!(
 /// provided using [`Connection::data()`], or the operation may be
 /// canceled using [`Connection::cancel()`].
 ///
-/// [`Connection::data()`]: #method.data
-/// [`Connection::cancel()`]: #method.cancel
+/// [`Connection::data()`]: Client::data()
+/// [`Connection::cancel()`]: Client::cancel()
 pub struct Client {
     r: BufReader<ReadHalf<IpcStream>>, // xxx: abstract over
     buffer: Vec<u8>,
@@ -99,11 +96,11 @@ impl Client {
     /// [`Connection::data()`], or the operation may be canceled using
     /// [`Connection::cancel()`].
     ///
-    /// [`Response::Ok`]: ../assuan/enum.Response.html#variant.Ok
-    /// [`Response::Error`]: ../assuan/enum.Response.html#variant.Error
-    /// [`Response::Inquire`]: ../assuan/enum.Response.html#variant.Inquire
-    /// [`Connection::data()`]: #method.data
-    /// [`Connection::cancel()`]: #method.cancel
+    /// [`Response::Ok`]: super::assuan::Response::Ok
+    /// [`Response::Error`]: super::assuan::Response::Error
+    /// [`Response::Inquire`]: super::assuan::Response::Inquire
+    /// [`Connection::data()`]: Client::data()
+    /// [`Connection::cancel()`]: Client::cancel()
     ///
     /// Note: `command` is passed as-is.  Control characters, like
     /// `%`, must be %-escaped.
@@ -157,9 +154,9 @@ impl Client {
     /// and `Error` indicate success and failure of the original
     /// operation that lead to the current inquiry.
     ///
-    /// [`Response::Ok`]: ../assuan/enum.Response.html#variant.Ok
-    /// [`Response::Error`]: ../assuan/enum.Response.html#variant.Error
-    /// [`Response::Inquire`]: ../assuan/enum.Response.html#variant.Inquire
+    /// [`Response::Ok`]: super::assuan::Response::Ok
+    /// [`Response::Error`]: super::assuan::Response::Error
+    /// [`Response::Inquire`]: super::assuan::Response::Inquire
     pub fn data<'a, C: 'a>(&'a mut self, data: C) -> Result<()>
         where C: AsRef<[u8]>
     {

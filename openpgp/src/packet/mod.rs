@@ -130,32 +130,25 @@
 //!
 //! [packet based]: https://tools.ietf.org/html/rfc4880#section-5
 //! [the grammar]: https://tools.ietf.org/html/rfc4880#section-11
-//! [`Signature`]: enum.Signature.html
 //! [v3]: https://tools.ietf.org/html/rfc4880#section-5.2.2
 //! [v4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
-//! [`OnePassSig`]: enum.OnePassSig.html
-//! [parsing a message]: ../parse/index.html
-//! [creating a message]: ../serialize/stream/index.html
-//! [`SignatureBuilder`]: signature/struct.SignatureBuilder.html
+//! [parsing a message]: super::parse
+//! [creating a message]: super::serialize::stream
+//! [`SignatureBuilder`]: signature::SignatureBuilder
 //! [`SED`]: https://tools.ietf.org/html/rfc4880#section-5.7
-//! [`Unknown`]: struct.Unknown.html
 //! [private extensions]: https://tools.ietf.org/html/rfc4880#section-4.3
-//! [`Compressed Data`]: struct.CompressedData.html
-//! [parses]: ../parse/index.html
+//! [`Compressed Data`]: CompressedData
+//! [parses]: super::parse
 //! [OpenPGP Message]: https://tools.ietf.org/html/rfc4880#section-11.3
-//! [`Container::descendants`]: struct.Container.html#method.descendants
-//! [`Deref`]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
-//! [`Container`]: struct.Container.html
-//! [`Signature`]: enum.Signature.html
-//! [`SubpacketArea`]: signature/subpacket/struct.SubpacketArea.html
-//! [`Literal`]: struct.Literal.html
-//! [`Body`]: enum.Body.html
-//! [`Eq`]: https://doc.rust-lang.org/stable/std/cmp/trait.Eq.html
-//! [`Key`s]: enum.Key.html
-//! [`CTB`]: header/enum.CTB.html
+//! [`Container::descendants`]: Container::descendants()
+//! [`Deref`]: std::ops::Deref
+//! [`SubpacketArea`]: signature::subpacket::SubpacketArea
+//! [`Eq`]: std::cmp::Eq
+//! [`Key`s]: Key
+//! [`CTB`]: header::CTB
 //! [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
 //! [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
-//! [`Key::public_cmp`]: enum.Key.html#method.public_cmp
+//! [`Key::public_cmp`]: Key::public_cmp()
 use std::fmt;
 use std::hash::Hasher;
 use std::ops::{Deref, DerefMut};
@@ -380,12 +373,12 @@ impl Packet {
     ///   - The unhashed subpacket area of Signature packets.
     ///   - Secret key material.
     ///
-    ///   [`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html
+    ///   [`Hash`]: std::hash::Hash
     ///
     /// Unlike [`Signature::normalize`], this method ignores
     /// authenticated packets in the unhashed subpacket area.
     ///
-    ///   [`Signature::normalize`]: struct.Signature.html#method.normalize
+    ///   [`Signature::normalize`]: Signature::normalize()
     pub fn normalized_hash<H>(&self, state: &mut H)
         where H: Hasher
     {
@@ -635,13 +628,9 @@ impl std::hash::Hash for Common {
 /// This is returned by [`PacketPile::descendants`] and
 /// [`Container::descendants`].
 ///
-/// [`Packet`]: enum.Packet.html
-/// [container `Packet`s]: index.html#containers
-/// [`CompressedData`]: struct.CompressedData.html
-/// [`SEIP`]: enum.SEIP.html
-/// [`AED`]: enum.AED.html
-/// [`PacketPile::descendants`]: ../struct.PacketPile.html#method.descendants
-/// [`Container::descendants`]: struct.Container.html#method.descendants
+/// [container `Packet`s]: self#containers
+/// [`PacketPile::descendants`]: super::PacketPile::descendants()
+/// [`Container::descendants`]: Container::descendants()
 pub struct Iter<'a> {
     // An iterator over the current message's children.
     children: slice::Iter<'a, Packet>,
@@ -708,7 +697,7 @@ impl<'a> Iter<'a> {
     /// See [`PacketPile::path_ref`] for an explanation of
     /// `pathspec`s.
     ///
-    /// [`PacketPile::path_ref`]: ../struct.PacketPile.html#path_ref
+    /// [`PacketPile::path_ref`]: super::PacketPile#path_ref
     ///
     /// # Examples
     ///
@@ -779,8 +768,7 @@ impl<'a> Iter<'a> {
 ///
 /// Like [`Iter::enumerate`].
 ///
-/// [`Iter::enumerate`]: https://doc.rust-lang.org/stable/std/iter/trait.Iterator.html#method.enumerate
-/// [`Iter`]: struct.Iter.html
+/// [`Iter::enumerate`]: std::iter::Iterator::enumerate()
 struct PacketPathIter<'a> {
     iter: Iter<'a>,
 
@@ -904,14 +892,14 @@ fn packet_path_iter() {
 /// the [`SignatureBuilder`] to create the `Signature` packet.  See
 /// the linked documentation for details, and examples.
 ///
-/// [streaming `Signer`]: ../serialize/stream/struct.Signer.html
-/// [`PacketParser`]: ../parse/index.html
-/// [self signatures on Keys]: enum.Key.html#method.bind
-/// [self signatures on User IDs]: struct.UserID.html#method.bind
-/// [self signatures on User Attributes]: user_attribute/struct.UserAttribute.html#method.bind
-/// [certifications of User IDs]: struct.UserID.html#method.certify
-/// [certifications of User Attributes]: user_attribute/struct.UserAttribute.html#method.certify
-/// [`SignatureBuilder`]: signature/struct.SignatureBuilder.html
+/// [streaming `Signer`]: super::serialize::stream::Signer
+/// [`PacketParser`]: super::parse
+/// [self signatures on Keys]: Key::bind()
+/// [self signatures on User IDs]: UserID::bind()
+/// [self signatures on User Attributes]: user_attribute::UserAttribute::bind()
+/// [certifications of User IDs]: UserID::certify()
+/// [certifications of User Attributes]: user_attribute::UserAttribute::certify()
+/// [`SignatureBuilder`]: signature::SignatureBuilder
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -930,7 +918,7 @@ fn packet_path_iter() {
 /// service vector, if `Signature`s are naively deduplicated.  To
 /// protect against this, consider using [`Signature::normalized_eq`].
 ///
-///   [`Signature::normalized_eq`]: #method.normalized_eq
+///   [`Signature::normalized_eq`]: Signature::normalized_eq()
 ///
 /// # Examples
 ///
@@ -1028,8 +1016,8 @@ impl DerefMut for Signature {
 /// extensions.
 ///
 /// [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
-/// [`PacketParser`]: ../parse/index.html
-/// [streaming serializer]: ../serialize/stream/index.html
+/// [`PacketParser`]: super::parse
+/// [streaming serializer]: super::serialize::stream
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum OnePassSig {
@@ -1087,11 +1075,9 @@ impl DerefMut for OnePassSig {
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 ///
-/// [SEIP]: enum.SEIP.html
-/// [AED]: enum.AED.html
 /// [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
-/// [streaming serializer]: ../serialize/stream/index.html
-/// [`PacketParser`]: ../parse/index.html
+/// [streaming serializer]: super::serialize::stream
+/// [`PacketParser`]: super::parse
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum PKESK {
@@ -1149,11 +1135,9 @@ impl DerefMut for PKESK {
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 ///
-/// [SEIP]: enum.SEIP.html
-/// [AED]: enum.AED.html
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-/// [streaming serializer]: ../serialize/stream/index.html
-/// [`PacketParser`]: ../parse/index.html
+/// [streaming serializer]: super::serialize::stream
+/// [`PacketParser`]: super::parse
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SKESK {
@@ -1161,7 +1145,7 @@ pub enum SKESK {
     V4(self::skesk::SKESK4),
     /// SKESK packet version 5.
     ///
-    /// This feature is [experimental](../index.html#experimental-features).
+    /// This feature is [experimental](super#experimental-features).
     V5(self::skesk::SKESK5),
 }
 assert_send_and_sync!(SKESK);
@@ -1241,13 +1225,7 @@ impl From<SKESK> for Packet {
 /// [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
 /// [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2
 /// [secret subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.4
-/// [`key::PublicParts`]: key/struct.PublicParts.html
-/// [`key::SecretParts`]: key/struct.SecretParts.html
-/// [`key::UnspecifiedParts`]: key/struct.UnspecifiedParts.html
-/// [`key::PrimaryRole`]: key/struct.PrimaryRole.html
-/// [`key::SubordinateRole`]: key/struct.SubordinateRole.html
-/// [`key::UnspecifiedRole`]: key/struct.UnspecifiedRole.html
-/// [`Cert::keys`]: ../struct.Cert.html#method.keys
+/// [`Cert::keys`]: super::Cert::keys()
 ///
 /// ## Examples
 ///
@@ -1310,20 +1288,20 @@ impl From<SKESK> for Packet {
 ///
 /// It is also possible to use `From`.
 ///
-/// [`Signer`]: ../crypto/trait.Signer.html
-/// [`Key::parts_as_secret`]: enum.Key.html#method.parts_as_secret
-/// [`Key::parts_into_public`]: #method.parts_into_public
-/// [`Key::parts_as_public`]: #method.parts_as_public
-/// [`Key::parts_into_secret`]: #method.parts_into_secret
-/// [`Key::parts_as_secret`]: #method.parts_as_secret
-/// [`Key::parts_into_unspecified`]: #method.parts_into_unspecified
-/// [`Key::parts_as_unspecified`]: #method.parts_as_unspecified
-/// [`Key::role_into_primary`]: #method.role_into_primary
-/// [`Key::role_as_primary`]: #method.role_as_primary
-/// [`Key::role_into_subordinate`]: #method.role_into_subordinate
-/// [`Key::role_as_subordinate`]: #method.role_as_subordinate
-/// [`Key::role_into_unspecified`]: #method.role_into_unspecified
-/// [`Key::role_as_unspecified`]: #method.role_as_unspecified
+/// [`Signer`]: super::crypto::Signer
+/// [`Key::parts_as_secret`]: Key::parts_as_secret()
+/// [`Key::parts_into_public`]: Key::parts_into_public()
+/// [`Key::parts_as_public`]: Key::parts_as_public()
+/// [`Key::parts_into_secret`]: Key::parts_into_secret()
+/// [`Key::parts_as_secret`]: Key::parts_as_secret()
+/// [`Key::parts_into_unspecified`]: Key::parts_into_unspecified()
+/// [`Key::parts_as_unspecified`]: Key::parts_as_unspecified()
+/// [`Key::role_into_primary`]: Key::role_into_primary()
+/// [`Key::role_as_primary`]: Key::role_as_primary()
+/// [`Key::role_into_subordinate`]: Key::role_into_subordinate()
+/// [`Key::role_as_subordinate`]: Key::role_as_subordinate()
+/// [`Key::role_into_unspecified`]: Key::role_into_unspecified()
+/// [`Key::role_as_unspecified`]: Key::role_as_unspecified()
 ///
 /// ## Examples
 ///
@@ -1363,7 +1341,7 @@ impl From<SKESK> for Packet {
 /// converted to a secret key.  This is necessary, for instance, when
 /// creating a [`Signer`]:
 ///
-/// [`Cert`]: ../struct.Cert.html
+/// [`Cert`]: super::Cert
 ///
 /// ```rust
 /// use std::time;
@@ -1411,7 +1389,7 @@ impl From<SKESK> for Packet {
 ///
 /// [the different key formats]: https://tools.ietf.org/html/rfc4880#section-5.5.2
 /// [a proposal for a new key format]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.5.2
-/// [`Key4::generate_ecc`]: key/struct.Key4.html#method.generate_ecc
+/// [`Key4::generate_ecc`]: key::Key4::generate_ecc()
 ///
 ///
 /// ## Examples
@@ -1436,7 +1414,7 @@ impl From<SKESK> for Packet {
 /// (e.g., to decrypt a message, or to generate a signature).
 ///
 /// [password protect keys]: https://tools.ietf.org/html/rfc4880#section-3.7
-/// [`Key::decrypt_secret`]: #method.decrypt_secret
+/// [`Key::decrypt_secret`]: Key::decrypt_secret()
 ///
 /// # A note on equality
 ///
@@ -1459,8 +1437,8 @@ impl From<SKESK> for Packet {
 /// secret key material is usually encrypted, this can't always be
 /// done automatically.
 ///
-/// [`Key::public_cmp`]: #method.public_cmp
-/// [`Key::public_eq`]: #method.public_eq
+/// [`Key::public_cmp`]: Key::public_cmp()
+/// [`Key::public_eq`]: Key::public_eq()
 ///
 /// Compare:
 ///
@@ -1590,7 +1568,7 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     /// If the `Key` is password protected, you first need to decrypt
     /// it using [`Key::decrypt_secret`].
     ///
-    /// [`Key::decrypt_secret`]: #method.decrypt_secret
+    /// [`Key::decrypt_secret`]: Key::decrypt_secret()
     ///
     /// # Errors
     ///
@@ -1785,7 +1763,7 @@ impl<R: key::KeyRole> Key4<key::SecretParts, R> {
     /// Fails if the secret key is encrypted.  You can use
     /// [`Key::decrypt_secret`] to decrypt a key.
     ///
-    /// [`Key::decrypt_secret`]: ../enum.Key.html#method.decrypt_secret
+    /// [`Key::decrypt_secret`]: super::Key::decrypt_secret()
     pub fn into_keypair(self) -> Result<KeyPair> {
         let (key, secret) = self.take_secret();
         let secret = match secret {
@@ -1894,8 +1872,8 @@ impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
 /// using the [`PacketParser`].
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
-/// [streaming serializer]: ../serialize/stream/index.html
-/// [`PacketParser`]: ../parse/index.html
+/// [streaming serializer]: super::serialize::stream
+/// [`PacketParser`]: super::parse
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SEIP {
     /// SEIP packet version 1.
@@ -1953,10 +1931,10 @@ impl DerefMut for SEIP {
 /// using the [streaming serializer], or parsing an encrypted message
 /// using the [`PacketParser`].
 ///
-/// [streaming serializer]: ../serialize/stream/index.html
-/// [`PacketParser`]: ../parse/index.html
+/// [streaming serializer]: super::serialize::stream
+/// [`PacketParser`]: super::parse
 ///
-/// This feature is [experimental](../index.html#experimental-features).
+/// This feature is [experimental](super#experimental-features).
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum AED {

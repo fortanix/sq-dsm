@@ -5,8 +5,6 @@
 //! context independent of the cryptographic backend, as well as trait
 //! [`Hash`] that handles hashing of OpenPGP data structures.
 //!
-//!   [`Digest`]: trait.Digest.html
-//!   [`Hash`]: trait.Hash.html
 //!
 //! # Examples
 //!
@@ -58,7 +56,7 @@ const DUMP_HASHED_VALUES: Option<&str> = None;
 /// This provides an abstract interface to the hash functions used in
 /// OpenPGP.  `Digest`s can be are created using [`HashAlgorithm::context`].
 ///
-///   [`HashAlgorithm::context`]: ../../types/enum.HashAlgorithm.html#method.context
+///   [`HashAlgorithm::context`]: super::super::types::HashAlgorithm::context()
 pub trait Digest: DynClone + Write + Send + Sync {
     /// Returns the algorithm.
     fn algo(&self) -> HashAlgorithm;
@@ -111,7 +109,7 @@ impl Digest for Box<dyn Digest> {
     /// `digest` must be at least [`self.digest_size()`] bytes large,
     /// otherwise the digest will be truncated.
     ///
-    ///   [`self.digest_size()`]: #method.digest_size
+    ///   [`self.digest_size()`]: Box::digest_size()
     fn digest(&mut self, digest: &mut [u8]) -> Result<()>{
         self.as_mut().digest(digest)
     }
@@ -126,7 +124,7 @@ impl HashAlgorithm {
     /// not support this algorithm. See
     /// [`HashAlgorithm::is_supported`].
     ///
-    ///   [`HashAlgorithm::is_supported`]: #method.is_supported
+    ///   [`HashAlgorithm::is_supported`]: HashAlgorithm::is_supported()
     pub fn context(self) -> Result<Box<dyn Digest>> {
         let hasher: Box<dyn Digest> = match self {
             HashAlgorithm::SHA1 =>
@@ -229,14 +227,14 @@ impl io::Write for HashDumper {
 /// [`Verifier`], [`DetachedVerifier`], or [`Signature`'s verification
 /// functions] should be used, which handle the hashing internally.
 ///
-///   [`Verifier`]: ../../parse/stream/struct.Verifier.html
-///   [`DetachedVerifier`]: ../../parse/stream/struct.DetachedVerifier.html
-///   [`Signature`'s verification functions]: ../../packet/enum.Signature.html#verification-functions
+///   [`Verifier`]: super::super::parse::stream::Verifier
+///   [`DetachedVerifier`]: super::super::parse::stream::DetachedVerifier
+///   [`Signature`'s verification functions]: super::super::packet::Signature#verification-functions
 ///
 /// This is a low-level mechanism.  See [`Signature`'s hashing
 /// functions] for how to hash compounds like (Key,UserID)-bindings.
 ///
-///   [`Signature`'s hashing functions]: ../../packet/enum.Signature.html#hashing-functions
+///   [`Signature`'s hashing functions]: super::super::packet::Signature#hashing-functions
 pub trait Hash {
     /// Updates the given hash with this object.
     fn hash(&self, hash: &mut dyn Digest);

@@ -34,7 +34,7 @@ use crate::RefRaw;
 ///
 /// Wraps [`sequoia-openpgp::packet::Signature`].
 ///
-/// [`sequoia-openpgp::packet::Signature`]: ../../../../sequoia_openpgp/packet/enum.Signature.html
+/// [`sequoia-openpgp::packet::Signature`]: super::super::super::super::sequoia_openpgp::packet::Signature
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse")]
 pub struct Signature(openpgp::packet::Signature);

@@ -149,9 +149,9 @@ assert_send_and_sync!(KeyBlueprint);
 /// certificates manually, but it should be sufficiently powerful to
 /// cover most use cases.
 ///
-/// [`UserID`s]: ../packet/struct.UserID.html
-/// [`UserAttribute`s]: ../packet/user_attribute/struct.UserAttribute.html
-/// [`Key`s]: ../packet/key/enum.Key.html
+/// [`UserID`s]: super::packet::UserID
+/// [`UserAttribute`s]: super::packet::user_attribute::UserAttribute
+/// [`Key`s]: super::packet::key::Key
 ///
 /// # Examples
 ///
@@ -192,9 +192,9 @@ impl CertBuilder<'_> {
     /// [`CertBuilder::add_signing_subkey`],
     /// [`CertBuilder::add_transport_encryption_subkey`], etc.).
     ///
-    /// [`CertBuilder::add_signing_subkey`]: #method.add_signing_subkey
-    /// [`CertBuilder::add_transport_encryption_subkey`]: #method.add_transport_encryption_subkey
-    /// [`CertBuilder::add_userid`]: #method.add_userid
+    /// [`CertBuilder::add_signing_subkey`]: CertBuilder::add_signing_subkey()
+    /// [`CertBuilder::add_transport_encryption_subkey`]: CertBuilder::add_transport_encryption_subkey()
+    /// [`CertBuilder::add_userid`]: CertBuilder::add_userid()
     ///
     /// # Examples
     ///
@@ -303,10 +303,10 @@ impl CertBuilder<'_> {
     /// representable by a `Timestamp`.  If it is not in range,
     /// [`generate`] will return an error.
     ///
-    /// [`CertBuilder::generate`]: #method.generate
-    /// [`SystemTime`]: https://doc.rust-lang.org/stable/std/time/struct.SystemTime.html
-    /// [`Timestamp`]: ../types/struct.Timestamp.html
-    /// [`generate`]: #method.generate
+    /// [`CertBuilder::generate`]: CertBuilder::generate()
+    /// [`SystemTime`]: std::time::SystemTime
+    /// [`Timestamp`]: super::types::Timestamp
+    /// [`generate`]: CertBuilder::generate()
     ///
     /// # Examples
     ///
@@ -410,7 +410,7 @@ impl CertBuilder<'_> {
     /// [`CertBuilder::general_purpose`], will have the [primary User
     /// ID flag] set.
     ///
-    /// [`CertBuilder::general_purpose`]: #method.general_purpose
+    /// [`CertBuilder::general_purpose`]: CertBuilder::general_purpose()
     /// [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
     ///
     /// # Examples
@@ -732,8 +732,8 @@ impl CertBuilder<'_> {
     /// Use [`CertBuilder::add_subkey`] if you need to change these
     /// parameters.
     ///
-    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
-    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    /// [`CertBuilder::set_cipher_suite`]: CertBuilder::set_cipher_suite()
+    /// [`CertBuilder::add_subkey`]: CertBuilder::add_subkey()
     ///
     /// # Examples
     ///
@@ -769,8 +769,8 @@ impl CertBuilder<'_> {
     /// Use [`CertBuilder::add_subkey`] if you need to change these
     /// parameters.
     ///
-    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
-    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    /// [`CertBuilder::set_cipher_suite`]: CertBuilder::set_cipher_suite()
+    /// [`CertBuilder::add_subkey`]: CertBuilder::add_subkey()
     ///
     ///
     /// # Examples
@@ -808,8 +808,8 @@ impl CertBuilder<'_> {
     /// Use [`CertBuilder::add_subkey`] if you need to change these
     /// parameters.
     ///
-    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
-    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    /// [`CertBuilder::set_cipher_suite`]: CertBuilder::set_cipher_suite()
+    /// [`CertBuilder::add_subkey`]: CertBuilder::add_subkey()
     ///
     ///
     /// # Examples
@@ -847,8 +847,8 @@ impl CertBuilder<'_> {
     /// Use [`CertBuilder::add_subkey`] if you need to change these
     /// parameters.
     ///
-    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
-    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    /// [`CertBuilder::set_cipher_suite`]: CertBuilder::set_cipher_suite()
+    /// [`CertBuilder::add_subkey`]: CertBuilder::add_subkey()
     ///
     ///
     /// # Examples
@@ -885,8 +885,8 @@ impl CertBuilder<'_> {
     /// Use [`CertBuilder::add_subkey`] if you need to change these
     /// parameters.
     ///
-    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
-    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    /// [`CertBuilder::set_cipher_suite`]: CertBuilder::set_cipher_suite()
+    /// [`CertBuilder::add_subkey`]: CertBuilder::add_subkey()
     ///
     ///
     /// # Examples

@@ -123,7 +123,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// With this function, you can prevent the use of insecure AEAD
     /// constructions.
     ///
-    /// This feature is [experimental](../index.html#experimental-features).
+    /// This feature is [experimental](super#experimental-features).
     fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
         Err(anyhow::anyhow!("By default all AEAD algorithms are rejected."))
     }
@@ -840,7 +840,7 @@ impl<'a> StandardPolicy<'a> {
     ///
     /// See [`StandardPolicy::at`] for details.
     ///
-    /// [`StandardPolicy::at`]: struct.StandardPolicy.html#method.at
+    /// [`StandardPolicy::at`]: StandardPolicy::at()
     pub fn time(&self) -> Option<SystemTime> {
         self.time.map(Into::into)
     }
@@ -858,7 +858,6 @@ impl<'a> StandardPolicy<'a> {
     /// has all three of these properties.  See the documentation for
     /// [`HashAlgoSecurity`] for more details.
     ///
-    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
     pub fn accept_hash(&mut self, h: HashAlgorithm) {
         self.collision_resistant_hash_algos.set(h, ACCEPT);
         self.second_pre_image_resistant_hash_algos.set(h, ACCEPT);
@@ -879,14 +878,13 @@ impl<'a> StandardPolicy<'a> {
     /// See the documentation for [`HashAlgoSecurity`] for more
     /// details.
     ///
-    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
     ///
     /// To express a more nuanced policy, use
     /// [`StandardPolicy::reject_hash_at`] or
     /// [`StandardPolicy::reject_hash_property_at`].
     ///
-    ///   [`StandardPolicy::reject_hash_at`]: #method.reject_hash_at
-    ///   [`StandardPolicy::reject_hash_property_at`]: #method.reject_hash_property_at
+    ///   [`StandardPolicy::reject_hash_at`]: StandardPolicy::reject_hash_at()
+    ///   [`StandardPolicy::reject_hash_property_at`]: StandardPolicy::reject_hash_property_at()
     pub fn reject_hash(&mut self, h: HashAlgorithm) {
         self.collision_resistant_hash_algos.set(h, REJECT);
         self.second_pre_image_resistant_hash_algos.set(h, REJECT);
@@ -908,12 +906,11 @@ impl<'a> StandardPolicy<'a> {
     /// See the documentation for [`HashAlgoSecurity`] for more
     /// details.
     ///
-    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
     ///
     /// To express a more nuanced policy, use
     /// [`StandardPolicy::reject_hash_property_at`].
     ///
-    ///   [`StandardPolicy::reject_hash_property_at`]: #method.reject_hash_property_at
+    ///   [`StandardPolicy::reject_hash_property_at`]: StandardPolicy::reject_hash_property_at()
     pub fn reject_hash_at<T>(&mut self, h: HashAlgorithm, t: T)
         where T: Into<Option<SystemTime>>,
     {
@@ -939,7 +936,6 @@ impl<'a> StandardPolicy<'a> {
     /// collision resistance.  See the documentation for
     /// [`HashAlgoSecurity`] for more details.
     ///
-    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
     ///
     /// This method makes it possible to specify different policies
     /// depending on the security requirements.
@@ -1047,7 +1043,7 @@ impl<'a> StandardPolicy<'a> {
     /// indicate when a hash algorithm's security has been
     /// compromised, and, as such, should no longer be accepted.
     ///
-    ///   [`StandardPolicy::reject_hash_at`]: #method.reject_hash_at
+    ///   [`StandardPolicy::reject_hash_at`]: StandardPolicy::reject_hash_at()
     ///
     /// Applying this policy to revocation certificates can have some
     /// unfortunate side effects.  In particular, if a certificate has
@@ -1084,7 +1080,7 @@ impl<'a> StandardPolicy<'a> {
     ///
     /// See [`StandardPolicy::hash_revocation_tolerance`] for details.
     ///
-    ///   [`StandardPolicy::hash_revocation_tolerance`]: #method.hash_revocation_tolerance
+    ///   [`StandardPolicy::hash_revocation_tolerance`]: StandardPolicy::hash_revocation_tolerance()
     pub fn get_hash_revocation_tolerance(&self) -> types::Duration {
         self.hash_revocation_tolerance
     }
@@ -1206,14 +1202,14 @@ impl<'a> StandardPolicy<'a> {
 
     /// Always considers `s` to be secure.
     ///
-    /// This feature is [experimental](../index.html#experimental-features).
+    /// This feature is [experimental](super#experimental-features).
     pub fn accept_aead_algo(&mut self, a: AEADAlgorithm) {
         self.aead_algos.set(a, ACCEPT);
     }
 
     /// Always considers `s` to be insecure.
     ///
-    /// This feature is [experimental](../index.html#experimental-features).
+    /// This feature is [experimental](super#experimental-features).
     pub fn reject_aead_algo(&mut self, a: AEADAlgorithm) {
         self.aead_algos.set(a, REJECT);
     }
@@ -1225,7 +1221,7 @@ impl<'a> StandardPolicy<'a> {
     ///
     /// By default, we accept all AEAD modes.
     ///
-    /// This feature is [experimental](../index.html#experimental-features).
+    /// This feature is [experimental](super#experimental-features).
     pub fn reject_aead_algo_at<C>(&mut self, a: AEADAlgorithm,
                                        cutoff: C)
         where C: Into<Option<SystemTime>>,
@@ -1237,7 +1233,7 @@ impl<'a> StandardPolicy<'a> {
 
     /// Returns the cutoff times for the specified hash algorithm.
     ///
-    /// This feature is [experimental](../index.html#experimental-features).
+    /// This feature is [experimental](super#experimental-features).
     pub fn aead_algo_cutoff(&self, a: AEADAlgorithm)
                                  -> Option<SystemTime> {
         self.aead_algos.cutoff(a).map(|t| t.into())
@@ -1450,8 +1446,7 @@ impl<'a> Policy for StandardPolicy<'a> {
 /// does not concern itself with the use (encryption or signing), and
 /// it does include key sizes (if applicable) and elliptic curves.
 ///
-///   [`StandardPolicy`]: struct.StandardPolicy.html
-///   [`PublicKeyAlgorithm`]: ../types/enum.PublicKeyAlgorithm.html
+///   [`PublicKeyAlgorithm`]: super::types::PublicKeyAlgorithm
 ///
 /// Key sizes put into are buckets, rounding down to the nearest
 /// bucket.  For example, a 3253-bit RSA key is categorized as
@@ -1551,9 +1546,8 @@ impl From<AsymmetricAlgorithm> for u8 {
 /// consider creating a specialized policy based on the [`StandardPolicy`] as
 /// [the example for `StandardPolicy`] illustrates.
 ///
-///   [`StandardPolicy`]: struct.StandardPolicy.html
-///   [`StandardPolicy::accept_hash`]: struct.StandardPolicy.html#method.accept_hash
-///   [the example for `StandardPolicy`]: struct.StandardPolicy.html#examples
+///   [`StandardPolicy::accept_hash`]: StandardPolicy::accept_hash()
+///   [the example for `StandardPolicy`]: StandardPolicy#examples
 #[derive(Debug)]
 pub struct NullPolicy {
 }

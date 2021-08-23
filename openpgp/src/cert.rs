@@ -113,19 +113,19 @@
 //! [`ComponentAmalgamation`]: amalgamation::ComponentAmalgamation
 //! [`Parser` implementation]: struct.Cert.html#impl-Parse%3C%27a%2C%20Cert%3E
 //! [`Serialize` implementation]: struct.Cert.html#impl-Serialize%3C%27a%2C%20Cert%3E
-//! [`UserID::certify`]: ../packet/struct.UserID.html#method.certify
-//! [`UserAttribute::certify`]: ../packet/user_attribute/struct.UserAttribute.html#method.certify
-//! [`KeyAmalgamation`]: amalgamation/key/index.html
-//! [`UserID::bind`]: ../packet/struct.UserID.html#method.bind
-//! [`UserAttribute::bind`]: ../packet/user_attribute/struct.UserAttribute.html#method.bind
-//! [`Key::bind`]: ../packet/enum.Key.html#method.bind
-//! [`Signature::verify_direct_key`]: ../packet/enum.Signature.html#method.verify_direct_key
-//! [`Signature::verify_userid_binding`]: ../packet/enum.Signature.html#method.verify_userid_binding
-//! [`Signature::verify_user_attribute_binding`]: ../packet/enum.Signature.html#method.verify_user_attribute_binding
+//! [`UserID::certify`]: super::packet::UserID::certify()
+//! [`UserAttribute::certify`]: super::packet::user_attribute::UserAttribute::certify()
+//! [`KeyAmalgamation`]: amalgamation::key
+//! [`UserID::bind`]: super::packet::UserID::bind()
+//! [`UserAttribute::bind`]: super::packet::user_attribute::UserAttribute::bind()
+//! [`Key::bind`]: super::packet::Key::bind()
+//! [`Signature::verify_direct_key`]: super::packet::Signature::verify_direct_key()
+//! [`Signature::verify_userid_binding`]: super::packet::Signature::verify_userid_binding()
+//! [`Signature::verify_user_attribute_binding`]: super::packet::Signature::verify_user_attribute_binding()
 //! [`ValidAmalgamation::revocation_keys`]: amalgamation::ValidAmalgamation::revocation_keys
-//! [`Signature::verify_primary_key_revocation`]: ../packet/enum.Signature.html#method.verify_primary_key_revocation
-//! [`Signature::verify_userid_revocation`]: ../packet/enum.Signature.html#method.verify_userid_revocation
-//! [`Signature::verify_user_attribute_revocation`]: ../packet/enum.Signature.html#method.verify_user_attribute_revocation
+//! [`Signature::verify_primary_key_revocation`]: super::packet::Signature::verify_primary_key_revocation()
+//! [`Signature::verify_userid_revocation`]: super::packet::Signature::verify_userid_revocation()
+//! [`Signature::verify_user_attribute_revocation`]: super::packet::Signature::verify_user_attribute_revocation()
 
 use std::io;
 use std::collections::btree_map::BTreeMap;
@@ -498,9 +498,9 @@ pub trait Preferences<'a>: seal::Sealed {
 /// signatures, and third-party revocations, as well as useful methods.
 ///
 /// [TPK and TSK data structures]: https://tools.ietf.org/html/rfc4880#section-11
-/// [`Key`]: ../packet/enum.Key.html
-/// [`UserID`]: ../packet/struct.UserID.html
-/// [`UserAttribute`]: ../packet/user_attribute/struct.UserAttribute.html
+/// [`Key`]: super::packet::Key
+/// [`UserID`]: super::packet::UserID
+/// [`UserAttribute`]: super::packet::user_attribute::UserAttribute
 ///
 /// `Cert`s are canonicalized in the sense that their `Component`s are
 /// deduplicated, and their signatures and revocations are
@@ -509,7 +509,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// signatures.  These are returned as usual by, e.g.,
 /// [`Cert::userids`].
 ///
-/// [`Cert::userids`]: struct.Cert.html#method.userids
+/// [`Cert::userids`]: Cert::userids()
 ///
 /// Keys are deduplicated by comparing their public bits using
 /// [`Key::public_cmp`].  If two keys are considered equal, and only
@@ -521,7 +521,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// secret key material, it is essential to first strip the secret key
 /// material from copies that came from an untrusted source.
 ///
-/// [`Key::public_cmp`]: ../packet/enum.Key.html#method.public_cmp
+/// [`Key::public_cmp`]: super::packet::Key::public_cmp()
 ///
 /// Signatures are deduplicated using [their `Eq` implementation],
 /// which compares the data that is hashed and the MPIs.  That is, it
@@ -532,7 +532,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// This policy prevents an attacker from flooding a certificate with
 /// valid signatures that only differ in their unhashed data.
 ///
-/// [their `Eq` implementation]: ../packet/enum.Signature.html#a-note-on-equality
+/// [their `Eq` implementation]: super::packet::Signature#a-note-on-equality
 /// [the unhashed data]: https://tools.ietf.org/html/rfc4880#section-5.2.3
 ///
 /// Self signatures and self revocations are checked for validity by
@@ -549,10 +549,10 @@ pub trait Preferences<'a>: seal::Sealed {
 /// verification method, e.g., [`Signature::verify_userid_binding`]
 /// or [`Signature::verify_userid_revocation`].
 ///
-/// [`Policy`]: ../policy/index.html
-/// [digest prefix]: ../packet/signature/struct.Signature4.html#method.digest_prefix
-/// [`Signature::verify_userid_binding`]: ../packet/enum.Signature.html#method.verify_userid_binding
-/// [`Signature::verify_userid_revocation`]: ../packet/enum.Signature.html#method.verify_userid_revocation
+/// [`Policy`]: super::policy
+/// [digest prefix]: super::packet::signature::Signature4::digest_prefix()
+/// [`Signature::verify_userid_binding`]: super::packet::Signature::verify_userid_binding()
+/// [`Signature::verify_userid_revocation`]: super::packet::Signature::verify_userid_revocation()
 ///
 /// If a signature or a revocation is not valid,
 /// we check to see whether it is simply out of place (i.e., belongs
@@ -560,7 +560,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// is added to a list of bad signatures.  These can be retrieved
 /// using [`Cert::bad_signatures`].
 ///
-/// [`Cert::bad_signatures`]: struct.Cert.html#method.bad_signatures
+/// [`Cert::bad_signatures`]: Cert::bad_signatures()
 ///
 /// Signatures and revocations are sorted so that the newest signature
 /// comes first.  Components are sorted, but in an undefined manner
@@ -576,14 +576,13 @@ pub trait Preferences<'a>: seal::Sealed {
 /// key material, you need to serialize the object returned by
 /// [`Cert::as_tsk()`].
 ///
-/// [`Cert::as_tsk()`]: #method.as_tsk
 ///
 /// Secret key material may be protected with a password.  In such
 /// cases, it needs to be decrypted before it can be used to decrypt
 /// data or generate a signature.  Refer to [`Key::decrypt_secret`]
 /// for details.
 ///
-/// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
+/// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
 ///
 /// # Filtering Certificates
 ///
@@ -591,9 +590,9 @@ pub trait Preferences<'a>: seal::Sealed {
 /// can be done with [`Cert::retain_userids`],
 /// [`Cert::retain_user_attributes`], and [`Cert::retain_subkeys`].
 ///
-/// [`Cert::retain_userids`]: #method.retain_userids
-/// [`Cert::retain_user_attributes`]: #method.retain_user_attributes
-/// [`Cert::retain_subkeys`]: #method.retain_subkeys
+/// [`Cert::retain_userids`]: Cert::retain_userids()
+/// [`Cert::retain_user_attributes`]: Cert::retain_user_attributes()
+/// [`Cert::retain_subkeys`]: Cert::retain_subkeys()
 ///
 /// If you need even more control, iterate over all components, clone
 /// what you want to keep, and then reassemble the certificate.  The
@@ -791,8 +790,8 @@ impl Cert {
     /// to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
     ///
-    /// [`Cert::keys`]: #method.keys
-    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
+    /// [`Cert::keys`]: Cert::keys()
+    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -827,7 +826,6 @@ impl Cert {
     /// possible to turn a `Cert` into a `ValidCert` at time `t`, it
     /// may still be considered revoked at time `t`.
     ///
-    /// [`ValidCert`]: struct.ValidCert.html
     ///
     /// A certificate is considered revoked at time `t` if:
     ///
@@ -838,12 +836,12 @@ impl Cert {
     ///   - There is a valid [hard revocation] (even if it is not live
     ///     at time `t`, and even if there is a newer self signature).
     ///
-    /// [hard revocation]: ../types/enum.RevocationType.html#variant.Hard
+    /// [hard revocation]: super::types::RevocationType::Hard
     ///
     /// Note: certificates and subkeys have different revocation
     /// criteria from [User IDs and User Attributes].
     ///
-    /// [User IDs and User Attributes]: amalgamation/struct.ComponentAmalgamation.html#method.revocation_status
+    /// [User IDs and User Attributes]: amalgamation::ComponentAmalgamation::revocation_status()
     ///
     /// # Examples
     ///
@@ -899,15 +897,11 @@ impl Cert {
     /// certificate.  To use the revocation certificate, merge it into
     /// the certificate using [`Cert::insert_packets`].
     ///
-    /// [`CertRevocationBuilder`]: struct.CertRevocationBuilder.html
     ///
     /// If you want to revoke an individual component, use
     /// [`SubkeyRevocationBuilder`], [`UserIDRevocationBuilder`], or
     /// [`UserAttributeRevocationBuilder`], as appropriate.
     ///
-    /// [`SubkeyRevocationBuilder`]: struct.SubkeyRevocationBuilder.html
-    /// [`UserIDRevocationBuilder`]: struct.UserIDRevocationBuilder.html
-    /// [`UserAttributeRevocationBuilder`]: struct.UserAttributeRevocationBuilder.html
     ///
     /// # Examples
     ///
@@ -1140,9 +1134,9 @@ impl Cert {
     /// can be used to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
     ///
-    /// [`Cert::primary_key`]: #method.primary_key
-    /// [`KeyAmalgamationIter::subkeys`]: amalgamation/key/struct.KeyAmalgamationIter.html#method.subkeys
-    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
+    /// [`Cert::primary_key`]: Cert::primary_key()
+    /// [`KeyAmalgamationIter::subkeys`]: amalgamation::key::KeyAmalgamationIter::subkeys()
+    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -1235,7 +1229,7 @@ impl Cert {
     /// check; third party-signatures and third-party revocations may
     /// be invalid and must still be checked for validity before use.
     ///
-    /// [digest prefix]: packet/signature/struct.Signature4.html#method.digest_prefix
+    /// [digest prefix]: packet::signature::Signature4::digest_prefix()
     ///
     /// # Examples
     ///
@@ -1335,9 +1329,9 @@ impl Cert {
     /// appropriate.  This means that **if you serialize the resulting
     /// packets, the secret key material will be serialized too**.
     ///
-    /// [`TSK`]: serialize/struct.TSK.html
-    /// [`SecretKey`]: enum.Packet.html#variant.SecretKey
-    /// [`SecretSubkey`]: enum.Packet.html#variant.SecretSubkey
+    /// [`TSK`]: serialize::TSK
+    /// [`SecretKey`]: Packet::SecretKey
+    /// [`SecretSubkey`]: Packet::SecretSubkey
     ///
     /// # Examples
     ///
@@ -2129,7 +2123,7 @@ impl Cert {
     /// [`Cert::insert_packets`], which prefers keys in the packets that
     /// are being merged into the certificate.
     ///
-    /// [`Cert::insert_packets`]: #method.insert_packets
+    /// [`Cert::insert_packets`]: Cert::insert_packets()
     ///
     /// This function is appropriate to merge certificate material
     /// from untrusted sources like keyservers.  If `other` contains
@@ -2137,7 +2131,7 @@ impl Cert {
     /// [`Cert::merge_public_and_secret`] on how to merge certificates
     /// containing secret key material from trusted sources.
     ///
-    /// [`Cert::merge_public_and_secret`]: #method.merge_public_and_secret
+    /// [`Cert::merge_public_and_secret`]: Cert::merge_public_and_secret()
     ///
     /// # Examples
     ///
@@ -2171,7 +2165,7 @@ impl Cert {
     /// [`Cert::insert_packets`], which prefers keys in the packets that
     /// are being merged into the certificate.
     ///
-    /// [`Cert::insert_packets`]: #method.insert_packets
+    /// [`Cert::insert_packets`]: Cert::insert_packets()
     ///
     /// It is important to only merge key material from trusted
     /// sources using this function, because it may be used to import
@@ -2296,7 +2290,7 @@ impl Cert {
     /// the unhashed subpacket area can be updated.
     ///
     /// [Known packets that don't belong in a TPK or TSK]: https://tools.ietf.org/html/rfc4880#section-11
-    /// [unknown components]: #method.unknowns
+    /// [unknown components]: Cert::unknowns()
     ///
     /// # Examples
     ///
@@ -2655,8 +2649,7 @@ impl Cert {
     /// flags (see [`ValidKeyAmalgamation::key_flags`]).  Removing a
     /// userid may inadvertently change this information.
     ///
-    ///   [`Preferences`]: trait.Preferences.html
-    ///   [`ValidKeyAmalgamation::key_flags`]: amalgamation/key/struct.ValidKeyAmalgamation.html#method.key_flags
+    ///   [`ValidKeyAmalgamation::key_flags`]: amalgamation::key::ValidKeyAmalgamation::key_flags()
     ///
     /// # Examples
     ///
@@ -2807,10 +2800,10 @@ impl Cert {
     /// is alive (see [`ValidCert::alive`]) or revoked (see
     /// [`ValidCert::revoked`]).
     ///
-    /// [`ValidCert`]: cert/struct.ValidCert.html
-    /// [`ValidateAmalgamation`]: cert/amalgamation/trait.ValidateAmalgamation.html
-    /// [`ValidCert::alive`]: cert/struct.ValidCert.html#method.alive
-    /// [`ValidCert::revoked`]: cert/struct.ValidCert.html#method.revoked
+    /// [`ValidCert`]: cert::ValidCert
+    /// [`ValidateAmalgamation`]: cert::amalgamation::ValidateAmalgamation
+    /// [`ValidCert::alive`]: cert::ValidCert::alive()
+    /// [`ValidCert::revoked`]: cert::ValidCert::revoked()
     ///
     /// # Examples
     ///
@@ -2942,8 +2935,7 @@ impl From<Cert> for Vec<Packet> {
 /// This structure is created by the `into_iter` method on [`Cert`]
 /// (provided by the [`IntoIterator`] trait).
 ///
-/// [`Cert`]: struct.Cert.html
-/// [`IntoIterator`]: https://doc.rust-lang.org/stable/std/iter/trait.IntoIterator.html
+/// [`IntoIterator`]: std::iter::IntoIterator
 // We can't use a generic type, and due to the use of closures, we
 // can't write down the concrete type.  So, just use a Box.
 pub struct IntoIter(Box<dyn Iterator<Item=Packet> + Send + Sync>);
@@ -2988,9 +2980,8 @@ impl IntoIterator for Cert
 /// the certificate or any component is live.  If you care about those
 /// things, then you need to check them separately.
 ///
-/// [`Cert`]: struct.Cert.html
-/// [`Policy`]: ../policy/index.html
-/// [`Cert::with_policy`]: struct.Cert.html#method.with_policy
+/// [`Policy`]: super::policy
+/// [`Cert::with_policy`]: Cert::with_policy()
 ///
 /// # Examples
 ///
@@ -3194,12 +3185,12 @@ impl<'a> ValidCert<'a> {
     ///   - There is a valid [hard revocation] (even if it is not live
     ///     at time `t`, and even if there is a newer self signature).
     ///
-    /// [hard revocation]: ../types/enum.RevocationType.html#variant.Hard
+    /// [hard revocation]: super::types::RevocationType::Hard
     ///
     /// Note: certificates and subkeys have different revocation
     /// criteria from [User IDs and User Attributes].
     ///
-    /// [User IDs and User Attributes]: amalgamation/struct.ComponentAmalgamation.html#userid_revocation_status
+    /// [User IDs and User Attributes]: amalgamation::ComponentAmalgamation#userid_revocation_status
     ///
     /// # Examples
     ///
@@ -3242,8 +3233,8 @@ impl<'a> ValidCert<'a> {
     /// binding signature], however, that does not mean that the
     /// [primary key is necessarily alive].
     ///
-    /// [a live binding signature]: amalgamation/trait.ValidateAmalgamation.html
-    /// [primary key is necessarily alive]: amalgamation/key/struct.ValidKeyAmalgamation.html#method.alive
+    /// [a live binding signature]: amalgamation::ValidateAmalgamation
+    /// [primary key is necessarily alive]: amalgamation::key::ValidKeyAmalgamation::alive()
     ///
     /// # Examples
     ///
@@ -3290,7 +3281,7 @@ impl<'a> ValidCert<'a> {
     /// can be used to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
     ///
-    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
+    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -3335,8 +3326,8 @@ impl<'a> ValidCert<'a> {
     /// can be used to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
     ///
-    /// [`ValidKeyAmalgamationIter::subkeys`]: amalgamation/key/struct.ValidKeyAmalgamationIter.html#method.subkeys
-    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
+    /// [`ValidKeyAmalgamationIter::subkeys`]: amalgamation::key::ValidKeyAmalgamationIter::subkeys()
+    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -3524,7 +3515,7 @@ impl<'a> ValidCert<'a> {
     /// the primary User ID.  See the documentation of
     /// [`ValidCert::primary_userid`] for details.
     ///
-    /// [`ValidCert::primary_userid`]: #method.primary_userid
+    /// [`ValidCert::primary_userid`]: IntoIter::primary_userid()
     ///
     /// # Examples
     ///

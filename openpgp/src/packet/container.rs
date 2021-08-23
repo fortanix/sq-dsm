@@ -28,25 +28,25 @@ use crate::{
 /// a particular packet using the
 /// [`PacketParser::buffer_unread_content`] method.
 ///
-///   [`PacketParserBuilder::buffer_unread_content`]: ../parse/struct.PacketParserBuilder.html#method.buffer_unread_content
-///   [`PacketPile`]: ../struct.PacketPile.html
-///   [`PacketParser::buffer_unread_content`]: ../parse/struct.PacketParser.html#method.buffer_unread_content
+///   [`PacketParserBuilder::buffer_unread_content`]: super::parse::PacketParserBuilder::buffer_unread_content()
+///   [`PacketPile`]: super::PacketPile
+///   [`PacketParser::buffer_unread_content`]: super::parse::PacketParser::buffer_unread_content()
 ///
 /// There are three different types of packets:
 ///
 ///   - Most packets like the [`UserID`] and [`Signature`] packets, don't
 ///     actually have a body.
 ///
-///   [`UserID`]: ../packet/struct.UserID.html
-///   [`Signature`]: ../packet/signature/struct.Signature.html
+///   [`UserID`]: super::packet::UserID
+///   [`Signature`]: super::packet::signature::Signature
 ///
 ///   - Some packets have an unprocessed body.  The [`Literal`] data
 ///     packet wraps unstructured plaintext, and the [`Unknown`]
 ///     packet contains data that we failed to process, say because we
 ///     didn't support the packet's version.
 ///
-///   [`Literal`]: ../packet/struct.Literal.html
-///   [`Unknown`]: ../packet/struct.Unknown.html
+///   [`Literal`]: super::packet::Literal
+///   [`Unknown`]: super::packet::Unknown
 ///
 ///   - Some packets are containers.  If the parser does not parse the
 ///     packet's child, either because the caller used
@@ -57,7 +57,7 @@ use crate::{
 ///     deserialization routines, since the content is just an OpenPGP
 ///     message.)
 ///
-///   [`PacketParser::next`]: ../parse/struct.PacketParser.html#method.next
+///   [`PacketParser::next`]: super::parse::PacketParser::next()
 #[derive(Clone, Debug)]
 pub enum Body {
     /// Unprocessed packet body.
@@ -79,10 +79,10 @@ pub enum Body {
     /// this is not the packet's entire content; it is just the unread
     /// content.
     ///
-    ///   [`Literal`]: ../packet/struct.Literal.html
-    ///   [`Unknown`]: ../packet/struct.Unknown.html
-    ///   [`SEIP`]: ../packet/enum.SEIP.html
-    ///   [`AED`]: ../packet/enum.AED.html
+    ///   [`Literal`]: super::packet::Literal
+    ///   [`Unknown`]: super::packet::Unknown
+    ///   [`SEIP`]: super::packet::SEIP
+    ///   [`AED`]: super::packet::AED
     Unprocessed(Vec<u8>),
 
     /// Processed packed body.
@@ -108,9 +108,9 @@ pub enum Body {
     /// [`PacketParser`] deserialization routines; this needs to be
     /// done manually.
     ///
-    ///   [`PacketPile`]: ../struct.PacketPile.html
-    ///   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
-    ///   [`PacketParser`]: ../parse/struct.PacketParser.html
+    ///   [`PacketPile`]: super::PacketPile
+    ///   [`PacketPile::from_file`]: super::PacketPile::from_file()
+    ///   [`PacketParser`]: super::parse::PacketParser
     Structured(Vec<Packet>),
 }
 

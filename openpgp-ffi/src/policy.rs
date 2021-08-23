@@ -6,7 +6,7 @@
 //! Wraps the policy object functions, see
 //! [`sequoia-openpgp::policy`].
 //!
-//! [`sequoia-openpgp::policy`]: ../../sequoia_openpgp/policy/index.html
+//! [`sequoia-openpgp::policy`]: super::super::sequoia_openpgp::policy
 
 use sequoia_openpgp as openpgp;
 

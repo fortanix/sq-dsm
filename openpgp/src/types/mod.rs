@@ -40,10 +40,7 @@
 //! that adding or subtracting durations will never overflow or underflow without
 //! notice.
 //!
-//! [`Timestamp::round_down`]: struct.Timestamp.html#method.round_down
-//! [`KeyFlags`]: struct.KeyFlags.html
-//! [`Timestamp`]: struct.Timestamp.html
-//! [`Duration`]: struct.Duration.html
+//! [`Timestamp::round_down`]: Timestamp::round_down()
 
 use std::fmt;
 use std::str::FromStr;
@@ -534,7 +531,7 @@ impl Arbitrary for Curve {
 /// Use [`SymmetricAlgorithm::from`] to translate a numeric value to a
 /// symbolic one.
 ///
-///   [`SymmetricAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///   [`SymmetricAlgorithm::from`]: std::convert::From
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -689,12 +686,12 @@ impl Arbitrary for SymmetricAlgorithm {
 /// Use [`AEADAlgorithm::from`] to translate a numeric value to a
 /// symbolic one.
 ///
-///   [`AEADAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///   [`AEADAlgorithm::from`]: std::convert::From
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 ///
-/// This feature is [experimental](../index.html#experimental-features).
+/// This feature is [experimental](super#experimental-features).
 ///
 /// # Examples
 ///
@@ -1551,7 +1548,6 @@ impl ReasonForRevocation {
 ///
 /// Construct a new [`Message`] containing one text literal packet:
 ///
-/// [`Message`]: struct.Message.html
 ///
 /// ```rust
 /// use sequoia_openpgp as openpgp;
@@ -1676,7 +1672,7 @@ impl Arbitrary for DataFormat {
 /// Generates a new certificate then checks if the User ID is revoked or not under
 /// the given policy using [`ValidUserIDAmalgamation`]:
 ///
-/// [`ValidUserIDAmalgamation`]: ../cert/amalgamation/type.ValidUserIDAmalgamation.html
+/// [`ValidUserIDAmalgamation`]: super::cert::amalgamation::ValidUserIDAmalgamation
 ///
 /// ```rust
 /// use sequoia_openpgp as openpgp;

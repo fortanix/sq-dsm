@@ -28,7 +28,7 @@ use crate::{
 /// Note that this example retrieves raw packet value.
 /// Use [`SubpacketArea::signature_creation_time`] to get the signature creation time.
 ///
-/// [`SubpacketArea::signature_creation_time`]: ../packet/signature/subpacket/struct.SubpacketArea.html#method.signature_creation_time
+/// [`SubpacketArea::signature_creation_time`]: super::packet::signature::subpacket::SubpacketArea::signature_creation_time()
 ///
 /// ```
 /// use sequoia_openpgp as openpgp;
@@ -60,7 +60,7 @@ use crate::{
 ///
 /// [Section 3.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.5
 /// [UNIX epoch]: https://en.wikipedia.org/wiki/Unix_time
-/// [`Timestamp::round_down`]: ../types/struct.Timestamp.html#method.round_down
+/// [`Timestamp::round_down`]: super::types::Timestamp::round_down()
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(u32);
 assert_send_and_sync!(Timestamp);
@@ -161,7 +161,7 @@ impl Timestamp {
     /// The lower limit `floor` represents the earliest time the timestamp will be
     /// rounded down to.
     ///
-    /// See also [`Duration::round_up`](struct.Duration.html#method.round_up).
+    /// See also [`Duration::round_up`](Duration::round_up()).
     ///
     /// # Important note
     ///
@@ -428,7 +428,7 @@ impl Duration {
     /// while avoiding the metadata leak associated with preserving
     /// the originally intended expiration time.
     ///
-    ///   [`Timestamp::round_down`]: struct.Timestamp.html#method.round_down
+    ///   [`Timestamp::round_down`]: Timestamp::round_down()
     ///
     /// The given level `p` determines the resulting resolution of
     /// `2^p` seconds.  The default is `21`, which results in a

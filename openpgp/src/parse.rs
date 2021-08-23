@@ -13,16 +13,16 @@
 //! [compressed data] packets.  This structure results in a tree,
 //! which is laid out in depth-first order.
 //!
-//!   [SEIP]: ../packet/enum.SEIP.html
-//!   [compressed data]: ../packet/struct.CompressedData.html
+//!   [SEIP]: super::packet::SEIP
+//!   [compressed data]: super::packet::CompressedData
 //!
 //! OpenPGP defines objects consisting of several packets with a
 //! specific structure.  These objects are [`Message`]s, [`Cert`]s and
 //! sequences of [`Cert`]s ("keyrings").  Verifying the structure of
 //! these objects is also an act of parsing.
 //!
-//!   [`Message`]: ../struct.Message.html
-//!   [`Cert`]: ../cert/struct.Cert.html
+//!   [`Message`]: super::Message
+//!   [`Cert`]: super::cert::Cert
 //!
 //! This crate provides several interfaces to parse OpenPGP data.
 //! They fall in roughly three categories:
@@ -40,10 +40,8 @@
 //!  - Finally, we expose the low-level [`PacketParser`], allowing
 //!    fine-grained control over the parsing.
 //!
-//!   [`Parse`]: trait.Parse.html
-//!   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
-//!   [`Path`]: https://doc.rust-lang.org/std/path/struct.Path.html
-//!   [`PacketParser`]: struct.PacketParser.html
+//!   [`io::Read`]: std::io::Read
+//!   [`Path`]: std::path::Path
 //!
 //! The choice of interface depends on the specific use case.  In many
 //! circumstances, OpenPGP data can not be trusted until it has been
@@ -70,14 +68,12 @@
 //!  - *Customize the parser behavior even more*: Use a
 //!    [`PacketParserBuilder`].
 //!
-//!   [`CertParser`]: ../cert/struct.CertParser.html
-//!   [streaming `Decryptor`]: stream/struct.Decryptor.html
-//!   [streaming `Verifier`]: stream/struct.Verifier.html
-//!   [`DetachedVerifier`]: stream/struct.DetachedVerifier.html
-//!   [`PacketPile`]: ../struct.PacketPile.html
-//!   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
-//!   [`PacketPileParser`]: struct.PacketPileParser.html
-//!   [`PacketParserBuilder`]: struct.PacketParserBuilder.html
+//!   [`CertParser`]: super::cert::CertParser
+//!   [streaming `Decryptor`]: stream::Decryptor
+//!   [streaming `Verifier`]: stream::Verifier
+//!   [`DetachedVerifier`]: stream::DetachedVerifier
+//!   [`PacketPile`]: super::PacketPile
+//!   [`PacketPile::from_file`]: super::PacketPile::from_file()
 //!
 //! # Data Structures and Interfaces
 //!
@@ -116,8 +112,8 @@
 //! The behavior of the [`PacketParser`] can be configured using a
 //! [`PacketParserBuilder`].
 //!
-//!   [`Decryptor`]: stream/struct.Decryptor.html
-//!   [`Verifier`]: stream/struct.Verifier.html
+//!   [`Decryptor`]: stream::Decryptor
+//!   [`Verifier`]: stream::Verifier
 //!
 //! # ASCII armored data
 //!
@@ -127,7 +123,7 @@
 //! [`PacketParserBuilder::dearmor`].
 //!
 //!   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
-//!   [`PacketParserBuilder::dearmor`]: struct.PacketParserBuilder.html#method.dearmor
+//!   [`PacketParserBuilder::dearmor`]: PacketParserBuilder::dearmor()
 //!
 //! # Security Considerations
 //!
@@ -168,14 +164,14 @@
 //!    encryption is provided by the [`AED`] container, but as of this
 //!    writing it is not standardized.
 //!
-//!   [`DEFAULT_BUFFER_SIZE`]: stream/constant.DEFAULT_BUFFER_SIZE.html
-//!   [`PKESK`]: ../packet/enum.PKESK.html
-//!   [`SKESK`]: ../packet/enum.PKESK.html
-//!   [`Literal`]: ../packet/struct.Literal.html
-//!   [`Signature`]: ../packet/enum.Signature.html
-//!   [`SEIP`]: ../packet/enum.SEIP.html
-//!   [`MDC`]: ../packet/struct.MDC.html
-//!   [`AED`]: ../packet/enum.AED.html
+//!   [`DEFAULT_BUFFER_SIZE`]: stream::DEFAULT_BUFFER_SIZE
+//!   [`PKESK`]: super::packet::PKESK
+//!   [`SKESK`]: super::packet::PKESK
+//!   [`Literal`]: super::packet::Literal
+//!   [`Signature`]: super::packet::Signature
+//!   [`SEIP`]: super::packet::SEIP
+//!   [`MDC`]: super::packet::MDC
+//!   [`AED`]: super::packet::AED
 
 use std::io;
 use std::io::prelude::*;
@@ -281,7 +277,7 @@ pub trait Parse<'a, T> {
     /// The default implementation just uses [`from_reader(..)`], but
     /// implementations can provide their own specialized version.
     ///
-    /// [`from_reader(..)`]: #tymethod.from_reader
+    /// [`from_reader(..)`]: Parse::from_reader
     fn from_file<P: AsRef<Path>>(path: P) -> Result<T>
     {
         Self::from_reader(::std::fs::File::open(path)?)
@@ -292,7 +288,7 @@ pub trait Parse<'a, T> {
     /// The default implementation just uses [`from_reader(..)`], but
     /// implementations can provide their own specialized version.
     ///
-    /// [`from_reader(..)`]: #tymethod.from_reader
+    /// [`from_reader(..)`]: Parse::from_reader
     fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<T> {
         Self::from_reader(io::Cursor::new(data))
     }
@@ -340,7 +336,7 @@ macro_rules! impl_parse_generic_packet {
 /// To change the maximum recursion depth, use
 /// [`PacketParserBuilder::max_recursion_depth`].
 ///
-///   [`PacketParserBuilder::max_recursion_depth`]: struct.PacketParserBuilder.html#method.max_recursion_depth
+///   [`PacketParserBuilder::max_recursion_depth`]: PacketParserBuilder::max_recursion_depth()
 pub const DEFAULT_MAX_RECURSION_DEPTH : u8 = 16;
 
 /// The default maximum size of non-container packets.
@@ -358,7 +354,7 @@ pub const DEFAULT_MAX_RECURSION_DEPTH : u8 = 16;
 /// To change the maximum recursion depth, use
 /// [`PacketParserBuilder::max_packet_size`].
 ///
-///   [`PacketParserBuilder::max_packet_size`]: struct.PacketParserBuilder.html#method.max_packet_size
+///   [`PacketParserBuilder::max_packet_size`]: PacketParserBuilder::max_packet_size()
 pub const DEFAULT_MAX_PACKET_SIZE: u32 = 1 << 20; // 1 MiB
 
 // Used to parse an OpenPGP packet's header (note: in this case, the
@@ -3082,11 +3078,10 @@ impl PacketParserState {
 /// See the [`PacketParser::next`] and [`PacketParser::recurse`]
 /// methods for more details.
 ///
-///   [`Packet`]: ../enum.Packet.html
-///   [`std::io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+///   [`Packet`]: super::Packet
 ///   [`BufferedReader`]: https://docs.rs/buffered-reader/*/buffered_reader/trait.BufferedReader.html
-///   [`PacketParser::next`]: #method.next
-///   [`PacketParser::recurse`]: #method.recurse
+///   [`PacketParser::next`]: PacketParser::next()
+///   [`PacketParser::recurse`]: PacketParser::recurse()
 ///
 /// # Examples
 ///
@@ -3248,9 +3243,6 @@ impl PacketParserState {
 /// attack, the parsers don't recurse more than
 /// [`DEFAULT_MAX_RECURSION_DEPTH`] times, by default.
 ///
-///   [`PacketParser`]: struct.PacketParser.html
-///   [`PacketPileParser`]: struct.PacketPileParser.html
-///   [`DEFAULT_MAX_RECURSION_DEPTH`]: constant.DEFAULT_MAX_RECURSION_DEPTH.html
 ///
 /// Second, packets can contain an effectively unbounded amount of
 /// data.  To avoid errors due to memory exhaustion, the
@@ -3359,10 +3351,8 @@ enum ParserResult<'a> {
 /// whether or not the packet stream was a well-formed [`Message`],
 /// [`Cert`] or keyring.
 ///
-///   [`PacketParser`]: struct.PacketParser.html
-///   [`PacketParserResult::EOF`]: enum.PacketParserResult.html#variant.EOF
-///   [`Message`]: ../struct.Message.html
-///   [`Cert`]: ../cert/struct.Cert.html
+///   [`Message`]: super::Message
+///   [`Cert`]: super::cert::Cert
 ///
 /// # Examples
 ///
@@ -3435,15 +3425,14 @@ impl<'a> PacketParserEOF<'a> {
     /// if the stream is of that form, as opposed to a [`Cert`] or
     /// just a bunch of packets.
     ///
-    ///   [`Message`]: ../struct.Message.html
-    ///   [`Cert`]: ../cert/struct.Cert.html
+    ///   [`Message`]: super::Message
+    ///   [`Cert`]: super::cert::Cert
     ///
     /// # Examples
     ///
     /// Parse some OpenPGP stream using a [`PacketParser`] and detects the
     /// kind of data:
     ///
-    ///   [`PacketParser`]: struct.PacketParser.html
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -3482,14 +3471,13 @@ impl<'a> PacketParserEOF<'a> {
     /// the stream is of that form, as opposed to a [`Message`] or
     /// just a bunch of packets.
     ///
-    ///   [`Message`]: ../struct.Message.html
+    ///   [`Message`]: super::Message
     ///
     /// # Examples
     ///
     /// Parse some OpenPGP stream using a [`PacketParser`] and detects the
     /// kind of data:
     ///
-    ///   [`PacketParser`]: struct.PacketParser.html
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -3526,15 +3514,14 @@ impl<'a> PacketParserEOF<'a> {
     /// the stream is of that form, as opposed to a [`Message`] or
     /// just a bunch of packets.
     ///
-    ///   [`Message`]: ../struct.Message.html
-    ///   [`Cert`]: ../cert/struct.Cert.html
+    ///   [`Message`]: super::Message
+    ///   [`Cert`]: super::cert::Cert
     ///
     /// # Examples
     ///
     /// Parse some OpenPGP stream using a [`PacketParser`] and detects the
     /// kind of data:
     ///
-    ///   [`PacketParser`]: struct.PacketParser.html
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -3572,8 +3559,7 @@ impl<'a> PacketParserEOF<'a> {
     /// Parse some OpenPGP stream using a [`PacketParser`] and returns
     /// the path (see [`PacketPile::path_ref`]) of the last packet:
     ///
-    ///   [`PacketPile::path_ref`]: ../struct.PacketPile.html#method.path_ref
-    ///   [`PacketParser`]: struct.PacketParser.html
+    ///   [`PacketPile::path_ref`]: super::PacketPile::path_ref()
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -3608,7 +3594,6 @@ impl<'a> PacketParserEOF<'a> {
     /// Parse some OpenPGP stream using a [`PacketParser`] and returns
     /// the recursion depth of the last packet:
     ///
-    ///   [`PacketParser`]: struct.PacketParser.html
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -3652,10 +3637,9 @@ impl<'a> PacketParserEOF<'a> {
 /// packet, or `EOF(PacketParserEOF)` if the end of the input stream
 /// has been reached.
 ///
-///   [`PacketParser::next`]: struct.PacketParser.html#method.next
-///   [`PacketParser::recurse`]: struct.PacketParser.html#method.recurse
-///   [`PacketParserBuilder::build`]: struct.PacketParserBuilder.html#method.build
-///   [`PacketParser`]: struct.PacketParser.html
+///   [`PacketParser::next`]: PacketParser::next()
+///   [`PacketParser::recurse`]: PacketParser::recurse()
+///   [`PacketParserBuilder::build`]: PacketParserBuilder::build()
 ///   [`Parse` trait]: struct.PacketParser.html#impl-Parse%3C%27a%2C%20PacketParserResult%3C%27a%3E%3E
 #[derive(Debug)]
 pub enum PacketParserResult<'a> {
@@ -3685,7 +3669,6 @@ impl<'a> PacketParserResult<'a> {
     /// including the passed message, and the information in the
     /// [`PacketParserEOF`] object.
     ///
-    ///   [`PacketParserEOF`]: struct.PacketParserEOF.html
     pub fn expect(self, msg: &str) -> PacketParser<'a> {
         if let PacketParserResult::Some(pp) = self {
             pp
@@ -3701,7 +3684,6 @@ impl<'a> PacketParserResult<'a> {
     /// Panics if the value is an `EOF`, with a panic message
     /// including the information in the [`PacketParserEOF`] object.
     ///
-    ///   [`PacketParserEOF`]: struct.PacketParserEOF.html
     pub fn unwrap(self) -> PacketParser<'a> {
         self.expect("called `PacketParserResult::unwrap()` on a \
                      `PacketParserResult::PacketParserEOF` value")
@@ -3740,7 +3722,6 @@ impl<'a> PacketParserResult<'a> {
     /// The `EOF` left in place carries a [`PacketParserEOF`] with
     /// default values.
     ///
-    ///   [`PacketParserEOF`]: struct.PacketParserEOF.html
     pub fn take(&mut self) -> Self {
         mem::replace(
             self,
@@ -3838,7 +3819,7 @@ impl <'a> PacketParser<'a> {
     /// [`PacketParser::decrypt`].  Once successfully decrypted, it
     /// returns `false`.
     ///
-    ///   [`PacketParser::decrypt`]: struct.PacketParser.html#method.decrypt
+    ///   [`PacketParser::decrypt`]: PacketParser::decrypt()
     ///
     /// # Examples
     ///
@@ -3881,9 +3862,9 @@ impl <'a> PacketParser<'a> {
     /// If no packet has been returned (i.e. the current packet is the
     /// first packet), this returns the empty slice.
     ///
-    ///   [`PacketPile::path_ref`]: ../struct.PacketPile.html#method.path_ref
-    ///   [`PacketParser::recurse`]: #method.recurse
-    ///   [`PacketParser::next`]: #method.next
+    ///   [`PacketPile::path_ref`]: super::PacketPile::path_ref()
+    ///   [`PacketParser::recurse`]: PacketParser::recurse()
+    ///   [`PacketParser::next`]: PacketParser::next()
     ///
     /// # Examples
     ///
@@ -3919,8 +3900,7 @@ impl <'a> PacketParser<'a> {
     /// for a description of paths) of the packet currently being
     /// processed (see [`PacketParser::packet`]).
     ///
-    ///   [`PacketPile::path_ref`]: ../struct.PacketPile.html#method.path_ref
-    ///   [`PacketParser::packet`]: #structfield.packet
+    ///   [`PacketPile::path_ref`]: super::PacketPile::path_ref()
     ///
     /// # Examples
     ///
@@ -4031,7 +4011,7 @@ impl <'a> PacketParser<'a> {
     /// valid prefix or definitely not an OpenPGP message (see
     /// [`PacketParserEOF::is_message`]).
     ///
-    ///   [`PacketParserEOF::is_message`]: struct.PacketParserEOF.html#method.is_message
+    ///   [`PacketParserEOF::is_message`]: PacketParserEOF::is_message()
     ///
     /// # Examples
     ///
@@ -4071,7 +4051,7 @@ impl <'a> PacketParser<'a> {
     /// valid prefix or definitely not an OpenPGP keyring (see
     /// [`PacketParserEOF::is_keyring`]).
     ///
-    ///   [`PacketParserEOF::is_keyring`]: struct.PacketParserEOF.html#method.is_keyring
+    ///   [`PacketParserEOF::is_keyring`]: PacketParserEOF::is_keyring()
     ///
     /// # Examples
     ///
@@ -4109,7 +4089,7 @@ impl <'a> PacketParser<'a> {
     /// valid prefix or definitely not an OpenPGP Cert (see
     /// [`PacketParserEOF::is_cert`]).
     ///
-    ///   [`PacketParserEOF::is_cert`]: struct.PacketParserEOF.html#method.is_cert
+    ///   [`PacketParserEOF::is_cert`]: PacketParserEOF::is_cert()
     ///
     /// # Examples
     ///
@@ -4426,8 +4406,8 @@ impl <'a> PacketParser<'a> {
     /// recurse into the container, but skips any packets it contains.
     /// To recurse into the container, use the [`recurse()`] method.
     ///
-    ///   [`PacketParsererBuilder`]: struct.PacketParserBuilder.html
-    ///   [`recurse()`]: #method.recurse
+    ///   [`PacketParsererBuilder`]: PacketParserBuilder
+    ///   [`recurse()`]: PacketParser::recurse()
     ///
     /// The return value is a tuple containing:
     ///
@@ -4592,7 +4572,7 @@ impl <'a> PacketParser<'a> {
     /// because we always visit interior nodes, we can't recurse more
     /// than one level at a time.
     ///
-    ///   [`next()`]: #method.next
+    ///   [`next()`]: PacketParser::next()
     ///
     /// # Examples
     ///
@@ -4697,7 +4677,7 @@ impl <'a> PacketParser<'a> {
     /// buffering a packet's content and prefer streaming its content
     /// unless you are certain that the content is small.
     ///
-    ///   [`Container::body`]: ../packet/struct.Container.html#method.body
+    ///   [`Container::body`]: super::packet::Container::body()
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -4799,7 +4779,6 @@ impl <'a> PacketParser<'a> {
     /// By default, this drops any unread content.  Use, for instance,
     /// [`PacketParserBuilder`] to customize the default behavior.
     ///
-    ///   [`PacketParserBuilder`]: struct.PacketParserBuilder.html
     ///
     /// # Examples
     ///
@@ -5151,13 +5130,13 @@ impl<'a> PacketParser<'a> {
     /// `PacketParser`'s reader stack, and clears the packet parser's
     /// `encrypted` flag (see [`PacketParser::encrypted`]).
     ///
-    ///   [`PacketParser::encrypted`]: struct.PacketParser.html#method.encrypted
+    ///   [`PacketParser::encrypted`]: PacketParser::encrypted()
     ///
     /// If this function is called on a packet that does not contain
     /// encrypted data, or some of the data was already read, then it
     /// returns [`Error::InvalidOperation`].
     ///
-    ///   [`Error::InvalidOperation`]: ../enum.Error.html#variant.InvalidOperation
+    ///   [`Error::InvalidOperation`]: super::Error::InvalidOperation
     ///
     /// # Examples
     ///

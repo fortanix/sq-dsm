@@ -29,8 +29,8 @@ use rand::Rng;
 /// [`key::Encrypted`]).
 ///
 ///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
-///   [`SKESK`]: ../../packet/enum.SKESK.html
-///   [`key::Encrypted`]: ../../packet/key/struct.Encrypted.html
+///   [`SKESK`]: super::super::packet::SKESK
+///   [`key::Encrypted`]: super::super::packet::key::Encrypted
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -49,7 +49,7 @@ pub enum S2K {
         /// doing a dictionary attack.  Note that not all values are
         /// representable.  See [`S2K::new_iterated`].
         ///
-        ///   [`S2K::new_iterated`]: #method.new_iterated
+        ///   [`S2K::new_iterated`]: S2K::new_iterated()
         hash_bytes: u32,
     },
 
@@ -141,7 +141,7 @@ impl S2K {
     /// parameters are chosen with contemporary machines in mind, and
     /// should also be usable on lower-end devices like smart phones.
     ///
-    ///   [`Default`]: https://doc.rust-lang.org/std/default/trait.Default.html
+    ///   [`Default`]: std::default::Default
     ///
     /// Using this method, you can tune the parameters for embedded
     /// devices.  Note, however, that this also decreases the work
@@ -293,7 +293,6 @@ impl S2K {
     /// Fails with `Error::InvalidArgument` if `hash_bytes` cannot be
     /// encoded. See also [`S2K::nearest_hash_count()`].
     ///
-    /// [`S2K::nearest_hash_count()`]: #method.nearest_hash_count
     pub(crate) fn encode_count(hash_bytes: u32) -> Result<u8> {
         // eeee.mmmm -> (16 + mmmm) * 2^(6 + e)
 

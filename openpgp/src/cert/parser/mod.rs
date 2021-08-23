@@ -386,15 +386,15 @@ impl CertValidator {
 /// (In a [`Cert`], these show up as [`Unknown`] components.)  The
 /// goal is to provide some future compatibility.
 ///
-/// [`Packet`]: ../packet/enum.Packet.html
+/// [`Packet`]: super::packet::Packet
 /// [`TPK`]: https://tools.ietf.org/html/rfc4880#section-11.1
 /// [`TSK`]: https://tools.ietf.org/html/rfc4880#section-11.2
-/// [`Public Key`]: ../enum.Packet.html#variant.PublicKey
-/// [`Secret Key`]: ../enum.Packet.html#variant.SecretKey
-/// [`Literal Data`]: ../enum.Packet.html#variant.Literal
-/// [`Compressed Data`]: ../enum.Packet.html#variant.CompressedData
-/// [`Cert`]: ../struct.Cert.html
-/// [`Unknown`]: ../enum.Packet.html#variant.Unknown
+/// [`Public Key`]: super::Packet::PublicKey
+/// [`Secret Key`]: super::Packet::SecretKey
+/// [`Literal Data`]: super::Packet::Literal
+/// [`Compressed Data`]: super::Packet::CompressedData
+/// [`Cert`]: super::Cert
+/// [`Unknown`]: super::Packet::Unknown
 ///
 /// # Examples
 ///
@@ -699,7 +699,7 @@ impl<'a> CertParser<'a> {
     /// `CertParser` will not replace the existing filter, but install
     /// multiple filters.
     ///
-    /// [`Cert`]: ../struct.Cert.html
+    /// [`Cert`]: super::Cert
     ///
     /// # Examples
     ///

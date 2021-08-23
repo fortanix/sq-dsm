@@ -3,7 +3,7 @@
 //!
 //! Wraps [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`].
 //!
-//! [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`]: ../../../sequoia_openpgp/cert/key_amalgamation/struct.KeyAmalgamation.html
+//! [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`]: super::super::super::sequoia_openpgp::cert::key_amalgamation::KeyAmalgamation
 
 use libc::time_t;
 
@@ -32,7 +32,7 @@ type UserIDAmalgamationType<'a>
 ///
 /// Wraps [`sequoia-openpgp::cert::amalgamation::ComponentAmalgamation`].
 ///
-/// [`sequoia-openpgp::cert::amalgamation::ComponentAmalgamation`]: ../../../sequoia_openpgp/cert/amalgamation/struct.ComponentAmalgamation.html
+/// [`sequoia-openpgp::cert::amalgamation::ComponentAmalgamation`]: super::super::super::sequoia_openpgp::cert::amalgamation::ComponentAmalgamation
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug")]
 pub struct UserIDAmalgamation<'a>(UserIDAmalgamationType<'a>);
@@ -56,7 +56,7 @@ type ValidUserIDAmalgamationType<'a>
 ///
 /// Wraps [`sequoia-openpgp::cert::amalgamation::ValidComponentAmalgamation`].
 ///
-/// [`sequoia-openpgp::cert::amalgamation::ValidComponentAmalgamation`]: ../../../sequoia_openpgp/cert/amalgamation/struct.ValidComponentAmalgamation.html
+/// [`sequoia-openpgp::cert::amalgamation::ValidComponentAmalgamation`]: super::super::super::sequoia_openpgp::cert::amalgamation::ValidComponentAmalgamation
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug")]
 pub struct ValidUserIDAmalgamation<'a>(ValidUserIDAmalgamationType<'a>);

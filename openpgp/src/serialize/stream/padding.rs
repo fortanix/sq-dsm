@@ -106,7 +106,7 @@ use crate::types::{
 /// policy.  Note that for brevity, the encryption and signature
 /// filters are omitted.
 ///
-/// [Padmé]: fn.padme.html
+/// [Padmé]: padme()
 ///
 /// ```
 /// use std::io::Write;
@@ -153,14 +153,14 @@ impl<'a> Padder<'a> {
     /// This example illustrates the use of `Padder` with the [Padmé]
     /// policy.
     ///
-    /// [Padmé]: fn.padme.html
+    /// [Padmé]: padme()
     ///
     /// The most useful filter to push to the writer stack next is the
     /// [`Signer`] or the [`LiteralWriter`].  Finally, literal data
     /// *must* be wrapped using the [`LiteralWriter`].
     ///
-    ///   [`Signer`]: ../struct.Signer.html
-    ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
+    ///   [`Signer`]: super::Signer
+    ///   [`LiteralWriter`]: super::LiteralWriter
     ///
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -211,14 +211,14 @@ impl<'a> Padder<'a> {
     /// This example illustrates the use of `Padder` with the [Padmé]
     /// policy.
     ///
-    /// [Padmé]: fn.padme.html
+    /// [Padmé]: padme()
     ///
     /// The most useful filter to push to the writer stack next is the
     /// [`Signer`] or the [`LiteralWriter`].  Finally, literal data
     /// *must* be wrapped using the [`LiteralWriter`].
     ///
-    ///   [`Signer`]: ../struct.Signer.html
-    ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
+    ///   [`Signer`]: super::Signer
+    ///   [`LiteralWriter`]: super::LiteralWriter
     ///
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {

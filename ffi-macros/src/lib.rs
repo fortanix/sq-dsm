@@ -25,8 +25,8 @@ mod rust2c;
 /// This macro is used to decorate every function exported from
 /// Sequoia.  It applies the following transformations:
 ///
-///  - [ffi_catch_abort](attr.ffi_catch_abort.html)
-///  - [cdecl](attr.cdecl.html)
+///  - [ffi_catch_abort]
+///  - [cdecl]
 #[proc_macro_attribute]
 pub fn extern_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     cdecl(attr.clone(), ffi_catch_abort(attr, item))
@@ -104,7 +104,7 @@ fn doc(s: &str, ts: &mut TokenStream2) {
 /// manner.
 ///
 /// [undefined behavior]: https://doc.rust-lang.org/nomicon/unwinding.html
-/// [catch_unwind]: https://doc.rust-lang.org/std/panic/fn.catch_unwind.html
+/// [catch_unwind]: std::panic::catch_unwind()
 ///
 /// # Examples
 ///

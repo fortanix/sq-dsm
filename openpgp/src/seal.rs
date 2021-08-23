@@ -22,7 +22,7 @@
 /// For example the [`cert::Preferences`] trait is sealed.
 /// Therefore attempts to implement it will not compile:
 ///
-///   [`cert::Preferences`]: ../cert/trait.Preferences.html
+///   [`cert::Preferences`]: super::cert::Preferences
 ///
 /// ```compile_fail
 /// # extern crate sequoia_openpgp as openpgp;

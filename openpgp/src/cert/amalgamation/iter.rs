@@ -77,15 +77,11 @@ use crate::{
 /// # }
 /// ```
 ///
-/// [`ComponentAmalgamationIter::with_policy`]: #method.with_policy
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
-/// [`ValidComponentAmalgamationIter`]: struct.ValidComponentAmalgamationIter.html
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-/// [`Cert::userids`]: ../struct.Cert.html#method.userids
-/// [`Cert::user_attributes`]: ../struct.Cert.html#method.user_attributes
-/// [`Cert::unknowns`]: ../struct.Cert.html#method.unknown
-/// [`Cert::keys`]: ../struct.Cert.html#method.keys
-/// [`KeyAmalgamationIter`]: struct.KeyAmalgamationIter.html
+/// [`ComponentAmalgamationIter::with_policy`]: ComponentAmalgamationIter::with_policy()
+/// [`Cert::userids`]: super::Cert::userids()
+/// [`Cert::user_attributes`]: super::Cert::user_attributes()
+/// [`Cert::unknowns`]: super::Cert::unknown()
+/// [`Cert::keys`]: super::Cert::keys()
 pub struct ComponentAmalgamationIter<'a, C> {
     cert: &'a Cert,
     iter: slice::Iter<'a, ComponentBundle<C>>,
@@ -96,7 +92,6 @@ assert_send_and_sync!(ComponentAmalgamationIter<'_, C> where C);
 ///
 /// A specialized version of [`ComponentAmalgamationIter`].
 ///
-/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
 pub type UserIDAmalgamationIter<'a>
     = ComponentAmalgamationIter<'a, UserID>;
 
@@ -104,7 +99,6 @@ pub type UserIDAmalgamationIter<'a>
 ///
 /// A specialized version of [`ComponentAmalgamationIter`].
 ///
-/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
 pub type UserAttributeAmalgamationIter<'a>
     = ComponentAmalgamationIter<'a, UserAttribute>;
 
@@ -112,7 +106,6 @@ pub type UserAttributeAmalgamationIter<'a>
 ///
 /// A specialized version of [`ComponentAmalgamationIter`].
 ///
-/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
 pub type UnknownComponentAmalgamationIter<'a>
     = ComponentAmalgamationIter<'a, Unknown>;
 
@@ -175,7 +168,6 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
     /// # }
     /// ```
     ///
-    /// [`ValidateAmalgamation`]: trait.ValidateAmalgamation.html
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> ValidComponentAmalgamationIter<'a, C>
         where T: Into<Option<SystemTime>>
@@ -230,9 +222,8 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
 /// # }
 /// ```
 ///
-/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
-/// [`ValidComponentAmalgamationIter::revoked`]: #method.revoked
-/// [`ComponentAmalgamationIter::with_policy`]: struct.ComponentAmalgamationIter.html#method.with_policy
+/// [`ValidComponentAmalgamationIter::revoked`]: ValidComponentAmalgamationIter::revoked()
+/// [`ComponentAmalgamationIter::with_policy`]: ComponentAmalgamationIter::with_policy()
 pub struct ValidComponentAmalgamationIter<'a, C> {
     // This is an option to make it easier to create an empty ValidComponentAmalgamationIter.
     cert: &'a Cert,
@@ -379,7 +370,7 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     /// However, this filter implements a typical policy, and does not
     /// preclude using `filter` to realize alternative policies.
     ///
-    /// [`RevocationStatus::Revoked`]: ../../types/enum.RevocationStatus.html#variant.Revoked
+    /// [`RevocationStatus::Revoked`]: super::super::types::RevocationStatus::Revoked
     pub fn revoked<T>(mut self, revoked: T) -> Self
         where T: Into<Option<bool>>
     {

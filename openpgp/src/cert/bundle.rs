@@ -65,18 +65,17 @@
 //! methods that implement the [complicated semantics] for correctly
 //! locating information.
 //!
-//! [`Cert`]: ../index.html
-//! [`Packet`]: ../../packet/index.html
-//! [`Signature`]: ../../packet/signature/index.html
-//! [`ComponentBundle`]: ./struct.ComponentBundle.html
-//! [`Key`]: ../../packet/key/index.html
-//! [`UserID`]: ../../packet/struct.UserID.html
-//! [`UserAttribute`]: ../../packet/user_attribute/index.html
-//! [`Unknown`]: ../../packet/struct.Unknown.html
-//! [`Tag`]: ../../packet/enum.Tag.html
+//! [`Cert`]: super
+//! [`Packet`]: super::super::packet
+//! [`Signature`]: super::super::packet::signature
+//! [`Key`]: super::super::packet::key
+//! [`UserID`]: super::super::packet::UserID
+//! [`UserAttribute`]: super::super::packet::user_attribute
+//! [`Unknown`]: super::super::packet::Unknown
+//! [`Tag`]: super::super::packet::Tag
 //! [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
-//! [`ComponentAmalgamation`]: ../amalgamation/index.html
-//! [`KeyAmalgamation`]: ../key_amalgamation/index.html
+//! [`ComponentAmalgamation`]: super::amalgamation
+//! [`KeyAmalgamation`]: super::key_amalgamation
 //! [complicated semantics]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
 
 use std::time;
@@ -107,7 +106,7 @@ use super::{
 
 /// A certificate component and its associated signatures.
 ///
-/// [See the module level documentation](index.html) for a detailed
+/// [See the module level documentation](self) for a detailed
 /// description.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentBundle<C> {
@@ -136,36 +135,36 @@ assert_send_and_sync!(ComponentBundle<C> where C);
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.
 ///
-/// [See the module level documentation.](index.html)
+/// [See the module level documentation.](self)
 pub type KeyBundle<KeyPart, KeyRole> = ComponentBundle<Key<KeyPart, KeyRole>>;
 
 /// A primary key and any associated signatures.
 ///
-/// [See the module level documentation.](index.html)
+/// [See the module level documentation.](self)
 pub type PrimaryKeyBundle<KeyPart> =
     KeyBundle<KeyPart, key::PrimaryRole>;
 
 /// A subkey and any associated signatures.
 ///
-/// [See the module level documentation.](index.html)
+/// [See the module level documentation.](self)
 pub type SubkeyBundle<KeyPart>
     = KeyBundle<KeyPart, key::SubordinateRole>;
 
 /// A User ID and any associated signatures.
 ///
-/// [See the module level documentation.](index.html)
+/// [See the module level documentation.](self)
 pub type UserIDBundle = ComponentBundle<UserID>;
 
 /// A User Attribute and any associated signatures.
 ///
-/// [See the module level documentation.](index.html)
+/// [See the module level documentation.](self)
 pub type UserAttributeBundle = ComponentBundle<UserAttribute>;
 
 /// An unknown component and any associated signatures.
 ///
 /// Note: all signatures are stored as certifications.
 ///
-/// [See the module level documentation.](index.html)
+/// [See the module level documentation.](self)
 pub type UnknownBundle = ComponentBundle<Unknown>;
 
 
@@ -790,7 +789,7 @@ impl<P: key::KeyParts, R: key::KeyRole> ComponentBundle<Key<P, R>> {
     /// This is just a type-specific alias for
     /// [`ComponentBundle::component`].
     ///
-    /// [`ComponentBundle::component`]: #method.component
+    /// [`ComponentBundle::component`]: ComponentBundle::component()
     ///
     /// # Examples
     ///
@@ -871,7 +870,7 @@ impl ComponentBundle<UserID> {
     /// This is just a type-specific alias for
     /// [`ComponentBundle::component`].
     ///
-    /// [`ComponentBundle::component`]: #method.component
+    /// [`ComponentBundle::component`]: ComponentBundle::component()
     ///
     /// # Examples
     ///
@@ -946,7 +945,7 @@ impl ComponentBundle<UserAttribute> {
     /// This is just a type-specific alias for
     /// [`ComponentBundle::component`].
     ///
-    /// [`ComponentBundle::component`]: #method.component
+    /// [`ComponentBundle::component`]: ComponentBundle::component()
     ///
     /// # Examples
     ///
@@ -1017,7 +1016,7 @@ impl ComponentBundle<Unknown> {
     /// This is just a type-specific alias for
     /// [`ComponentBundle::component`].
     ///
-    /// [`ComponentBundle::component`]: #method.component
+    /// [`ComponentBundle::component`]: ComponentBundle::component()
     ///
     /// # Examples
     ///

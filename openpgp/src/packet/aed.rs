@@ -94,12 +94,12 @@ use crate::Result;
 /// using the [`PacketParser`].
 ///
 /// This feature is
-/// [experimental](../../index.html#experimental-features).  It has
+/// [experimental](super::super#experimental-features).  It has
 /// not been standardized and we advise users to not emit AED packets.
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
-/// [streaming serializer]: ../serialize/stream/index.html
-/// [`PacketParser`]: ../parse/index.html
+/// [streaming serializer]: super::serialize::stream
+/// [`PacketParser`]: super::parse
 ///
 /// # A note on equality
 ///

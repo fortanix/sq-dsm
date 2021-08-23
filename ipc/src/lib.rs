@@ -137,7 +137,7 @@ impl Descriptor {
     /// This will panic if called outside of the Tokio runtime context. See
     /// See [`Handle::enter`] for more details.
     ///
-    /// [`Handle::enter`]: https://docs.rs/tokio/0.2.22/tokio/runtime/struct.Handle.html#method.enter
+    /// [`Handle::enter`]: tokio::runtime::Handle::enter()
     pub fn connect(&self) -> Result<RpcSystem<Side>> {
         self.connect_with_policy(*self.ctx.ipc_policy())
     }
@@ -151,7 +151,7 @@ impl Descriptor {
     /// This will panic if called outside of the Tokio runtime context. See
     /// See [`Handle::enter`] for more details.
     ///
-    /// [`Handle::enter`]: https://docs.rs/tokio/0.2.22/tokio/runtime/struct.Handle.html#method.enter
+    /// [`Handle::enter`]: tokio::runtime::Handle::enter()
     pub fn connect_with_policy(&self, policy: core::IPCPolicy)
                    -> Result<RpcSystem<Side>> {
         let do_connect = |cookie: Cookie, mut s: TcpStream| {

@@ -99,7 +99,7 @@ impl UserAttribute {
     /// compromised, but not completely broken.  For more details,
     /// please refer to the documentation for [HashAlgoSecurity].
     ///
-    ///   [HashAlgoSecurity]: ../policy/enum.HashAlgoSecurity.html
+    ///   [HashAlgoSecurity]: super::policy::HashAlgoSecurity
     pub fn hash_algo_security(&self) -> HashAlgoSecurity {
         HashAlgoSecurity::CollisionResistance
     }
@@ -109,7 +109,7 @@ impl UserAttribute {
     /// Most likely you will want to use [`subpackets()`] to iterate
     /// over the subpackets.
     ///
-    /// [`subpackets()`]: #method.subpackets
+    /// [`subpackets()`]: UserAttribute::subpackets()
     pub fn value(&self) -> &[u8] {
         self.value.as_slice()
     }

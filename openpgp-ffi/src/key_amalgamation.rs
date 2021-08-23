@@ -3,7 +3,7 @@
 //!
 //! Wraps [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`].
 //!
-//! [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`]: ../../../sequoia_openpgp/cert/key_amalgamation/struct.KeyAmalgamation.html
+//! [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`]: super::super::super::sequoia_openpgp::cert::key_amalgamation::KeyAmalgamation
 
 use std::slice;
 use libc::{size_t, time_t};
@@ -35,7 +35,7 @@ type ErasedKeyAmalgamation<'a> =
 ///
 /// Wraps [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`].
 ///
-/// [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`]: ../../../sequoia_openpgp/cert/key_amalgamation/struct.KeyAmalgamation.html
+/// [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`]: super::super::super::sequoia_openpgp::cert::key_amalgamation::KeyAmalgamation
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug")]
 pub struct KeyAmalgamation<'a>(ErasedKeyAmalgamation<'a>);
@@ -60,7 +60,7 @@ pub extern "C" fn pgp_key_amalgamation_key<'a>(ka: *const KeyAmalgamation<'a>)
 ///
 /// Wraps [`sequoia-openpgp::cert::key_amalgamation::ValidKeyAmalgamation`].
 ///
-/// [`sequoia-openpgp::cert::key_amalgamation::ValidKeyAmalgamation`]: ../../../sequoia_openpgp/cert/key_amalgamation/struct.ValidKeyAmalgamation.html
+/// [`sequoia-openpgp::cert::key_amalgamation::ValidKeyAmalgamation`]: super::super::super::sequoia_openpgp::cert::key_amalgamation::ValidKeyAmalgamation
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug")]
 pub struct ValidKeyAmalgamation<'a>(ValidErasedKeyAmalgamation<'a>);

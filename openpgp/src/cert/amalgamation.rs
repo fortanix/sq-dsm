@@ -209,20 +209,18 @@
 //! # Ok(()) }
 //! ```
 //!
-//! [`ComponentBundle`]: ../bundle/index.html
-//! [`Signature`]: ../../packet/signature/index.html
-//! [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
-//! [`Cert`]: ../index.html
+//! [`ComponentBundle`]: super::bundle
+//! [`Signature`]: super::super::packet::signature
+//! [`Cert`]: super
 //! [is supposed to]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-//! [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-//! [`std::iter::map`]: https://doc.rust-lang.org/std/iter/struct.Map.html
+//! [`std::iter::map`]: std::iter::Map
 //! [MD5 collisions]: https://en.wikipedia.org/wiki/MD5
-//! [`Policy`]: ../../policy/index.html
+//! [`Policy`]: super::super::policy
 //! [streaming verifier]: ../../parse/stream.html
 //! [Intended Recipients]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
 //! [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-//! [`Deref` trait]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
-//! [`ComponentAmalgamation::component`]: struct.ComponentAmalgamation.html#method.component
+//! [`Deref` trait]: std::ops::Deref
+//! [`ComponentAmalgamation::component`]: ComponentAmalgamation::component()
 use std::time;
 use std::time::SystemTime;
 use std::clone::Clone;
@@ -317,18 +315,12 @@ pub mod key;
 /// # }
 /// ```
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub trait ValidateAmalgamation<'a, C: 'a>: seal::Sealed {
     /// The type returned by `with_policy`.
     ///
     /// This is either a [`ValidComponentAmalgamation`] or
     /// a [`ValidKeyAmalgamation`].
     ///
-    /// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-    /// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
     type V;
 
     /// Uses the specified `Policy` and reference time with the amalgamation.
@@ -689,15 +681,13 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 /// # }
 /// ```
 ///
-/// [`Cert`]: ../struct.Cert.html
-/// [`Cert::userids`]: ../struct.Cert.html#method.userids
-/// [`Cert::primary_userid`]: ../struct.Cert.html#method.primary_userid
-/// [`Cert::user_attributes`]: ../struct.Cert.html#method.user_attributes
-/// [`Cert::unknowns`]: ../struct.Cert.html#method.unknown
-/// [`ValidateAmalgamation`]: trait.ValidateAmalgamation.html
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-/// [`ComponentAmalgamation::with_policy`]: trait.ValidateAmalgamation.html#method.with_policy
-/// [See the module's documentation]: index.html
+/// [`Cert`]: super::Cert
+/// [`Cert::userids`]: super::Cert::userids()
+/// [`Cert::primary_userid`]: super::Cert::primary_userid()
+/// [`Cert::user_attributes`]: super::Cert::user_attributes()
+/// [`Cert::unknowns`]: super::Cert::unknown()
+/// [`ComponentAmalgamation::with_policy`]: ValidateAmalgamation::with_policy()
+/// [See the module's documentation]: self
 #[derive(Debug, PartialEq)]
 pub struct ComponentAmalgamation<'a, C> {
     cert: &'a Cert,
@@ -709,14 +699,12 @@ assert_send_and_sync!(ComponentAmalgamation<'_, C> where C);
 ///
 /// A specialized version of [`ComponentAmalgamation`].
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
 pub type UserIDAmalgamation<'a> = ComponentAmalgamation<'a, UserID>;
 
 /// A User Attribute and its associated data.
 ///
 /// A specialized version of [`ComponentAmalgamation`].
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
 pub type UserAttributeAmalgamation<'a>
     = ComponentAmalgamation<'a, UserAttribute>;
 
@@ -724,7 +712,6 @@ pub type UserAttributeAmalgamation<'a>
 ///
 /// A specialized version of [`ComponentAmalgamation`].
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
 pub type UnknownComponentAmalgamation<'a>
     = ComponentAmalgamation<'a, Unknown>;
 
@@ -802,7 +789,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// lifetime, which is helpful when returning the reference from a
     /// function.  [See the module's documentation] for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     ///
     /// # Examples
     ///
@@ -844,7 +831,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// reference from a function.  [See the module's documentation]
     /// for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     pub fn component(&self) -> &'a C {
         self.bundle().component()
     }
@@ -932,7 +919,7 @@ impl<'a> UserIDAmalgamation<'a> {
     /// reference from a function.  [See the module's documentation]
     /// for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     pub fn userid(&self) -> &'a UserID {
         self.component()
     }
@@ -1030,7 +1017,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
     /// returning the reference from a function.  [See the module's
     /// documentation] for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     pub fn user_attribute(&self) -> &'a UserAttribute {
         self.component()
     }
@@ -1053,7 +1040,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
     ///
     /// See [`UserIDAmalgamation::attest_certifications#examples`].
     ///
-    ///   [`UserIDAmalgamation::attest_certifications#examples`]: type.UserIDAmalgamation.html#examples
+    ///   [`UserIDAmalgamation::attest_certifications#examples`]: UserIDAmalgamation#examples
     // The explicit link works around a bug in rustdoc.
     pub fn attest_certifications<C, S>(&self,
                                        policy: &dyn Policy,
@@ -1244,11 +1231,7 @@ where C: IntoIterator<Item = S>,
 /// # Ok(()) }
 /// ```
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
-/// [`Policy`]: ../../policy/index.html
-/// [`ValidAmalgamation`]: trait.ValidAmalgamation.html
-/// [`ValidateAmalgamation::with_policy`]: trait.ValidateAmalgamation.html#tymethod.with_policy
-/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
+/// [`Policy`]: super::super::policy
 #[derive(Debug)]
 pub struct ValidComponentAmalgamation<'a, C> {
     ca: ComponentAmalgamation<'a, C>,
@@ -1262,7 +1245,6 @@ assert_send_and_sync!(ValidComponentAmalgamation<'_, C> where C);
 ///
 /// A specialized version of [`ValidComponentAmalgamation`].
 ///
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 pub type ValidUserIDAmalgamation<'a> = ValidComponentAmalgamation<'a, UserID>;
 
 impl<'a> ValidUserIDAmalgamation<'a> {
@@ -1324,7 +1306,7 @@ impl<'a> ValidUserIDAmalgamation<'a> {
     /// [`ValidUserIDAmalgamation::attested_certifications`] to
     /// iterate over all attested certifications.
     ///
-    ///   [`ValidUserIDAmalgamation::attested_certifications`]: #method.attested_certifications
+    ///   [`ValidUserIDAmalgamation::attested_certifications`]: ValidUserIDAmalgamation::attested_certifications()
     // The explicit link works around a bug in rustdoc.
     pub fn attestation_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync
@@ -1433,7 +1415,6 @@ impl<'a> ValidUserIDAmalgamation<'a> {
 ///
 /// A specialized version of [`ValidComponentAmalgamation`].
 ///
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 pub type ValidUserAttributeAmalgamation<'a>
     = ValidComponentAmalgamation<'a, UserAttribute>;
 
@@ -1496,7 +1477,7 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
     /// [`ValidUserAttributeAmalgamation::attested_certifications`] to
     /// iterate over all attested certifications.
     ///
-    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: #method.attested_certifications
+    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: ValidUserAttributeAmalgamation::attested_certifications()
     // The explicit link works around a bug in rustdoc.
     pub fn attestation_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync
@@ -1545,7 +1526,7 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
     ///
     /// See [`ValidUserIDAmalgamation::attest_certifications#examples`].
     ///
-    ///   [`ValidUserIDAmalgamation::attest_certifications#examples`]: type.ValidUserIDAmalgamation.html#examples
+    ///   [`ValidUserIDAmalgamation::attest_certifications#examples`]: ValidUserIDAmalgamation#examples
     // The explicit link works around a bug in rustdoc.
     pub fn attest_certifications<C, S>(&self,
                                        primary_signer: &mut dyn Signer,

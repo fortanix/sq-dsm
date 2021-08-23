@@ -1,8 +1,8 @@
 //! Hold the implementation of [`Signer`] and [`Decryptor`] for [`KeyPair`].
 //!
-//! [`Signer`]: ../../asymmetric/trait.Signer.html
-//! [`Decryptor`]: ../../asymmetric/trait.Decryptor.html
-//! [`KeyPair`]: ../../asymmetric/struct.KeyPair.html
+//! [`Signer`]: super::super::asymmetric::Signer
+//! [`Decryptor`]: super::super::asymmetric::Decryptor
+//! [`KeyPair`]: super::super::asymmetric::KeyPair
 
 use nettle::{curve25519, ecc, ecdh, ecdsa, ed25519, dsa, rsa, random::Yarrow};
 

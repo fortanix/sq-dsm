@@ -25,7 +25,7 @@ use crate::types::Bitfield;
 /// semantic equality and serialized equality is that semantic
 /// equality ignores differences in the amount of padding.
 ///
-///   [`KeyServerPreferences::normalized_eq`]: #method.normalized_eq
+///   [`KeyServerPreferences::normalized_eq`]: KeyServerPreferences::normalized_eq()
 ///
 /// # Examples
 ///
@@ -229,7 +229,7 @@ impl KeyServerPreferences {
     ///
     /// See [`KeyServerPreferences::no_modify`].
     ///
-    ///   [`KeyServerPreferences::no_modify`]: #method.no_modify
+    ///   [`KeyServerPreferences::no_modify`]: KeyServerPreferences::no_modify()
     ///
     /// # Examples
     ///
@@ -250,7 +250,7 @@ impl KeyServerPreferences {
     ///
     /// See [`KeyServerPreferences::no_modify`].
     ///
-    ///   [`KeyServerPreferences::no_modify`]: #method.no_modify
+    ///   [`KeyServerPreferences::no_modify`]: KeyServerPreferences::no_modify()
     ///
     /// # Examples
     ///

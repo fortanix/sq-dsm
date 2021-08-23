@@ -38,12 +38,12 @@
 //! use [`Box::into_raw(..)`].  From this moment on, ownership must be
 //! managed by the C application.
 //!
-//! [`Box::into_raw(..)`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.into_raw
+//! [`Box::into_raw(..)`]: std::boxed::Box::into_raw()
 //!
 //! To transfer ownership from C to Rust, we re-create the box using
 //! [`Box::from_raw(..)`].
 //!
-//! [`Box::from_raw(..)`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw
+//! [`Box::from_raw(..)`]: std::boxed::Box::from_raw()
 //!
 //! In this crate we use a series of macros to transfer ownership from
 //! Rust to C.  `fry_box` matches on `Result<T>`, handling errors by

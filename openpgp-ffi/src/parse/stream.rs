@@ -8,7 +8,7 @@
 //! Wraps the streaming parsing functions, see
 //! [`sequoia-openpgp::parse::stream`].
 //!
-//! [`sequoia-openpgp::parse::stream`]: ../../../../sequoia_openpgp/parse/stream/index.html
+//! [`sequoia-openpgp::parse::stream`]: super::super::super::super::sequoia_openpgp::parse::stream
 
 use std::ptr;
 use std::sync::Mutex;
@@ -670,7 +670,7 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 ///
 /// Wraps [`sequoia-openpgp::parse::stream::DetachedVerifier`].
 ///
-///   [`sequoia-openpgp::parse::stream::DetachedVerifier`]: ../../../../sequoia_openpgp/parse/stream/struct.DetachedVerifier.html
+///   [`sequoia-openpgp::parse::stream::DetachedVerifier`]: super::super::super::super::sequoia_openpgp::parse::stream::DetachedVerifier
 #[crate::ffi_wrapper_type(prefix = "pgp_")]
 pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VHelper>);
 

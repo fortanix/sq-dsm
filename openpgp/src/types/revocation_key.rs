@@ -20,8 +20,8 @@ use crate::{
 /// Revocation keys can be retrieved using [`ComponentAmalgamation::revocation_keys`]
 /// and set using [`CertBuilder::set_revocation_keys`].
 ///
-/// [`ComponentAmalgamation::revocation_keys`]: ../cert/amalgamation/struct.ComponentAmalgamation.html#method.revocation_keys
-/// [`CertBuilder::set_revocation_keys`]: ../cert/struct.CertBuilder.html#method.set_revocation_keys
+/// [`ComponentAmalgamation::revocation_keys`]: super::cert::amalgamation::ComponentAmalgamation::revocation_keys()
+/// [`CertBuilder::set_revocation_keys`]: super::cert::CertBuilder::set_revocation_keys()
 ///
 /// # Examples
 ///

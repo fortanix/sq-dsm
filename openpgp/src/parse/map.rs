@@ -72,7 +72,6 @@ impl Map {
     ///
     /// Returns references to [`Field`]s.
     ///
-    ///  [`Field`]: struct.Field.html
     ///
     /// # Examples
     ///
@@ -102,9 +101,9 @@ impl Map {
 /// (e.g. "CTB", or "version"), an [`offset`] into the packet, and the
 /// read [`data`].
 ///
-///   [`name`]: #method.name
-///   [`offset`]: #method.offset
-///   [`data`]: #method.data
+///   [`name`]: Field::name()
+///   [`offset`]: Field::offset()
+///   [`data`]: Field::data()
 #[derive(Clone, Debug)]
 pub struct Field<'a> {
     /// Name of the field.

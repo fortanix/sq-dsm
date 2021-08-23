@@ -16,7 +16,7 @@ pub mod symmetric;
 /// cryptographic keys from.  However, to create session keys,
 /// consider using [`SessionKey::new`].
 ///
-///   [`SessionKey::new`]: struct.SessionKey.html#method.new
+///   [`SessionKey::new`]: SessionKey::new()
 pub fn random<B: AsMut<[u8]>>(mut buf: B) {
     Yarrow::default().random(buf.as_mut());
 }

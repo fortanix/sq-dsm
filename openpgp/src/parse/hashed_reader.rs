@@ -357,7 +357,7 @@ impl<R: BufferedReader<Cookie>>
 /// This can be used to verify detached signatures.  For a more
 /// convenient method, see [`DetachedVerifier`].
 ///
-///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
+///  [`DetachedVerifier`]: super::parse::stream::DetachedVerifier
 pub(crate) fn hash_buffered_reader<R>(reader: R,
                                       algos: &[HashingMode<HashAlgorithm>])
     -> Result<Vec<HashingMode<Box<dyn crate::crypto::hash::Digest>>>>

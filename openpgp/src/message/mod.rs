@@ -344,7 +344,7 @@ impl<'a> Parse<'a, Message> for Message {
     ///
     /// See [`Message::try_from`] for more details.
     ///
-    ///   [`Message::try_from`]: #method.try_from
+    ///   [`Message::try_from`]: Message::try_from()
     fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<Self> {
         Self::try_from(PacketPile::from_reader(reader)?)
     }
@@ -353,7 +353,7 @@ impl<'a> Parse<'a, Message> for Message {
     ///
     /// See [`Message::try_from`] for more details.
     ///
-    ///   [`Message::try_from`]: #method.try_from
+    ///   [`Message::try_from`]: Message::try_from()
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         Self::try_from(PacketPile::from_file(path)?)
     }
@@ -362,7 +362,7 @@ impl<'a> Parse<'a, Message> for Message {
     ///
     /// See [`Message::try_from`] for more details.
     ///
-    ///   [`Message::try_from`]: #method.try_from
+    ///   [`Message::try_from`]: Message::try_from()
     fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<Self> {
         Self::try_from(PacketPile::from_bytes(data)?)
     }
@@ -481,7 +481,7 @@ impl TryFrom<Vec<Packet>> for Message {
     ///
     /// See [`Message::try_from`] for more details.
     ///
-    ///   [`Message::try_from`]: #method.try_from
+    ///   [`Message::try_from`]: Message::try_from()
     fn try_from(packets: Vec<Packet>) -> Result<Self> {
         Self::try_from(PacketPile::from(packets))
     }

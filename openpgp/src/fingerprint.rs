@@ -23,9 +23,7 @@ use quickcheck::{Arbitrary, Gen};
 ///
 ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-///   [`KeyID`]: ./enum.KeyID.html
-///   [`KeyHandle`]: ./enum.KeyHandle.html
-///   [`IssuerFingerprint`]: ./packet/signature/subpacket/enum.SubpacketValue.html#variant.IssuerFingerprint
+///   [`IssuerFingerprint`]: packet::signature::subpacket::SubpacketValue::IssuerFingerprint
 ///   [birthday attack]: https://nullprogram.com/blog/2019/07/22/
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
@@ -187,7 +185,7 @@ impl Fingerprint {
     ///
     /// See also [`Fingerprint::to_icao`].
     ///
-    ///   [`Fingerprint::to_icao`]: #method.to_icao
+    ///   [`Fingerprint::to_icao`]: Fingerprint::to_icao()
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {

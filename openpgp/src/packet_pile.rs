@@ -39,7 +39,7 @@ use crate::parse::Cookie;
 ///
 /// This example shows how to modify packets in PacketPile using [`pathspec`]s.
 ///
-///   [`pathspec`]: struct.PacketPile.html#method.path_ref
+///   [`pathspec`]: PacketPile::path_ref()
 ///
 /// ```rust
 /// # use sequoia_openpgp as openpgp;

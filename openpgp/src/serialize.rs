@@ -16,9 +16,7 @@
 //! trait.  Otherwise, please use our [streaming serialization
 //! interface].
 //!
-//!   [`Serialize`]: trait.Serialize.html
-//!   [`SerializeInto`]: trait.SerializeInto.html
-//!   [streaming serialization interface]: stream/index.html
+//!   [streaming serialization interface]: stream
 //!
 //! # Streaming serialization
 //!
@@ -65,7 +63,7 @@
 //! provides a convenient method to create byte vectors with the
 //! serialized form.
 //!
-//!   [`io::Write`]: https://doc.rust-lang.org/nightly/std/io/trait.Write.html
+//!   [`io::Write`]: std::io::Write
 //!
 //! To prevent accidentally serializing data structures that are not
 //! commonly exchanged between OpenPGP implementations, [`Serialize`]
@@ -73,10 +71,10 @@
 //! [`Packet`], [`Cert`], and [`Message`], but not for packet bodies
 //! like [`Signature`].
 //!
-//!   [`Packet`]: ../enum.Packet.html
-//!   [`Cert`]: ../struct.Cert.html
-//!   [`Message`]: ../struct.Message.html
-//!   [`Signature`]: ../packet/enum.Signature.html
+//!   [`Packet`]: super::Packet
+//!   [`Cert`]: super::Cert
+//!   [`Message`]: super::Message
+//!   [`Signature`]: super::packet::Signature
 //!
 //! This example demonstrates how to serialize a literal data packet
 //! (see [Section 5.9 of RFC 4880]):
@@ -111,8 +109,6 @@
 //! not commonly interchanged between OpenPGP implementations.  For
 //! example, it allows the serialization of unframed packet bodies:
 //!
-//!   [`Marshal`]: trait.Marshal.html
-//!   [`MarshalInto`]: trait.MarshalInto.html
 //!
 //! ```
 //! # fn main() -> sequoia_openpgp::Result<()> {
@@ -171,7 +167,6 @@ const TRACE : bool = false;
 /// fact, it is just a wrapper around that trait), but only data
 /// structures that it makes sense to export implement it.
 ///
-///   [`Marshal`]: trait.Marshal.html
 ///
 /// Having a separate trait for data structures that it makes sense to
 /// export avoids an easy-to-make and hard-to-debug bug: inadvertently
@@ -250,9 +245,9 @@ pub trait Serialize : Marshal {
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
-    ///   [`serialize(..)`]: #tymethod.serialize
-    ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`Cert`]: ../struct.Cert.html
+    ///   [`serialize(..)`]: Serialize::serialize
+    ///   [`Signature`]: super::packet::Signature
+    ///   [`Cert`]: super::Cert
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         Marshal::export(self, o)
     }
@@ -263,7 +258,6 @@ pub trait Serialize : Marshal {
 /// This trait provides the same interface as [`Serialize`], but is
 /// implemented for all data structures that can be serialized.
 ///
-///   [`Serialize`]: trait.Serialize.html
 ///
 /// In general, you should prefer the [`Serialize`] trait, as it is only
 /// implemented for data structures that are normally exported.  See
@@ -291,9 +285,9 @@ pub trait Marshal: seal::Sealed {
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
-    ///   [`serialize(..)`]: #tymethod.serialize
-    ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`Cert`]: ../struct.Cert.html
+    ///   [`serialize(..)`]: Marshal::serialize
+    ///   [`Signature`]: super::packet::Signature
+    ///   [`Cert`]: super::Cert
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.serialize(o)
     }
@@ -304,13 +298,11 @@ pub trait Marshal: seal::Sealed {
 /// This trait provides the same interface as [`MarshalInto`], but is
 /// only implemented for data structures that can be serialized.
 ///
-///   [`MarshalInto`]: trait.MarshalInto.html
 ///
 /// In general, you should prefer this trait to [`MarshalInto`], as it
 /// is only implemented for data structures that are normally
 /// exported.  See the documentation for [`Serialize`] for more details.
 ///
-///   [`Serialize`]: trait.Serialize.html
 pub trait SerializeInto : MarshalInto {
     /// Computes the maximal length of the serialized representation.
     ///
@@ -351,9 +343,9 @@ pub trait SerializeInto : MarshalInto {
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
-    ///   [`serialize_into(..)`]: #tymethod.serialize_into
-    ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`Cert`]: ../struct.Cert.html
+    ///   [`serialize_into(..)`]: SerializeInto::serialize_into
+    ///   [`Signature`]: super::packet::Signature
+    ///   [`Cert`]: super::Cert
     ///
     /// Returns the length of the serialized representation.
     ///
@@ -376,9 +368,9 @@ pub trait SerializeInto : MarshalInto {
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
-    ///   [`to_vec()`]: #method.to_vec
-    ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`Cert`]: ../struct.Cert.html
+    ///   [`to_vec()`]: SerializeInto::to_vec()
+    ///   [`Signature`]: super::packet::Signature
+    ///   [`Cert`]: super::Cert
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         MarshalInto::export_to_vec(self)
     }
@@ -389,13 +381,11 @@ pub trait SerializeInto : MarshalInto {
 /// This trait provides the same interface as [`SerializeInto`], but is
 /// implemented for all data structures that can be serialized.
 ///
-///   [`SerializeInto`]: trait.SerializeInto.html
 ///
 /// In general, you should prefer the [`SerializeInto`] trait, as it is
 /// only implemented for data structures that are normally exported.
 /// See the documentation for [`Serialize`] for more details.
 ///
-///   [`Serialize`]: trait.Serialize.html
 ///
 /// # Sealed trait
 ///
@@ -445,9 +435,9 @@ pub trait MarshalInto : seal::Sealed {
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
-    ///   [`serialize_into(..)`]: #tymethod.serialize_into
-    ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`Cert`]: ../struct.Cert.html
+    ///   [`serialize_into(..)`]: MarshalInto::serialize_into
+    ///   [`Signature`]: super::packet::Signature
+    ///   [`Cert`]: super::Cert
     ///
     /// Returns the length of the serialized representation.
     ///
@@ -470,9 +460,9 @@ pub trait MarshalInto : seal::Sealed {
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
-    ///   [`to_vec()`]: #method.to_vec
-    ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`Cert`]: ../struct.Cert.html
+    ///   [`to_vec()`]: MarshalInto::to_vec()
+    ///   [`Signature`]: super::packet::Signature
+    ///   [`Cert`]: super::Cert
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         let mut o = vec![0; self.serialized_len()];
         let len = self.export_into(&mut o[..])?;
@@ -654,9 +644,8 @@ impl Marshal for BodyLength {
     /// [`BodyLength::Indeterminate`].  If you want to serialize an
     /// old-style length, use [`serialize_old(..)`].
     ///
-    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
-    /// [`BodyLength::Indeterminate`]: #variant.Indeterminate
-    /// [`serialize_old(..)`]: #method.serialize_old
+    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
+    /// [`serialize_old(..)`]: BodyLength::serialize_old()
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &BodyLength::Full(l) => {
@@ -732,8 +721,7 @@ impl BodyLength {
     /// [`BodyLength::Partial`].  If you want to serialize a
     /// new-style length, use [`serialize(..)`].
     ///
-    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
-    /// [`BodyLength::Partial`]: #variant.Partial
+    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
     /// [`serialize(..)`]: #impl-Serialize
     pub fn serialize_old<W: io::Write>(&self, o: &mut W) -> Result<()> {
         // Assume an optimal encoding is desired.
@@ -1649,7 +1637,7 @@ impl Marshal for Signature4 {
     /// Returns [`Error::InvalidArgument`] if either the hashed-area
     /// or the unhashed-area exceeds the size limit of 2^16.
     ///
-    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         assert_eq!(self.version(), 4);
         write_byte(o, self.version())?;
@@ -2694,8 +2682,8 @@ impl MarshalInto for Packet {
 /// bodies (like [`packet::Signature`]) encapsulating them in OpenPGP
 /// frames.
 ///
-/// [`openpgp::Packet`]: ../enum.Packet.html
-/// [`packet::Signature`]: ../packet/enum.Signature.html
+/// [`openpgp::Packet`]: super::Packet
+/// [`packet::Signature`]: super::packet::Signature
 #[allow(dead_code)]
 enum PacketRef<'a> {
     /// Unknown packet.

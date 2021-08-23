@@ -2,7 +2,7 @@
 //!
 //! Wraps [`sequoia-openpgp::serialize::TSK`].
 //!
-//! [`sequoia-openpgp::serialize::TSK`]: ../../../sequoia_openpgp/serialize/struct.TSK.html
+//! [`sequoia-openpgp::serialize::TSK`]: super::super::super::sequoia_openpgp::serialize::TSK
 
 use sequoia_openpgp as openpgp;
 
@@ -15,6 +15,6 @@ use sequoia_openpgp as openpgp;
 ///
 /// Wraps [`sequoia-openpgp::serialize::TSK`].
 ///
-/// [`sequoia-openpgp::serialize::TSK`]: ../../../sequoia_openpgp/serialize/struct.TSK.html
+/// [`sequoia-openpgp::serialize::TSK`]: super::super::super::sequoia_openpgp::serialize::TSK
 #[crate::ffi_wrapper_type(prefix = "pgp_", name = "tsk", derive = "Serialize")]
 pub struct TSK<'a>(openpgp::serialize::TSK<'a>);

@@ -68,12 +68,12 @@ impl Header {
     ///   - The lengths are unreasonable for a packet (e.g., a
     ///     `PKESK` or [`SKESK`] larger than 10 KB).
     ///
-    /// [`Tag::Reserved`]: ../enum.Tag.html#variant.Reserved
-    /// [`Tag::Unknown`]: ../enum.Tag.html#variant.Unknown
-    /// [`Tag::Private`]: ../enum.Tag.html#variant.Private
+    /// [`Tag::Reserved`]: super::Tag::Reserved
+    /// [`Tag::Unknown`]: super::Tag::Unknown
+    /// [`Tag::Private`]: super::Tag::Private
     /// [length encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
-    /// [`PKESK`]: ../enum.PKESK.html
-    /// [`SKESK`]: ../enum.SKESK.html
+    /// [`PKESK`]: super::PKESK
+    /// [`SKESK`]: super::SKESK
     // Note: To check the packet's content, use
     //       `PacketParser::plausible`.
     pub fn valid(&self, future_compatible: bool) -> Result<()> {
