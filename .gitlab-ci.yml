@@ -200,6 +200,19 @@ codespell:
     - $MAKE_TOP codespell CODESPELL_FLAGS=--summary
   after_script: []
 
+doc:
+  tags:
+    - linux
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild:latest
+  script:
+    - cargo doc --no-deps
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+  after_script: []
+
 rust-stable:
   tags:
     - linux
