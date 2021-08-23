@@ -20,7 +20,7 @@ build-bullseye:
     - linux
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
-  dependencies:
+  needs:
     - codespell
   script:
     - cargo run --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-nettle,compression --example supported-algorithms
@@ -39,7 +39,7 @@ build-bullseye:arm64:
     - docker-arm64
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
-  dependencies:
+  needs:
     - codespell
   when: manual
   only:
@@ -62,7 +62,7 @@ bullseye:
     - linux
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
-  dependencies:
+  needs:
     - codespell
   script:
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind $MAKE_TOP test
@@ -105,7 +105,7 @@ bullseye:arm64:
   when: manual
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
-  dependencies:
+  needs:
     - codespell
   script:
     # valgrind reports a false positive, see !1035. Run the tests without it for now.
