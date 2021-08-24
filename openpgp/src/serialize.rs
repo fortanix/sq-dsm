@@ -330,7 +330,7 @@ pub trait SerializeInto : MarshalInto {
     ///
     /// If the length of the given slice is smaller than the maximal
     /// length computed by `serialized_len()`, this function returns
-    /// `Error::InvalidArgument`.
+    /// [`Error::InvalidArgument`].
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         MarshalInto::serialize_into(self, buf)
     }
@@ -361,7 +361,7 @@ pub trait SerializeInto : MarshalInto {
     ///
     /// If the length of the given slice is smaller than the maximal
     /// length computed by `serialized_len()`, this function returns
-    /// `Error::InvalidArgument`.
+    /// [`Error::InvalidArgument`].
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         MarshalInto::export_into(self, buf)
     }
@@ -422,7 +422,7 @@ pub trait MarshalInto : seal::Sealed {
     ///
     /// If the length of the given slice is smaller than the maximal
     /// length computed by `serialized_len()`, this function returns
-    /// `Error::InvalidArgument`.
+    /// [`Error::InvalidArgument`].
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize>;
 
     /// Serializes the packet to a vector.
@@ -455,7 +455,7 @@ pub trait MarshalInto : seal::Sealed {
     ///
     /// If the length of the given slice is smaller than the maximal
     /// length computed by `serialized_len()`, this function returns
-    /// `Error::InvalidArgument`.
+    /// [`Error::InvalidArgument`].
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         self.serialize_into(buf)
     }
