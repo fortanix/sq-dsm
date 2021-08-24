@@ -44,8 +44,8 @@ use crate::{
 ///
 /// A `KeyAmalgamationIter` is returned by [`Cert::keys`].
 ///
-/// [`ComponentAmalgamationIter`]: super::ComponentAmalgamationIter
-/// [module documentation]: self
+/// [`ComponentAmalgamationIter`]: super::super::ComponentAmalgamationIter
+/// [module documentation]: super
 /// [`KeyAmalgamationIter::with_policy`]: super::ValidateAmalgamation
 /// [`KeyAmalgamationIter::secret`]: KeyAmalgamationIter::secret()
 /// [`KeyAmalgamationIter::unencrypted_secret`]: KeyAmalgamationIter::unencrypted_secret()
@@ -622,7 +622,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 /// # }
 /// ```
 ///
-/// [`Policy`]: super::super::super::policy::Policy
+/// [`Policy`]: crate::policy::Policy
 /// [`ValidateAmalgamation`]: super::ValidateAmalgamation
 /// [`ValidKeyAmalgamationIter::revoked`]: ValidKeyAmalgamationIter::revoked()
 /// [`ValidKeyAmalgamationIter::alive`]: ValidKeyAmalgamationIter::alive()
@@ -1226,7 +1226,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`key_alive`]: super::super::super::packet::signature::subpacket::SubpacketAreas::key_alive()
+    /// [`key_alive`]: crate::packet::signature::subpacket::SubpacketAreas::key_alive()
     pub fn alive(mut self) -> Self
     {
         self.alive = Some(());

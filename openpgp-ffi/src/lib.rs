@@ -70,7 +70,7 @@
 //! closely resembles this crate.
 //!
 //! [The Rules]: #the-rules
-//! [corresponding Rust crate]: super::sequoia_openpgp
+//! [corresponding Rust crate]: sequoia_openpgp
 //!
 //!
 //! # Examples

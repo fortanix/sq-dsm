@@ -14,7 +14,7 @@
 //! Sequoia updates keys in compliance with the [network policy] used
 //! to create the mapping.
 //!
-//! [network policy]: super::sequoia_net::Policy
+//! [network policy]: sequoia_net::Policy
 //!
 //! # Examples
 //!

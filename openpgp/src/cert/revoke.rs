@@ -523,7 +523,7 @@ impl TryFrom<signature::SignatureBuilder> for SubkeyRevocationBuilder {
 /// Semantically, such a revocation certificate is currently
 /// meaningless.
 ///
-/// [User ID]: super::packet::UserID
+/// [User ID]: crate::packet::UserID
 /// [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 ///
 /// # Examples
@@ -607,8 +607,8 @@ impl UserIDRevocationBuilder {
     /// IDs.  This parameter is not fixed, however, to allow the use
     /// of the [private name space].
     ///
-    /// [`ReasonForRevocation::UIDRetired`]: super::types::ReasonForRevocation::UIDRetired
-    /// [private name space]: super::types::ReasonForRevocation::Private
+    /// [`ReasonForRevocation::UIDRetired`]: crate::types::ReasonForRevocation::UIDRetired
+    /// [private name space]: crate::types::ReasonForRevocation::Private
     ///
     ///
     /// # Examples
@@ -776,7 +776,7 @@ impl TryFrom<signature::SignatureBuilder> for UserIDRevocationBuilder {
 /// `A`.  Semantically, such a revocation certificate is currently
 /// meaningless.
 ///
-/// [User Attribute]: super::packet::user_attribute
+/// [User Attribute]: crate::packet::user_attribute
 /// [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 ///
 /// # Examples
@@ -867,8 +867,8 @@ impl UserAttributeRevocationBuilder {
     /// Attributes.  This parameter is not fixed, however, to allow
     /// the use of the [private name space].
     ///
-    /// [`ReasonForRevocation::UIDRetired`]: super::types::ReasonForRevocation::UIDRetired
-    /// [private name space]: super::types::ReasonForRevocation::Private
+    /// [`ReasonForRevocation::UIDRetired`]: crate::types::ReasonForRevocation::UIDRetired
+    /// [private name space]: crate::types::ReasonForRevocation::Private
     ///
     /// # Examples
     ///

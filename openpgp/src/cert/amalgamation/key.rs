@@ -237,12 +237,12 @@
 //! ```
 //!
 //! [`ComponentAmalgamation`]: super::ComponentAmalgamation
-//! [`Key`]: super::super::super::packet::key
+//! [`Key`]: crate::packet::key
 //! [`Cert::keys`]: super::super::Cert::keys()
 //! [`PrimaryKeyAmalgamation`]: super::PrimaryKeyAmalgamation
 //! [`SubordinateKeyAmalgamation`]: super::SubordinateKeyAmalgamation
 //! [`ErasedKeyAmalgamation`]: super::ErasedKeyAmalgamation
-//! [`KeyRole::UnspecifiedRole`]: super::super::super::packet::key::KeyRole
+//! [`KeyRole::UnspecifiedRole`]: crate::packet::key::KeyRole
 //! [`Policy` discussion]: super
 //! [This discussion]: https://crypto.stackexchange.com/a/12138
 use std::time;
@@ -432,8 +432,8 @@ pub trait PrimaryKey<'a, P, R>: seal::Sealed
 ///
 /// [`ComponentAmalgamation`]: super::ComponentAmalgamation
 /// [see the module's documentation]: self
-/// [`Cert::primary_key`]: super::super::super::cert::Cert::primary_key()
-/// [`Cert::keys`]: super::super::super::cert::Cert::keys()
+/// [`Cert::primary_key`]: crate::cert::Cert::primary_key()
+/// [`Cert::keys`]: crate::cert::Cert::keys()
 /// [`ValidateAmalgamation`]: super::ValidateAmalgamation
 /// [`KeyAmalgamation::with_policy`]: super::ValidateAmalgamation::with_policy()
 #[derive(Debug)]
@@ -492,7 +492,7 @@ pub type SubordinateKeyAmalgamation<'a, P>
 /// to the type system.  For details, see the [module-level
 /// documentation].
 ///
-/// [`Key`]: super::super::super::packet::key
+/// [`Key`]: crate::packet::key
 /// [`KeyBundle`]: super::super::bundle
 /// [module-level documentation]: self
 pub type ErasedKeyAmalgamation<'a, P>
@@ -915,7 +915,7 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
 ///
 /// [`ValidComponentAmalgamation`]: super::ValidComponentAmalgamation
 /// [`ComponentAmalgamation`]: super::ComponentAmalgamation
-/// [`Policy`]: super::super::super::policy
+/// [`Policy`]: crate::policy::Policy
 /// [`ValidAmalgamation`]: super::ValidAmalgamation
 /// [`ValidAmalgamation::binding_signature`]: super::ValidAmalgamation::binding_signature()
 /// [`ValidateAmalgamation::with_policy`]: super::ValidateAmalgamation::with_policy
@@ -1308,7 +1308,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// For a definition of liveness, see the [`key_alive`] method.
     ///
-    /// [`key_alive`]: super::super::super::packet::signature::subpacket::SubpacketAreas::key_alive()
+    /// [`key_alive`]: crate::packet::signature::subpacket::SubpacketAreas::key_alive()
     ///
     /// # Examples
     ///
@@ -1928,7 +1928,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`ValidKeyAmalgamation::key_flags`]: PrimaryKey::key_flags()
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn has_any_key_flag<F>(&self, flags: F) -> bool
         where F: Borrow<KeyFlags>
     {
@@ -1981,7 +1981,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// ```
     ///
     /// [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
-    /// [`ValidKeyAmalgamation::key_flags`]: PrimaryKey::key_flags()
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_certification(&self) -> bool {
         self.has_any_key_flag(KeyFlags::empty().set_certification())
     }
@@ -2014,7 +2014,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`ValidKeyAmalgamation::key_flags`]: PrimaryKey::key_flags()
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_signing(&self) -> bool {
         self.has_any_key_flag(KeyFlags::empty().set_signing())
     }
@@ -2047,7 +2047,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`ValidKeyAmalgamation::key_flags`]: PrimaryKey::key_flags()
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_authentication(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::empty().set_authentication())
@@ -2094,7 +2094,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// [data at rest]: https://en.wikipedia.org/wiki/Data_at_rest
     /// [data in transit]: https://en.wikipedia.org/wiki/Data_in_transit
-    /// [`ValidKeyAmalgamation::key_flags`]: PrimaryKey::key_flags()
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_storage_encryption(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::empty().set_storage_encryption())
@@ -2141,7 +2141,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// [data at rest]: https://en.wikipedia.org/wiki/Data_at_rest
     /// [data in transit]: https://en.wikipedia.org/wiki/Data_in_transit
-    /// [`ValidKeyAmalgamation::key_flags`]: PrimaryKey::key_flags()
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_transport_encryption(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::empty().set_transport_encryption())
@@ -2189,7 +2189,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::key_expiration_time`]: PrimaryKey::key_expiration_time()
+    ///   [`ValidKeyAmalgamation::key_expiration_time`]: ValidKeyAmalgamation::key_expiration_time()
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     pub fn key_validity_period(&self) -> Option<std::time::Duration> {
         self.map(|s| s.key_validity_period())
@@ -2240,7 +2240,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::key_validity_period`]: PrimaryKey::key_validity_period()
+    ///   [`ValidKeyAmalgamation::key_validity_period`]: ValidKeyAmalgamation::key_validity_period()
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     pub fn key_expiration_time(&self) -> Option<time::SystemTime> {
         match self.key_validity_period() {

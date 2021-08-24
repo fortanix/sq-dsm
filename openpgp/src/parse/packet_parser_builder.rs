@@ -33,7 +33,7 @@ pub enum Dearmor {
     /// fail.  The [`ReaderMode`] allow further customization of the
     /// ASCII armor parser.
     ///
-    ///   [`ReaderMode`]: super::armor::ReaderMode
+    ///   [`ReaderMode`]: crate::armor::ReaderMode
     Enabled(armor::ReaderMode),
     /// Unconditionally treat the input as if it were a binary OpenPGP
     /// message.
@@ -47,7 +47,7 @@ pub enum Dearmor {
     /// This is the default.  The [`ReaderMode`] allow further
     /// customization of the ASCII armor parser.
     ///
-    ///   [`ReaderMode`]: super::armor::ReaderMode
+    ///   [`ReaderMode`]: crate::armor::ReaderMode
     Auto(armor::ReaderMode),
 }
 assert_send_and_sync!(Dearmor);
@@ -149,6 +149,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// sense.  The default is [`DEFAULT_MAX_RECURSION_DEPTH`].
     /// (GnuPG defaults to a maximum recursion depth of 32.)
     ///
+    /// [`DEFAULT_MAX_RECURSION_DEPTH`]: crate::parse::DEFAULT_MAX_RECURSION_DEPTH
     ///
     /// # Examples
     ///
@@ -190,6 +191,7 @@ impl<'a> PacketParserBuilder<'a> {
     ///
     /// The default is [`DEFAULT_MAX_PACKET_SIZE`].
     ///
+    /// [`DEFAULT_MAX_PACKET_SIZE`]: crate::parse::DEFAULT_MAX_PACKET_SIZE
     ///
     /// # Examples
     ///
@@ -239,9 +241,9 @@ impl<'a> PacketParserBuilder<'a> {
     /// The unread content can be accessed using [`Literal::body`],
     /// [`Unknown::body`], or [`Container::body`].
     ///
-    ///   [`Literal::body`]: super::packet::Literal::body()
-    ///   [`Unknown::body`]: super::packet::Unknown::body()
-    ///   [`Container::body`]: super::packet::Container::body()
+    ///   [`Literal::body`]: crate::packet::Literal::body()
+    ///   [`Unknown::body`]: crate::packet::Unknown::body()
+    ///   [`Container::body`]: crate::packet::Container::body()
     ///
     /// # Examples
     ///

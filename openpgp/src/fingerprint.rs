@@ -23,8 +23,10 @@ use quickcheck::{Arbitrary, Gen};
 ///
 ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-///   [`IssuerFingerprint`]: packet::signature::subpacket::SubpacketValue::IssuerFingerprint
+///   [`IssuerFingerprint`]: crate::packet::signature::subpacket::SubpacketValue::IssuerFingerprint
 ///   [birthday attack]: https://nullprogram.com/blog/2019/07/22/
+///   [`KeyID`]: crate::KeyID
+///   [`KeyHandle`]: crate::KeyHandle
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.

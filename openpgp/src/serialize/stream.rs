@@ -348,9 +348,9 @@ impl<'a> Armorer<'a> {
     /// [`Armorer::kind`].  To add headers to the armor, use
     /// [`Armorer::add_header`].
     ///
-    ///   [`armor::Kind`]: super::super::armor::Kind
-    ///   [`Armorer::kind`]: Message::kind()
-    ///   [`Armorer::add_header`]: Message::add_header()
+    ///   [`armor::Kind`]: crate::armor::Kind
+    ///   [`Armorer::kind`]: Armorer::kind()
+    ///   [`Armorer::add_header`]: Armorer::add_header()
     ///
     /// # Examples
     ///
@@ -390,7 +390,7 @@ impl<'a> Armorer<'a> {
     /// The armor header and footer changes depending on the type of
     /// wrapped data.  See [`armor::Kind`] for the possible values.
     ///
-    ///   [`armor::Kind`]: super::super::armor::Kind
+    ///   [`armor::Kind`]: crate::armor::Kind
     ///
     /// # Examples
     ///
@@ -666,10 +666,10 @@ impl<'a> Signer<'a> {
     /// the generated signatures, use [`Signer::with_template`].
     ///
     ///   [`crypto::Signer`]: super::super::crypto::Signer
-    ///   [`Signer::add_signer`]: Message::add_signer()
+    ///   [`Signer::add_signer`]: Signer::add_signer()
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
-    ///   [`Signer::detached`]: Message::detached()
-    ///   [`Signer::with_template`]: Message::with_template()
+    ///   [`Signer::detached`]: Signer::detached()
+    ///   [`Signer::with_template`]: Signer::with_template()
     ///
     /// # Examples
     ///
@@ -755,10 +755,10 @@ impl<'a> Signer<'a> {
     ///
     ///   [`crypto::Signer`]: super::super::crypto::Signer
     ///   [`Signer::new`]: Message::new()
-    ///   [`signature::SignatureBuilder`]: super::super::packet::signature::Builder
-    ///   [`Signer::creation_time`]: Message::creation_time()
-    ///   [`Signer::hash_algo`]: Message::hash_algo()
-    ///   [`Signer::add_intended_recipient`]: Message::add_intended_recipient()
+    ///   [`signature::SignatureBuilder`]: crate::packet::signature::SignatureBuilder
+    ///   [`Signer::creation_time`]: Signer::creation_time()
+    ///   [`Signer::hash_algo`]: Signer::hash_algo()
+    ///   [`Signer::add_intended_recipient`]: Signer::add_intended_recipient()
     ///
     /// # Examples
     ///
@@ -831,8 +831,7 @@ impl<'a> Signer<'a> {
     /// This overrides any prior call to [`Signer::cleartext`].
     ///
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
-    ///   [`LiteralWriter`]: super::LiteralWriter
-    ///   [`Signer::cleartext`]: Message::cleartext()
+    ///   [`Signer::cleartext`]: Signer::cleartext()
     ///
     /// # Examples
     ///
@@ -931,9 +930,7 @@ impl<'a> Signer<'a> {
     ///
     ///   [Section 7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7
     ///   [Section 7.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7.1
-    ///   [`LiteralWriter`]: super::LiteralWriter
-    ///   [`Armorer`]: super::Armorer
-    ///   [`Signer::detached`]: Message::detached()
+    ///   [`Signer::detached`]: Signer::detached()
     ///
     /// # Examples
     ///
@@ -1210,7 +1207,6 @@ impl<'a> Signer<'a> {
     /// RFC 4880]), the literal data *must not* be wrapped using the
     /// [`LiteralWriter`].
     ///
-    ///   [`LiteralWriter`]: super::LiteralWriter
     ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
     ///
@@ -1776,8 +1772,8 @@ impl<'a> Compressor<'a> {
     /// To change the compression algorithm use [`Compressor::algo`].
     /// Use [`Compressor::level`] to change the compression level.
     ///
-    ///   [`Compressor::algo`]: Message::algo()
-    ///   [`Compressor::level`]: Message::level()
+    ///   [`Compressor::algo`]: Compressor::algo()
+    ///   [`Compressor::level`]: Compressor::level()
     ///
     /// # Examples
     ///
@@ -2001,10 +1997,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 /// may be a wildcard (as returned by [`KeyID::wildcard()`]) to
 /// obscure the identity of the recipient.
 ///
-///   [`recipient`]: super::super::packet::PKESK::recipient()
-///   [`PKESK`]: super::super::packet::PKESK
+///   [`recipient`]: crate::packet::PKESK#method.recipient
+///   [`PKESK`]: crate::packet::PKESK
 ///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
-///   [`KeyID::wildcard()`]: super::super::super::KeyID::wildcard()
+///   [`KeyID::wildcard()`]: crate::KeyID::wildcard()
 ///
 /// Note that several subkeys in a certificate may be suitable
 /// encryption subkeys.  OpenPGP does not specify what should happen
@@ -2046,8 +2042,8 @@ impl<'a> Recipient<'a> {
     /// `Recipient`s can be created from [`Key`] and
     /// [`ValidKeyAmalgamation`] using [`From`].
     ///
-    ///   [`Key`]: super::super::packet::Key
-    ///   [`ValidKeyAmalgamation`]: super::super::cert::amalgamation::key::ValidKeyAmalgamation
+    ///   [`Key`]: crate::packet::Key
+    ///   [`ValidKeyAmalgamation`]: crate::cert::amalgamation::key::ValidKeyAmalgamation
     ///   [`From`]: std::convert::From
     ///
     /// # Examples

@@ -98,8 +98,8 @@ use crate::Result;
 /// not been standardized and we advise users to not emit AED packets.
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
-/// [streaming serializer]: super::serialize::stream
-/// [`PacketParser`]: super::parse
+/// [streaming serializer]: crate::serialize::stream
+/// [`PacketParser`]: crate::parse::PacketParser
 ///
 /// # A note on equality
 ///

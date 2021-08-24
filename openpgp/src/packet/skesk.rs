@@ -154,7 +154,7 @@ impl SKESK4 {
     /// least as strong as the `payload_algo` as not to weaken the
     /// security of the payload encryption.
     ///
-    ///   [`SymmetricAlgorithm`]: super::super::types::SymmetricAlgorithm
+    ///   [`SymmetricAlgorithm`]: crate::types::SymmetricAlgorithm
     ///   [`SEIP`]: super::SEIP
     ///   [`AED`]: super::AED
     pub fn with_password(payload_algo: SymmetricAlgorithm,
@@ -448,7 +448,7 @@ impl SKESK5 {
     /// least as strong as the `payload_algo` as not to weaken the
     /// security of the payload encryption.
     ///
-    ///   [`SymmetricAlgorithm`]: super::super::types::SymmetricAlgorithm
+    ///   [`SymmetricAlgorithm`]: crate::types::SymmetricAlgorithm
     ///   [`SEIP`]: super::SEIP
     ///   [`AED`]: super::AED
     pub fn with_password(payload_algo: SymmetricAlgorithm,

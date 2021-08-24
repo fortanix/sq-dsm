@@ -80,7 +80,7 @@ use crate::{
 /// [`ComponentAmalgamationIter::with_policy`]: ComponentAmalgamationIter::with_policy()
 /// [`Cert::userids`]: super::Cert::userids()
 /// [`Cert::user_attributes`]: super::Cert::user_attributes()
-/// [`Cert::unknowns`]: super::Cert::unknown()
+/// [`Cert::unknowns`]: super::Cert::unknowns()
 /// [`Cert::keys`]: super::Cert::keys()
 pub struct ComponentAmalgamationIter<'a, C> {
     cert: &'a Cert,
@@ -144,6 +144,8 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
     ///
     /// Refer to the [`ValidateAmalgamation`] trait for a definition
     /// of a valid component.
+    ///
+    /// [`ValidateAmalgamation`]: super::ValidateAmalgamation
     ///
     /// # Examples
     ///
@@ -370,7 +372,7 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     /// However, this filter implements a typical policy, and does not
     /// preclude using `filter` to realize alternative policies.
     ///
-    /// [`RevocationStatus::Revoked`]: super::super::types::RevocationStatus::Revoked
+    /// [`RevocationStatus::Revoked`]: crate::types::RevocationStatus::Revoked
     pub fn revoked<T>(mut self, revoked: T) -> Self
         where T: Into<Option<bool>>
     {

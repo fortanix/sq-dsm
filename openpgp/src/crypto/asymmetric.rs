@@ -14,10 +14,10 @@ use crate::Result;
 /// signing functions (e.g. [`SignatureBuilder::sign_standalone`]),
 /// and likely many more places.
 ///
-///   [`Signer`]: super::serialize::stream::Signer
-///   [`UserID::bind`]: super::packet::UserID::bind()
-///   [`SignatureBuilder`]: super::packet::signature::SignatureBuilder
-///   [`SignatureBuilder::sign_standalone`]: super::packet::signature::SignatureBuilder::sign_standalone()
+///   [`Signer`]: crate::serialize::stream::Signer
+///   [`UserID::bind`]: crate::packet::UserID::bind()
+///   [`SignatureBuilder`]: crate::packet::signature::SignatureBuilder
+///   [`SignatureBuilder::sign_standalone`]: crate::packet::signature::SignatureBuilder::sign_standalone()
 ///
 /// This is a low-level mechanism to produce an arbitrary OpenPGP
 /// signature.  Using this trait allows Sequoia to perform all
@@ -70,7 +70,7 @@ impl Signer for Box<dyn Signer + Send + Sync> {
 ///
 /// Used by [`PKESK::decrypt`] to decrypt session keys.
 ///
-///   [`PKESK::decrypt`]: super::packet::PKESK::decrypt()
+///   [`PKESK::decrypt`]: crate::packet::PKESK#method.decrypt
 ///
 /// This is a low-level mechanism to decrypt an arbitrary OpenPGP
 /// ciphertext.  Using this trait allows Sequoia to perform all

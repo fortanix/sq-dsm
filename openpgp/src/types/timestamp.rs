@@ -28,7 +28,7 @@ use crate::{
 /// Note that this example retrieves raw packet value.
 /// Use [`SubpacketArea::signature_creation_time`] to get the signature creation time.
 ///
-/// [`SubpacketArea::signature_creation_time`]: super::packet::signature::subpacket::SubpacketArea::signature_creation_time()
+/// [`SubpacketArea::signature_creation_time`]: crate::packet::signature::subpacket::SubpacketArea::signature_creation_time()
 ///
 /// ```
 /// use sequoia_openpgp as openpgp;
@@ -60,7 +60,7 @@ use crate::{
 ///
 /// [Section 3.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.5
 /// [UNIX epoch]: https://en.wikipedia.org/wiki/Unix_time
-/// [`Timestamp::round_down`]: super::types::Timestamp::round_down()
+/// [`Timestamp::round_down`]: crate::types::Timestamp::round_down()
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(u32);
 assert_send_and_sync!(Timestamp);

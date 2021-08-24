@@ -56,7 +56,7 @@ const DUMP_HASHED_VALUES: Option<&str> = None;
 /// This provides an abstract interface to the hash functions used in
 /// OpenPGP.  `Digest`s can be are created using [`HashAlgorithm::context`].
 ///
-///   [`HashAlgorithm::context`]: super::super::types::HashAlgorithm::context()
+///   [`HashAlgorithm::context`]: crate::types::HashAlgorithm::context()
 pub trait Digest: DynClone + Write + Send + Sync {
     /// Returns the algorithm.
     fn algo(&self) -> HashAlgorithm;
@@ -227,14 +227,14 @@ impl io::Write for HashDumper {
 /// [`Verifier`], [`DetachedVerifier`], or [`Signature`'s verification
 /// functions] should be used, which handle the hashing internally.
 ///
-///   [`Verifier`]: super::super::parse::stream::Verifier
-///   [`DetachedVerifier`]: super::super::parse::stream::DetachedVerifier
-///   [`Signature`'s verification functions]: super::super::packet::Signature#verification-functions
+///   [`Verifier`]: crate::parse::stream::Verifier
+///   [`DetachedVerifier`]: crate::parse::stream::DetachedVerifier
+///   [`Signature`'s verification functions]: crate::packet::Signature#verification-functions
 ///
 /// This is a low-level mechanism.  See [`Signature`'s hashing
 /// functions] for how to hash compounds like (Key,UserID)-bindings.
 ///
-///   [`Signature`'s hashing functions]: super::super::packet::Signature#hashing-functions
+///   [`Signature`'s hashing functions]: crate::packet::Signature#hashing-functions
 pub trait Hash {
     /// Updates the given hash with this object.
     fn hash(&self, hash: &mut dyn Digest);

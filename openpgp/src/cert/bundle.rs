@@ -66,16 +66,16 @@
 //! locating information.
 //!
 //! [`Cert`]: super
-//! [`Packet`]: super::super::packet
-//! [`Signature`]: super::super::packet::signature
-//! [`Key`]: super::super::packet::key
-//! [`UserID`]: super::super::packet::UserID
-//! [`UserAttribute`]: super::super::packet::user_attribute
-//! [`Unknown`]: super::super::packet::Unknown
-//! [`Tag`]: super::super::packet::Tag
+//! [`Packet`]: crate::packet
+//! [`Signature`]: crate::packet::signature
+//! [`Key`]: crate::packet::key
+//! [`UserID`]: crate::packet::UserID
+//! [`UserAttribute`]: crate::packet::user_attribute
+//! [`Unknown`]: crate::packet::Unknown
+//! [`Tag`]: crate::packet::Tag
 //! [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 //! [`ComponentAmalgamation`]: super::amalgamation
-//! [`KeyAmalgamation`]: super::key_amalgamation
+//! [`KeyAmalgamation`]: super::amalgamation::key::KeyAmalgamation
 //! [complicated semantics]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
 
 use std::time;

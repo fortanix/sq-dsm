@@ -34,8 +34,8 @@
 //! use a cached session key, or one that has been explicitly provided
 //! to the decryption operation.
 //!
-//!   [`PKESK`]: super::super::packet::PKESK
-//!   [`SKESK`]: super::super::packet::SKESK
+//!   [`PKESK`]: crate::packet::PKESK
+//!   [`SKESK`]: crate::packet::SKESK
 //!
 //! The [`Verifier`] and [`Decryptor`] are filters: they consume
 //! OpenPGP data from a reader, file, or bytes, and implement
@@ -417,7 +417,7 @@ impl<'a> VerificationErrorInternal<'a> {
 /// [`Signature::level`].
 ///
 ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
-///   [`Signature::level`]: super::super::packet::Signature::level()
+///   [`Signature::level`]: crate::packet::Signature#method.level
 ///
 /// Consider the following structure.  This is a set of notarizing
 /// signatures *N* over a set of signatures *S* over the literal data:
@@ -904,7 +904,7 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// seen a positive verification.  See [`Verifier::message_processed`]
 /// for more information.
 ///
-///   [`Verifier::message_processed`]: MessageStructure::message_processed()
+///   [`Verifier::message_processed`]: Verifier::message_processed()
 ///
 /// See [`GoodChecksum`] for what it means for a signature to be
 /// considered valid.
@@ -1634,7 +1634,7 @@ enum Mode {
 /// positive verification.  See [`Decryptor::message_processed`] for
 /// more information.
 ///
-///   [`Decryptor::message_processed`]: MessageStructure::message_processed()
+///   [`Decryptor::message_processed`]: Decryptor::message_processed()
 ///
 /// See [`GoodChecksum`] for what it means for a signature to be
 /// considered valid.
@@ -2016,13 +2016,13 @@ pub trait DecryptionHelper {
     /// and session key.  `decrypt` returns `true` if the decryption
     /// was successful.
     ///
-    ///   [`PKESK`]: super::super::packet::PKESK
-    ///   [`SKESK`]: super::super::packet::SKESK
+    ///   [`PKESK`]: crate::packet::PKESK
+    ///   [`SKESK`]: crate::packet::SKESK
     ///
     /// If a symmetric algorithm is given, it should be passed on to
     /// [`PKESK::decrypt`].
     ///
-    ///   [`PKESK::decrypt`]: super::super::packet::PKESK::decrypt()
+    ///   [`PKESK::decrypt`]: crate::packet::PKESK#method.decrypt
     ///
     /// If the message is decrypted using a [`PKESK`] packet, then the
     /// fingerprint of the certificate containing the encryption

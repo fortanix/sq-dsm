@@ -125,7 +125,7 @@ mod conversions;
 /// `SecretKey` marker, secret key material will be ignored.  See the
 /// documentation for [`Key`] for a demonstration of this behavior.
 ///
-/// [`Cert::keys`]: super::super::cert::Cert::keys()
+/// [`Cert::keys`]: crate::cert::Cert::keys()
 /// [`Key`]: super::Key
 /// [`key::PublicParts`]: PublicParts
 /// [`key::SecretParts`]: SecretParts
@@ -327,7 +327,7 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
 /// [`Key`]: super::Key
 /// [`key::PrimaryRole`]: PrimaryRole
 /// [`key::SubordinateRole`]: SubordinateRole
-/// [`Cert::keys`]: super::super::cert::Cert::keys()
+/// [`Cert::keys`]: crate::cert::Cert::keys()
 /// [`key::UnspecifiedRole`]: UnspecifiedRole
 ///
 /// # Sealed trait
@@ -758,16 +758,6 @@ pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 /// See [Section 5.5 of RFC 4880] and [the documentation for `Key`]
 /// for more details.
 ///
-/// [`Key4::new`]: UnspecifiedParts::new()
-/// [`Key4::with_secret`]: UnspecifiedParts::with_secret()
-/// [`Key4::generate_rsa`]: UnspecifiedParts::generate_rsa()
-/// [`Key4::generate_ecc`]: UnspecifiedParts::generate_ecc()
-/// [`Key4::import_public_cv25519`]: UnspecifiedParts::import_public_cv25519()
-/// [`Key4::import_public_ed25519`]: UnspecifiedParts::import_public_ed25519()
-/// [`Key4::import_public_rsa`]: UnspecifiedParts::import_public_rsa()
-/// [`Key4::import_secret_cv25519`]: UnspecifiedParts::import_secret_cv25519()
-/// [`Key4::import_secret_ed25519`]: UnspecifiedParts::import_secret_ed25519()
-/// [`Key4::import_secret_rsa`]: UnspecifiedParts::import_secret_rsa()
 /// [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 /// [the documentation for `Key`]: super::Key
 /// [`Key`]: super::Key
@@ -866,7 +856,7 @@ impl<P, R> Key4<P, R>
     /// compromised, but not completely broken.  For more details,
     /// please refer to the documentation for [HashAlgoSecurity].
     ///
-    ///   [HashAlgoSecurity]: super::policy::HashAlgoSecurity
+    ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
     pub fn hash_algo_security(&self) -> HashAlgoSecurity {
         HashAlgoSecurity::SecondPreImageResistance
     }
@@ -1056,7 +1046,7 @@ impl<P, R> Key4<P, R>
     /// resolution.  An error is returned if `timestamp` is out of
     /// range.
     ///
-    /// [`Timestamp`]: super::super::types::Timestamp
+    /// [`Timestamp`]: crate::types::Timestamp
     pub fn set_creation_time<T>(&mut self, timestamp: T)
                                 -> Result<time::SystemTime>
         where T: Into<time::SystemTime>
@@ -1447,7 +1437,7 @@ impl Unencrypted {
     /// This encrypts the secret key material using an [AES 256] key
     /// derived from the `password` using the default [`S2K`] scheme.
     ///
-    /// [AES 256]: super::super::types::SymmetricAlgorithm::AES256
+    /// [AES 256]: crate::types::SymmetricAlgorithm::AES256
     /// [`S2K`]: super::super::crypto::S2K
     pub fn encrypt(&self, password: &Password)
         -> Result<Encrypted>

@@ -8,7 +8,7 @@
 //!
 //! Wraps [`sequoia-openpgp::Fingerprint`].
 //!
-//! [`sequoia-openpgp::Fingerprint`]: super::super::super::sequoia_openpgp::Fingerprint
+//! [`sequoia-openpgp::Fingerprint`]: sequoia_openpgp::Fingerprint
 
 use std::slice;
 use libc::{c_char, size_t};
@@ -29,7 +29,7 @@ use crate::RefRaw;
 ///
 /// Wraps [`sequoia-openpgp::Fingerprint`].
 ///
-/// [`sequoia-openpgp::Fingerprint`]: super::super::super::sequoia_openpgp::Fingerprint
+/// [`sequoia-openpgp::Fingerprint`]: sequoia_openpgp::Fingerprint
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, Display, Hash, PartialEq")]
 pub struct Fingerprint(openpgp::Fingerprint);

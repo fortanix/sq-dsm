@@ -26,9 +26,7 @@ use crate::RefRaw;
 ///
 ///   [Section 5.8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.8
 ///
-/// Wraps [`sequoia-openpgp::packet::literal::Literal`].
-///
-/// [`sequoia-openpgp::packet::literal::Literal`]: super::super::super::super::sequoia_openpgp::packet::literal::Literal
+/// Wraps [`sequoia-openpgp::packet::Literal`].
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Debug, Parse")]
 pub struct Literal(openpgp::packet::Literal);

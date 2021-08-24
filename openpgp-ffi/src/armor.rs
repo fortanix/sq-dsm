@@ -2,7 +2,7 @@
 //!
 //! Wraps [`sequoia-openpgp::armor`].
 //!
-//! [`sequoia-openpgp::armor`]: super::super::super::sequoia_openpgp::armor
+//! [`sequoia-openpgp::armor`]: sequoia_openpgp::armor
 
 use std::mem::size_of;
 use std::ptr;

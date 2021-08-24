@@ -729,7 +729,7 @@ impl UserID {
     /// For more details, please refer to the documentation for
     /// [HashAlgoSecurity].
     ///
-    ///   [HashAlgoSecurity]: super::policy::HashAlgoSecurity
+    ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
     pub fn hash_algo_security(&self) -> HashAlgoSecurity {
         self.hash_algo_security
     }

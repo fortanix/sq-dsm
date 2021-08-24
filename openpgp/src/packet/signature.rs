@@ -104,8 +104,8 @@
 //! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
 //! [version 5]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-version-4-and-5-signature-p
 //! [notations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-//! [streaming `Signer`]: super::super::serialize::stream::Signer
-//! [`PacketParser`]: super::super::parse
+//! [streaming `Signer`]: crate::serialize::stream::Signer
+//! [`PacketParser`]: crate::parse::PacketParser
 //! [hints]: https://tools.ietf.org/html/rfc4880#section-5.13
 //! [`Signature::normalize`]: super::Signature::normalize()
 //! [`SubpacketArea`]: subpacket::SubpacketArea
@@ -290,7 +290,7 @@ impl SignatureFields {
 /// the [streaming `Signer`] for that.
 ///
 ///   [`Signature`]: super::Signature
-///   [streaming `Signer`]: super::super::serialize::stream::Signer
+///   [streaming `Signer`]: crate::serialize::stream::Signer
 ///   [`SignatureBuilder::sign_message`]: SignatureBuilder::sign_message()
 ///
 /// Oftentimes, you won't want to create a new signature from scratch,
@@ -388,7 +388,7 @@ impl SignatureFields {
 /// signatures.  See the [`Preferences`] trait for how preferences
 /// like these are looked up.
 ///
-/// [`Preferences`]: super::super::cert::Preferences
+/// [`Preferences`]: crate::cert::Preferences
 ///
 /// ```
 /// use sequoia_openpgp as openpgp;
@@ -500,7 +500,7 @@ impl SignatureBuilder {
     /// packet.
     ///
     ///   [Standalone Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`SignatureType::Standalone`]: super::super::types::SignatureType::Standalone
+    ///   [`SignatureType::Standalone`]: crate::types::SignatureType::Standalone
     ///
     /// This function checks that the [signature type] (passed to
     /// [`SignatureBuilder::new`], set via
@@ -508,11 +508,11 @@ impl SignatureBuilder {
     /// `SignatureBuilder::From`) is [`SignatureType::Standalone`] or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`SignatureType::Timestamp`]: super::super::types::SignatureType::Timestamp
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`SignatureType::Timestamp`]: crate::types::SignatureType::Timestamp
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -619,11 +619,11 @@ impl SignatureBuilder {
     /// `SignatureBuilder::From`) is [`SignatureType::Timestamp`] or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`SignatureType::Timestamp`]: super::super::types::SignatureType::Timestamp
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`SignatureType::Timestamp`]: crate::types::SignatureType::Timestamp
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -713,7 +713,7 @@ impl SignatureBuilder {
     /// This function is also used to create a [Key Revocation
     /// Signature], which revokes the certificate.
     ///
-    ///   [preferences]: super::super::cert::Preferences
+    ///   [preferences]: crate::cert::Preferences
     ///   [Direct Key Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
     ///   [Preferred Symmetric Algorithms]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
     ///   [Key Revocation Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
@@ -725,12 +725,12 @@ impl SignatureBuilder {
     /// [`SignatureType::KeyRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`SignatureType::DirectKey`]: super::super::types::SignatureType::DirectKey
-    ///   [`SignatureType::KeyRevocation`]: super::super::types::SignatureType::KeyRevocation
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`SignatureType::DirectKey`]: crate::types::SignatureType::DirectKey
+    ///   [`SignatureType::KeyRevocation`]: crate::types::SignatureType::KeyRevocation
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -862,15 +862,15 @@ impl SignatureBuilder {
     /// [`PositiveCertification`], [`CertificationRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`GenericCertification`]: super::super::types::SignatureType::GenericCertification
-    ///   [`PersonaCertification`]: super::super::types::SignatureType::PersonaCertification
-    ///   [`CasualCertification`]: super::super::types::SignatureType::CasualCertification
-    ///   [`PositiveCertification`]: super::super::types::SignatureType::PositiveCertification
-    ///   [`CertificationRevocation`]: super::super::types::SignatureType::CertificationRevocation
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`GenericCertification`]: crate::types::SignatureType::GenericCertification
+    ///   [`PersonaCertification`]: crate::types::SignatureType::PersonaCertification
+    ///   [`CasualCertification`]: crate::types::SignatureType::CasualCertification
+    ///   [`PositiveCertification`]: crate::types::SignatureType::PositiveCertification
+    ///   [`CertificationRevocation`]: crate::types::SignatureType::CertificationRevocation
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -998,12 +998,12 @@ impl SignatureBuilder {
     /// [`SignatureType::SubkeyBinding`], [`SignatureType::SubkeyRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`SignatureType::SubkeyBinding`]: super::super::types::SignatureType::SubkeyBinding
-    ///   [`SignatureType::SubkeyRevocation`]: super::super::types::SignatureType::SubkeyRevocation
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`SignatureType::SubkeyBinding`]: crate::types::SignatureType::SubkeyBinding
+    ///   [`SignatureType::SubkeyRevocation`]: crate::types::SignatureType::SubkeyRevocation
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -1145,11 +1145,11 @@ impl SignatureBuilder {
     /// [`SignatureType::PrimaryKeyBinding`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`SignatureType::PrimaryKeyBinding`]: super::super::types::SignatureType::PrimaryKeyBinding
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`SignatureType::PrimaryKeyBinding`]: crate::types::SignatureType::PrimaryKeyBinding
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -1271,15 +1271,15 @@ impl SignatureBuilder {
     /// [`PositiveCertification`], [`CertificationRevocation`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`GenericCertification`]: super::super::types::SignatureType::GenericCertification
-    ///   [`PersonaCertification`]: super::super::types::SignatureType::PersonaCertification
-    ///   [`CasualCertification`]: super::super::types::SignatureType::CasualCertification
-    ///   [`PositiveCertification`]: super::super::types::SignatureType::PositiveCertification
-    ///   [`CertificationRevocation`]: super::super::types::SignatureType::CertificationRevocation
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`GenericCertification`]: crate::types::SignatureType::GenericCertification
+    ///   [`PersonaCertification`]: crate::types::SignatureType::PersonaCertification
+    ///   [`CasualCertification`]: crate::types::SignatureType::CasualCertification
+    ///   [`PositiveCertification`]: crate::types::SignatureType::PositiveCertification
+    ///   [`CertificationRevocation`]: crate::types::SignatureType::CertificationRevocation
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -1441,7 +1441,7 @@ impl SignatureBuilder {
     /// Normally, you'll want to use the [streaming `Signer`] to sign
     /// a message.
     ///
-    ///  [streaming `Signer`]: super::super::serialize::stream::Signer
+    ///  [streaming `Signer`]: crate::serialize::stream::Signer
     ///
     /// OpenPGP supports two types of signatures over messages: binary
     /// and text.  The text version normalizes line endings.  But,
@@ -1456,12 +1456,12 @@ impl SignatureBuilder {
     /// `SignatureBuilder::From`) is [`Binary`], [`Text`], or
     /// [`SignatureType::Unknown`].
     ///
-    ///   [signature type]: super::super::types::SignatureType
+    ///   [signature type]: crate::types::SignatureType
     ///   [`SignatureBuilder::new`]: SignatureBuilder::new()
     ///   [`SignatureBuilder::set_type`]: SignatureBuilder::set_type()
-    ///   [`Binary`]: super::super::types::SignatureType::Binary
-    ///   [`Text`]: super::super::types::SignatureType::Text
-    ///   [`SignatureType::Unknown`]: super::super::types::SignatureType::Unknown
+    ///   [`Binary`]: crate::types::SignatureType::Binary
+    ///   [`Text`]: crate::types::SignatureType::Text
+    ///   [`SignatureType::Unknown`]: crate::types::SignatureType::Unknown
     ///
     /// The [`Signature`]'s public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -1496,7 +1496,7 @@ impl SignatureBuilder {
     /// Signs a document.  For large messages, you should use the
     /// [streaming `Signer`], which streams the message's content.
     ///
-    ///  [streaming `Signer`]: super::super::serialize::stream::Signer
+    ///  [streaming `Signer`]: crate::serialize::stream::Signer
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -1873,7 +1873,7 @@ impl Signature4 {
     ///
     /// This is set by the [`PacketParser`] when parsing the message.
     ///
-    /// [`PacketParser`]: super::super::parse::PacketParser
+    /// [`PacketParser`]: crate::parse::PacketParser
     pub fn computed_digest(&self) -> Option<&[u8]> {
         self.computed_digest.as_ref().map(|d| &d[..])
     }
@@ -1991,8 +1991,6 @@ impl crate::packet::Signature {
     /// Unlike [`Signature::normalize`], this method ignores
     /// authenticated packets in the unhashed subpacket area.
     ///
-    ///   [`Signature::normalize`]: Signature4::normalize()
-    ///
     /// # Examples
     ///
     /// ```
@@ -2036,8 +2034,6 @@ impl crate::packet::Signature {
     /// using this function, and then deduplicating using the
     /// [`Signature::normalized_eq`] predicate.
     ///
-    ///   [`Signature::normalized_eq`]: Signature4::normalized_eq()
-    ///
     /// This comparison function ignores the unhashed subpacket area
     /// when comparing two signatures.  This prevents a malicious
     /// party from taking valid signatures, adding subpackets to the
@@ -2049,8 +2045,6 @@ impl crate::packet::Signature {
     ///
     /// Unlike [`Signature::normalize`], this method ignores
     /// authenticated packets in the unhashed subpacket area.
-    ///
-    ///   [`Signature::normalize`]: Signature4::normalize()
     ///
     /// # Examples
     ///
@@ -2105,8 +2099,6 @@ impl crate::packet::Signature {
     ///
     /// Unlike [`Signature::normalize`], this method ignores
     /// authenticated packets in the unhashed subpacket area.
-    ///
-    ///   [`Signature::normalize`]: Signature4::normalize()
     pub fn normalized_hash<H>(&self, state: &mut H)
         where H: Hasher
     {
@@ -2215,8 +2207,6 @@ impl crate::packet::Signature {
     /// signature while avoiding denial of service attacks by merging
     /// in bad information.
     ///
-    ///   [`Signature::normalized_eq`]: Signature4::normalized_eq()
-    ///
     /// The merge strategy is as follows:
     ///
     ///   - If the signatures differ according to
@@ -2241,8 +2231,6 @@ impl crate::packet::Signature {
     ///     See [`Subpacket::authenticated`] for how subpackets are
     ///     authenticated.  Subpackets commonly found in unhashed
     ///     areas are issuer information and embedded signatures.
-    ///
-    ///       [`Subpacket::authenticated`]: signature::subpacket::SubPacket::authenticated()
     pub fn merge(mut self, other: Signature) -> Result<Signature> {
         self.merge_internal(&other)?;
         Ok(self)

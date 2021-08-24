@@ -29,7 +29,7 @@ use buffered_reader::BufferedReader;
 /// [`PacketParser`]), it allows the caller to inspect each packet as
 /// it is being parsed.
 ///
-///   [`PacketPile`]: super::PacketPile
+///   [`PacketPile`]: crate::PacketPile
 ///
 /// Thus, using a `PacketPileParser`, it is possible to decide on a
 /// per-packet basis whether to stream, buffer or drop the packet's

@@ -74,7 +74,7 @@
 //!   [`Packet`]: super::Packet
 //!   [`Cert`]: super::Cert
 //!   [`Message`]: super::Message
-//!   [`Signature`]: super::packet::Signature
+//!   [`Signature`]: crate::packet::Signature
 //!
 //! This example demonstrates how to serialize a literal data packet
 //! (see [Section 5.9 of RFC 4880]):
@@ -246,7 +246,7 @@ pub trait Serialize : Marshal {
     ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize(..)`]: Serialize::serialize
-    ///   [`Signature`]: super::packet::Signature
+    ///   [`Signature`]: crate::packet::Signature
     ///   [`Cert`]: super::Cert
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         Marshal::export(self, o)
@@ -286,7 +286,7 @@ pub trait Marshal: seal::Sealed {
     ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize(..)`]: Marshal::serialize
-    ///   [`Signature`]: super::packet::Signature
+    ///   [`Signature`]: crate::packet::Signature
     ///   [`Cert`]: super::Cert
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.serialize(o)
@@ -344,7 +344,7 @@ pub trait SerializeInto : MarshalInto {
     ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize_into(..)`]: SerializeInto::serialize_into
-    ///   [`Signature`]: super::packet::Signature
+    ///   [`Signature`]: crate::packet::Signature
     ///   [`Cert`]: super::Cert
     ///
     /// Returns the length of the serialized representation.
@@ -369,7 +369,7 @@ pub trait SerializeInto : MarshalInto {
     ///     non-exportable signatures is not exported.
     ///
     ///   [`to_vec()`]: SerializeInto::to_vec()
-    ///   [`Signature`]: super::packet::Signature
+    ///   [`Signature`]: crate::packet::Signature
     ///   [`Cert`]: super::Cert
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         MarshalInto::export_to_vec(self)
@@ -436,7 +436,7 @@ pub trait MarshalInto : seal::Sealed {
     ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize_into(..)`]: MarshalInto::serialize_into
-    ///   [`Signature`]: super::packet::Signature
+    ///   [`Signature`]: crate::packet::Signature
     ///   [`Cert`]: super::Cert
     ///
     /// Returns the length of the serialized representation.
@@ -461,7 +461,7 @@ pub trait MarshalInto : seal::Sealed {
     ///     non-exportable signatures is not exported.
     ///
     ///   [`to_vec()`]: MarshalInto::to_vec()
-    ///   [`Signature`]: super::packet::Signature
+    ///   [`Signature`]: crate::packet::Signature
     ///   [`Cert`]: super::Cert
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         let mut o = vec![0; self.serialized_len()];
@@ -644,7 +644,7 @@ impl Marshal for BodyLength {
     /// [`BodyLength::Indeterminate`].  If you want to serialize an
     /// old-style length, use [`serialize_old(..)`].
     ///
-    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
+    /// [`Error::InvalidArgument`]: Error::InvalidArgument
     /// [`serialize_old(..)`]: BodyLength::serialize_old()
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -721,7 +721,7 @@ impl BodyLength {
     /// [`BodyLength::Partial`].  If you want to serialize a
     /// new-style length, use [`serialize(..)`].
     ///
-    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
+    /// [`Error::InvalidArgument`]: Error::InvalidArgument
     /// [`serialize(..)`]: #impl-Serialize
     pub fn serialize_old<W: io::Write>(&self, o: &mut W) -> Result<()> {
         // Assume an optimal encoding is desired.
@@ -1637,7 +1637,7 @@ impl Marshal for Signature4 {
     /// Returns [`Error::InvalidArgument`] if either the hashed-area
     /// or the unhashed-area exceeds the size limit of 2^16.
     ///
-    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
+    /// [`Error::InvalidArgument`]: Error::InvalidArgument
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         assert_eq!(self.version(), 4);
         write_byte(o, self.version())?;
@@ -2683,7 +2683,7 @@ impl MarshalInto for Packet {
 /// frames.
 ///
 /// [`openpgp::Packet`]: super::Packet
-/// [`packet::Signature`]: super::packet::Signature
+/// [`packet::Signature`]: crate::packet::Signature
 #[allow(dead_code)]
 enum PacketRef<'a> {
     /// Unknown packet.

@@ -149,9 +149,9 @@ assert_send_and_sync!(KeyBlueprint);
 /// certificates manually, but it should be sufficiently powerful to
 /// cover most use cases.
 ///
-/// [`UserID`s]: super::packet::UserID
-/// [`UserAttribute`s]: super::packet::user_attribute::UserAttribute
-/// [`Key`s]: super::packet::key::Key
+/// [`UserID`s]: crate::packet::UserID
+/// [`UserAttribute`s]: crate::packet::user_attribute::UserAttribute
+/// [`Key`s]: crate::packet::Key
 ///
 /// # Examples
 ///
@@ -305,7 +305,7 @@ impl CertBuilder<'_> {
     ///
     /// [`CertBuilder::generate`]: CertBuilder::generate()
     /// [`SystemTime`]: std::time::SystemTime
-    /// [`Timestamp`]: super::types::Timestamp
+    /// [`Timestamp`]: crate::types::Timestamp
     /// [`generate`]: CertBuilder::generate()
     ///
     /// # Examples

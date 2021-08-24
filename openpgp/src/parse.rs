@@ -13,8 +13,8 @@
 //! [compressed data] packets.  This structure results in a tree,
 //! which is laid out in depth-first order.
 //!
-//!   [SEIP]: super::packet::SEIP
-//!   [compressed data]: super::packet::CompressedData
+//!   [SEIP]: crate::packet::SEIP
+//!   [compressed data]: crate::packet::CompressedData
 //!
 //! OpenPGP defines objects consisting of several packets with a
 //! specific structure.  These objects are [`Message`]s, [`Cert`]s and
@@ -22,7 +22,7 @@
 //! these objects is also an act of parsing.
 //!
 //!   [`Message`]: super::Message
-//!   [`Cert`]: super::cert::Cert
+//!   [`Cert`]: crate::cert::Cert
 //!
 //! This crate provides several interfaces to parse OpenPGP data.
 //! They fall in roughly three categories:
@@ -68,11 +68,11 @@
 //!  - *Customize the parser behavior even more*: Use a
 //!    [`PacketParserBuilder`].
 //!
-//!   [`CertParser`]: super::cert::CertParser
+//!   [`CertParser`]: crate::cert::CertParser
 //!   [streaming `Decryptor`]: stream::Decryptor
 //!   [streaming `Verifier`]: stream::Verifier
 //!   [`DetachedVerifier`]: stream::DetachedVerifier
-//!   [`PacketPile`]: super::PacketPile
+//!   [`PacketPile`]: crate::PacketPile
 //!   [`PacketPile::from_file`]: super::PacketPile::from_file()
 //!
 //! # Data Structures and Interfaces
@@ -165,13 +165,13 @@
 //!    writing it is not standardized.
 //!
 //!   [`DEFAULT_BUFFER_SIZE`]: stream::DEFAULT_BUFFER_SIZE
-//!   [`PKESK`]: super::packet::PKESK
-//!   [`SKESK`]: super::packet::PKESK
-//!   [`Literal`]: super::packet::Literal
-//!   [`Signature`]: super::packet::Signature
-//!   [`SEIP`]: super::packet::SEIP
-//!   [`MDC`]: super::packet::MDC
-//!   [`AED`]: super::packet::AED
+//!   [`PKESK`]: crate::packet::PKESK
+//!   [`SKESK`]: crate::packet::PKESK
+//!   [`Literal`]: crate::packet::Literal
+//!   [`Signature`]: crate::packet::Signature
+//!   [`SEIP`]: crate::packet::SEIP
+//!   [`MDC`]: crate::packet::MDC
+//!   [`AED`]: crate::packet::AED
 
 use std::io;
 use std::io::prelude::*;
@@ -3352,7 +3352,7 @@ enum ParserResult<'a> {
 /// [`Cert`] or keyring.
 ///
 ///   [`Message`]: super::Message
-///   [`Cert`]: super::cert::Cert
+///   [`Cert`]: crate::cert::Cert
 ///
 /// # Examples
 ///
@@ -3426,7 +3426,7 @@ impl<'a> PacketParserEOF<'a> {
     /// just a bunch of packets.
     ///
     ///   [`Message`]: super::Message
-    ///   [`Cert`]: super::cert::Cert
+    ///   [`Cert`]: crate::cert::Cert
     ///
     /// # Examples
     ///
@@ -3515,7 +3515,7 @@ impl<'a> PacketParserEOF<'a> {
     /// just a bunch of packets.
     ///
     ///   [`Message`]: super::Message
-    ///   [`Cert`]: super::cert::Cert
+    ///   [`Cert`]: crate::cert::Cert
     ///
     /// # Examples
     ///
@@ -4677,7 +4677,7 @@ impl <'a> PacketParser<'a> {
     /// buffering a packet's content and prefer streaming its content
     /// unless you are certain that the content is small.
     ///
-    ///   [`Container::body`]: super::packet::Container::body()
+    ///   [`Container::body`]: crate::packet::Container::body()
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {

@@ -60,7 +60,7 @@ impl SessionKey {
     /// This creates a session key and encrypts it for a given
     /// recipient key producing a [`PKESK`] packet.
     ///
-    ///   [`PKESK`]: super::packet::PKESK
+    ///   [`PKESK`]: crate::packet::PKESK
     ///
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {

@@ -17,12 +17,13 @@ use crate::{
 /// these issues messages should [use padding].
 ///
 /// [dangerous when used naively]: https://mailarchive.ietf.org/arch/msg/openpgp/2FQUVt6Dw8XAsaMELyo5BNlh2pM
-/// [use padding]: super::serialize::stream::padding
+/// [use padding]: crate::serialize::stream::padding
 ///
 /// # Examples
 ///
 /// Write a message using the given [CompressionAlgorithm]:
 ///
+/// [CompressionAlgorithm]: super::CompressionAlgorithm
 ///
 /// ```
 /// use sequoia_openpgp as openpgp;

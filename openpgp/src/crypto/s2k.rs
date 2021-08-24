@@ -29,8 +29,8 @@ use rand::Rng;
 /// [`key::Encrypted`]).
 ///
 ///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
-///   [`SKESK`]: super::super::packet::SKESK
-///   [`key::Encrypted`]: super::super::packet::key::Encrypted
+///   [`SKESK`]: crate::packet::SKESK
+///   [`key::Encrypted`]: crate::packet::key::Encrypted
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.

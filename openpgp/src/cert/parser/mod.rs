@@ -386,7 +386,7 @@ impl CertValidator {
 /// (In a [`Cert`], these show up as [`Unknown`] components.)  The
 /// goal is to provide some future compatibility.
 ///
-/// [`Packet`]: super::packet::Packet
+/// [`Packet`]: crate::packet::Packet
 /// [`TPK`]: https://tools.ietf.org/html/rfc4880#section-11.1
 /// [`TSK`]: https://tools.ietf.org/html/rfc4880#section-11.2
 /// [`Public Key`]: super::Packet::PublicKey

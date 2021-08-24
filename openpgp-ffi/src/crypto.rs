@@ -2,7 +2,7 @@
 //!
 //! Wraps [`sequoia-openpgp::crypto`].
 //!
-//! [`sequoia-openpgp::crypto`]: super::super::super::sequoia_openpgp::crypto
+//! [`sequoia-openpgp::crypto`]: sequoia_openpgp::crypto
 
 use libc::size_t;
 

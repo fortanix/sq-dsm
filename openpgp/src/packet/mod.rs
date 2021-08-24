@@ -132,13 +132,13 @@
 //! [the grammar]: https://tools.ietf.org/html/rfc4880#section-11
 //! [v3]: https://tools.ietf.org/html/rfc4880#section-5.2.2
 //! [v4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
-//! [parsing a message]: super::parse
-//! [creating a message]: super::serialize::stream
+//! [parsing a message]: crate::parse
+//! [creating a message]: crate::serialize::stream
 //! [`SignatureBuilder`]: signature::SignatureBuilder
 //! [`SED`]: https://tools.ietf.org/html/rfc4880#section-5.7
 //! [private extensions]: https://tools.ietf.org/html/rfc4880#section-4.3
 //! [`Compressed Data`]: CompressedData
-//! [parses]: super::parse
+//! [parses]: crate::parse
 //! [OpenPGP Message]: https://tools.ietf.org/html/rfc4880#section-11.3
 //! [`Container::descendants`]: Container::descendants()
 //! [`Deref`]: std::ops::Deref
@@ -892,8 +892,8 @@ fn packet_path_iter() {
 /// the [`SignatureBuilder`] to create the `Signature` packet.  See
 /// the linked documentation for details, and examples.
 ///
-/// [streaming `Signer`]: super::serialize::stream::Signer
-/// [`PacketParser`]: super::parse
+/// [streaming `Signer`]: crate::serialize::stream::Signer
+/// [`PacketParser`]: crate::parse::PacketParser
 /// [self signatures on Keys]: Key::bind()
 /// [self signatures on User IDs]: UserID::bind()
 /// [self signatures on User Attributes]: user_attribute::UserAttribute::bind()
@@ -1016,8 +1016,8 @@ impl DerefMut for Signature {
 /// extensions.
 ///
 /// [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
-/// [`PacketParser`]: super::parse
-/// [streaming serializer]: super::serialize::stream
+/// [`PacketParser`]: crate::parse::PacketParser
+/// [streaming serializer]: crate::serialize::stream
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum OnePassSig {
@@ -1076,8 +1076,8 @@ impl DerefMut for OnePassSig {
 /// extensions.
 ///
 /// [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
-/// [streaming serializer]: super::serialize::stream
-/// [`PacketParser`]: super::parse
+/// [streaming serializer]: crate::serialize::stream
+/// [`PacketParser`]: crate::parse::PacketParser
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum PKESK {
@@ -1136,8 +1136,8 @@ impl DerefMut for PKESK {
 /// extensions.
 ///
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-/// [streaming serializer]: super::serialize::stream
-/// [`PacketParser`]: super::parse
+/// [streaming serializer]: crate::serialize::stream
+/// [`PacketParser`]: crate::parse::PacketParser
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SKESK {
@@ -1762,8 +1762,6 @@ impl<R: key::KeyRole> Key4<key::SecretParts, R> {
     ///
     /// Fails if the secret key is encrypted.  You can use
     /// [`Key::decrypt_secret`] to decrypt a key.
-    ///
-    /// [`Key::decrypt_secret`]: super::Key::decrypt_secret()
     pub fn into_keypair(self) -> Result<KeyPair> {
         let (key, secret) = self.take_secret();
         let secret = match secret {
@@ -1872,8 +1870,8 @@ impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
 /// using the [`PacketParser`].
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
-/// [streaming serializer]: super::serialize::stream
-/// [`PacketParser`]: super::parse
+/// [streaming serializer]: crate::serialize::stream
+/// [`PacketParser`]: crate::parse::PacketParser
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SEIP {
     /// SEIP packet version 1.
@@ -1931,8 +1929,8 @@ impl DerefMut for SEIP {
 /// using the [streaming serializer], or parsing an encrypted message
 /// using the [`PacketParser`].
 ///
-/// [streaming serializer]: super::serialize::stream
-/// [`PacketParser`]: super::parse
+/// [streaming serializer]: crate::serialize::stream
+/// [`PacketParser`]: crate::parse::PacketParser
 ///
 /// This feature is [experimental](super#experimental-features).
 #[non_exhaustive]

@@ -113,19 +113,19 @@
 //! [`ComponentAmalgamation`]: amalgamation::ComponentAmalgamation
 //! [`Parser` implementation]: struct.Cert.html#impl-Parse%3C%27a%2C%20Cert%3E
 //! [`Serialize` implementation]: struct.Cert.html#impl-Serialize%3C%27a%2C%20Cert%3E
-//! [`UserID::certify`]: super::packet::UserID::certify()
-//! [`UserAttribute::certify`]: super::packet::user_attribute::UserAttribute::certify()
+//! [`UserID::certify`]: crate::packet::UserID::certify()
+//! [`UserAttribute::certify`]: crate::packet::user_attribute::UserAttribute::certify()
 //! [`KeyAmalgamation`]: amalgamation::key
-//! [`UserID::bind`]: super::packet::UserID::bind()
-//! [`UserAttribute::bind`]: super::packet::user_attribute::UserAttribute::bind()
-//! [`Key::bind`]: super::packet::Key::bind()
-//! [`Signature::verify_direct_key`]: super::packet::Signature::verify_direct_key()
-//! [`Signature::verify_userid_binding`]: super::packet::Signature::verify_userid_binding()
-//! [`Signature::verify_user_attribute_binding`]: super::packet::Signature::verify_user_attribute_binding()
+//! [`UserID::bind`]: crate::packet::UserID::bind()
+//! [`UserAttribute::bind`]: crate::packet::user_attribute::UserAttribute::bind()
+//! [`Key::bind`]: crate::packet::Key::bind()
+//! [`Signature::verify_direct_key`]: crate::packet::Signature::verify_direct_key()
+//! [`Signature::verify_userid_binding`]: crate::packet::Signature::verify_userid_binding()
+//! [`Signature::verify_user_attribute_binding`]: crate::packet::Signature::verify_user_attribute_binding()
 //! [`ValidAmalgamation::revocation_keys`]: amalgamation::ValidAmalgamation::revocation_keys
-//! [`Signature::verify_primary_key_revocation`]: super::packet::Signature::verify_primary_key_revocation()
-//! [`Signature::verify_userid_revocation`]: super::packet::Signature::verify_userid_revocation()
-//! [`Signature::verify_user_attribute_revocation`]: super::packet::Signature::verify_user_attribute_revocation()
+//! [`Signature::verify_primary_key_revocation`]: crate::packet::Signature::verify_primary_key_revocation()
+//! [`Signature::verify_userid_revocation`]: crate::packet::Signature::verify_userid_revocation()
+//! [`Signature::verify_user_attribute_revocation`]: crate::packet::Signature::verify_user_attribute_revocation()
 
 use std::io;
 use std::collections::btree_map::BTreeMap;
@@ -498,9 +498,9 @@ pub trait Preferences<'a>: seal::Sealed {
 /// signatures, and third-party revocations, as well as useful methods.
 ///
 /// [TPK and TSK data structures]: https://tools.ietf.org/html/rfc4880#section-11
-/// [`Key`]: super::packet::Key
-/// [`UserID`]: super::packet::UserID
-/// [`UserAttribute`]: super::packet::user_attribute::UserAttribute
+/// [`Key`]: crate::packet::Key
+/// [`UserID`]: crate::packet::UserID
+/// [`UserAttribute`]: crate::packet::user_attribute::UserAttribute
 ///
 /// `Cert`s are canonicalized in the sense that their `Component`s are
 /// deduplicated, and their signatures and revocations are
@@ -521,7 +521,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// secret key material, it is essential to first strip the secret key
 /// material from copies that came from an untrusted source.
 ///
-/// [`Key::public_cmp`]: super::packet::Key::public_cmp()
+/// [`Key::public_cmp`]: crate::packet::Key::public_cmp()
 ///
 /// Signatures are deduplicated using [their `Eq` implementation],
 /// which compares the data that is hashed and the MPIs.  That is, it
@@ -532,7 +532,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// This policy prevents an attacker from flooding a certificate with
 /// valid signatures that only differ in their unhashed data.
 ///
-/// [their `Eq` implementation]: super::packet::Signature#a-note-on-equality
+/// [their `Eq` implementation]: crate::packet::Signature#a-note-on-equality
 /// [the unhashed data]: https://tools.ietf.org/html/rfc4880#section-5.2.3
 ///
 /// Self signatures and self revocations are checked for validity by
@@ -549,10 +549,10 @@ pub trait Preferences<'a>: seal::Sealed {
 /// verification method, e.g., [`Signature::verify_userid_binding`]
 /// or [`Signature::verify_userid_revocation`].
 ///
-/// [`Policy`]: super::policy
-/// [digest prefix]: super::packet::signature::Signature4::digest_prefix()
-/// [`Signature::verify_userid_binding`]: super::packet::Signature::verify_userid_binding()
-/// [`Signature::verify_userid_revocation`]: super::packet::Signature::verify_userid_revocation()
+/// [`Policy`]: crate::policy::Policy
+/// [digest prefix]: crate::packet::signature::Signature4::digest_prefix()
+/// [`Signature::verify_userid_binding`]: crate::packet::Signature::verify_userid_binding()
+/// [`Signature::verify_userid_revocation`]: crate::packet::Signature::verify_userid_revocation()
 ///
 /// If a signature or a revocation is not valid,
 /// we check to see whether it is simply out of place (i.e., belongs
@@ -582,7 +582,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// data or generate a signature.  Refer to [`Key::decrypt_secret`]
 /// for details.
 ///
-/// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
+/// [`Key::decrypt_secret`]: crate::packet::Key::decrypt_secret()
 ///
 /// # Filtering Certificates
 ///
@@ -791,7 +791,7 @@ impl Cert {
     /// [`Key::decrypt_secret`] for details.
     ///
     /// [`Cert::keys`]: Cert::keys()
-    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
+    /// [`Key::decrypt_secret`]: crate::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -836,7 +836,7 @@ impl Cert {
     ///   - There is a valid [hard revocation] (even if it is not live
     ///     at time `t`, and even if there is a newer self signature).
     ///
-    /// [hard revocation]: super::types::RevocationType::Hard
+    /// [hard revocation]: crate::types::RevocationType::Hard
     ///
     /// Note: certificates and subkeys have different revocation
     /// criteria from [User IDs and User Attributes].
@@ -1136,7 +1136,7 @@ impl Cert {
     ///
     /// [`Cert::primary_key`]: Cert::primary_key()
     /// [`KeyAmalgamationIter::subkeys`]: amalgamation::key::KeyAmalgamationIter::subkeys()
-    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
+    /// [`Key::decrypt_secret`]: crate::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -1329,7 +1329,7 @@ impl Cert {
     /// appropriate.  This means that **if you serialize the resulting
     /// packets, the secret key material will be serialized too**.
     ///
-    /// [`TSK`]: serialize::TSK
+    /// [`TSK`]: crate::serialize::TSK
     /// [`SecretKey`]: Packet::SecretKey
     /// [`SecretSubkey`]: Packet::SecretSubkey
     ///
@@ -2800,10 +2800,9 @@ impl Cert {
     /// is alive (see [`ValidCert::alive`]) or revoked (see
     /// [`ValidCert::revoked`]).
     ///
-    /// [`ValidCert`]: cert::ValidCert
-    /// [`ValidateAmalgamation`]: cert::amalgamation::ValidateAmalgamation
-    /// [`ValidCert::alive`]: cert::ValidCert::alive()
-    /// [`ValidCert::revoked`]: cert::ValidCert::revoked()
+    /// [`ValidateAmalgamation`]: amalgamation::ValidateAmalgamation
+    /// [`ValidCert::alive`]: ValidCert::alive()
+    /// [`ValidCert::revoked`]: ValidCert::revoked()
     ///
     /// # Examples
     ///
@@ -2980,7 +2979,7 @@ impl IntoIterator for Cert
 /// the certificate or any component is live.  If you care about those
 /// things, then you need to check them separately.
 ///
-/// [`Policy`]: super::policy
+/// [`Policy`]: crate::policy::Policy
 /// [`Cert::with_policy`]: Cert::with_policy()
 ///
 /// # Examples
@@ -3185,7 +3184,7 @@ impl<'a> ValidCert<'a> {
     ///   - There is a valid [hard revocation] (even if it is not live
     ///     at time `t`, and even if there is a newer self signature).
     ///
-    /// [hard revocation]: super::types::RevocationType::Hard
+    /// [hard revocation]: crate::types::RevocationType::Hard
     ///
     /// Note: certificates and subkeys have different revocation
     /// criteria from [User IDs and User Attributes].
@@ -3281,7 +3280,7 @@ impl<'a> ValidCert<'a> {
     /// can be used to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
     ///
-    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
+    /// [`Key::decrypt_secret`]: crate::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -3327,7 +3326,7 @@ impl<'a> ValidCert<'a> {
     /// [`Key::decrypt_secret`] for details.
     ///
     /// [`ValidKeyAmalgamationIter::subkeys`]: amalgamation::key::ValidKeyAmalgamationIter::subkeys()
-    /// [`Key::decrypt_secret`]: super::packet::Key::decrypt_secret()
+    /// [`Key::decrypt_secret`]: crate::packet::Key::decrypt_secret()
     ///
     /// # Examples
     ///
@@ -3515,7 +3514,7 @@ impl<'a> ValidCert<'a> {
     /// the primary User ID.  See the documentation of
     /// [`ValidCert::primary_userid`] for details.
     ///
-    /// [`ValidCert::primary_userid`]: IntoIter::primary_userid()
+    /// [`ValidCert::primary_userid`]: ValidCert::primary_userid()
     ///
     /// # Examples
     ///

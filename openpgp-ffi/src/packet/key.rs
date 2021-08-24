@@ -29,7 +29,7 @@ type UnspecifiedKey =
 ///
 /// Wraps [`sequoia-openpgp::packet::Key`].
 ///
-/// [`sequoia-openpgp::packet::key::Key`]: super::super::super::super::sequoia_openpgp::packet::Key
+/// [`sequoia-openpgp::packet::key::Key`]: sequoia_openpgp::packet::Key
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse")]
 pub struct Key(UnspecifiedKey);

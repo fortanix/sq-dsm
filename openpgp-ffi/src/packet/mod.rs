@@ -43,7 +43,7 @@ use crate::RefRaw;
 ///
 /// Wraps [`sequoia-openpgp::Packet`].
 ///
-/// [`sequoia-openpgp::Packet`]: super::super::super::sequoia_openpgp::Packet
+/// [`sequoia-openpgp::Packet`]: sequoia_openpgp::Packet
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, Hash, PartialEq")]
 pub struct Packet(openpgp::Packet);

@@ -3,7 +3,7 @@
 //! Wraps the streaming packet serialization, see
 //! [`sequoia-openpgp::serialize::stream`].
 //!
-//! [`sequoia-openpgp::serialize::stream`]: super::super::super::sequoia_openpgp::serialize::stream
+//! [`sequoia-openpgp::serialize::stream`]: sequoia_openpgp::serialize::stream
 
 use std::ptr;
 use std::slice;
@@ -238,7 +238,7 @@ pub extern "C" fn pgp_literal_writer_new
 ///
 /// Wraps [`sequoia-openpgp::serialize::stream::Recipient`].
 ///
-/// [`sequoia-openpgp::serialize::stream::Recipient`]: super::super::super::sequoia_openpgp::serialize::stream::Recipient
+/// [`sequoia-openpgp::serialize::stream::Recipient`]: sequoia_openpgp::serialize::stream::Recipient
 #[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
 pub struct Recipient<'a>(openpgp::serialize::stream::Recipient<'a>);
 

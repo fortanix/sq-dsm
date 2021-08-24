@@ -432,7 +432,7 @@ impl fmt::Debug for ProtectedMPI {
 /// Provides a typed and structured way of storing multiple MPIs (and
 /// the occasional elliptic curve) in [`Key`] packets.
 ///
-///   [`Key`]: super::super::packet::Key
+///   [`Key`]: crate::packet::Key
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -605,7 +605,7 @@ impl Arbitrary for PublicKey {
 /// [`Key`] packets.  Secret key components are protected by storing
 /// them using [`ProtectedMPI`].
 ///
-///   [`Key`]: super::super::packet::Key
+///   [`Key`]: crate::packet::Key
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -879,7 +879,7 @@ impl Default for SecretKeyChecksum {
 /// Provides a typed and structured way of storing multiple MPIs in
 /// [`PKESK`] packets.
 ///
-///   [`PKESK`]: super::super::packet::PKESK
+///   [`PKESK`]: crate::packet::PKESK
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -974,7 +974,7 @@ impl Arbitrary for Ciphertext {
 /// Provides a typed and structured way of storing multiple MPIs in
 /// [`Signature`] packets.
 ///
-///   [`Signature`]: super::super::packet::Signature
+///   [`Signature`]: crate::packet::Signature
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.

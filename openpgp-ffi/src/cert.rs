@@ -2,8 +2,8 @@
 //!
 //! Wraps [`sequoia-openpgp::Cert`] and [related functionality].
 //!
-//! [`sequoia-openpgp::Cert`]: super::super::super::sequoia_openpgp::cert::Cert
-//! [related functionality]: super::super::super::sequoia_openpgp::cert
+//! [`sequoia-openpgp::Cert`]: sequoia_openpgp::cert::Cert
+//! [related functionality]: sequoia_openpgp::cert
 
 use std::convert::TryFrom;
 use std::ptr;

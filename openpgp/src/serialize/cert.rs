@@ -197,7 +197,7 @@ impl Cert {
     ///
     /// This object writes out secret keys during serialization.
     ///
-    /// [`TSK`]: super::serialize::TSK
+    /// [`TSK`]: crate::serialize::TSK
     pub fn as_tsk<'a>(&'a self) -> TSK<'a> {
         TSK::new(self)
     }
@@ -210,8 +210,8 @@ impl Cert {
 /// use [`Cert::as_tsk()`] to create a `TSK`, which is a shim on top
 /// of the `Cert`, and serialize this.
 ///
-/// [`Cert`]: super::cert::Cert
-/// [`Cert::as_tsk()`]: super::cert::Cert::as_tsk()
+/// [`Cert`]: crate::cert::Cert
+/// [`Cert::as_tsk()`]: crate::cert::Cert::as_tsk()
 ///
 /// # Examples
 ///
@@ -336,7 +336,7 @@ impl<'a> TSK<'a> {
     ///
     /// See [this test] for support in other implementations.
     ///
-    ///   [`TSK::set_filter`]: Cert::set_filter()
+    ///   [`TSK::set_filter`]: TSK::set_filter()
     ///   [Section 11.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.2
     ///   [`S2K`]: super::crypto::S2K
     ///   [this test]: https://tests.sequoia-pgp.org/#Detached_primary_key

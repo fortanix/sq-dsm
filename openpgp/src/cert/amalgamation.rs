@@ -210,12 +210,12 @@
 //! ```
 //!
 //! [`ComponentBundle`]: super::bundle
-//! [`Signature`]: super::super::packet::signature
+//! [`Signature`]: crate::packet::signature
 //! [`Cert`]: super
 //! [is supposed to]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
 //! [`std::iter::map`]: std::iter::Map
 //! [MD5 collisions]: https://en.wikipedia.org/wiki/MD5
-//! [`Policy`]: super::super::policy
+//! [`Policy`]: crate::policy::Policy
 //! [streaming verifier]: ../../parse/stream.html
 //! [Intended Recipients]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
 //! [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
@@ -685,7 +685,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 /// [`Cert::userids`]: super::Cert::userids()
 /// [`Cert::primary_userid`]: super::Cert::primary_userid()
 /// [`Cert::user_attributes`]: super::Cert::user_attributes()
-/// [`Cert::unknowns`]: super::Cert::unknown()
+/// [`Cert::unknowns`]: super::Cert::unknowns()
 /// [`ComponentAmalgamation::with_policy`]: ValidateAmalgamation::with_policy()
 /// [See the module's documentation]: self
 #[derive(Debug, PartialEq)]
@@ -1231,7 +1231,7 @@ where C: IntoIterator<Item = S>,
 /// # Ok(()) }
 /// ```
 ///
-/// [`Policy`]: super::super::policy
+/// [`Policy`]: crate::policy::Policy
 #[derive(Debug)]
 pub struct ValidComponentAmalgamation<'a, C> {
     ca: ComponentAmalgamation<'a, C>,

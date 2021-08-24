@@ -1548,6 +1548,7 @@ impl ReasonForRevocation {
 ///
 /// Construct a new [`Message`] containing one text literal packet:
 ///
+/// [`Message`]: crate::Message
 ///
 /// ```rust
 /// use sequoia_openpgp as openpgp;
@@ -1672,7 +1673,7 @@ impl Arbitrary for DataFormat {
 /// Generates a new certificate then checks if the User ID is revoked or not under
 /// the given policy using [`ValidUserIDAmalgamation`]:
 ///
-/// [`ValidUserIDAmalgamation`]: super::cert::amalgamation::ValidUserIDAmalgamation
+/// [`ValidUserIDAmalgamation`]: crate::cert::amalgamation::ValidUserIDAmalgamation
 ///
 /// ```rust
 /// use sequoia_openpgp as openpgp;

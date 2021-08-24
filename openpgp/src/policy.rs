@@ -1446,7 +1446,7 @@ impl<'a> Policy for StandardPolicy<'a> {
 /// does not concern itself with the use (encryption or signing), and
 /// it does include key sizes (if applicable) and elliptic curves.
 ///
-///   [`PublicKeyAlgorithm`]: super::types::PublicKeyAlgorithm
+///   [`PublicKeyAlgorithm`]: crate::types::PublicKeyAlgorithm
 ///
 /// Key sizes put into are buckets, rounding down to the nearest
 /// bucket.  For example, a 3253-bit RSA key is categorized as

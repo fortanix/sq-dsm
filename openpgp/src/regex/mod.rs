@@ -42,7 +42,7 @@
 //! behavior can be overridden using [`Regex::disable_sanitizations`]
 //! and [`RegexSet::disable_sanitizations`].
 //!
-//!   [`UserID`]: super::packet::UserID
+//!   [`UserID`]: crate::packet::UserID
 //!   [`Regex::disable_sanitizations`]: Regex::disable_sanitizations()
 //!   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
 //!
@@ -55,12 +55,12 @@
 //! [`SignatureBuilder::set_trust_signature`] method.
 //!
 //!   [type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-//!   [GenericCertification]: super::types::SignatureType::GenericCertification
-//!   [PersonaCertification]: super::types::SignatureType::PersonaCertification
-//!   [CasualCertification]: super::types::SignatureType::CasualCertification
-//!   [PositiveCertification]: super::types::SignatureType::PositiveCertification
+//!   [GenericCertification]: crate::types::SignatureType::GenericCertification
+//!   [PersonaCertification]: crate::types::SignatureType::PersonaCertification
+//!   [CasualCertification]: crate::types::SignatureType::CasualCertification
+//!   [PositiveCertification]: crate::types::SignatureType::PositiveCertification
 //!   [Trust Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
-//!   [`SignatureBuilder::set_trust_signature`]: super::packet::signature::SignatureBuilder::set_trust_signature()
+//!   [`SignatureBuilder::set_trust_signature`]: crate::packet::signature::SignatureBuilder::set_trust_signature()
 //!
 //! To scope a trust signature, you add a [Regular Expression
 //! subpacket] to it using
@@ -71,9 +71,9 @@
 //! [`SignatureBuilder::regular_expressions`].
 //!
 //!   [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
-//!   [`SignatureBuilder::set_regular_expression`]: super::packet::signature::SignatureBuilder::set_regular_expression()
-//!   [`SignatureBuilder::add_regular_expression`]: super::packet::signature::SignatureBuilder::add_regular_expression()
-//!   [`SignatureBuilder::regular_expressions`]: super::packet::signature::SignatureBuilder::regular_expressions()
+//!   [`SignatureBuilder::set_regular_expression`]: crate::packet::signature::SignatureBuilder::set_regular_expression()
+//!   [`SignatureBuilder::add_regular_expression`]: crate::packet::signature::SignatureBuilder::add_regular_expression()
+//!   [`SignatureBuilder::regular_expressions`]: crate::packet::signature::SignatureBuilder::regular_expressions()
 //!
 //! # Caveat Emptor
 //!
@@ -762,10 +762,10 @@ impl RegexSet {
     /// error.
     ///
     ///   [type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [GenericCertification]: super::types::SignatureType::GenericCertification
-    ///   [PersonaCertification]: super::types::SignatureType::PersonaCertification
-    ///   [CasualCertification]: super::types::SignatureType::CasualCertification
-    ///   [PositiveCertification]: super::types::SignatureType::PositiveCertification
+    ///   [GenericCertification]: crate::types::SignatureType::GenericCertification
+    ///   [PersonaCertification]: crate::types::SignatureType::PersonaCertification
+    ///   [CasualCertification]: crate::types::SignatureType::CasualCertification
+    ///   [PositiveCertification]: crate::types::SignatureType::PositiveCertification
     ///
     /// By default, strings that don't pass a sanity check (in
     /// particular, include Unicode control characters) never match.
