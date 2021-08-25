@@ -25,8 +25,8 @@ mod rust2c;
 /// This macro is used to decorate every function exported from
 /// Sequoia.  It applies the following transformations:
 ///
-///  - [ffi_catch_abort]
-///  - [cdecl]
+///  - [ffi_catch_abort()]
+///  - [cdecl()]
 #[proc_macro_attribute]
 pub fn extern_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
     cdecl(attr.clone(), ffi_catch_abort(attr, item))

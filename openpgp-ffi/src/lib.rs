@@ -129,23 +129,23 @@
 //!
 //! Functions that cannot fail are a nice consequence of the
 //! 'fail-fast on undefined behavior'-rule.  An example of such
-//! function is [`pgp_fingerprint_to_string`].  This function cannot
+//! function is [`Fingerprint::to_string`].  This function cannot
 //! fail, unless either the given fingerprint reference is invalid,
 //! or the allocation for the string failed, which is considered
 //! undefined behavior.
 //!
-//! [`pgp_fingerprint_to_string`]: fingerprint::Fingerprint::pgp_fingerprint_to_string()
+//! [`Fingerprint::to_string`]: sequoia-openpgp::Fingerprint::to_string()
 //!
 //! Failing functions signal failure either in-band (e.g. `NULL`, or
 //! -1), using `pgp_status_t`, and may store complex error information
 //! in a caller-provided location.  For example, constructors often
 //! return `NULL` to signal errors.  An example of a constructor that
 //! may fail and return `NULL`, but does not communicate complex error
-//! is [`pgp_fingerprint_from_hex`]. [`pgp_packet_parser_from_bytes`],
+//! is [`Fingerprint::from_hex`]. [`pgp_packet_parser_from_bytes`],
 //! on the other hand, will return `NULL` and store a complex error at
 //! the location given using the `errp` parameter.
 //!
-//! [`pgp_fingerprint_from_hex`]: fingerprint::Fingerprint::pgp_fingerprint_from_hex()
+//! [`Fingerprint::from_hex`]: sequoia-openpgp::Fingerprint::from_hex()
 //! [`pgp_packet_parser_from_bytes`]: parse::pgp_packet_parser_from_bytes()
 //!
 //! Errors may be inspected using [`pgp_error_status`], and formatted
