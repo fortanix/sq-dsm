@@ -112,7 +112,7 @@
 //! [`ComponentBundle`]: bundle::ComponentBundle
 //! [`ComponentAmalgamation`]: amalgamation::ComponentAmalgamation
 //! [`Parser` implementation]: struct.Cert.html#impl-Parse%3C%27a%2C%20Cert%3E
-//! [`Serialize` implementation]: struct.Cert.html#impl-Serialize%3C%27a%2C%20Cert%3E
+//! [`Serialize` implementation]: struct.Cert.html#impl-Serialize
 //! [`UserID::certify`]: crate::packet::UserID::certify()
 //! [`UserAttribute::certify`]: crate::packet::user_attribute::UserAttribute::certify()
 //! [`KeyAmalgamation`]: amalgamation::key
@@ -839,9 +839,13 @@ impl Cert {
     /// [hard revocation]: crate::types::RevocationType::Hard
     ///
     /// Note: certificates and subkeys have different revocation
-    /// criteria from [User IDs and User Attributes].
+    /// criteria from [User IDs] and [User Attributes].
     ///
-    /// [User IDs and User Attributes]: amalgamation::ComponentAmalgamation::revocation_status()
+    //  Pending https://github.com/rust-lang/rust/issues/85960, should be
+    //  [User IDs]: bundle::ComponentBundle<UserID>::revocation_status
+    //  [User Attributes]: bundle::ComponentBundle<UserAttribute>::revocation_status
+    /// [User IDs]: bundle::ComponentBundle#method.revocation_status-1
+    /// [User Attributes]: bundle::ComponentBundle#method.revocation_status-2
     ///
     /// # Examples
     ///
@@ -2798,11 +2802,11 @@ impl Cert {
     ///
     /// This doesn't say anything about whether the certificate itself
     /// is alive (see [`ValidCert::alive`]) or revoked (see
-    /// [`ValidCert::revoked`]).
+    /// [`ValidCert::revocation_status`]).
     ///
     /// [`ValidateAmalgamation`]: amalgamation::ValidateAmalgamation
     /// [`ValidCert::alive`]: ValidCert::alive()
-    /// [`ValidCert::revoked`]: ValidCert::revoked()
+    /// [`ValidCert::revocation_status`]: ValidCert::revocation_status()
     ///
     /// # Examples
     ///

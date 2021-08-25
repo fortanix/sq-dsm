@@ -68,12 +68,12 @@
 //! [`SignatureBuilder::add_regular_expression`].
 //!
 //! To extract any regular expressions, you can use
-//! [`SignatureBuilder::regular_expressions`].
+//! [`SubpacketAreas::regular_expressions`].
 //!
 //!   [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
 //!   [`SignatureBuilder::set_regular_expression`]: crate::packet::signature::SignatureBuilder::set_regular_expression()
 //!   [`SignatureBuilder::add_regular_expression`]: crate::packet::signature::SignatureBuilder::add_regular_expression()
-//!   [`SignatureBuilder::regular_expressions`]: crate::packet::signature::SignatureBuilder::regular_expressions()
+//!   [`SubpacketAreas::regular_expressions`]: crate::packet::signature::subpacket::SubpacketAreas::regular_expressions()
 //!
 //! # Caveat Emptor
 //!

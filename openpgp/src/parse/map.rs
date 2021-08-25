@@ -101,9 +101,9 @@ impl Map {
 /// (e.g. "CTB", or "version"), an [`offset`] into the packet, and the
 /// read [`data`].
 ///
-///   [`name`]: Field::name()
-///   [`offset`]: Field::offset()
-///   [`data`]: Field::data()
+///   [`name`]: Field::name
+///   [`offset`]: Field::offset
+///   [`data`]: Field::as_bytes
 #[derive(Clone, Debug)]
 pub struct Field<'a> {
     /// Name of the field.

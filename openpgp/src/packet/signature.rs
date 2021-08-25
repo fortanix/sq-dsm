@@ -1775,11 +1775,10 @@ impl PartialEq for Signature4 {
     /// valid signatures, add subpackets to the unhashed area,
     /// yielding valid but distinct signatures.  If you want to ignore
     /// the unhashed area, you should instead use the
-    /// [`Signature4::normalized_eq`] method.
+    /// [`Signature::normalized_eq`] method.
     ///
     /// [`level`]: Signature4::level()
     /// [`computed_digest`]: Signature4::computed_digest()
-    /// [`Signature4::normalized_eq`]: Signature4::normalized_eq()
     fn eq(&self, other: &Signature4) -> bool {
         self.cmp(other) == Ordering::Equal
     }

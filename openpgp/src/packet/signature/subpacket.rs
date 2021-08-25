@@ -3842,11 +3842,11 @@ impl signature::SignatureBuilder {
     /// If you are only interested in modifying an existing
     /// signature's unhashed area, it may be better to simply modify
     /// the signature in place using
-    /// [`Signature4::modify_unhashed_area`] rather than to create a
+    /// [`SignatureBuilder::modify_unhashed_area`] rather than to create a
     /// new signature, because modifying the unhashed area doesn't
     /// invalidate any existing signature.
     ///
-    ///   [`Signature4::modify_unhashed_area`]: Signature4::modify_unhashed_area()
+    ///   [`SignatureBuilder::modify_unhashed_area`]: super::SignatureBuilder::modify_unhashed_area
     ///
     /// # Examples
     ///

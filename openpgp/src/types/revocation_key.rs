@@ -17,10 +17,10 @@ use crate::{
 ///
 /// [Section 5.2.3.15 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 ///
-/// Revocation keys can be retrieved using [`ComponentAmalgamation::revocation_keys`]
+/// Revocation keys can be retrieved using [`ValidAmalgamation::revocation_keys`]
 /// and set using [`CertBuilder::set_revocation_keys`].
 ///
-/// [`ComponentAmalgamation::revocation_keys`]: crate::cert::amalgamation::ComponentAmalgamation::revocation_keys()
+/// [`ValidAmalgamation::revocation_keys`]: crate::cert::amalgamation::ValidAmalgamation::revocation_keys()
 /// [`CertBuilder::set_revocation_keys`]: crate::cert::CertBuilder::set_revocation_keys()
 ///
 /// # Examples

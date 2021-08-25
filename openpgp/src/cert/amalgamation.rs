@@ -216,7 +216,7 @@
 //! [`std::iter::map`]: std::iter::Map
 //! [MD5 collisions]: https://en.wikipedia.org/wiki/MD5
 //! [`Policy`]: crate::policy::Policy
-//! [streaming verifier]: ../../parse/stream.html
+//! [streaming verifier]: crate::parse::stream
 //! [Intended Recipients]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
 //! [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
 //! [`Deref` trait]: std::ops::Deref
@@ -650,7 +650,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 
 /// A certificate component, its associated data, and useful methods.
 ///
-/// [`Cert::userids`], [`Cert::primary_userid`], [`Cert::user_attributes`], and
+/// [`Cert::userids`], [`ValidCert::primary_userid`], [`Cert::user_attributes`], and
 /// [`Cert::unknowns`] return `ComponentAmalgamation`s.
 ///
 /// `ComponentAmalgamation` implements [`ValidateAmalgamation`], which
@@ -683,7 +683,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 ///
 /// [`Cert`]: super::Cert
 /// [`Cert::userids`]: super::Cert::userids()
-/// [`Cert::primary_userid`]: super::Cert::primary_userid()
+/// [`ValidCert::primary_userid`]: super::ValidCert::primary_userid()
 /// [`Cert::user_attributes`]: super::Cert::user_attributes()
 /// [`Cert::unknowns`]: super::Cert::unknowns()
 /// [`ComponentAmalgamation::with_policy`]: ValidateAmalgamation::with_policy()

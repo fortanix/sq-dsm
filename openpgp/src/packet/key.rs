@@ -21,7 +21,7 @@
 //! all represented by the `Key` enum and the `Key4` struct using
 //! marker types.  We use marker types rather than an enum, to better
 //! exploit the type checking.  For instance, type-specific methods
-//! like [`Key::secret`] are only exposed for those types that
+//! like [`Key4::secret`] are only exposed for those types that
 //! actually support them.  See the documentation for [`Key`] for an
 //! explanation of how the markers work.
 //!
@@ -40,7 +40,6 @@
 //! [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
 //! [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2
 //! [secret subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.4
-//! [`Key::secret`]: super::Key::secret()
 //! [`Key::decrypt_secret`]: super::Key::decrypt_secret()
 //!
 //! # Key Creation

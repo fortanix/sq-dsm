@@ -26,9 +26,9 @@ use crate::{
 /// Signature creation time is internally stored as a `Timestamp`:
 ///
 /// Note that this example retrieves raw packet value.
-/// Use [`SubpacketArea::signature_creation_time`] to get the signature creation time.
+/// Use [`SubpacketAreas::signature_creation_time`] to get the signature creation time.
 ///
-/// [`SubpacketArea::signature_creation_time`]: crate::packet::signature::subpacket::SubpacketArea::signature_creation_time()
+/// [`SubpacketAreas::signature_creation_time`]: crate::packet::signature::subpacket::SubpacketAreas::signature_creation_time()
 ///
 /// ```
 /// use sequoia_openpgp as openpgp;
