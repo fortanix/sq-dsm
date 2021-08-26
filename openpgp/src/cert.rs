@@ -485,7 +485,7 @@ pub trait Preferences<'a>: seal::Sealed {
     fn features(&self) -> Option<Features>;
 
     /// Returns the URI of a document describing the policy
-    /// the certificate was issued under
+    /// the certificate was issued under.
     fn policy_uri(&self) -> Option<&'a [u8]>;
 }
 

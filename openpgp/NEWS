@@ -2,6 +2,16 @@
 #+TITLE: sequoia-openpgp NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.4.0
+** New functionality
+   - Preferences::policy_uri
+   - TSK::eq
+   - ValidAmalgamation::revocation_keys
+   - ValidCert::policy_uri
+   - ValidCert::revocation_keys
+** Notable fixes
+   - Filters set using CertParser::unvalidated_cert_filter are now
+     preserved during iterations.
 * Changes in 1.3.0
 ** New functionality
    - CertBuilder::add_subkey_with
