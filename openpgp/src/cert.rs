@@ -1674,12 +1674,18 @@ impl Cert {
         // place.
         let mut bad_sigs: Vec<(Option<usize>, Signature)> =
             mem::replace(&mut self.bad, Vec::new()).into_iter()
-            .map(|sig| (None, sig)).collect();
+            .map(|sig| {
+                t!("We're going to reconsider bad signature {:?}", sig);
+                (None, sig)
+            })
+            .collect();
 
         // Do the same for signatures on unknown components, but
         // remember where we took them from.
         for (i, c) in self.unknowns.iter_mut().enumerate() {
             for sig in mem::replace(&mut c.certifications, Vec::new()) {
+                t!("We're going to reconsider {:?} on unknown component #{}",
+                   sig, i);
                 bad_sigs.push((Some(i), sig));
             }
         }
