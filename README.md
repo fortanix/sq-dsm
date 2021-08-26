@@ -20,10 +20,7 @@ The [openpgp](./openpgp) crate tries hard to avoid dictating how
 OpenPGP should
 be used.  This doesn't mean that we don't have opinions about how
 OpenPGP should be used in a number of common scenarios (for instance,
-message validation).  But, in this crate, we refrain from expressing
-those opinions; we expose an opinionated, high-level interface in the
-sequoia-core and related crates.  In our opinion, you should generally
-use those crates instead of this one.
+message validation).
 
 High-level API
 --------------

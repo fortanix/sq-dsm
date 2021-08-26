@@ -26,17 +26,12 @@
 //! We also try hard to avoid dictating how OpenPGP should be used.
 //! This doesn't mean that we don't have opinions about how OpenPGP
 //! should be used in a number of common scenarios (for instance,
-//! message validation).  But, in this crate, we refrain from
-//! expressing those opinions; we expose an opinionated, high-level
-//! interface in the [sequoia-core] and related crates.  In our
-//! opinion, you should generally use those crates instead of this
-//! one.
+//! message validation).
 //!
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
 //! [RFC 6637]: https://tools.ietf.org/html/rfc6637
 //! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
-//! [sequoia-core]: super::sequoia_core
 //!
 //!
 //! # Dear User,
