@@ -1683,7 +1683,17 @@ impl Cert {
         // Do the same for signatures on unknown components, but
         // remember where we took them from.
         for (i, c) in self.unknowns.iter_mut().enumerate() {
-            for sig in mem::replace(&mut c.certifications, Vec::new()) {
+            for sig in
+                mem::replace(&mut c.self_signatures, Vec::new()).into_iter()
+                .chain(
+                    mem::replace(&mut c.certifications, Vec::new()).into_iter())
+                .chain(
+                    mem::replace(&mut c.attestations, Vec::new()).into_iter())
+                .chain(
+                    mem::replace(&mut c.self_revocations, Vec::new()).into_iter())
+                .chain(
+                    mem::replace(&mut c.other_revocations, Vec::new()).into_iter())
+            {
                 t!("We're going to reconsider {:?} on unknown component #{}",
                    sig, i);
                 bad_sigs.push((Some(i), sig));
