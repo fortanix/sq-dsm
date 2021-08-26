@@ -233,7 +233,7 @@ impl HeaderRecord {
     }
 }
 
-/// Kybox X.509 record
+/// Keybox X.509 record
 ///
 /// Unhandled, only exists for completeness.
 #[derive(PartialEq, Eq, Debug)]

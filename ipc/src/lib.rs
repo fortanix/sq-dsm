@@ -1,4 +1,7 @@
-//! Low-level IPC mechanism for Sequoia.
+//! IPC mechanisms for Sequoia.
+//!
+//! This crate implements IPC mechanisms to communicate with Sequoia
+//! and GnuPG background services.
 //!
 //! # Rationale
 //!
@@ -27,14 +30,7 @@
 //! also means that we do not spawn a thread in your process, which is
 //! frowned upon for various reasons.
 //!
-//! Please see [IPCPolicy] for more information.
-//!
-//! [IPCPolicy]: ../../sequoia_core/enum.IPCPolicy.html
-//!
-//! # Note
-//!
-//! Windows support is currently not implemented, but should be
-//! straight forward.
+//! Please see [`IPCPolicy`] for more information.
 
 #![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
 #![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
