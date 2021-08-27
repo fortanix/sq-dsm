@@ -1461,12 +1461,52 @@ impl Cert {
         self.into()
     }
 
+    /// Sorts and deduplicates all components and all signatures of
+    /// all components.
+    fn sort_and_dedup(&mut self) {
+        self.primary.sort_and_dedup();
+
+        self.bad.sort_by(Signature::normalized_cmp);
+        self.bad.dedup_by(|a, b| a.normalized_eq(b));
+        // Order bad signatures so that the most recent one comes
+        // first.
+        self.bad.sort_by(sig_cmp);
+
+        self.userids.sort_and_dedup(UserID::cmp, |_, _| {});
+        self.user_attributes.sort_and_dedup(UserAttribute::cmp, |_, _| {});
+        // XXX: If we have two keys with the same public parts and
+        // different non-empty secret parts, then one will be dropped
+        // (non-deterministicly)!
+        //
+        // This can happen if:
+        //
+        //   - One is corrupted
+        //   - There are two versions that are encrypted differently
+        self.subkeys.sort_and_dedup(Key::public_cmp,
+            |a, b| {
+                // Recall: if a and b are equal, a will be dropped.
+                if ! b.has_secret() && a.has_secret() {
+                    std::mem::swap(a, b);
+                }
+            });
+
+        self.unknowns.sort_and_dedup(Unknown::best_effort_cmp, |_, _| {});
+    }
+
     fn canonicalize(mut self) -> Self {
         tracer!(TRACE, "canonicalize", 0);
 
-        // The very first thing that we do is verify the
-        // self signatures.  There are a few things that we need to be
-        // aware of:
+        // Before we do anything, we'll order and deduplicate the
+        // components.  If two components are the same, they will be
+        // merged, and their signatures will also be deduplicated.
+        // This improves the performance considerably when we update a
+        // certificate, because the certificates will be most likely
+        // almost identical, and we avoid about half of the signature
+        // verifications.
+        self.sort_and_dedup();
+
+        // Now we verify the self signatures.  There are a few things
+        // that we need to be aware of:
         //
         //  - Signatures may be invalid.  These should be dropped.
         //
@@ -1968,38 +2008,17 @@ impl Cert {
                self.keyid(), self.bad.len());
         }
 
-        self.primary.sort_and_dedup();
-
-        self.bad.sort_by(Signature::normalized_cmp);
-        self.bad.dedup_by(|a, b| a.normalized_eq(b));
-        // Order bad signatures so that the most recent one comes
-        // first.
-        self.bad.sort_by(sig_cmp);
-
-        self.userids.sort_and_dedup(UserID::cmp, |_, _| {});
-        self.user_attributes.sort_and_dedup(UserAttribute::cmp, |_, _| {});
-        // XXX: If we have two keys with the same public parts and
-        // different non-empty secret parts, then one will be dropped
-        // (non-deterministicly)!
-        //
-        // This can happen if:
-        //
-        //   - One is corrupted
-        //   - There are two versions that are encrypted differently
-        self.subkeys.sort_and_dedup(Key::public_cmp,
-            |a, b| {
-                // Recall: if a and b are equal, a will be dropped.
-                if ! b.has_secret() && a.has_secret() {
-                    std::mem::swap(a, b);
-                }
-            });
-
+        // Split signatures on unknown components.
         let primary_fp: KeyHandle = self.key_handle();
         let primary_keyid = KeyHandle::KeyID(primary_fp.clone().into());
         for c in self.unknowns.iter_mut() {
             parser::split_sigs(&primary_fp, &primary_keyid, c);
         }
-        self.unknowns.sort_and_dedup(Unknown::best_effort_cmp, |_, _| {});
+
+        // Sort again.  We may have moved signatures to the right
+        // component, and we need to ensure they are in the right spot
+        // (i.e. newest first).
+        self.sort_and_dedup();
 
         // XXX: Check if the sigs in other_sigs issuer are actually
         // designated revokers for this key (listed in a "Revocation
