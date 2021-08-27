@@ -29,7 +29,7 @@
 //! learn from your use cases, discuss your opinions, and develop a
 //! high-level interface based on these experiences in the future.
 //!
-//! Despite ---or maybe because of--- it's unopinionated nature we found
+//! Despite —or maybe because of— its unopinionated nature we found
 //! it easy to develop opinionated OpenPGP software based on Sequoia.
 //!
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
