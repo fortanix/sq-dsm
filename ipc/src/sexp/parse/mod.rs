@@ -146,4 +146,10 @@ mod tests {
         assert!(Sexp::from_bytes(
             crate::tests::file("sexp/rsa-signature.sexp")).is_ok());
     }
+
+    /// Demonstrates a crash in the lexer.
+    #[test]
+    fn issue_742() {
+        Sexp::from_bytes(b"7").unwrap_err();
+    }
 }
