@@ -1645,27 +1645,27 @@ impl Cert {
                          self.primary, other_revocations, lookup_fn,
                          verify_primary_key_revocation, hash_direct_key);
 
-        for binding in self.userids.iter_mut() {
+        for ua in self.userids.iter_mut() {
             check!(format!("userid \"{}\"",
-                           String::from_utf8_lossy(binding.userid().value())),
-                   binding, self_signatures, verify_userid_binding,
-                   binding.userid());
+                           String::from_utf8_lossy(ua.userid().value())),
+                   ua, self_signatures, verify_userid_binding,
+                   ua.userid());
             check!(format!("userid \"{}\"",
-                           String::from_utf8_lossy(binding.userid().value())),
-                   binding, self_revocations, verify_userid_revocation,
-                   binding.userid());
+                           String::from_utf8_lossy(ua.userid().value())),
+                   ua, self_revocations, verify_userid_revocation,
+                   ua.userid());
             check_3rd_party!(
                 format!("userid \"{}\"",
-                        String::from_utf8_lossy(binding.userid().value())),
-                binding, certifications, lookup_fn,
+                        String::from_utf8_lossy(ua.userid().value())),
+                ua, certifications, lookup_fn,
                 verify_userid_binding, hash_userid_binding,
-                binding.userid());
+                ua.userid());
             check_3rd_party!(
                 format!("userid \"{}\"",
-                        String::from_utf8_lossy(binding.userid().value())),
-                binding, other_revocations, lookup_fn,
+                        String::from_utf8_lossy(ua.userid().value())),
+                ua, other_revocations, lookup_fn,
                 verify_userid_revocation, hash_userid_binding,
-                binding.userid());
+                ua.userid());
         }
 
         for binding in self.user_attributes.iter_mut() {

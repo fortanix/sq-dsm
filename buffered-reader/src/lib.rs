@@ -549,7 +549,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
     /// }
     ///
     /// // Like `data()`, `data_consume()` may return and consume less
-    /// // than request if there is no more data available.
+    /// // than requested if there is no more data available.
     /// {
     ///     let buffer = br.data_consume(10)?;
     ///     assert_eq!(buffer, &orig[6..6 + buffer.len()]);

@@ -81,7 +81,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
 impl UserID {
     /// Creates a binding signature.
     ///
-    /// The signature binds this userid to `cert`. `signer` will be used
+    /// The signature binds this User ID to `cert`. `signer` will be used
     /// to create a signature using `signature` as builder.
     /// The`hash_algo` defaults to SHA512, `creation_time` to the
     /// current time.
@@ -92,9 +92,9 @@ impl UserID {
     ///
     /// # Examples
     ///
-    /// This example demonstrates how to bind this userid to a Cert.
+    /// This example demonstrates how to bind this User ID to a Cert.
     /// Note that in general, the `CertBuilder` is a better way to add
-    /// userids to a Cert.
+    /// User IDs to a Cert.
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
@@ -105,17 +105,17 @@ impl UserID {
     ///     .parts_into_secret()?.into_keypair()?;
     /// assert_eq!(cert.userids().len(), 0);
     ///
-    /// // Generate a userid and a binding signature.
+    /// // Generate a User ID and a binding signature.
     /// let userid = UserID::from("test@example.org");
     /// let builder =
     ///     signature::SignatureBuilder::new(SignatureType::PositiveCertification);
     /// let binding = userid.bind(&mut keypair, &cert, builder)?;
     ///
-    /// // Now merge the userid and binding signature into the Cert.
+    /// // Now merge the User ID and binding signature into the Cert.
     /// let cert = cert.insert_packets(vec![Packet::from(userid),
     ///                                    binding.into()])?;
     ///
-    /// // Check that we have a userid.
+    /// // Check that we have a User ID.
     /// assert_eq!(cert.userids().len(), 1);
     /// # Ok(()) }
     pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
@@ -126,9 +126,9 @@ impl UserID {
             signer, cert.primary_key().key(), self)
     }
 
-    /// Returns a certification for the user id.
+    /// Returns a certification for the User ID.
     ///
-    /// The signature binds this userid to `cert`. `signer` will be
+    /// The signature binds this User ID to `cert`. `signer` will be
     /// used to create a certification signature of type
     /// `signature_type`.  `signature_type` defaults to
     /// `SignatureType::GenericCertification`, `hash_algo` to SHA512,
@@ -146,7 +146,7 @@ impl UserID {
     ///
     /// # Examples
     ///
-    /// This example demonstrates how to certify a userid.
+    /// This example demonstrates how to certify a User ID.
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
@@ -174,7 +174,7 @@ impl UserID {
     /// // `certification` can now be used, e.g. by merging it into `bob`.
     /// let bob = bob.insert_packets(certification)?;
     ///
-    /// // Check that we have a certification on the userid.
+    /// // Check that we have a certification on the User ID.
     /// assert_eq!(bob.userids().nth(0).unwrap()
     ///            .certifications().count(), 1);
     /// # Ok(()) }
@@ -223,7 +223,7 @@ impl UserAttribute {
     ///
     /// This example demonstrates how to bind this user attribute to a
     /// Cert.  Note that in general, the `CertBuilder` is a better way
-    /// to add userids to a Cert.
+    /// to add User IDs to a Cert.
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
@@ -280,7 +280,7 @@ impl UserAttribute {
     ///
     /// # Examples
     ///
-    /// This example demonstrates how to certify a userid.
+    /// This example demonstrates how to certify a User ID.
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
@@ -312,7 +312,7 @@ impl UserAttribute {
     /// // `certification` can now be used, e.g. by merging it into `bob`.
     /// let bob = bob.insert_packets(certification)?;
     ///
-    /// // Check that we have a certification on the userid.
+    /// // Check that we have a certification on the User ID.
     /// assert_eq!(bob.user_attributes().nth(0).unwrap()
     ///            .certifications().count(),
     ///            1);

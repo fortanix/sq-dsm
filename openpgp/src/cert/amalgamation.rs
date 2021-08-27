@@ -274,7 +274,7 @@ pub mod key;
 /// [`ValidComponentAmalgamation`], and a [`KeyAmalgamation`] into a
 /// [`ValidKeyAmalgamation`].
 ///
-/// A certificate or a component is consider valid if:
+/// A certificate or a component is considered valid if:
 ///
 ///   - It has a self signature that is live at time `t`.
 ///
