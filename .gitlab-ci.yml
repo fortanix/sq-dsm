@@ -81,7 +81,7 @@ bullseye:arm64:
       - /arm64/i # refs containing 'arm64' keyword
       - tags
       - web
-      - scheduled
+      - schedules
     variables:
       # Forks of this project most likely do not have an arm64 runner
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
@@ -108,7 +108,7 @@ benchmarks:
       - /bench/i # refs containing 'bench' keyword
       - tags
       - web
-      - scheduled
+      - schedules
   before_script:
     - cargo install critcmp
   script:
@@ -155,7 +155,7 @@ all_commits:arm64:
       - /arm64/i # refs containing 'arm64' keyword
       - tags
       - web
-      - scheduled
+      - schedules
     variables:
       # Forks of this project most likely do not have an arm64 runner
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
@@ -239,7 +239,7 @@ windows-gnu:
       - /windows/i # refs containing 'windows' keyword
       - tags
       - web
-      - scheduled
+      - schedules
     variables:
       # Forks of this project most likely use gitlab's shared windows runners, which
       # do not use the docker executor, so disable the windows jobs for forks.
