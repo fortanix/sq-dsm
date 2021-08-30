@@ -3191,9 +3191,13 @@ impl<'a> ValidCert<'a> {
     /// [hard revocation]: crate::types::RevocationType::Hard
     ///
     /// Note: certificates and subkeys have different revocation
-    /// criteria from [User IDs and User Attributes].
+    /// criteria from [User IDs] and [User Attributes].
     ///
-    /// [User IDs and User Attributes]: amalgamation::ComponentAmalgamation#userid_revocation_status
+    //  Pending https://github.com/rust-lang/rust/issues/85960, should be
+    //  [User IDs]: bundle::ComponentBundle<UserID>::revocation_status
+    //  [User Attributes]: bundle::ComponentBundle<UserAttribute>::revocation_status
+    /// [User IDs]: bundle::ComponentBundle#method.revocation_status-1
+    /// [User Attributes]: bundle::ComponentBundle#method.revocation_status-2
     ///
     /// # Examples
     ///
