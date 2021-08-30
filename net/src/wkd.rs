@@ -8,7 +8,7 @@
 //! See the [get example].
 //!
 //! [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
-//! [get example]: get()#example
+//! [get example]: get#examples
 //!
 
 
