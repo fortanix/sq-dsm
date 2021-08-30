@@ -1308,7 +1308,7 @@ impl<'a> ValidUserIDAmalgamation<'a> {
     /// [`ValidUserIDAmalgamation::attested_certifications`] to
     /// iterate over all attested certifications.
     ///
-    ///   [`ValidUserIDAmalgamation::attested_certifications`]: ValidUserIDAmalgamation#method.attested_certifications()
+    ///   [`ValidUserIDAmalgamation::attested_certifications`]: ValidUserIDAmalgamation#method.attested_certifications
     // The explicit link works around a bug in rustdoc.
     pub fn attestation_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync
@@ -1479,7 +1479,7 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
     /// [`ValidUserAttributeAmalgamation::attested_certifications`] to
     /// iterate over all attested certifications.
     ///
-    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: ValidUserAttributeAmalgamation#method.attested_certifications()
+    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: ValidUserAttributeAmalgamation#method.attested_certifications
     // The explicit link works around a bug in rustdoc.
     pub fn attestation_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync

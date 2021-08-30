@@ -697,7 +697,7 @@ impl<'a> Iter<'a> {
     /// See [`PacketPile::path_ref`] for an explanation of
     /// `pathspec`s.
     ///
-    /// [`PacketPile::path_ref`]: super::PacketPile#path_ref
+    /// [`PacketPile::path_ref`]: super::PacketPile::path_ref
     ///
     /// # Examples
     ///

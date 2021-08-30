@@ -1342,8 +1342,6 @@ impl SecretKeyMaterial {
     /// This returns an error if the secret key material is encrypted.
     ///
     /// See [`Unencrypted::encrypt`] for details.
-    ///
-    /// [`Unencrypted::encrypt`]: Unencrypted#encrypt
     pub fn encrypt(mut self, password: &Password) -> Result<Self> {
         self.encrypt_in_place(password)?;
         Ok(self)
@@ -1354,8 +1352,6 @@ impl SecretKeyMaterial {
     /// This returns an error if the secret key material is encrypted.
     ///
     /// See [`Unencrypted::encrypt`] for details.
-    ///
-    /// [`Unencrypted::encrypt`]: Unencrypted#encrypt
     pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
         match self {
             SecretKeyMaterial::Unencrypted(ref u) => {

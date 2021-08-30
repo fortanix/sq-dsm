@@ -52,7 +52,7 @@ pub enum Tag {
     MDC,
     /// AEAD Encrypted Data Packet.
     ///
-    /// This feature is [experimental](super#experimental-features).
+    /// This feature is [experimental](crate#experimental-features).
     AED,
     /// Unassigned packets (as of RFC4880).
     Unknown(u8),
