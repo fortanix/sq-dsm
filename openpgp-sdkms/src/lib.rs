@@ -28,7 +28,6 @@ use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
 use ipnetwork::IpNetwork;
 use log::info;
-use mbedtls::pk::Pk;
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
     AgreeKeyMechanism, AgreeKeyRequest, DecryptRequest, DigestAlgorithm,
@@ -578,16 +577,11 @@ impl PublicKey {
                 | Some(curve @ ApiCurve::NistP384)
                 | Some(curve @ ApiCurve::NistP521) => {
                     let curve = sequoia_curve_from_api_curve(curve)?;
-                    let deserialized_pk = Pk::from_public_key(&raw_pk)
-                        .context("cannot deserialize key into mbedTLS")?;
-                    let mbed_point = deserialized_pk.ec_public()?;
-                    let bits_field =
-                        curve.bits().ok_or_else(|| Error::msg("bad curve"))?;
-                    let point = mpi::MPI::new_point(
-                        &mbed_point.x()?.to_binary()?,
-                        &mbed_point.y()?.to_binary()?,
-                        bits_field,
-                    );
+                    let (x, y) = der_parser::ec_point_x_y(&raw_pk)?;
+                    let bits_field = curve.bits()
+                        .ok_or_else(|| Error::msg("bad curve"))?;
+
+                    let point = mpi::MPI::new_point(&x, &y, bits_field);
                     let (pk_algo, ec_pk) = match role {
                         KeyRole::Primary => (
                             PublicKeyAlgorithm::ECDSA,
@@ -624,15 +618,10 @@ impl PublicKey {
                 }
             },
             ObjectType::Rsa => {
-                let deserialized_pk = Pk::from_public_key(&raw_pk)
-                    .context("cannot deserialize SDKMS key into mbedTLS")?;
+                let pk = der_parser::rsa_n_e(&raw_pk)?;
 
-                let (e, n) = (
-                    deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
-                    deserialized_pk.rsa_public_modulus()?.to_binary()?,
-                );
                 let key = Key::V4(
-                    Key4::import_public_rsa(&e, &n, Some(time.into()))
+                    Key4::import_public_rsa(&pk.e, &pk.n, Some(time.into()))
                         .context("cannot import RSA key into Sequoia")?,
                 );
 
@@ -726,17 +715,8 @@ impl Signer for SdkmsAgent {
                     .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
-                let (r, s) = yasna::parse_der(&plain, |reader| {
-                    reader.read_sequence(|reader| {
-                        let r = reader.next().read_biguint()
-                            .expect("bad signature MPI (r)")
-                            .to_bytes_be();
-                        let s = reader.next().read_biguint()
-                            .expect("bad signature MPI (s)")
-                            .to_bytes_be();
-                        Ok((r, s))
-                    })
-                }).expect("could not encode ECDSA der");
+                let (r, s) = der_parser::ecdsa_r_s(&plain)
+                    .expect("could not decode ECDSA der");
 
                 Ok(mpi::Signature::ECDSA {
                     r: r.to_vec().into(),
@@ -796,6 +776,7 @@ impl Decryptor for SdkmsAgent {
 
                 let ephemeral_der = match curve {
                     SequoiaCurve::Cv25519 => {
+                        // TODO: der_writer (and check length!)
                         let x = e.value()[1..].to_vec();
 
                         let oid = Oid::from_slice(&[1, 3, 101, 110]);
@@ -1004,29 +985,15 @@ fn secret_packet_from_sobject(
             | Some(curve @ ApiCurve::NistP521) => {
                 // Public key point
                 let curve = sequoia_curve_from_api_curve(curve)?;
-                let deserialized_pk = Pk::from_public_key(&raw_public)
-                    .context("cannot deserialize key into mbedTLS")?;
-                let mbed_point = deserialized_pk.ec_public()?;
-                let bits_field =
-                    curve.bits().ok_or_else(|| Error::msg("bad curve"))?;
-                let point = mpi::MPI::new_point(
-                    &mbed_point.x()?.to_binary()?,
-                    &mbed_point.y()?.to_binary()?,
-                    bits_field,
-                );
+                let bits_field = curve.bits()
+                    .ok_or_else(|| Error::msg("bad curve"))?;
+                let (x, y) = der_parser::ec_point_x_y(&raw_public)?;
+                let point = mpi::MPI::new_point(&x, &y, bits_field);
 
                 // Secret
-                let scalar: mpi::ProtectedMPI =
-                    yasna::parse_der(&raw_secret, |reader| {
-                        Ok(reader.read_sequence(|reader| {
-                            let _version = reader.next().read_u32()?;
-                            let priv_key = reader.next().read_bytes()?;
-                            let _oid = reader.next().read_tagged_der()?;
-                            let _pk = reader.next().read_tagged_der()?;
-                            Ok(priv_key)
-                        })?)
-                    })?
-                    .into();
+                let scalar: mpi::ProtectedMPI = der_parser::ec_priv_scalar(
+                    &raw_secret
+                    )?.into();
                 let algo: PublicKeyAlgorithm;
                 let secret: SecretKeyMaterial;
                 let public: mpi::PublicKey;
@@ -1062,30 +1029,16 @@ fn secret_packet_from_sobject(
             _ => unimplemented!(),
         },
         ObjectType::Rsa => {
-            let (e, n, d, p, q, u) = yasna::parse_der(&raw_secret, |reader| {
-                reader.read_sequence(|reader| {
-                    let _version = reader.next().read_u32()?;
-                    let n = reader.next().read_biguint()?.to_bytes_be();
-                    let e = reader.next().read_biguint()?.to_bytes_be();
-                    let d = reader.next().read_biguint()?.to_bytes_be();
-                    let p = reader.next().read_biguint()?.to_bytes_be();
-                    let q = reader.next().read_biguint()?.to_bytes_be();
-                    let _exp1 = reader.next().read_biguint()?;
-                    let _exp2 = reader.next().read_biguint()?;
-                    let u = reader.next().read_biguint()?.to_bytes_be();
-
-                    Ok((e, n, d, p, q, u))
-                })
-            })?;
+            let sk = der_parser::rsa_private_nedpqu(&raw_secret)?;
             let public = mpi::PublicKey::RSA {
-                e: e.into(),
-                n: n.into(),
+                e: sk.e.into(),
+                n: sk.n.into(),
             };
             let secret: SecretKeyMaterial = mpi::SecretKeyMaterial::RSA {
-                d: d.into(),
-                p: p.into(),
-                q: q.into(),
-                u: u.into(),
+                d: sk.d.into(),
+                p: sk.p.into(),
+                q: sk.q.into(),
+                u: sk.u.into(),
             }
             .into();
             match role {
@@ -1233,4 +1186,124 @@ fn decide_proxy_from_env(endpoint: &str) -> Option<Arc<HyperClient>> {
     }
 
     None
+}
+
+mod der_parser {
+    use std::convert::TryFrom;
+    use spki::{ObjectIdentifier as Oid, SubjectPublicKeyInfo as Spki};
+    use yasna;
+
+    const RSA_OID: Oid = Oid::new("1.2.840.113549.1.1.1");
+    const NIST_P_OID: Oid = Oid::new("1.2.840.10045.2.1");
+    // See e.g. RFC3280
+    //
+    // SubjectPublicKeyInfo  ::=  SEQUENCE  {
+    //   algorithm         AlgorithmIdentifier,
+    //   subjectPublicKey  BIT STRING
+    // }
+
+    pub struct RsaPub {
+        pub n: Vec<u8>, pub e: Vec<u8>,
+    }
+
+    pub fn rsa_n_e(buf: &[u8]) -> super::Result<RsaPub> {
+        let pk = Spki::try_from(buf).unwrap();
+        if pk.algorithm.oid != RSA_OID {
+            return Err(anyhow::anyhow!("bad OID when parsing RSA key"));
+        }
+        // RFC3279 Sec. 2.3
+        //
+        // RSAPublicKey ::= SEQUENCE {
+        //   modulus         INTEGER, -- n
+        //   publicExponent  INTEGER  -- e
+        // }
+        //
+        yasna::parse_der(&pk.subject_public_key, |reader| {
+            Ok(reader.read_sequence(|reader| {
+                let n = reader.next().read_biguint()?.to_bytes_be();
+                let e = reader.next().read_u32()?.to_be_bytes().to_vec();
+                Ok(RsaPub{n, e})
+            })?)
+        }).map_err(|e| e.into())
+    }
+
+    pub struct RsaPriv {
+        pub n: Vec<u8>, pub e: Vec<u8>, pub d: Vec<u8>,
+        pub p: Vec<u8>, pub q: Vec<u8>, pub u: Vec<u8>,
+    }
+
+    pub fn rsa_private_nedpqu(buf: &[u8]) -> super::Result<RsaPriv> {
+        Ok(yasna::parse_der(&buf, |reader| {
+            reader.read_sequence(|reader| {
+                let _version = reader.next().read_u32()?;
+                let n = reader.next().read_biguint()?.to_bytes_be();
+                let e = reader.next().read_biguint()?.to_bytes_be();
+                let d = reader.next().read_biguint()?.to_bytes_be();
+                let p = reader.next().read_biguint()?.to_bytes_be();
+                let q = reader.next().read_biguint()?.to_bytes_be();
+                let _exp1 = reader.next().read_biguint()?;
+                let _exp2 = reader.next().read_biguint()?;
+                let u = reader.next().read_biguint()?.to_bytes_be();
+
+                Ok(RsaPriv{n, e, d, p, q, u})
+            })
+        })?)
+    }
+
+    pub fn ec_point_x_y(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
+        let pk = Spki::try_from(buf).unwrap();
+        if pk.algorithm.oid != NIST_P_OID {
+            return Err(anyhow::anyhow!("bad OID when parsing EC key"));
+        }
+
+        //
+        // RFC5480 Sec 2.2
+        //
+        // ECPoint ::= OCTET STRING
+        //
+
+        let octet_string = pk.subject_public_key;
+        let length = octet_string.len();
+        if length < 3 {
+            return Err(anyhow::anyhow!("bad EC point, or infinity"));
+        }
+
+        //
+        // Standards for Elliptic-Curve Cryptography
+        // https://www.secg.org/sec1-v2.pdf
+        //
+
+        let (w, x, y) = (
+            octet_string[0],
+            octet_string[1..(length + 1)/2].to_vec(),
+            octet_string[(length + 1)/2..].to_vec(),
+        );
+        if w != 0x04 {
+            return Err(anyhow::anyhow!("compressed EC point not supported"));
+        }
+
+        Ok((x, y))
+    }
+
+    pub fn ecdsa_r_s(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
+        Ok(yasna::parse_der(&buf, |reader| {
+            reader.read_sequence(|reader| {
+                let r = reader.next().read_biguint()?.to_bytes_be();
+                let s = reader.next().read_biguint()?.to_bytes_be();
+                Ok((r, s))
+            })
+        })?)
+    }
+
+    pub fn ec_priv_scalar(buf: &[u8]) -> super::Result<Vec<u8>> {
+        Ok(yasna::parse_der(&buf, |reader| {
+            Ok(reader.read_sequence(|reader| {
+                let _version = reader.next().read_u32()?;
+                let priv_key = reader.next().read_bytes()?;
+                let _oid = reader.next().read_tagged_der()?;
+                let _pk = reader.next().read_tagged_der()?;
+                Ok(priv_key)
+            })?)
+        })?)
+    }
 }
