@@ -21,7 +21,6 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::{Context, Error, Result};
-use bit_vec::BitVec;
 use http::uri::Uri;
 use hyper::client::{Client as HyperClient, ProxyConfig};
 use hyper::net::HttpsConnector;
@@ -53,7 +52,8 @@ use sequoia_openpgp::types::{
 use sequoia_openpgp::{Cert, Packet};
 use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
-use yasna::models::ObjectIdentifier as Oid;
+
+mod der;
 
 /// SdkmsAgent implements [Signer] and [Decryptor] with secrets stored inside
 /// Fortanix SDKMS.
@@ -102,9 +102,7 @@ impl Credentials {
             builder = builder.with_hyper_client(proxy.clone());
         }
 
-        Ok(builder
-            .build()
-            .context("could not initiate an SDKMS client")?)
+        Ok(builder.build().context("could not initiate an SDKMS client")?)
     }
 }
 
@@ -514,7 +512,8 @@ impl PublicKey {
                 Some(sobject_request.key_ops.unwrap() | KeyOperations::EXPORT)
         }
 
-        let sobject = client.create_sobject(&sobject_request)?;
+        let sobject = client.create_sobject(&sobject_request)
+            .context("sdkms client could not create sobject")?;
 
         PublicKey::from_sobject(sobject, role)
     }
@@ -577,7 +576,7 @@ impl PublicKey {
                 | Some(curve @ ApiCurve::NistP384)
                 | Some(curve @ ApiCurve::NistP521) => {
                     let curve = sequoia_curve_from_api_curve(curve)?;
-                    let (x, y) = der_parser::ec_point_x_y(&raw_pk)?;
+                    let (x, y) = der::parse::ec_point_x_y(&raw_pk)?;
                     let bits_field = curve.bits()
                         .ok_or_else(|| Error::msg("bad curve"))?;
 
@@ -618,7 +617,7 @@ impl PublicKey {
                 }
             },
             ObjectType::Rsa => {
-                let pk = der_parser::rsa_n_e(&raw_pk)?;
+                let pk = der::parse::rsa_n_e(&raw_pk)?;
 
                 let key = Key::V4(
                     Key4::import_public_rsa(&pk.e, &pk.n, Some(time.into()))
@@ -715,7 +714,7 @@ impl Signer for SdkmsAgent {
                     .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
-                let (r, s) = der_parser::ecdsa_r_s(&plain)
+                let (r, s) = der::parse::ecdsa_r_s(&plain)
                     .expect("could not decode ECDSA der");
 
                 Ok(mpi::Signature::ECDSA {
@@ -729,8 +728,6 @@ impl Signer for SdkmsAgent {
         }
     }
 }
-
-const ID_ECDH: [u64; 6] = [1, 2, 840, 10045, 2, 1];
 
 impl Decryptor for SdkmsAgent {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
@@ -767,53 +764,14 @@ impl Decryptor for SdkmsAgent {
             }
             mpi::Ciphertext::ECDH { e, .. } => {
                 let curve = match &self.public.mpis() {
-                    mpi::PublicKey::ECDH { curve, .. } => curve.clone(),
+                    mpi::PublicKey::ECDH { curve, .. } => curve,
                     _ => panic!("inconsistent pk algo"),
                 };
 
                 cli = cli.authenticate_with_api_key(&self.credentials.api_key)
                     .expect("bad authentication");
 
-                let ephemeral_der = match curve {
-                    SequoiaCurve::Cv25519 => {
-                        // TODO: der_writer (and check length!)
-                        let x = e.value()[1..].to_vec();
-
-                        let oid = Oid::from_slice(&[1, 3, 101, 110]);
-                        yasna::construct_der(|w| {
-                            w.write_sequence(|w| {
-                                w.next().write_sequence(|w| {
-                                    w.next().write_oid(&oid);
-                                });
-                                w.next().write_bitvec(&BitVec::from_bytes(&x))
-                            });
-                        })
-                    }
-                    _ => {
-                        //
-                        // Note: SDKMS expects UNRESTRICTED ALGORITHM IDENTIFIER
-                        // AND PARAMETERS (RFC5480 sec. 2.1.1) for Nist curves
-                        //
-                        let id_ecdh = Oid::from_slice(&ID_ECDH);
-                        let named_curve = curve_oid(&curve)
-                            .expect("bad curve OID");
-
-                        let alg_id = yasna::construct_der(|writer| {
-                            writer.write_sequence(|writer| {
-                                writer.next().write_oid(&id_ecdh);
-                                writer.next().write_oid(&named_curve);
-                            });
-                        });
-
-                        let subj_public_key = BitVec::from_bytes(&e.value());
-                        yasna::construct_der(|writer| {
-                            writer.write_sequence(|writer| {
-                                writer.next().write_der(&alg_id);
-                                writer.next().write_bitvec(&subj_public_key);
-                            });
-                        })
-                    }
-                };
+                let ephemeral_der = der::serialize::spki_ecdh(curve, e);
 
                 // Import ephemeral public key
                 let e_descriptor = {
@@ -884,50 +842,6 @@ impl Decryptor for SdkmsAgent {
     }
 }
 
-fn curve_oid(curve: &SequoiaCurve) -> Result<Oid> {
-    match curve {
-        SequoiaCurve::NistP256 => {
-            Ok(Oid::from_slice(&[1, 2, 840, 10045, 3, 1, 7]))
-        }
-        SequoiaCurve::NistP384 => Ok(Oid::from_slice(&[1, 3, 132, 0, 34])),
-        SequoiaCurve::NistP521 => Ok(Oid::from_slice(&[1, 3, 132, 0, 35])),
-        SequoiaCurve::Cv25519 => Ok(Oid::from_slice(&[1, 3, 101, 110])),
-        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
-    }
-}
-
-fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {
-    match curve {
-        SequoiaCurve::Cv25519 => Ok(253),
-        SequoiaCurve::NistP256 => Ok(256),
-        SequoiaCurve::NistP384 => Ok(384),
-        SequoiaCurve::NistP521 => Ok(521),
-        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
-    }
-}
-
-fn sequoia_curve_from_api_curve(curve: ApiCurve) -> Result<SequoiaCurve> {
-    match curve {
-        ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
-        ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
-        ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
-        ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
-        ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
-        _ => Err(Error::msg("cannot convert curve")),
-    }
-}
-
-fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
-    match curve {
-        SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
-        SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
-        SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
-        SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
-        SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
-        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
-    }
-}
-
 fn secret_packet_from_sobject(
     sobject: Sobject,
     role: KeyRole,
@@ -987,11 +901,11 @@ fn secret_packet_from_sobject(
                 let curve = sequoia_curve_from_api_curve(curve)?;
                 let bits_field = curve.bits()
                     .ok_or_else(|| Error::msg("bad curve"))?;
-                let (x, y) = der_parser::ec_point_x_y(&raw_public)?;
+                let (x, y) = der::parse::ec_point_x_y(&raw_public)?;
                 let point = mpi::MPI::new_point(&x, &y, bits_field);
 
                 // Secret
-                let scalar: mpi::ProtectedMPI = der_parser::ec_priv_scalar(
+                let scalar: mpi::ProtectedMPI = der::parse::ec_priv_scalar(
                     &raw_secret
                     )?.into();
                 let algo: PublicKeyAlgorithm;
@@ -1029,10 +943,10 @@ fn secret_packet_from_sobject(
             _ => unimplemented!(),
         },
         ObjectType::Rsa => {
-            let sk = der_parser::rsa_private_nedpqu(&raw_secret)?;
+            let sk = der::parse::rsa_private_nedpqu(&raw_secret)?;
             let public = mpi::PublicKey::RSA {
-                e: sk.e.into(),
-                n: sk.n.into(),
+                e: sk.public.e.into(),
+                n: sk.public.n.into(),
             };
             let secret: SecretKeyMaterial = mpi::SecretKeyMaterial::RSA {
                 d: sk.d.into(),
@@ -1188,122 +1102,34 @@ fn decide_proxy_from_env(endpoint: &str) -> Option<Arc<HyperClient>> {
     None
 }
 
-mod der_parser {
-    use std::convert::TryFrom;
-    use spki::{ObjectIdentifier as Oid, SubjectPublicKeyInfo as Spki};
-    use yasna;
-
-    const RSA_OID: Oid = Oid::new("1.2.840.113549.1.1.1");
-    const NIST_P_OID: Oid = Oid::new("1.2.840.10045.2.1");
-    // See e.g. RFC3280
-    //
-    // SubjectPublicKeyInfo  ::=  SEQUENCE  {
-    //   algorithm         AlgorithmIdentifier,
-    //   subjectPublicKey  BIT STRING
-    // }
-
-    pub struct RsaPub {
-        pub n: Vec<u8>, pub e: Vec<u8>,
+fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {
+    match curve {
+        SequoiaCurve::Cv25519 => Ok(253),
+        SequoiaCurve::NistP256 => Ok(256),
+        SequoiaCurve::NistP384 => Ok(384),
+        SequoiaCurve::NistP521 => Ok(521),
+        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
     }
+}
 
-    pub fn rsa_n_e(buf: &[u8]) -> super::Result<RsaPub> {
-        let pk = Spki::try_from(buf).unwrap();
-        if pk.algorithm.oid != RSA_OID {
-            return Err(anyhow::anyhow!("bad OID when parsing RSA key"));
-        }
-        // RFC3279 Sec. 2.3
-        //
-        // RSAPublicKey ::= SEQUENCE {
-        //   modulus         INTEGER, -- n
-        //   publicExponent  INTEGER  -- e
-        // }
-        //
-        yasna::parse_der(&pk.subject_public_key, |reader| {
-            Ok(reader.read_sequence(|reader| {
-                let n = reader.next().read_biguint()?.to_bytes_be();
-                let e = reader.next().read_u32()?.to_be_bytes().to_vec();
-                Ok(RsaPub{n, e})
-            })?)
-        }).map_err(|e| e.into())
+fn sequoia_curve_from_api_curve(curve: ApiCurve) -> Result<SequoiaCurve> {
+    match curve {
+        ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
+        ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
+        ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
+        ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
+        ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
+        _ => Err(Error::msg("cannot convert curve")),
     }
+}
 
-    pub struct RsaPriv {
-        pub n: Vec<u8>, pub e: Vec<u8>, pub d: Vec<u8>,
-        pub p: Vec<u8>, pub q: Vec<u8>, pub u: Vec<u8>,
-    }
-
-    pub fn rsa_private_nedpqu(buf: &[u8]) -> super::Result<RsaPriv> {
-        Ok(yasna::parse_der(&buf, |reader| {
-            reader.read_sequence(|reader| {
-                let _version = reader.next().read_u32()?;
-                let n = reader.next().read_biguint()?.to_bytes_be();
-                let e = reader.next().read_biguint()?.to_bytes_be();
-                let d = reader.next().read_biguint()?.to_bytes_be();
-                let p = reader.next().read_biguint()?.to_bytes_be();
-                let q = reader.next().read_biguint()?.to_bytes_be();
-                let _exp1 = reader.next().read_biguint()?;
-                let _exp2 = reader.next().read_biguint()?;
-                let u = reader.next().read_biguint()?.to_bytes_be();
-
-                Ok(RsaPriv{n, e, d, p, q, u})
-            })
-        })?)
-    }
-
-    pub fn ec_point_x_y(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
-        let pk = Spki::try_from(buf).unwrap();
-        if pk.algorithm.oid != NIST_P_OID {
-            return Err(anyhow::anyhow!("bad OID when parsing EC key"));
-        }
-
-        //
-        // RFC5480 Sec 2.2
-        //
-        // ECPoint ::= OCTET STRING
-        //
-
-        let octet_string = pk.subject_public_key;
-        let length = octet_string.len();
-        if length < 3 {
-            return Err(anyhow::anyhow!("bad EC point, or infinity"));
-        }
-
-        //
-        // Standards for Elliptic-Curve Cryptography
-        // https://www.secg.org/sec1-v2.pdf
-        //
-
-        let (w, x, y) = (
-            octet_string[0],
-            octet_string[1..(length + 1)/2].to_vec(),
-            octet_string[(length + 1)/2..].to_vec(),
-        );
-        if w != 0x04 {
-            return Err(anyhow::anyhow!("compressed EC point not supported"));
-        }
-
-        Ok((x, y))
-    }
-
-    pub fn ecdsa_r_s(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
-        Ok(yasna::parse_der(&buf, |reader| {
-            reader.read_sequence(|reader| {
-                let r = reader.next().read_biguint()?.to_bytes_be();
-                let s = reader.next().read_biguint()?.to_bytes_be();
-                Ok((r, s))
-            })
-        })?)
-    }
-
-    pub fn ec_priv_scalar(buf: &[u8]) -> super::Result<Vec<u8>> {
-        Ok(yasna::parse_der(&buf, |reader| {
-            Ok(reader.read_sequence(|reader| {
-                let _version = reader.next().read_u32()?;
-                let priv_key = reader.next().read_bytes()?;
-                let _oid = reader.next().read_tagged_der()?;
-                let _pk = reader.next().read_tagged_der()?;
-                Ok(priv_key)
-            })?)
-        })?)
+fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
+    match curve {
+        SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
+        SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
+        SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
+        SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
+        SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
+        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
     }
 }
