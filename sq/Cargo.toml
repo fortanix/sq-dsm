@@ -30,7 +30,7 @@ buffered-reader = { path = "../buffered-reader", version = "1.0.0", default-feat
 sequoia-openpgp = { path = "../openpgp", version = "1.1", default-features = false }
 sequoia-autocrypt = { path = "../autocrypt", version = "0.24", default-features = false, optional = true }
 sequoia-net = { path = "../net", version = "0.24", default-features = false, optional = true }
-openpgp-sdkms = { path = "../openpgp-sdkms" }
+openpgp-sdkms = { path = "../openpgp-sdkms", default-features = false }
 anyhow = "1.0.18"
 chrono = "0.4.10"
 clap = { version = "2.33", features = ["wrap_help"] }
