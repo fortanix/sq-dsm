@@ -133,34 +133,41 @@ impl Signer for KeyPair {
                     PublicKeyAlgorithm::EdDSA,
                     mpi::PublicKey::EdDSA { curve, q },
                     mpi::SecretKeyMaterial::EdDSA { scalar },
-                ) => {
-                    // CNG doesn't support EdDSA, use ed25519-dalek instead
-                    use ed25519_dalek::{Keypair, Signer};
-                    use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+                ) => match curve {
+                    Curve::Ed25519 => {
+                        // CNG doesn't support EdDSA, use ed25519-dalek instead
+                        use ed25519_dalek::{Keypair, Signer};
+                        use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 
-                    let (public, ..) = q.decode_point(&Curve::Ed25519)?;
+                        let (public, ..) = q.decode_point(&Curve::Ed25519)?;
 
-                    // It's expected for the private key to be exactly
-                    // SECRET_KEY_LENGTH bytes long but OpenPGP allows leading
-                    // zeros to be stripped.
-                    // Padding has to be unconditional; otherwise we have a
-                    // secret-dependent branch.
-                    let missing = SECRET_KEY_LENGTH.saturating_sub(scalar.value().len());
-                    let mut keypair = Protected::from(
-                        vec![0u8; SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH]
-                    );
-                    keypair.as_mut()[missing..SECRET_KEY_LENGTH].copy_from_slice(scalar.value());
-                    keypair.as_mut()[SECRET_KEY_LENGTH..].copy_from_slice(&public);
-                    let pair = Keypair::from_bytes(&keypair).unwrap();
+                        // It's expected for the private key to be exactly
+                        // SECRET_KEY_LENGTH bytes long but OpenPGP allows leading
+                        // zeros to be stripped.
+                        // Padding has to be unconditional; otherwise we have a
+                        // secret-dependent branch.
+                        let missing =
+                            SECRET_KEY_LENGTH.saturating_sub(scalar.value().len());
+                        let mut keypair = Protected::from(
+                            vec![0u8; SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH]
+                        );
+                        keypair.as_mut()[missing..SECRET_KEY_LENGTH]
+                            .copy_from_slice(scalar.value());
+                        keypair.as_mut()[SECRET_KEY_LENGTH..]
+                            .copy_from_slice(&public);
+                        let pair = Keypair::from_bytes(&keypair).unwrap();
 
-                    let sig = pair.sign(digest).to_bytes();
+                        let sig = pair.sign(digest).to_bytes();
 
-                    // https://tools.ietf.org/html/rfc8032#section-5.1.6
-                    let (r, s) = sig.split_at(sig.len() / 2);
-                    mpi::Signature::EdDSA {
-                        r: mpi::MPI::new(r),
-                        s: mpi::MPI::new(s),
-                    }
+                        // https://tools.ietf.org/html/rfc8032#section-5.1.6
+                        let (r, s) = sig.split_at(sig.len() / 2);
+                        mpi::Signature::EdDSA {
+                            r: mpi::MPI::new(r),
+                            s: mpi::MPI::new(s),
+                        }
+                    },
+                    _ => return Err(
+                        Error::UnsupportedEllipticCurve(curve.clone()).into()),
                 },
                 (PublicKeyAlgorithm::DSA,
                     mpi:: PublicKey::DSA { y, p, q, g },
@@ -627,7 +634,10 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                         Error::UnsupportedEllipticCurve(curve.clone()).into()),
                 }
             },
-            (mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s }) => {
+            (mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s })
+                => match curve
+            {
+                Curve::Ed25519 => {
                     // CNG doesn't support EdDSA, use ed25519-dalek instead
                     use ed25519_dalek::{PublicKey, Signature, SIGNATURE_LENGTH};
                     use ed25519_dalek::{Verifier};
@@ -653,8 +663,11 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     let signature = Signature::from(sig_bytes);
 
                     key.verify(digest, &signature)
-                    .map(|_| true)
-                    .map_err(|e| Error::BadSignature(e.to_string()))?
+                        .map(|_| true)
+                        .map_err(|e| Error::BadSignature(e.to_string()))?
+                },
+                _ => return Err(
+                    Error::UnsupportedEllipticCurve(curve.clone()).into()),
             },
             _ => return Err(Error::MalformedPacket(format!(
                 "unsupported combination of key {} and signature {:?}.",
