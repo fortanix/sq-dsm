@@ -98,8 +98,8 @@ impl Signer for KeyPair {
                     res?;
 
                     Ok(mpi::Signature::EdDSA {
-                        r: MPI::new(&sig[..32]),
-                        s: MPI::new(&sig[32..]),
+                        r: MPI::new(&sig[..ed25519::ED25519_KEY_SIZE]),
+                        s: MPI::new(&sig[ed25519::ED25519_KEY_SIZE..]),
                     })
                 },
                 _ => Err(
