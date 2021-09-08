@@ -1015,15 +1015,12 @@ impl NoProxy {
         port: u16,
     ) -> bool {
         // check for CIDR
-
         match (&no_proxy.ipnetwork, IpAddr::from_str(host)) {
             (Some(cidr), Ok(ip)) if cidr.contains(ip) => return true,
-
             _ => {}
         }
 
         // match host fragments
-
         let matching_hosts = host
             .split('.')
             .rev()
@@ -1104,7 +1101,7 @@ fn decide_proxy_from_env(endpoint: &str) -> Option<Arc<HyperClient>> {
 
 fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {
     match curve {
-        SequoiaCurve::Cv25519 => Ok(253),
+        SequoiaCurve::Cv25519  => Ok(253),
         SequoiaCurve::NistP256 => Ok(256),
         SequoiaCurve::NistP384 => Ok(384),
         SequoiaCurve::NistP521 => Ok(521),
@@ -1114,8 +1111,8 @@ fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {
 
 fn sequoia_curve_from_api_curve(curve: ApiCurve) -> Result<SequoiaCurve> {
     match curve {
-        ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
-        ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
+        ApiCurve::X25519   => Ok(SequoiaCurve::Cv25519),
+        ApiCurve::Ed25519  => Ok(SequoiaCurve::Ed25519),
         ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
         ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
         ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
@@ -1125,8 +1122,8 @@ fn sequoia_curve_from_api_curve(curve: ApiCurve) -> Result<SequoiaCurve> {
 
 fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
     match curve {
-        SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
-        SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
+        SequoiaCurve::Cv25519  => Ok(ApiCurve::X25519),
+        SequoiaCurve::Ed25519  => Ok(ApiCurve::Ed25519),
         SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
         SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
         SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
