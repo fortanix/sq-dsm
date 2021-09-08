@@ -210,9 +210,15 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                     Sx.into()
                 }
 
-                _ => {
-                    return Err(Error::UnsupportedEllipticCurve(curve.clone()).into());
-                }
+                // Not implemented in Nettle
+                Curve::BrainpoolP256 | Curve::BrainpoolP512 =>
+                    return
+                    Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+
+                // N/A
+                Curve::Unknown(_) | Curve::Ed25519 =>
+                    return
+                    Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
             };
 
             decrypt_unwrap(recipient, &S, ciphertext)
