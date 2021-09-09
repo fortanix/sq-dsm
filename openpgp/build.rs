@@ -2,8 +2,10 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::process::exit;
 
 fn main() {
+    crypto_backends_sanity_check();
     lalrpop::process_root().unwrap();
     include_test_data().unwrap();
 }
@@ -37,4 +39,61 @@ fn include_test_data() -> io::Result<()> {
     }
     writeln!(&mut sink, "}}")?;
     Ok(())
+}
+
+fn crypto_backends_sanity_check() {
+    #[allow(dead_code)]
+    struct Backend {
+        name: &'static str,
+        production_ready: bool,
+        constant_time: bool,
+    }
+
+    let backends = vec![
+        (cfg!(feature = "crypto-nettle"),
+         Backend {
+             name: "Nettle",
+             production_ready: true,
+             constant_time: true,
+         }),
+        (cfg!(feature = "crypto-cng"),
+         Backend {
+             name: "Windows CNG",
+             production_ready: true,
+             constant_time: true,
+         }),
+    ].into_iter().filter_map(|(selected, backend)| {
+        if selected { Some(backend) } else { None }
+    }).collect::<Vec<_>>();
+
+    match backends.len() {
+        0 => {
+            eprintln!("No cryptographic backend selected.
+
+Sequoia requires a cryptographic backend.  This backend is selected at compile
+time using feature flags.
+
+See https://crates.io/crates/sequoia-openpgp#crypto-backends");
+            exit(1);
+        },
+
+        1 => {
+            eprintln!("Selected cryptographic backend: {}", backends[0].name);
+        },
+
+        _ => {
+            eprintln!("Multiple cryptographic backends selected.
+
+Sequoia requires exactly one cryptographic backend.  This backend is
+selected at compile time using feature flags.
+
+Unfortunately, you have selected multiple backends:
+
+    {}
+
+See https://crates.io/crates/sequoia-openpgp#crypto-backends",
+            backends.iter().map(|b| b.name).collect::<Vec<_>>().join(", "));
+            exit(1);
+        },
+    }
 }
