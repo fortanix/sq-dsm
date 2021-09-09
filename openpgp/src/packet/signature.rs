@@ -1046,8 +1046,7 @@ impl SignatureBuilder {
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
     /// use openpgp::policy::StandardPolicy;
-    /// use openpgp::types::KeyFlags;
-    /// use openpgp::types::SignatureType;
+    /// use openpgp::types::{Curve, KeyFlags, SignatureType};
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let p = &StandardPolicy::new();
@@ -1060,7 +1059,8 @@ impl SignatureBuilder {
     /// let mut pk_signer = pk.clone().into_keypair()?;
     ///
     /// // Generate an encryption subkey.
-    /// let mut subkey: Key<_, _> = Key4::generate_rsa(3072)?.into();
+    /// let mut subkey: Key<_, _> =
+    ///     Key4::generate_ecc(false, Curve::Cv25519)?.into();
     /// // Derive a signer.
     /// let mut sk_signer = subkey.clone().into_keypair()?;
     ///
@@ -1190,8 +1190,7 @@ impl SignatureBuilder {
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
     /// use openpgp::policy::StandardPolicy;
-    /// use openpgp::types::KeyFlags;
-    /// use openpgp::types::SignatureType;
+    /// use openpgp::types::{Curve, KeyFlags, SignatureType};
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let p = &StandardPolicy::new();
@@ -1204,7 +1203,8 @@ impl SignatureBuilder {
     /// let mut pk_signer = pk.clone().into_keypair()?;
     ///
     /// // Generate a signing subkey.
-    /// let mut subkey: Key<_, _> = Key4::generate_rsa(3072)?.into();
+    /// let mut subkey: Key<_, _> =
+    ///     Key4::generate_ecc(true, Curve::Ed25519)?.into();
     /// // Derive a signer.
     /// let mut sk_signer = subkey.clone().into_keypair()?;
     ///

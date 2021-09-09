@@ -2268,7 +2268,7 @@ mod test {
         // Generate a certificate with an RSA primary and two RSA
         // subkeys.
         let (cert,_) = CertBuilder::new()
-            .set_cipher_suite(CipherSuite::RSA4k)
+            .set_cipher_suite(CipherSuite::RSA2k)
             .add_signing_subkey()
             .add_signing_subkey()
             .generate()?;
@@ -2286,7 +2286,7 @@ mod test {
 
         let pk = cert.primary_key().key().parts_as_secret()?;
         let subkey: key::SecretSubkey
-            = Key4::generate_rsa(4096)?.into();
+            = Key4::generate_rsa(2048)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(KeyFlags::empty().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
@@ -2303,7 +2303,7 @@ mod test {
         // Generate a certificate with an RSA primary, an RSA subkey,
         // and an ECC subkey.
         let (cert,_) = CertBuilder::new()
-            .set_cipher_suite(CipherSuite::RSA4k)
+            .set_cipher_suite(CipherSuite::RSA2k)
             .add_signing_subkey()
             .generate()?;
 
@@ -2498,7 +2498,7 @@ mod test {
         // subkey.
         eprintln!("Trying RSA primary, ECC sub:");
         let (cert,_) = CertBuilder::new()
-            .set_cipher_suite(CipherSuite::RSA4k)
+            .set_cipher_suite(CipherSuite::RSA2k)
             .add_subkey(KeyFlags::empty().set_signing(), None,
                         CipherSuite::Cv25519)
             .generate()?;
@@ -2517,7 +2517,7 @@ mod test {
         let (cert,_) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_subkey(KeyFlags::empty().set_signing(), None,
-                        CipherSuite::RSA4k)
+                        CipherSuite::RSA2k)
             .generate()?;
 
         assert_eq!(cert.keys().with_policy(p, None).count(), 2);

@@ -5498,12 +5498,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         use crate::packet::signature;
 
         for cs in &[ CipherSuite::Cv25519,
-                     CipherSuite::RSA3k,
                      CipherSuite::P256,
                      CipherSuite::P384,
                      CipherSuite::P521,
-                     CipherSuite::RSA2k,
-                     CipherSuite::RSA4k ]
+                     CipherSuite::RSA2k ]
         {
             let (alice, _) = CertBuilder::new()
                 .set_cipher_suite(*cs)

@@ -392,7 +392,7 @@ impl CertBuilder<'_> {
     ///
     /// let (rsa, _) =
     ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
-    ///         .set_cipher_suite(CipherSuite::RSA4k)
+    ///         .set_cipher_suite(CipherSuite::RSA2k)
     ///         .generate()?;
     /// assert_eq!(rsa.primary_key().pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
     /// # Ok(())
