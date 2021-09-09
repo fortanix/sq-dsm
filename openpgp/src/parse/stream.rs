@@ -3176,6 +3176,7 @@ mod test {
             "brainpoolP256r1", "brainpoolP384r1", "brainpoolP512r1",
             "secp256k1",
         ] {
+            eprintln!("Test vector {:?}...", alg);
             let key = Cert::from_bytes(crate::tests::message(
                 &format!("encrypted/{}.sec.pgp", alg)))?;
             if let Some(k) =
@@ -3191,7 +3192,7 @@ mod test {
                     _ => (),
                 }
             } else {
-                eprintln!("Skipping {} because we don't support algorithm",
+                eprintln!("Skipping {} because we don't support the algorithm",
                           alg);
                 continue;
             }

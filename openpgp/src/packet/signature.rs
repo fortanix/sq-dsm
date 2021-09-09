@@ -3314,6 +3314,7 @@ mod test {
             "erika-corinna-daniela-simone-antonia-nistp521-private.pgp",
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
+            eprintln!("{}...", key);
             let cert = Cert::from_bytes(crate::tests::key(key)).unwrap();
 
             if ! cert.primary_key().pk_algo().is_supported() {
