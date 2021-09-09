@@ -1,5 +1,7 @@
 //! Implementation of Sequoia crypto API using the Nettle cryptographic library.
 
+use crate::types::*;
+
 use nettle::random::{Random, Yarrow};
 
 pub mod aead;
@@ -19,4 +21,41 @@ pub mod symmetric;
 ///   [`SessionKey::new`]: crate::crypto::SessionKey::new()
 pub fn random<B: AsMut<[u8]>>(mut buf: B) {
     Yarrow::default().random(buf.as_mut());
+}
+
+impl PublicKeyAlgorithm {
+    pub(crate) fn is_supported_by_backend(&self) -> bool {
+        use PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
+        match &self {
+            RSAEncryptSign | RSAEncrypt | RSASign | DSA | ECDH | ECDSA | EdDSA
+                => true,
+            ElGamalEncrypt | ElGamalEncryptSign | Private(_) | Unknown(_)
+                => false,
+        }
+    }
+}
+
+impl Curve {
+    pub(crate) fn is_supported_by_backend(&self) -> bool {
+        use self::Curve::*;
+        match &self {
+            NistP256 | NistP384 | NistP521 | Ed25519 | Cv25519
+                => true,
+            BrainpoolP256 | BrainpoolP512 | Unknown(_)
+                => false,
+        }
+    }
+}
+
+impl AEADAlgorithm {
+    pub(crate) fn is_supported_by_backend(&self) -> bool {
+        use self::AEADAlgorithm::*;
+        match &self {
+            EAX
+                => true,
+            OCB | Private(_) | Unknown(_)
+                => false,
+        }
+    }
 }

@@ -195,14 +195,7 @@ impl PublicKeyAlgorithm {
     /// assert!(!PublicKeyAlgorithm::Private(101).is_supported());
     /// ```
     pub fn is_supported(&self) -> bool {
-        use self::PublicKeyAlgorithm::*;
-        #[allow(deprecated)]
-        match &self {
-            RSAEncryptSign | RSAEncrypt | RSASign | DSA | ECDH | ECDSA | EdDSA
-                => true,
-            ElGamalEncrypt | ElGamalEncryptSign | Private(_) | Unknown(_)
-                => false,
-        }
+        self.is_supported_by_backend()
     }
 }
 
@@ -491,13 +484,7 @@ impl Curve {
     /// assert!(!Curve::Unknown(Box::new([0x2B, 0x11])).is_supported());
     /// ```
     pub fn is_supported(&self) -> bool {
-        use self::Curve::*;
-        match &self {
-            NistP256 | NistP384 | NistP521 | Ed25519 | Cv25519
-                => true,
-            BrainpoolP256 | BrainpoolP512 | Unknown(_)
-                => false,
-        }
+        self.is_supported_by_backend()
     }
 }
 
@@ -738,13 +725,7 @@ impl AEADAlgorithm {
     /// assert!(!AEADAlgorithm::OCB.is_supported());
     /// ```
     pub fn is_supported(&self) -> bool {
-        use self::AEADAlgorithm::*;
-        match &self {
-            EAX
-                => true,
-            OCB | Private(_) | Unknown(_)
-                => false,
-        }
+        self.is_supported_by_backend()
     }
 }
 
