@@ -70,6 +70,10 @@ default = ["compression", "crypto-nettle"]
 crypto-nettle = ["nettle"]
 crypto-cng = ["winapi", "win-crypto-ng", "ed25519-dalek", "num-bigint-dig"]
 
+# Experimental and variable-time cryptographic backends opt-ins
+allow-experimental-crypto = []
+allow-variable-time-crypto = []
+
 # The compression algorithms.
 compression = ["compression-deflate", "compression-bzip2"]
 compression-deflate = ["flate2", "buffered-reader/compression-deflate"]

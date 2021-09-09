@@ -81,6 +81,17 @@ at compile time.  Currently, these libraries are available:
     include the `crypto-cng` feature to enable it.  Currently, the CNG
     backend requires at least Windows 10.
 
+### Experimental and variable-time cryptographic backends
+
+Some cryptographic backends are not yet considered mature enough for
+general consumption.  The use of such backends requires explicit
+opt-in using the feature flag `allow-experimental-crypto`.
+
+Some cryptographic backends can not guarantee that cryptographic
+operations require a constant amount of time.  This may leak secret
+keys in some settings.  The use of such backends requires explicit
+opt-in using the feature flag `allow-variable-time-crypto`.
+
 ## Compression algorithms
 
 Use the `compression` flag to enable support for all compression
