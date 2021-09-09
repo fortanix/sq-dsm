@@ -221,6 +221,7 @@ mod tests {
     use crate::Packet;
     use crate::parse::Parse;
     use crate::serialize::MarshalInto;
+    use crate::types::Curve;
 
     quickcheck! {
         fn roundtrip(p: PKESK3) -> bool {
@@ -232,6 +233,11 @@ mod tests {
 
     #[test]
     fn decrypt_rsa() {
+        if ! PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return;
+        }
+
         let cert = Cert::from_bytes(
             crate::tests::key("testy-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
@@ -257,6 +263,14 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_cv25519() {
+        if ! (PublicKeyAlgorithm::EdDSA.is_supported()
+              && Curve::Ed25519.is_supported()
+              && PublicKeyAlgorithm::ECDH.is_supported()
+              && Curve::Cv25519.is_supported()) {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return;
+        }
+
         let cert = Cert::from_bytes(
             crate::tests::key("testy-new-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
@@ -282,6 +296,13 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_nistp256() {
+        if ! (PublicKeyAlgorithm::ECDSA.is_supported()
+              && PublicKeyAlgorithm::ECDH.is_supported()
+              && Curve::NistP256.is_supported()) {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return;
+        }
+
         let cert = Cert::from_bytes(
             crate::tests::key("testy-nistp256-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
@@ -307,6 +328,13 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_nistp384() {
+        if ! (PublicKeyAlgorithm::ECDSA.is_supported()
+              && PublicKeyAlgorithm::ECDH.is_supported()
+              && Curve::NistP384.is_supported()) {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return;
+        }
+
         let cert = Cert::from_bytes(
             crate::tests::key("testy-nistp384-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
@@ -332,6 +360,13 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_nistp521() {
+        if ! (PublicKeyAlgorithm::ECDSA.is_supported()
+              && PublicKeyAlgorithm::ECDH.is_supported()
+              && Curve::NistP521.is_supported()) {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return;
+        }
+
         let cert = Cert::from_bytes(
             crate::tests::key("testy-nistp521-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
@@ -358,6 +393,12 @@ mod tests {
 
     #[test]
     fn decrypt_with_short_cv25519_secret_key() {
+        if ! (PublicKeyAlgorithm::ECDH.is_supported()
+              && Curve::Cv25519.is_supported()) {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return;
+        }
+
         use super::PKESK3;
         use crate::crypto::SessionKey;
         use crate::{HashAlgorithm, SymmetricAlgorithm};
@@ -399,6 +440,11 @@ mod tests {
     /// See CVE-2021-3580.
     #[test]
     fn cve_2021_3580_ciphertext_too_long() -> Result<()> {
+        if ! PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return Ok(());
+        }
+
         // Get (any) 2k RSA key.
         let cert = Cert::from_bytes(
             crate::tests::key("testy-private.pgp"))?;
@@ -435,6 +481,11 @@ joc0YUVyhUBVFf4B0zVZRUfqZyJtJ07Sl5xppI12U1HQCTjn7Fp8BHMPKuBotYzv
     /// See CVE-2021-3580.
     #[test]
     fn cve_2021_3580_zero_ciphertext() -> Result<()> {
+        if ! PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return Ok(());
+        }
+
         // Get (any) 2k RSA key.
         let cert = Cert::from_bytes(
             crate::tests::key("testy-private.pgp"))?;

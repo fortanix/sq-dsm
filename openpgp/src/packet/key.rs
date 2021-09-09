@@ -1765,12 +1765,22 @@ mod tests {
 
         use crate::types::Curve::*;
         for curve in vec![NistP256, NistP384, NistP521, Ed25519] {
+            if ! curve.is_supported() {
+                eprintln!("Skipping unsupported {}", curve);
+                continue;
+            }
+
             let key: Key4<_, key::UnspecifiedRole>
                 = Key4::generate_ecc(true, curve.clone())?;
             check(key)?;
         }
 
         for bits in vec![2048, 3072] {
+            if ! PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
+                eprintln!("Skipping unsupported RSA");
+                continue;
+            }
+
             let key: Key4<_, key::UnspecifiedRole>
                 = Key4::generate_rsa(bits)?;
             check(key)?;
@@ -1784,6 +1794,11 @@ mod tests {
         use crate::types::Curve::*;
 
         for curve in vec![NistP256, NistP384, NistP521] {
+            if ! curve.is_supported() {
+                eprintln!("Skipping unsupported {}", curve);
+                continue;
+            }
+
             let sign_key : Key4<_, key::UnspecifiedRole>
                 = Key4::generate_ecc(true, curve.clone()).unwrap();
             let enc_key : Key4<_, key::UnspecifiedRole>
@@ -1796,6 +1811,11 @@ mod tests {
         }
 
         for bits in vec![1024, 2048, 3072, 4096] {
+            if ! PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
+                eprintln!("Skipping unsupported RSA");
+                continue;
+            }
+
             let key : Key4<_, key::UnspecifiedRole>
                 = Key4::generate_rsa(bits).unwrap();
             let clone = key.clone();
@@ -1809,13 +1829,18 @@ mod tests {
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv|
         {
+            if ! cv.is_supported() {
+                eprintln!("Skipping unsupported {}", cv);
+                return Vec::new();
+            }
+
             let sign_key : Key4<key::SecretParts, key::PrimaryRole>
                 = Key4::generate_ecc(true, cv.clone()).unwrap();
             let enc_key = Key4::generate_ecc(false, cv).unwrap();
 
             vec![sign_key, enc_key]
-        }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
-            Key4::generate_rsa(b).unwrap()
+        }).chain(vec![1024, 2048, 3072, 4096].into_iter().filter_map(|b| {
+            Key4::generate_rsa(b).ok()
         }));
 
         for key in keys {
@@ -1859,11 +1884,12 @@ mod tests {
         use crate::crypto::SessionKey;
         use crate::types::Curve::*;
 
-        let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
-            Key4::generate_ecc(false, cv).unwrap()
-        }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
-            Key4::generate_rsa(b).unwrap()
-        }));
+        let keys = vec![NistP256, NistP384, NistP521].into_iter()
+            .filter_map(|cv| {
+                Key4::generate_ecc(false, cv).ok()
+            }).chain(vec![1024, 2048, 3072, 4096].into_iter().filter_map(|b| {
+                Key4::generate_rsa(b).ok()
+            }));
 
         for key in keys.into_iter() {
             let key: Key<key::SecretParts, key::UnspecifiedRole> = key.into();
@@ -1889,13 +1915,12 @@ mod tests {
     fn secret_encryption_roundtrip() {
         use crate::types::Curve::*;
 
-        let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
-            let k : Key4<key::SecretParts, key::PrimaryRole>
-                = Key4::generate_ecc(false, cv).unwrap();
-            k
-        }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
-            Key4::generate_rsa(b).unwrap()
-        }));
+        let keys = vec![NistP256, NistP384, NistP521].into_iter()
+            .filter_map(|cv| -> Option<Key4<key::SecretParts, key::PrimaryRole>> {
+                Key4::generate_ecc(false, cv).ok()
+            }).chain(vec![1024, 2048, 3072, 4096].into_iter().filter_map(|b| {
+                Key4::generate_rsa(b).ok()
+            }));
 
         for key in keys {
             assert!(! key.secret().is_encrypted());
@@ -2134,19 +2159,26 @@ FwPoSAbbsLkNS/iNN2MDGAVYvezYn2QZ
     #[test]
     fn encrypt_huge_plaintext() -> Result<()> {
         let sk = crate::crypto::SessionKey::new(256);
-        let rsa2k: Key<SecretParts, UnspecifiedRole> =
-            Key4::generate_rsa(2048)?.into();
-        assert!(matches!(
-            rsa2k.encrypt(&sk).unwrap_err().downcast().unwrap(),
-            crate::Error::InvalidArgument(_)
-        ));
 
-        let cv25519: Key<SecretParts, UnspecifiedRole> =
-            Key4::generate_ecc(false, Curve::Cv25519)?.into();
-        assert!(matches!(
-            cv25519.encrypt(&sk).unwrap_err().downcast().unwrap(),
-            crate::Error::InvalidArgument(_)
-        ));
+        if PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
+            let rsa2k: Key<SecretParts, UnspecifiedRole> =
+                Key4::generate_rsa(2048)?.into();
+            assert!(matches!(
+                rsa2k.encrypt(&sk).unwrap_err().downcast().unwrap(),
+                crate::Error::InvalidArgument(_)
+            ));
+        }
+
+        if PublicKeyAlgorithm::ECDH.is_supported()
+            && Curve::Cv25519.is_supported()
+        {
+            let cv25519: Key<SecretParts, UnspecifiedRole> =
+                Key4::generate_ecc(false, Curve::Cv25519)?.into();
+            assert!(matches!(
+                cv25519.encrypt(&sk).unwrap_err().downcast().unwrap(),
+                crate::Error::InvalidArgument(_)
+            ));
+        }
 
         Ok(())
     }

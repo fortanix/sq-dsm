@@ -1649,7 +1649,9 @@ mod tests {
     fn all_ciphersuites() {
         use self::CipherSuite::*;
 
-        for cs in vec![Cv25519, RSA3k, P256, P384, P521, RSA2k, RSA4k] {
+        for cs in vec![Cv25519, RSA3k, P256, P384, P521, RSA2k, RSA4k]
+            .into_iter().filter(|cs| cs.is_supported().is_ok())
+        {
             assert!(CertBuilder::new()
                 .set_cipher_suite(cs)
                 .generate().is_ok());

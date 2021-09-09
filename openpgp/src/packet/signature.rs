@@ -3243,6 +3243,11 @@ mod test {
 
             let cert = Cert::from_bytes(crate::tests::key(test.key)).unwrap();
 
+            if ! cert.keys().all(|k| k.pk_algo().is_supported()) {
+                eprintln!("Skipping because one algorithm is not supported");
+                continue;
+            }
+
             let mut good = 0;
             let mut ppr = PacketParser::from_bytes(
                 crate::tests::message(test.data)).unwrap();
@@ -3310,6 +3315,12 @@ mod test {
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
             let cert = Cert::from_bytes(crate::tests::key(key)).unwrap();
+
+            if ! cert.primary_key().pk_algo().is_supported() {
+                eprintln!("Skipping because we don't support the algo");
+                continue;
+            }
+
             let mut pair = cert.primary_key().key().clone()
                 .parts_into_secret().unwrap()
                 .into_keypair()
@@ -3477,6 +3488,11 @@ mod test {
 
     #[test]
     fn timestamp_signature() {
+        if ! PublicKeyAlgorithm::DSA.is_supported() {
+            eprintln!("Skipping test, algorithm is not supported.");
+            return;
+        }
+
         let alpha = Cert::from_bytes(crate::tests::file(
             "contrib/gnupg/keys/alpha.pgp")).unwrap();
         let p = Packet::from_bytes(crate::tests::file(
