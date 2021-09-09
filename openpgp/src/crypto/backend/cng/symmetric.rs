@@ -134,8 +134,9 @@ impl SymmetricAlgorithm {
         }
     }
 
-    /// Length of a key for this algorithm in bytes.  Fails if the crypto
-    /// backend does not support this algorithm.
+    /// Length of a key for this algorithm in bytes.
+    ///
+    /// Fails if the crypto backend does not support this algorithm.
     pub fn key_size(self) -> Result<usize> {
         Ok(match self {
             SymmetricAlgorithm::TripleDES => 24,
@@ -146,8 +147,9 @@ impl SymmetricAlgorithm {
         })
     }
 
-    /// Length of a block for this algorithm in bytes.  Fails if the crypto
-    /// backend does not support this algorithm.
+    /// Length of a block for this algorithm in bytes.
+    ///
+    /// Fails if the crypto backend does not support this algorithm.
     pub fn block_size(self) -> Result<usize> {
         Ok(match self {
             SymmetricAlgorithm::TripleDES => 8,

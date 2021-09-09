@@ -108,8 +108,9 @@ impl SymmetricAlgorithm {
         }
     }
 
-    /// Length of a key for this algorithm in bytes.  Fails if Sequoia
-    /// does not support this algorithm.
+    /// Length of a key for this algorithm in bytes.
+    ///
+    /// Fails if Sequoia does not support this algorithm.
     pub fn key_size(self) -> Result<usize> {
         match self {
             SymmetricAlgorithm::TripleDES => Ok(cipher::Des3::KEY_SIZE),
@@ -127,8 +128,9 @@ impl SymmetricAlgorithm {
         }
     }
 
-    /// Length of a block for this algorithm in bytes.  Fails if
-    /// Sequoia does not support this algorithm.
+    /// Length of a block for this algorithm in bytes.
+    ///
+    /// Fails if Sequoia does not support this algorithm.
     pub fn block_size(self) -> Result<usize> {
         match self {
             SymmetricAlgorithm::TripleDES => Ok(cipher::Des3::BLOCK_SIZE),
