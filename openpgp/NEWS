@@ -4,6 +4,7 @@
 
 * Changes in 1.4.0
 ** New functionality
+   - CipherSuite::is_supported
    - Preferences::policy_uri
    - TSK::eq
    - ValidAmalgamation::revocation_keys

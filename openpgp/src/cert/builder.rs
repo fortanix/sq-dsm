@@ -78,6 +78,60 @@ impl Default for CipherSuite {
 }
 
 impl CipherSuite {
+    /// Returns whether the currently selected cryptographic backend
+    /// supports the encryption and signing algorithms that the cipher
+    /// suite selects.
+    pub fn is_supported(&self) -> Result<()> {
+        use crate::types::{Curve, PublicKeyAlgorithm};
+        use CipherSuite::*;
+
+        macro_rules! check_pk {
+            ($pk: expr) => {
+                if ! $pk.is_supported() {
+                    return Err(Error::UnsupportedPublicKeyAlgorithm($pk)
+                               .into());
+                }
+            }
+        }
+
+        macro_rules! check_curve {
+            ($curve: expr) => {
+                if ! $curve.is_supported() {
+                    return Err(Error::UnsupportedEllipticCurve($curve)
+                               .into());
+                }
+            }
+        }
+
+        match self {
+            Cv25519 => {
+                check_pk!(PublicKeyAlgorithm::EdDSA);
+                check_curve!(Curve::Ed25519);
+                check_pk!(PublicKeyAlgorithm::ECDH);
+                check_curve!(Curve::Cv25519);
+            },
+            RSA2k | RSA3k | RSA4k => {
+                check_pk!(PublicKeyAlgorithm::RSAEncryptSign);
+            },
+            P256 => {
+                check_pk!(PublicKeyAlgorithm::ECDSA);
+                check_curve!(Curve::NistP256);
+                check_pk!(PublicKeyAlgorithm::ECDH);
+            },
+            P384 => {
+                check_pk!(PublicKeyAlgorithm::ECDSA);
+                check_curve!(Curve::NistP384);
+                check_pk!(PublicKeyAlgorithm::ECDH);
+            },
+            P521 => {
+                check_pk!(PublicKeyAlgorithm::ECDSA);
+                check_curve!(Curve::NistP521);
+                check_pk!(PublicKeyAlgorithm::ECDH);
+            },
+        }
+        Ok(())
+    }
+
     fn generate_key<K, R>(self, flags: K)
         -> Result<Key<key::SecretParts, R>>
         where R: key::KeyRole,
