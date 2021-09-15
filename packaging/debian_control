@@ -4,7 +4,7 @@ Priority: important
 Section: utils
 Origin: Fortanix
 Architecture: amd64
-Maintainer: Francisco Vialprado <francisco.vialprado@fortanix.com>
+Maintainer: Francisco Vial-Prado <francisco.vialprado@fortanix.com>
 Depends: __DEPENDENCIES__
 Description: sq-sdkms
   This fork of Sequoia-PGP leverages sdkms-client-rust to perform OpenPGP operations
