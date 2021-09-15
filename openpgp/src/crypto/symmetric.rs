@@ -109,7 +109,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
         // 1. Copy any buffered data.
         if !self.buffer.is_empty() {
             let to_copy = cmp::min(self.buffer.len(), plaintext.len());
-            &plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
+            plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
             crate::vec_drain_prefix(&mut self.buffer, to_copy);
             pos = to_copy;
         }
@@ -177,7 +177,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                         format!("{}", e)))?;
 
-        &plaintext[pos..pos + to_copy].copy_from_slice(&self.buffer[..to_copy]);
+        plaintext[pos..pos + to_copy].copy_from_slice(&self.buffer[..to_copy]);
         crate::vec_drain_prefix(&mut self.buffer, to_copy);
 
         pos += to_copy;

@@ -2828,7 +2828,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             assert!(self.oppr.is_none());
             assert!(self.cursor <= reserve.len());
             let n = cmp::min(buf.len(), reserve.len() - self.cursor);
-            &mut buf[..n]
+            buf[..n]
                 .copy_from_slice(&reserve[self.cursor..n + self.cursor]);
             self.cursor += n;
             return Ok(n);

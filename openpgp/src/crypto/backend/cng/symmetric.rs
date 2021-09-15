@@ -42,7 +42,7 @@ impl Mode for KeyWrapper {
         let missing = (block_size - (src.len() % block_size)) % block_size;
         let src = if missing != 0 {
             _src = vec![0u8; src.len() + missing];
-            &mut _src[..src.len()].copy_from_slice(src);
+            _src[..src.len()].copy_from_slice(src);
             &_src
         } else {
             src
@@ -68,7 +68,7 @@ impl Mode for KeyWrapper {
         let missing = (block_size - (src.len() % block_size)) % block_size;
         let src = if missing != 0 {
             _src = vec![0u8; src.len() + missing];
-            &mut _src[..src.len()].copy_from_slice(src);
+            _src[..src.len()].copy_from_slice(src);
             &_src
         } else {
             src

@@ -244,7 +244,7 @@ impl<'a> Decryptor<'a> {
         // 1. Copy any buffered data.
         if !self.buffer.is_empty() {
             let to_copy = cmp::min(self.buffer.len(), plaintext.len());
-            &plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
+            plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
             crate::vec_drain_prefix(&mut self.buffer, to_copy);
 
             pos = to_copy;
@@ -361,7 +361,7 @@ impl<'a> Decryptor<'a> {
                     assert!(0 < to_copy);
                     assert!(to_copy < self.chunk_size);
 
-                    &plaintext[pos..pos + to_copy]
+                    plaintext[pos..pos + to_copy]
                         .copy_from_slice(&self.buffer[..to_copy]);
                     crate::vec_drain_prefix(&mut self.buffer, to_copy);
                     pos += to_copy;

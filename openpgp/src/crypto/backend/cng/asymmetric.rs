@@ -192,7 +192,7 @@ impl Signer for KeyPair {
                         Version::V1 => {
                             let mut group = [0; 20];
                             assert!(q.value().len() >= 20);
-                            &mut group[..q.value().len()].copy_from_slice(q.value());
+                            group[..q.value().len()].copy_from_slice(q.value());
 
                             DsaPrivateBlob::V1(Blob::<DsaKeyPrivateBlob>::clone_from_parts(
                                 &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
@@ -337,7 +337,7 @@ impl Decryptor for KeyPair {
                 let missing = (8 - (c.value().len() % 8)) % 8;
                 let c = if missing > 0 {
                     _c = Protected::from(vec![0u8; missing + c.value().len()]);
-                    &mut _c[missing..].copy_from_slice(c.value());
+                    _c[missing..].copy_from_slice(c.value());
                     &_c
                 } else {
                     c.value()
@@ -499,7 +499,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     Version::V1 => {
                         let mut group = [0; 20];
                         assert!(q.value().len() >= 20);
-                        &mut group[..q.value().len()].copy_from_slice(q.value());
+                        group[..q.value().len()].copy_from_slice(q.value());
 
                         DsaPublicBlob::V1(Blob::<DsaKeyPublicBlob>::clone_from_parts(
                             &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
@@ -658,7 +658,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     ].concat();
                     assert_eq!(signature.len(), SIGNATURE_LENGTH);
                     let mut sig_bytes = [0u8; 64];
-                    &mut sig_bytes[..].copy_from_slice(&*signature);
+                    sig_bytes[..].copy_from_slice(&*signature);
 
                     let signature = Signature::from(sig_bytes);
 
@@ -720,7 +720,7 @@ where
         // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
         let mut public = [0u8; 1 + CURVE25519_SIZE];
         public[0] = 0x40;
-        &mut public[1..].copy_from_slice(blob.x());
+        public[1..].copy_from_slice(blob.x());
 
         // Reverse the scalar.  See
         // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
@@ -759,7 +759,7 @@ where
         // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
         let mut public = [0u8; 1 + CURVE25519_SIZE];
         public[0] = 0x40;
-        &mut public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
+        public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
 
         Self::with_secret(
             ctime.into().unwrap_or_else(SystemTime::now),
@@ -920,7 +920,7 @@ where
                 // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
                 let mut public = [0u8; 1 + CURVE25519_SIZE];
                 public[0] = 0x40;
-                &mut public[1..].copy_from_slice(blob.x());
+                public[1..].copy_from_slice(blob.x());
 
                 // Reverse the scalar.  See
                 // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
@@ -951,7 +951,7 @@ where
                 // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
                 let mut compressed_public = [0u8; 1 + CURVE25519_SIZE];
                 compressed_public[0] = 0x40;
-                &mut compressed_public[1..].copy_from_slice(public.as_bytes());
+                compressed_public[1..].copy_from_slice(public.as_bytes());
 
                 (
                     EdDSA,

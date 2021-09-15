@@ -49,7 +49,7 @@ where
             let blob = ephemeral.export().unwrap();
             let mut VB = [0; 33];
             VB[0] = 0x40;
-            &mut VB[1..].copy_from_slice(blob.x());
+            VB[1..].copy_from_slice(blob.x());
             let VB = MPI::new(&VB);
 
             // Compute the shared point S = vR;
