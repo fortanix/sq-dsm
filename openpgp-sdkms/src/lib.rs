@@ -36,6 +36,7 @@ use sdkms::api_model::{
     SobjectDescriptor, SobjectRequest,
 };
 use sdkms::SdkmsClient;
+use semver::{Version, VersionReq};
 use sequoia_openpgp::crypto::mem::Protected;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
 use sequoia_openpgp::packet::key::{
@@ -72,6 +73,7 @@ const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
 const ENV_HTTP_PROXY: &str = "http_proxy";
 const ENV_NO_PROXY: &str = "no_proxy";
 const SDKMS_LABEL_PGP: &str = "sq_sdkms";
+const MIN_SDKMS_VERSION: &str = "4.2.0";
 
 struct Credentials {
     api_endpoint: String,
@@ -101,8 +103,19 @@ impl Credentials {
         if let Some(proxy) = &self.proxy {
             builder = builder.with_hyper_client(proxy.clone());
         }
-
-        Ok(builder.build().context("could not initiate an SDKMS client")?)
+        let cli = builder.build()
+            .context("could not initiate an SDKMS client")?;
+        let min = VersionReq::parse(&(">=".to_string() + MIN_SDKMS_VERSION))?;
+        let ver = Version::parse(&cli.version()?.version)?;
+        if min.matches(&ver) {
+            Ok(cli)
+        } else {
+            Err(Error::msg(format!(
+                        "Incompatible SDKMS version: ({} < {})",
+                        ver,
+                        MIN_SDKMS_VERSION
+            )))
+        }
     }
 }
 
