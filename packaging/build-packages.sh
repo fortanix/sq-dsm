@@ -2,6 +2,11 @@
 
 set -e -o pipefail
 
+if [[ -z "$@" ]]; then
+    echo >&2 "You must supply a version argument!"
+    exit 1
+fi
+
 PACKAGE_VERSION=$1
 
 # sudo apt install git rustc cargo clang libclang-dev make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev cmake rpm
@@ -10,16 +15,12 @@ PACKAGE_VERSION=$1
 mkdir -p debian/usr/bin
 mkdir -p debian/DEBIAN
 install --strip -D --target-directory debian/usr/bin ../target/release/sq
-install --strip -D --target-directory debian/usr/bin ../target/release/sqv
 mv debian/usr/bin/sq debian/usr/bin/sq-sdkms
-mv debian/usr/bin/sqv debian/usr/bin/sqv-sdkms
 
 # copy files to rpm build location
 mkdir -p ~/rpmbuild/{BUILD,SPECS}
 install --strip -D --target-directory ~/rpmbuild/BUILD ../target/release/sq
-install --strip -D --target-directory ~/rpmbuild/BUILD ../target/release/sqv
 mv ~/rpmbuild/BUILD/sq ~/rpmbuild/BUILD/sq-sdkms
-mv ~/rpmbuild/BUILD/sqv ~/rpmbuild/BUILD/sqv-sdkms
 
 touch debian/control
 DEPENDENCIES=`dpkg-shlibdeps -O debian/usr/bin/sq-sdkms | grep -i depends | awk -F 'Depends=' '{print $2}'`
