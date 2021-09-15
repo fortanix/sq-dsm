@@ -97,7 +97,7 @@ pub(crate) fn strndup(src: &[u8]) -> Option<*mut libc::c_char> {
     let s = unsafe {
         ::std::slice::from_raw_parts_mut(libc::malloc(l) as *mut u8, l)
     };
-    &mut s[..l - 1].copy_from_slice(src);
+    s[..l - 1].copy_from_slice(src);
     s[l - 1] = 0;
 
     Some(s.as_mut_ptr() as *mut libc::c_char)

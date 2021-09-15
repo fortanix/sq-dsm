@@ -443,7 +443,7 @@ impl Write for WriterAlloc {
         let sl = unsafe {
             slice::from_raw_parts_mut(*buffer.buf as *mut u8, *buffer.len)
         };
-        &mut sl[old_len..].copy_from_slice(buf);
+        sl[old_len..].copy_from_slice(buf);
         Ok(buf.len())
     }
 
