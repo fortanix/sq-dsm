@@ -1,0 +1,27 @@
+Name: sq-sdkms
+Version: __VERSION__
+Release: 0
+Summary: Fork of Sequoia-PGP leveraging sdkms-client-rust to perform OpenPGP operations
+Group: Development/binaries
+License: Redistributable, no modification permitted
+Vendor: Fortanix Inc. Francisco Vial-Prado <francisco.vialprado@fortanix.com>
+Packager: Fortanix
+BuildRoot: %{_tmppath}/%{name}-%{version}-root
+BuildArch: x86_64
+Requires: __DEPENDENCIES__
+AutoReq: no
+%description
+This fork of Sequoia-PGP leverages sdkms-client-rust to perform OpenPGP operations
+with keys stored in the Fortanix Self-Defending Key-Management System (SDKMS),
+adding options to the existing CLI Sequoia frontend, `sq`.
+
+%install
+echo "BUILDROOT = $RPM_BUILD_ROOT"
+mkdir -p $RPM_BUILD_ROOT/usr/bin
+install -m 755 sq-sdkms $RPM_BUILD_ROOT/usr/bin/
+
+%clean
+[ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
+
+%files
+%attr(0755, root, root) /usr/bin/sq-sdkms
