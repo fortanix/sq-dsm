@@ -804,6 +804,8 @@ mod tests {
     fn roundtrip() {
         use std::io::Cursor;
 
+        // EAX and OCB can be used with all symmetric algorithms using
+        // a 16-byte block size.
         for sym_algo in [SymmetricAlgorithm::AES128,
                          SymmetricAlgorithm::AES192,
                          SymmetricAlgorithm::AES256,
@@ -813,7 +815,10 @@ mod tests {
                          SymmetricAlgorithm::Camellia256]
                          .iter()
                          .filter(|algo| algo.is_supported()) {
-            for aead in [AEADAlgorithm::EAX].iter() {
+            for aead in [
+                AEADAlgorithm::EAX,
+                AEADAlgorithm::OCB,
+            ].iter().filter(|algo| algo.is_supported()) {
                 let version = 1;
                 let chunk_size = 64;
                 let mut key = vec![0; sym_algo.key_size().unwrap()];
