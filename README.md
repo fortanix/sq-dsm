@@ -1,10 +1,10 @@
-sq-sdkms
+sq-dsm
 ========
 
 This fork of [Sequoia-PGP][Sequoia] leverages
 [sdkms-client-rust][sdkms-client-rust] to perform OpenPGP operations with keys
-stored in the [Fortanix Self-Defending Key-Management System][SDKMS], adding
-options to the existing CLI Sequoia frontend, `sq`.
+stored in the [Fortanix Data Security Manager][DSM], adding options to the
+existing CLI Sequoia frontend, `sq`.
 
 ### Motivation
 
@@ -12,40 +12,40 @@ Sequoia-PGP defines the [Decryptor][sequoia::Decryptor] and
 [Signer][sequoia::Signer] traits for low-level cryptographic operations
 with secret key material, and abstracts over these traits for PGP formatting.
 This fork implements Decryptor and Signer for secrets stored inside
-Fortanix SDKMS, enabling the production of PGP material without the need to
+Fortanix DSM, enabling the production of PGP material without the need to
 export private keys.
 
 ### Additional requirements
 
 Install requirements for [rust-mbedtls][rust-mbedtls]. The following
-variables need to be set in order to communicate with SDKMS.
+variables need to be set in order to communicate with DSM.
 
-- `FORTANIX_API_ENDPOINT`, your SDKMS API endpoint,
+- `FORTANIX_API_ENDPOINT`, your DSM API endpoint,
 - `FORTANIX_API_KEY`, your app's API key.
 
 
 ### Example usage of added options
 
 In the following example, Alice holds a PGP key whose secrets are stored in
-SDKMS, and Bob and Charlie hold regular PGP keys.
+DSM, and Bob and Charlie hold regular PGP keys.
 
-1. Generate an SDKMS key for Alice, and local keys for Bob and Charlie
+1. Generate a DSM key for Alice, and local keys for Bob and Charlie
 ```
-$  sq key generate --sdkms-key="alice" --cipher-suite="nistp521" --userid="Alice <alice@example.com>"
+$  sq key generate --dsm-key="alice" --cipher-suite="nistp521" --userid="Alice <alice@example.com>"
 $  sq key generate --cipher-suite="rsa3k" --userid="Bob <bob@example.com> --export="bob.asc"
 $  sq key generate --userid="Charlie <charlie@example.com> --export="charlie.asc"
 ```
 
 2. Recover Alice's Transferable Public Key (TPK)
 ```
-$ sq key extract-cert --sdkms-key="alice" > alice.asc
+$ sq key extract-cert --dsm-key="alice" > alice.asc
 ```
 
 3. Create a file, sign it with Alices's key, and verify it
 ```
 $ echo "Hello, World!" > msg.txt
 
-$ sq sign --sdkms-key="alice" msg.txt > msg.txt.signed
+$ sq sign --dsm-key="alice" msg.txt > msg.txt.signed
 
 $ sq verify --signer-cert=alice.asc msg.txt.signed
 Good signature from B4C961DE2204FD02
@@ -56,7 +56,7 @@ Hello, World!
 4. Encrypt a file to Alice, signed by Bob, and decrypt it
 ```
 $ sq encrypt --recipient-cert=alice.asc --signer-key=bob.asc msg.txt > to_alice.asc
-$ sq decrypt --sdkms-key="alice" --signer-cert=bob.asc to_alice.asc
+$ sq decrypt --dsm-key="alice" --signer-cert=bob.asc to_alice.asc
 Encrypted using AES with 256-bit key
 Compressed using ZIP
 Good signature from DC4358B3EA20F2C6
@@ -66,7 +66,7 @@ Hello, World!
 
 5. Encrypt a file to Charlie, signed by both Alice and Bob, and decrypt it
 ```
-$ sq encrypt --recipient-cert=charlie.asc --signer-sdkms-key=alice --signer-key=bob.asc msg.txt > to_charlie.asc
+$ sq encrypt --recipient-cert=charlie.asc --signer-dsm-key=alice --signer-key=bob.asc msg.txt > to_charlie.asc
 $ sq decrypt --recipient-key=charlie.asc --signer-cert=alice.asc --signer-cert=bob.asc to_charlie.asc
 Encrypted using AES with 256-bit key
 Compressed using ZIP
@@ -82,7 +82,7 @@ Hello, World!
 [sequoia::Signer]: https://docs.sequoia-pgp.org/sequoia_openpgp/crypto/trait.Signer.html
 [sequoia::Decryptor]: https://docs.sequoia-pgp.org/sequoia_openpgp/crypto/trait.Decryptor.html
 [sdkms-client-rust]: https://github.com/fortanix/sdkms-client-rust
-[SDKMS]: https://fortanix.com/products/data-security-manager/sdkms
+[DSM]: https://fortanix.com/products/data-security-manager
 
 --------------
 

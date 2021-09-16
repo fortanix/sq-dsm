@@ -16,7 +16,7 @@ use crate::openpgp::serialize::Serialize;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::types::SignatureType;
 
-use openpgp_sdkms as sdkms;
+use openpgp_dsm as dsm;
 
 use crate::{
     open_or_stdin,
@@ -32,7 +32,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("export", Some(m)) => generate(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
-        ("extract-sdkms-secret", Some(m)) => extract_sdkms(config, m)?,
+        ("extract-dsm-secret", Some(m)) => extract_dsm(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
         ("attest-certifications", Some(m)) =>
             attest_certifications(config, m)?,
@@ -42,12 +42,12 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn generate(config: Config, m: &ArgMatches) -> Result<()> {
-    if let Some(sdkms_key_name) = m.value_of("sdkms-key") {
-        return sdkms::generate_key(
-            sdkms_key_name,
+    if let Some(dsm_key_name) = m.value_of("dsm-key") {
+        return dsm::generate_key(
+            dsm_key_name,
             m.value_of("userid"),
             m.value_of("cipher-suite"),
-            m.is_present("sdkms-exportable"),
+            m.is_present("dsm-exportable"),
         );
     }
 
@@ -290,9 +290,9 @@ fn password(config: Config, m: &ArgMatches) -> Result<()> {
 fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
 
-    let cert = match m.value_of("sdkms-key") {
+    let cert = match m.value_of("dsm-key") {
         Some(key_name) => {
-            sdkms::extract_cert(key_name)?
+            dsm::extract_cert(key_name)?
         }
         None => {
             let input = open_or_stdin(m.value_of("input"))?;
@@ -308,11 +308,11 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn extract_sdkms(config: Config, m: &ArgMatches) -> Result<()> {
+fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
     let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
 
-    let key = match m.value_of("sdkms-key") {
-        Some(key_name) => sdkms::extract_tsk_from_sdkms(key_name)?,
+    let key = match m.value_of("dsm-key") {
+        Some(key_name) => dsm::extract_tsk_from_dsm(key_name)?,
         None => unreachable!("name is compulsory")
     };
 

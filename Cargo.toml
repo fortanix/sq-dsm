@@ -6,7 +6,7 @@ members = [
     "ipc",
     "net",
     "openpgp",
-    "openpgp-sdkms",
+    "openpgp-dsm",
     "sq",
 ]
 

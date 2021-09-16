@@ -15,15 +15,15 @@ PACKAGE_VERSION=$1
 mkdir -p debian/usr/bin
 mkdir -p debian/DEBIAN
 install --strip -D --target-directory debian/usr/bin ../target/release/sq
-mv debian/usr/bin/sq debian/usr/bin/sq-sdkms
+mv debian/usr/bin/sq debian/usr/bin/sq-dsm
 
 # copy files to rpm build location
 mkdir -p ~/rpmbuild/{BUILD,SPECS}
 install --strip -D --target-directory ~/rpmbuild/BUILD ../target/release/sq
-mv ~/rpmbuild/BUILD/sq ~/rpmbuild/BUILD/sq-sdkms
+mv ~/rpmbuild/BUILD/sq ~/rpmbuild/BUILD/sq-dsm
 
 touch debian/control
-DEPENDENCIES=`dpkg-shlibdeps -O debian/usr/bin/sq-sdkms | grep -i depends | awk -F 'Depends=' '{print $2}'`
+DEPENDENCIES=`dpkg-shlibdeps -O debian/usr/bin/sq-dsm | grep -i depends | awk -F 'Depends=' '{print $2}'`
 rm debian/control
 RPM_DEPENDENCIES=${DEPENDENCIES//\(/}
 RPM_DEPENDENCIES=${RPM_DEPENDENCIES//\)/}
@@ -32,7 +32,7 @@ sed -e "s/__DEPENDENCIES__/${RPM_DEPENDENCIES}/g" rpm_spec > ~/rpmbuild/SPECS/sq
 
 echo "Building deb package"
 sed -i "s/__VERSION__/${PACKAGE_VERSION}/g" debian/DEBIAN/control
-dpkg-deb --root-owner-group --build debian sq-sdkms_${PACKAGE_VERSION}_amd64.deb
+dpkg-deb --root-owner-group --build debian sq-dsm_${PACKAGE_VERSION}_amd64.deb
 rm -rf debian
 
 echo "Building rpm package"

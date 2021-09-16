@@ -101,11 +101,11 @@
 //!         --recipient-cert <CERT-RING>...
 //!             Encrypts for all recipients in CERT-RING
 //!
+//!         --signer-dsm-key <DSM-KEY-NAME>
+//!             Signs the message with a key stored in Fortanix DSM
+//!
 //!         --signer-key <KEY>...
 //!             Signs the message with KEY
-//!
-//!         --signer-sdkms-key <SDKMS-KEY-NAME>
-//!             Signs the message with a key stored in Fortanix SDKMS
 //!
 //!     -t, --time <TIME>
 //!             Chooses keys valid at the specified time and sets the signature's
@@ -169,15 +169,15 @@
 //!
 //!
 //! OPTIONS:
+//!         --dsm-key <DSM-KEY-NAME>
+//!             Decrypts with secrets stored inside the Fortanix Self-Defending Key-
+//!             Management System
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
 //!         --private-key-store <KEY_STORE>
 //!             Provides parameters for private key store
 //!
-//!         --sdkms-key <SDKMS-KEY-NAME>
-//!             Decrypts with secrets stored inside the Fortanix Self-Defending Key-
-//!             Management System
 //!         --recipient-key <KEY>...
 //!             Decrypts with KEY
 //!
@@ -240,6 +240,9 @@
 //!
 //!
 //! OPTIONS:
+//!         --dsm-key <DSM-KEY-NAME>
+//!             Signs the message with the Fortanix DSM key
+//!
 //!         --merge <SIGNED-MESSAGE>
 //!             Merges signatures from the input and SIGNED-MESSAGE
 //!
@@ -255,9 +258,6 @@
 //!
 //!         --private-key-store <KEY_STORE>
 //!             Provides parameters for private key store
-//!
-//!         --sdkms-key <SDKMS-KEY-NAME>
-//!             Signs the message with the Fortanix SDKMS key
 //!
 //!         --signer-key <KEY>...
 //!             Signs using KEY
@@ -368,7 +368,7 @@
 //!     generate                 Generates a new key
 //!     password                 Changes password protecting secrets
 //!     extract-cert             Converts a key to a cert
-//!     extract-sdkms-secret     Extracts a secret key from Fortanix SDKMS
+//!     extract-dsm-secret       Extracts a secret key from Fortanix DSM
 //!     attest-certifications    Attests to third-party certifications
 //!     adopt                    Binds keys from one certificate to another
 //!     help
@@ -406,11 +406,11 @@
 //!         --cannot-sign
 //!             Adds no signing-capable subkey
 //!
+//!         --dsm-exportable
+//!             (DANGER) Configure the key to be exportable from DSM
+//!
 //!     -h, --help
 //!             Prints help information
-//!
-//!         --sdkms-exportable
-//!             (DANGER) Configure the key to be exportable from SDKMS
 //!
 //!     -V, --version
 //!             Prints version information
@@ -429,6 +429,9 @@
 //!             Selects the cryptographic algorithms for the key [default: cv25519]
 //!             [possible values: rsa3k, rsa4k, cv25519, nistp256, nistp384,
 //!             nistp521]
+//!         --dsm-key <DSM-KEY-NAME>
+//!             Generate secrets inside Fortanix DSM with the given name
+//!
 //!         --expires <TIME>
 //!             Makes the key expire at TIME (as ISO 8601). Use "never" to create
 //!             keys that do not expire.
@@ -441,9 +444,6 @@
 //!         --rev-cert <FILE or ->
 //!             Writes the revocation certificate to FILE. mandatory if OUTFILE is
 //!             "-". [default: <OUTFILE>.rev]
-//!         --sdkms-key <SDKMS-KEY-NAME>
-//!             Generate secrets inside Fortanix SDKMS with the given name
-//!
 //!     -u, --userid <EMAIL>...
 //!             Adds a userid to the key
 //!
@@ -538,12 +538,12 @@
 //!
 //!
 //! OPTIONS:
+//!         --dsm-key <DSM-KEY-NAME>
+//!             Extracts the certificate from the Fortanix Self-Defending Key-
+//!             Management System
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
-//!         --sdkms-key <SDKMS-KEY-NAME>
-//!             Extracts the certificate from the Fortanix Self-Defending Key-
-//!             Management System
 //!
 //! ARGS:
 //!     <FILE>
@@ -559,16 +559,16 @@
 //! $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
 //! ```
 //!
-//! ### Subcommand key extract-sdkms-secret
+//! ### Subcommand key extract-dsm-secret
 //!
 //! ```text
-//! Extracts key from Fortanix SDKMS
+//! Extracts key from Fortanix DSM
 //!
-//! Is a Fortanix SDKMS key was generated using the `--sdkms-exportable` flag, this
-//! command exfiltrates secrets from SDKMS and outputs a Key.
+//! Is a Fortanix DSM key was generated using the `--dsm-exportable` flag, this
+//! command exfiltrates secrets from DSM and outputs a Key.
 //!
 //! USAGE:
-//!     sq key extract-sdkms-secret [FLAGS] [OPTIONS] --sdkms-key <SDKMS-KEY-NAME>
+//!     sq key extract-dsm-secret [FLAGS] [OPTIONS] --dsm-key <DSM-KEY-NAME>
 //!
 //! FLAGS:
 //!     -B, --binary
@@ -582,11 +582,11 @@
 //!
 //!
 //! OPTIONS:
+//!         --dsm-key <DSM-KEY-NAME>
+//!             Name of the DSM key
+//!
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
-//!
-//!         --sdkms-key <SDKMS-KEY-NAME>
-//!             Name of the SDKMS key
 //! ```
 //!
 //! ### Subcommand key attest-certifications

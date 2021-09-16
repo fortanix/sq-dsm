@@ -136,8 +136,8 @@ $ sq decrypt ciphertext.pgp
                     .arg(Arg::with_name("hex")
                          .short("x").long("hex")
                          .help("Prints a hexdump (implies --dump)"))
-                    .arg(Arg::with_name("sdkms-key")
-                        .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                    .arg(Arg::with_name("dsm-key")
+                        .long("dsm-key").value_name("DSM-KEY-NAME")
                         .help("Decrypts with secrets stored inside the \
                         Fortanix Self-Defending Key-Management System"))
         )
@@ -185,10 +185,10 @@ $ sq encrypt --symmetric message.txt
                     .arg(Arg::with_name("private-key-store")
                          .long("private-key-store").value_name("KEY_STORE")
                          .help("Provides parameters for private key store"))
-                    .arg(Arg::with_name("signer-sdkms-key")
-                         .long("signer-sdkms-key").value_name("SDKMS-KEY-NAME")
+                    .arg(Arg::with_name("signer-dsm-key")
+                         .long("signer-dsm-key").value_name("DSM-KEY-NAME")
                          .help("Signs the message with a key stored in Fortanix \
-                             SDKMS"))
+                             DSM"))
                     .arg(Arg::with_name("symmetric")
                          .short("s").long("symmetric")
                          .multiple(true)
@@ -297,9 +297,9 @@ $ sq sign --detached --signer-key juliet.pgp message.txt
                          .long("signer-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
                          .help("Signs using KEY"))
-                    .arg(Arg::with_name("sdkms-key")
-                        .long("sdkms-key").value_name("SDKMS-KEY-NAME")
-                        .help("Signs the message with the Fortanix SDKMS key"))
+                    .arg(Arg::with_name("dsm-key")
+                        .long("dsm-key").value_name("DSM-KEY-NAME")
+                        .help("Signs the message with the Fortanix DSM key"))
                     .arg(Arg::with_name("time")
                          .short("t").long("time").value_name("TIME")
                          .help("Chooses keys valid at the specified time and \
@@ -555,12 +555,12 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                         .arg(Arg::with_name("with-password")
                              .long("with-password")
                              .help("Protects the key with a password"))
-                        .arg(Arg::with_name("sdkms-exportable")
-                            .long("sdkms-exportable")
-                            .help("(DANGER) Configure the key to be exportable from SDKMS"))
-                        .arg(Arg::with_name("sdkms-key")
-                             .long("sdkms-key").value_name("SDKMS-KEY-NAME")
-                             .help("Generate secrets inside Fortanix SDKMS with \
+                        .arg(Arg::with_name("dsm-exportable")
+                            .long("dsm-exportable")
+                            .help("(DANGER) Configure the key to be exportable from DSM"))
+                        .arg(Arg::with_name("dsm-key")
+                             .long("dsm-key").value_name("DSM-KEY-NAME")
+                             .help("Generate secrets inside Fortanix DSM with \
                                  the given name")
                              .conflicts_with_all(&[
                                  "export",
@@ -622,7 +622,7 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                         .arg(Arg::with_name("export")
                              .short("e").long("export").value_name("OUTFILE")
                              .help("Writes the key to OUTFILE")
-                             .required_unless("sdkms-key"))
+                             .required_unless("dsm-key"))
                         .arg(Arg::with_name("rev-cert")
                              .long("rev-cert").value_name("FILE or -")
                              .required_if("export", "-")
@@ -699,24 +699,24 @@ $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
                             .arg(Arg::with_name("binary")
                                  .short("B").long("binary")
                                  .help("Emits binary data"))
-                            .arg(Arg::with_name("sdkms-key")
-                                .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                            .arg(Arg::with_name("dsm-key")
+                                .long("dsm-key").value_name("DSM-KEY-NAME")
                                 .help("Extracts the certificate from the Fortanix \
                                  Self-Defending Key-Management System"))
                             )
-                .subcommand(SubCommand::with_name("extract-sdkms-secret")
+                .subcommand(SubCommand::with_name("extract-dsm-secret")
                             .display_order(111)
-                            .about("Extracts a secret key from Fortanix SDKMS")
+                            .about("Extracts a secret key from Fortanix DSM")
                             .long_about(
-"Extracts key from Fortanix SDKMS
+"Extracts key from Fortanix DSM
 
-Is a Fortanix SDKMS key was generated using the `--sdkms-exportable` flag, this
-command exfiltrates secrets from SDKMS and outputs a Key.
+Is a Fortanix DSM key was generated using the `--dsm-exportable` flag, this
+command exfiltrates secrets from DSM and outputs a Key.
 ")
-                            .arg(Arg::with_name("sdkms-key")
-                                .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                            .arg(Arg::with_name("dsm-key")
+                                .long("dsm-key").value_name("DSM-KEY-NAME")
                                 .required(true)
-                                .help("Name of the SDKMS key"))
+                                .help("Name of the DSM key"))
                             .arg(Arg::with_name("output")
                                  .short("o").long("output").value_name("FILE")
                                  .help("Writes to FILE or stdout if omitted"))

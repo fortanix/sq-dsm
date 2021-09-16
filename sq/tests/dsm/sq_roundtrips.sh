@@ -53,7 +53,7 @@ trap 'erase_tmp_dir $data' EXIT
 # Test files
 message=$data/message.txt
 alice_public=$data/alice.asc
-bob_sdkms=$data/bob_sdkms.asc
+bob_dsm=$data/bob_dsm.asc
 bob_local_priv=$data/bob_local_priv.asc
 bob_local_pub=$data/bob_local_pub.asc
 encrypted_nosign=$data/message.txt.encrypted.nosign
@@ -70,16 +70,16 @@ comm "version"
 $sq --version
 
 comm "generate-keys (Alice with $cipher_suite, Bob with default)"
-$sq key generate --sdkms-key="$alice_key_name" --userid="Alice Павловна Вишневская <alice@openpgp.example>" --cipher-suite="$cipher_suite"
-$sq key generate --sdkms-key="$bob_key_name" --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>"
+$sq key generate --dsm-key="$alice_key_name" --userid="Alice Павловна Вишневская <alice@openpgp.example>" --cipher-suite="$cipher_suite"
+$sq key generate --dsm-key="$bob_key_name" --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>"
 $sq key generate --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>" --export="$bob_local_priv"
 
 comm "certificate Alice"
-$sq key extract-cert --sdkms-key="$alice_key_name" > "$alice_public"
+$sq key extract-cert --dsm-key="$alice_key_name" > "$alice_public"
 my_cat "$alice_public"
 comm "certificate Bob SDKMS"
-$sq key extract-cert --sdkms-key="$bob_key_name" > "$bob_sdkms"
-my_cat "$bob_sdkms"
+$sq key extract-cert --dsm-key="$bob_key_name" > "$bob_dsm"
+my_cat "$bob_dsm"
 comm "certificate Bob Local"
 $sq key extract-cert "$bob_local_priv" > "$bob_local_pub"
 my_cat "$bob_local_pub"
@@ -87,7 +87,7 @@ my_cat "$bob_local_pub"
 printf "Y el verso cae al alma como al pasto el rocío.\n" > "$message"
 
 comm "sign"
-$sq sign --sdkms-key="$alice_key_name" "$message" > "$signed"
+$sq sign --dsm-key="$alice_key_name" "$message" > "$signed"
 my_cat "$signed"
 
 comm "verify"
@@ -98,15 +98,15 @@ $sq encrypt --recipient-cert "$alice_public" "$message" --output "$encrypted_nos
 my_cat "$encrypted_nosign"
 
 comm "decrypt"
-$sq decrypt --sdkms-key="$alice_key_name" "$encrypted_nosign" --output "$decrypted_nosign"
+$sq decrypt --dsm-key="$alice_key_name" "$encrypted_nosign" --output "$decrypted_nosign"
 
 diff "$message" "$decrypted_nosign"
 
 comm "encrypt to Alice, sign with both Bob keys"
-$sq encrypt --signer-sdkms-key="$bob_key_name" --signer-key="$bob_local_priv" --recipient-cert "$alice_public" "$message" --output "$encrypted_signed"
+$sq encrypt --signer-dsm-key="$bob_key_name" --signer-key="$bob_local_priv" --recipient-cert "$alice_public" "$message" --output "$encrypted_signed"
 my_cat "$encrypted_signed"
 
 comm "decrypt"
-$sq decrypt --signer-cert="$bob_sdkms" --signer-cert="$bob_local_pub" --sdkms-key="$alice_key_name" "$encrypted_signed" --output "$decrypted_signed"
+$sq decrypt --signer-cert="$bob_dsm" --signer-cert="$bob_local_pub" --dsm-key="$alice_key_name" "$encrypted_signed" --output "$decrypted_signed"
 
 diff "$message" "$decrypted_signed"

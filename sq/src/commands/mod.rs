@@ -28,7 +28,7 @@ use crate::openpgp::serialize::stream::{
     padding::Padder,
 };
 use crate::openpgp::policy::Policy;
-use openpgp_sdkms::SdkmsAgent;
+use openpgp_dsm::DsmAgent;
 
 use crate::{
     Config,
@@ -65,8 +65,8 @@ fn get_signing_keys(presecrets: &Vec<PreSecret>, p: &dyn Policy,
     let mut keys: Vec<Box<dyn crypto::Signer + Send + Sync>> = Vec::new();
     'next_cert: for presecret in presecrets {
         match presecret {
-            PreSecret::Sdkms(name) => {
-                keys.push(Box::new(Secret::Sdkms(SdkmsAgent::new_signer(name)?)));
+            PreSecret::Dsm(name) => {
+                keys.push(Box::new(Secret::Dsm(DsmAgent::new_signer(name)?)));
             }
             PreSecret::InMemory(tsk) => {
                 for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
