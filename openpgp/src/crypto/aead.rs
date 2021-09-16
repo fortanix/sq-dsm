@@ -19,6 +19,16 @@ use crate::crypto::mem::secure_cmp;
 use crate::seal;
 use crate::parse::Cookie;
 
+/// Minimum AEAD chunk size.
+///
+/// Implementations MUST support chunk sizes down to 64B.
+const MIN_CHUNK_SIZE: usize = 1 << 6; // 64B
+
+/// Maximum AEAD chunk size.
+///
+/// Implementations MUST support chunk sizes up to 4MiB.
+const MAX_CHUNK_SIZE: usize = 1 << 22; // 4MiB
+
 /// Disables authentication checks.
 ///
 /// This is DANGEROUS, and is only useful for debugging problems with
@@ -140,6 +150,11 @@ impl<'a> Decryptor<'a> {
                             source: Box<dyn 'a + BufferedReader<Cookie>>)
         -> Result<Self>
     {
+        if chunk_size < MIN_CHUNK_SIZE || chunk_size > MAX_CHUNK_SIZE {
+            return Err(Error::InvalidArgument(
+                format!("Invalid AEAD chunk size: {}", chunk_size)).into());
+        }
+
         Ok(Decryptor {
             source,
             sym_algo,
@@ -229,7 +244,7 @@ impl<'a> Decryptor<'a> {
         // 1. Copy any buffered data.
         if !self.buffer.is_empty() {
             let to_copy = cmp::min(self.buffer.len(), plaintext.len());
-            &plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
+            plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
             crate::vec_drain_prefix(&mut self.buffer, to_copy);
 
             pos = to_copy;
@@ -346,7 +361,7 @@ impl<'a> Decryptor<'a> {
                     assert!(0 < to_copy);
                     assert!(to_copy < self.chunk_size);
 
-                    &plaintext[pos..pos + to_copy]
+                    plaintext[pos..pos + to_copy]
                         .copy_from_slice(&self.buffer[..to_copy]);
                     crate::vec_drain_prefix(&mut self.buffer, to_copy);
                     pos += to_copy;
@@ -552,6 +567,11 @@ impl<W: io::Write> Encryptor<W> {
     pub fn new(version: u8, sym_algo: SymmetricAlgorithm, aead: AEADAlgorithm,
                chunk_size: usize, iv: &[u8], key: &SessionKey, sink: W)
                -> Result<Self> {
+        if chunk_size < MIN_CHUNK_SIZE || chunk_size > MAX_CHUNK_SIZE {
+            return Err(Error::InvalidArgument(
+                format!("Invalid AEAD chunk size: {}", chunk_size)).into());
+        }
+
         let mut scratch = Vec::with_capacity(chunk_size);
         unsafe { scratch.set_len(chunk_size); }
 

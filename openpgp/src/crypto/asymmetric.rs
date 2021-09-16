@@ -14,10 +14,10 @@ use crate::Result;
 /// signing functions (e.g. [`SignatureBuilder::sign_standalone`]),
 /// and likely many more places.
 ///
-///   [`Signer`]: ../serialize/stream/struct.Signer.html
-///   [`UserID::bind`]: ../packet/struct.UserID.html#method.bind
-///   [`SignatureBuilder`]: ../packet/signature/struct.SignatureBuilder.html
-///   [`SignatureBuilder::sign_standalone`]: ../packet/signature/struct.SignatureBuilder.html#method.sign_standalone
+///   [`Signer`]: crate::serialize::stream::Signer
+///   [`UserID::bind`]: crate::packet::UserID::bind()
+///   [`SignatureBuilder`]: crate::packet::signature::SignatureBuilder
+///   [`SignatureBuilder::sign_standalone`]: crate::packet::signature::SignatureBuilder::sign_standalone()
 ///
 /// This is a low-level mechanism to produce an arbitrary OpenPGP
 /// signature.  Using this trait allows Sequoia to perform all
@@ -34,7 +34,6 @@ use crate::Result;
 ///   - [`KeyPair`]: In-memory keys.
 ///   - [`sequoia_rpc::gnupg::KeyPair`]: Connects to the `gpg-agent`.
 ///
-///   [`KeyPair`]: struct.KeyPair.html
 ///   [`sequoia_rpc::gnupg::KeyPair`]: https://docs.sequoia-pgp.org/sequoia_ipc/gnupg/struct.KeyPair.html
 pub trait Signer {
     /// Returns a reference to the public key.
@@ -71,7 +70,7 @@ impl Signer for Box<dyn Signer + Send + Sync> {
 ///
 /// Used by [`PKESK::decrypt`] to decrypt session keys.
 ///
-///   [`PKESK::decrypt`]: ../packet/enum.PKESK.html#method.decrypt
+///   [`PKESK::decrypt`]: crate::packet::PKESK#method.decrypt
 ///
 /// This is a low-level mechanism to decrypt an arbitrary OpenPGP
 /// ciphertext.  Using this trait allows Sequoia to perform all
@@ -88,7 +87,6 @@ impl Signer for Box<dyn Signer + Send + Sync> {
 ///   - [`KeyPair`]: In-memory keys.
 ///   - [`sequoia_rpc::gnupg::KeyPair`]: Connects to the `gpg-agent`.
 ///
-///   [`KeyPair`]: struct.KeyPair.html
 ///   [`sequoia_rpc::gnupg::KeyPair`]: https://docs.sequoia-pgp.org/sequoia_ipc/gnupg/struct.KeyPair.html
 pub trait Decryptor {
     /// Returns a reference to the public key.
@@ -106,8 +104,6 @@ pub trait Decryptor {
 /// are available in memory, a `KeyPair` is a convenient
 /// implementation of [`Signer`] and [`Decryptor`].
 ///
-/// [`Signer`]: trait.Signer.html
-/// [`Decryptor`]: trait.Decryptor.html
 ///
 /// # Examples
 ///

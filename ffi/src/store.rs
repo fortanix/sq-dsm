@@ -14,7 +14,7 @@
 //! Sequoia updates keys in compliance with the [network policy] used
 //! to create the store.
 //!
-//! [network policy]: ../../sequoia_core/enum.NetworkPolicy.html
+//! [network policy]: sequoia_net::Policy
 //!
 //! # Examples
 //!

@@ -25,15 +25,12 @@ use crate::parse::Cookie;
 /// [`PacketPile::from_file`] (or related routines).
 ///
 ///   [packet]: https://tools.ietf.org/html/rfc4880#section-4
-///   [`PacketParser`]: parse/struct.PacketParser.html
-///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
-///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
+///   [`PacketParser`]: crate::parse::PacketParser
+///   [`PacketPileParser`]: crate::parse::PacketPileParser
 ///
 /// You can also convert a [`Cert`] into a `PacketPile` using
 /// `PacketPile::from`.  Unlike serializing a `Cert`, this does not
 /// drop any secret key material.
-///
-///   [`Cert`]: ../struct.Cert.html
 ///
 /// Normally, you'll want to convert the `PacketPile` to a `Cert` or a
 /// `Message`.
@@ -42,7 +39,7 @@ use crate::parse::Cookie;
 ///
 /// This example shows how to modify packets in PacketPile using [`pathspec`]s.
 ///
-///   [`pathspec`]: struct.PacketPile.html#method.path_ref
+///   [`pathspec`]: PacketPile::path_ref()
 ///
 /// ```rust
 /// # use sequoia_openpgp as openpgp;
@@ -134,8 +131,8 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     ///
     /// Note: this interface *does* buffer the contents of packets.
     ///
-    ///   [`PacketParser`]: parse/struct.PacketParser.html
-    ///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
+    ///   [`PacketParser`]: crate::parse::PacketParser
+    ///   [`PacketPileParser`]: crate::parse::PacketPileParser
     fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<PacketPile> {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());

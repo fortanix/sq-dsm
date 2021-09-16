@@ -242,7 +242,7 @@ fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
             for i in 0..n {
                 // B = AES(K, A | R[i])
                 write_be_u64(&mut tmp[..8], a);
-                &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
+                tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
                 cipher.encrypt(&mut b, &tmp)?;
 
                 // A = MSB(64, B) ^ t where t = (n*j)+i
@@ -251,7 +251,7 @@ fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
                 // n, hence the index shift.
 
                 // R[i] = LSB(64, B)
-                &mut r[8 * i..8 * (i + 1)].copy_from_slice(&b[8..]);
+                r[8 * i..8 * (i + 1)].copy_from_slice(&b[8..]);
             }
         }
     }
@@ -317,7 +317,7 @@ fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
             for i in (0..=n-1).rev() {
                 // B = AES-1(K, (A ^ t) | R[i]) where t = n*j+i
                 write_be_u64(&mut tmp[..8], a ^ ((n * j) + i + 1) as u64);
-                &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
+                tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
                 // (Note that our i runs from n-1 to 0 instead of n to
                 // 1, hence the index shift.
                 cipher.decrypt(&mut b, &tmp)?;
@@ -326,7 +326,7 @@ fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
                 a = read_be_u64(&b[..8]);
 
                 // R[i] = LSB(64, B)
-                &mut r[8 * i..8 * (i + 1)].copy_from_slice(&b[8..]);
+                r[8 * i..8 * (i + 1)].copy_from_slice(&b[8..]);
             }
         }
     }
@@ -506,5 +506,42 @@ mod tests {
                 .unwrap();
             assert_eq!(&Protected::from(test.key_data), &key_data);
         }
+    }
+
+    #[test]
+    fn cv25519_generation() -> Result<()> {
+        const CURVE25519_SIZE: usize = 32;
+
+        fn check_clamping<S: AsRef<[u8]>>(s: S) {
+            // Curve25519 Paper, Sec. 3: A user can, for example,
+            // generate 32 uniform random bytes, clear bits 0, 1, 2 of
+            // the first byte, clear bit 7 of the last byte, and set
+            // bit 6 of the last byte.
+
+            // OpenPGP stores the secret in reverse order.
+            const FIRST: usize = CURVE25519_SIZE - 1;
+            const LAST: usize = 0;
+
+            let s = s.as_ref();
+            assert_eq!(s[FIRST] & ! 0b1111_1000, 0);
+            assert_eq!(s[LAST] & 0b1100_0000, 0b0100_0000);
+        }
+
+        for _ in 0..5 {
+            let k: key::Key4<_, key::SubordinateRole> =
+                key::Key4::generate_ecc(false, Curve::Cv25519)?;
+            match k.secret() {
+                key::SecretKeyMaterial::Unencrypted(m) => m.map(|mpis| {
+                    match mpis {
+                        mpi::SecretKeyMaterial::ECDH { scalar } =>
+                            check_clamping(scalar.value()),
+                        o => panic!("unexpected key material: {:?}", o),
+                    }
+                }),
+                o => panic!("expected unencrypted material: {:?}", o),
+            }
+        }
+
+        Ok(())
     }
 }

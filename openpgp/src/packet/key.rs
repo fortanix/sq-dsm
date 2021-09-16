@@ -21,7 +21,7 @@
 //! all represented by the `Key` enum and the `Key4` struct using
 //! marker types.  We use marker types rather than an enum, to better
 //! exploit the type checking.  For instance, type-specific methods
-//! like [`Key::secret`] are only exposed for those types that
+//! like [`Key4::secret`] are only exposed for those types that
 //! actually support them.  See the documentation for [`Key`] for an
 //! explanation of how the markers work.
 //!
@@ -32,8 +32,7 @@
 //! to most users is decrypting secret key material.  This is usually
 //! more conveniently done using [`Key::decrypt_secret`].
 //!
-//! [`Key`]: ../enum.Key.html
-//! [`Key4`]: struct.Key4.html
+//! [`Key`]: super::Key
 //! [version 3]: https://tools.ietf.org/html/rfc1991#section-6.6
 //! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.5.2
 //! [version 5]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-public-key-packet-formats
@@ -41,11 +40,7 @@
 //! [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
 //! [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2
 //! [secret subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.4
-//! [`Key::secret`]: ../enum.Key.html#method.secret
-//! [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
-//! [`Unencrypted`]: struct.Unencrypted.html
-//! [`Encrypted`]: struct.Encrypted.html
-//! [`Key::decrypt_secret`]: ../enum.Key.html#method.decrypt_secret
+//! [`Key::decrypt_secret`]: super::Key::decrypt_secret()
 //!
 //! # Key Creation
 //!
@@ -61,14 +56,14 @@
 //! still need to create a binding signature, and, for signing keys, a
 //! back signature for the key to be usable.
 //!
-//! [`Key4::generate_rsa`]: struct.Key4.html#method.generate_rsa
-//! [`Key4::generate_ecc`]: struct.Key4.html#method.generate_ecc
-//! [`Key4::import_public_cv25519`]: struct.Key4.html#method.import_public_cv25519
-//! [`Key4::import_public_ed25519`]: struct.Key4.html#method.import_public_ed25519
-//! [`Key4::import_public_rsa`]: struct.Key4.html#method.import_public_rsa
-//! [`Key4::import_secret_cv25519`]: struct.Key4.html#method.import_secret_cv25519
-//! [`Key4::import_secret_ed25519`]: struct.Key4.html#method.import_secret_ed25519
-//! [`Key4::import_secret_rsa`]: struct.Key4.html#method.import_secret_rsa
+//! [`Key4::generate_rsa`]: Key4::generate_rsa()
+//! [`Key4::generate_ecc`]: Key4::generate_ecc()
+//! [`Key4::import_public_cv25519`]: Key4::import_public_cv25519()
+//! [`Key4::import_public_ed25519`]: Key4::import_public_ed25519()
+//! [`Key4::import_public_rsa`]: Key4::import_public_rsa()
+//! [`Key4::import_secret_cv25519`]: Key4::import_secret_cv25519()
+//! [`Key4::import_secret_ed25519`]: Key4::import_secret_ed25519()
+//! [`Key4::import_secret_rsa`]: Key4::import_secret_rsa()
 //!
 //! # In-Memory Protection of Secret Key Material
 //!
@@ -82,13 +77,13 @@
 //!
 //! See [`crypto::mem::Encrypted`] for details.
 //!
-//! [`Unencrypted`]: struct.Unencrypted.html
 //! [heartbleed]: https://en.wikipedia.org/wiki/Heartbleed
-//! [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
+//! [`crypto::mem::Encrypted`]: super::super::crypto::mem::Encrypted
 
 use std::fmt;
 use std::cmp::Ordering;
 use std::convert::TryInto;
+use std::hash::Hasher;
 use std::time;
 
 #[cfg(test)]
@@ -129,11 +124,11 @@ mod conversions;
 /// `SecretKey` marker, secret key material will be ignored.  See the
 /// documentation for [`Key`] for a demonstration of this behavior.
 ///
-/// [`Cert::keys`]: ../../cert/struct.Cert.html#method.keys
-/// [`Key`]: ../enum.Key.html
-/// [`key::PublicParts`]: struct.PublicParts.html
-/// [`key::SecretParts`]: struct.SecretParts.html
-/// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
+/// [`Cert::keys`]: crate::cert::Cert::keys()
+/// [`Key`]: super::Key
+/// [`key::PublicParts`]: PublicParts
+/// [`key::SecretParts`]: SecretParts
+/// [`key::UnspecifiedParts`]: UnspecifiedParts
 ///
 /// # Sealed trait
 ///
@@ -156,9 +151,9 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// converting a key to one with [`key::SecretParts`] only
     /// succeeds if the key actually contains secret key material.
     ///
-    /// [`key::PublicParts`]: struct.PublicParts.html
-    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
-    /// [`key::SecretParts`]: struct.SecretParts.html
+    /// [`key::PublicParts`]: PublicParts
+    /// [`key::UnspecifiedParts`]: UnspecifiedParts
+    /// [`key::SecretParts`]: SecretParts
     ///
     /// # Examples
     ///
@@ -223,9 +218,9 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// converting a key to one with [`key::SecretParts`] only
     /// succeeds if the key actually contains secret key material.
     ///
-    /// [`key::PublicParts`]: struct.PublicParts.html
-    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
-    /// [`key::SecretParts`]: struct.SecretParts.html
+    /// [`key::PublicParts`]: PublicParts
+    /// [`key::UnspecifiedParts`]: UnspecifiedParts
+    /// [`key::SecretParts`]: SecretParts
     fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
                                    -> Result<&Key<Self, R>>
         where Self: Sized;
@@ -244,9 +239,9 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// succeeds if the key bundle actually contains secret key
     /// material.
     ///
-    /// [`key::PublicParts`]: struct.PublicParts.html
-    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
-    /// [`key::SecretParts`]: struct.SecretParts.html
+    /// [`key::PublicParts`]: PublicParts
+    /// [`key::UnspecifiedParts`]: UnspecifiedParts
+    /// [`key::SecretParts`]: SecretParts
     fn convert_bundle<R: KeyRole>(bundle: KeyBundle<UnspecifiedParts, R>)
                                   -> Result<KeyBundle<Self, R>>
         where Self: Sized;
@@ -265,9 +260,9 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// succeeds if the key bundle actually contains secret key
     /// material.
     ///
-    /// [`key::PublicParts`]: struct.PublicParts.html
-    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
-    /// [`key::SecretParts`]: struct.SecretParts.html
+    /// [`key::PublicParts`]: PublicParts
+    /// [`key::UnspecifiedParts`]: UnspecifiedParts
+    /// [`key::SecretParts`]: SecretParts
     fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
                                       -> Result<&KeyBundle<Self, R>>
         where Self: Sized;
@@ -286,9 +281,9 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// only succeeds if the key amalgamation actually contains secret
     /// key material.
     ///
-    /// [`key::PublicParts`]: struct.PublicParts.html
-    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
-    /// [`key::SecretParts`]: struct.SecretParts.html
+    /// [`key::PublicParts`]: PublicParts
+    /// [`key::UnspecifiedParts`]: UnspecifiedParts
+    /// [`key::SecretParts`]: SecretParts
     fn convert_key_amalgamation<'a, R: KeyRole>(
         ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<ComponentAmalgamation<'a, Key<Self, R>>>
@@ -308,9 +303,9 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// only succeeds if the key amalgamation actually contains secret
     /// key material.
     ///
-    /// [`key::PublicParts`]: struct.PublicParts.html
-    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
-    /// [`key::SecretParts`]: struct.SecretParts.html
+    /// [`key::PublicParts`]: PublicParts
+    /// [`key::UnspecifiedParts`]: UnspecifiedParts
+    /// [`key::SecretParts`]: SecretParts
     fn convert_key_amalgamation_ref<'a, R: KeyRole>(
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>>
@@ -328,11 +323,11 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
 /// the type information needs to be erased (e.g., interfaces like
 /// [`Cert::keys`]), we provide the [`key::UnspecifiedRole`] marker.
 ///
-/// [`Key`]: ../enum.Key.html
-/// [`key::PrimaryRole`]: struct.PrimaryRole.html
-/// [`key::SubordinateRole`]: struct.SubordinateRole.html
-/// [`Cert::keys`]: ../../cert/struct.Cert.html#method.keys
-/// [`key::UnspecifiedRole`]: struct.UnspecifiedRole.html
+/// [`Key`]: super::Key
+/// [`key::PrimaryRole`]: PrimaryRole
+/// [`key::SubordinateRole`]: SubordinateRole
+/// [`Cert::keys`]: crate::cert::Cert::keys()
+/// [`key::UnspecifiedRole`]: UnspecifiedRole
 ///
 /// # Sealed trait
 ///
@@ -441,8 +436,7 @@ pub trait KeyRole: fmt::Debug + seal::Sealed {
 ///
 /// Refer to [`KeyParts`] for details.
 ///
-/// [`Key`]: ../enum.Key.html
-/// [`KeyParts`]: trait.KeyParts.html
+/// [`Key`]: super::Key
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PublicParts;
 
@@ -497,9 +491,8 @@ impl KeyParts for PublicParts {
 ///
 /// Refer to [`KeyParts`] for details.
 ///
-/// [`key::PublicParts`]: struct.PublicParts.html
-/// [`Key`]: ../enum.Key.html
-/// [`KeyParts`]: trait.KeyParts.html
+/// [`key::PublicParts`]: PublicParts
+/// [`Key`]: super::Key
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SecretParts;
 
@@ -560,11 +553,10 @@ impl KeyParts for SecretParts {
 ///
 /// Refer to [`KeyParts`] for details.
 ///
-/// [`key::PublicParts`]: struct.PublicParts.html
-/// [`key::SecretParts`]: struct.SecretParts.html
-/// [`KeyParts`]: trait.KeyParts.html
-/// [`Key`]: ../enum.Key.html
-/// [`Cert::keys`]: ../../struct.Cert.html#method.keys
+/// [`key::PublicParts`]: PublicParts
+/// [`key::SecretParts`]: SecretParts
+/// [`Key`]: super::Key
+/// [`Cert::keys`]: super::super::Cert::keys()
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedParts;
 
@@ -613,7 +605,6 @@ impl KeyParts for UnspecifiedParts {
 ///
 /// Refer to [`KeyRole`] for details.
 ///
-/// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PrimaryRole;
 
@@ -647,7 +638,6 @@ impl KeyRole for PrimaryRole {
 ///
 /// Refer to [`KeyRole`] for details.
 ///
-/// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SubordinateRole;
 
@@ -685,9 +675,8 @@ impl KeyRole for SubordinateRole {
 ///
 /// Refer to [`KeyRole`] for details.
 ///
-/// [`key::PrimaryRole`]: struct.PrimaryRole.html
-/// [`key::SubordinateRole`]: struct.SubordinateRole.html
-/// [`KeyRole`]: trait.KeyRole.html
+/// [`key::PrimaryRole`]: PrimaryRole
+/// [`key::SubordinateRole`]: SubordinateRole
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedRole;
 
@@ -753,7 +742,7 @@ pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 /// new key.
 ///
 /// Existing key material can be turned into an OpenPGP key using
-/// [`Key4::with_secret`], [`Key4::import_public_cv25519`],
+/// [`Key4::new`], [`Key4::with_secret`], [`Key4::import_public_cv25519`],
 /// [`Key4::import_public_ed25519`], [`Key4::import_public_rsa`],
 /// [`Key4::import_secret_cv25519`], [`Key4::import_secret_ed25519`],
 /// and [`Key4::import_secret_rsa`].
@@ -768,18 +757,9 @@ pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 /// See [Section 5.5 of RFC 4880] and [the documentation for `Key`]
 /// for more details.
 ///
-/// [`Key4::with_secret`]: #method.with_secret
-/// [`Key4::generate_rsa`]: #method.generate_rsa
-/// [`Key4::generate_ecc`]: #method.generate_ecc
-/// [`Key4::import_public_cv25519`]: #method.import_public_cv25519
-/// [`Key4::import_public_ed25519`]: #method.import_public_ed25519
-/// [`Key4::import_public_rsa`]: #method.import_public_rsa
-/// [`Key4::import_secret_cv25519`]: #method.import_secret_cv25519
-/// [`Key4::import_secret_ed25519`]: #method.import_secret_ed25519
-/// [`Key4::import_secret_rsa`]: #method.import_secret_rsa
 /// [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-/// [the documentation for `Key`]: ../enum.Key.html
-/// [`Key`]: ../enum.Key.html
+/// [the documentation for `Key`]: super::Key
+/// [`Key`]: super::Key
 #[derive(Clone)]
 pub struct Key4<P, R>
     where P: KeyParts, R: KeyRole
@@ -875,7 +855,7 @@ impl<P, R> Key4<P, R>
     /// compromised, but not completely broken.  For more details,
     /// please refer to the documentation for [HashAlgoSecurity].
     ///
-    ///   [HashAlgoSecurity]: ../policy/enum.HashAlgoSecurity.html
+    ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
     pub fn hash_algo_security(&self) -> HashAlgoSecurity {
         HashAlgoSecurity::SecondPreImageResistance
     }
@@ -915,6 +895,23 @@ impl<P, R> Key4<P, R>
               RB: key::KeyRole,
     {
         self.public_cmp(b) == Ordering::Equal
+    }
+
+    /// Hashes everything but any secret key material into state.
+    ///
+    /// This is an alternate implementation of [`Hash`], which never
+    /// hashes the secret key material.
+    ///
+    ///   [`Hash`]: std::hash::Hash
+    pub fn public_hash<H>(&self, state: &mut H)
+        where H: Hasher
+    {
+        use std::hash::Hash;
+
+        self.common.hash(state);
+        self.creation_time.hash(state);
+        self.pk_algo.hash(state);
+        Hash::hash(&self.mpis(), state);
     }
 }
 
@@ -1048,7 +1045,7 @@ impl<P, R> Key4<P, R>
     /// resolution.  An error is returned if `timestamp` is out of
     /// range.
     ///
-    /// [`Timestamp`]: ../../types/struct.Timestamp.html
+    /// [`Timestamp`]: crate::types::Timestamp
     pub fn set_creation_time<T>(&mut self, timestamp: T)
                                 -> Result<time::SystemTime>
         where T: Into<time::SystemTime>
@@ -1218,7 +1215,7 @@ impl<R> Key4<SecretParts, R>
     ///
     /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
     /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
-    /// [`Key::decrypt_secret`]: ../enum.Key.html#method.decrypt_secret
+    /// [`Key::decrypt_secret`]: super::Key::decrypt_secret()
     pub fn decrypt_secret(mut self, password: &Password) -> Result<Self> {
         let pk_algo = self.pk_algo;
         self.secret_mut().decrypt_in_place(pk_algo, password)?;
@@ -1238,7 +1235,7 @@ impl<R> Key4<SecretParts, R>
     ///
     /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
     /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
-    /// [`Key::encrypt_secret`]: ../enum.Key.html#method.encrypt_secret
+    /// [`Key::encrypt_secret`]: super::Key::encrypt_secret()
     pub fn encrypt_secret(mut self, password: &Password)
         -> Result<Key4<SecretParts, R>>
     {
@@ -1270,9 +1267,8 @@ impl<P, R> From<Key4<P, R>> for super::Key<P, R>
 ///
 /// See [`crypto::mem::Encrypted`] for details.
 ///
-/// [`Unencrypted`]: struct.Unencrypted.html
 /// [heartbleed]: https://en.wikipedia.org/wiki/Heartbleed
-/// [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
+/// [`crypto::mem::Encrypted`]: super::super::crypto::mem::Encrypted
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SecretKeyMaterial {
     /// Unencrypted secret key. Can be used as-is.
@@ -1347,7 +1343,7 @@ impl SecretKeyMaterial {
     ///
     /// See [`Unencrypted::encrypt`] for details.
     ///
-    /// [`Unencrypted::encrypt`]: struct.Unencrypted.html#encrypt
+    /// [`Unencrypted::encrypt`]: Unencrypted#encrypt
     pub fn encrypt(mut self, password: &Password) -> Result<Self> {
         self.encrypt_in_place(password)?;
         Ok(self)
@@ -1359,7 +1355,7 @@ impl SecretKeyMaterial {
     ///
     /// See [`Unencrypted::encrypt`] for details.
     ///
-    /// [`Unencrypted::encrypt`]: struct.Unencrypted.html#encrypt
+    /// [`Unencrypted::encrypt`]: Unencrypted#encrypt
     pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
         match self {
             SecretKeyMaterial::Unencrypted(ref u) => {
@@ -1397,10 +1393,8 @@ impl SecretKeyMaterial {
 ///
 /// See [`crypto::mem::Encrypted`] for details.
 ///
-/// [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
-/// [`Encrypted`]: struct.Encrypted.html
 /// [heartbleed]: https://en.wikipedia.org/wiki/Heartbleed
-/// [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
+/// [`crypto::mem::Encrypted`]: super::super::crypto::mem::Encrypted
 // Note: PartialEq, Eq, and Hash on mem::Encrypted does the right
 // thing.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -1442,8 +1436,8 @@ impl Unencrypted {
     /// This encrypts the secret key material using an [AES 256] key
     /// derived from the `password` using the default [`S2K`] scheme.
     ///
-    /// [AES 256]: ../../types/enum.SymmetricAlgorithm.html#variant.AES256
-    /// [`S2K`]: ../../crypto/enum.S2K.html
+    /// [AES 256]: crate::types::SymmetricAlgorithm::AES256
+    /// [`S2K`]: super::super::crypto::S2K
     pub fn encrypt(&self, password: &Password)
         -> Result<Encrypted>
     {
@@ -1475,7 +1469,6 @@ impl Unencrypted {
 ///
 /// This data structure is used by the [`SecretKeyMaterial`] enum.
 ///
-/// [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
 #[derive(Clone, Debug)]
 pub struct Encrypted {
     /// Key derivation mechanism to use.
@@ -1576,7 +1569,7 @@ impl Encrypted {
     /// but stored in the packet.  If the packet is serialized again,
     /// it is written out.
     ///
-    ///   [`S2K`]: ../../crypto/enum.S2K.html
+    ///   [`S2K`]: super::super::crypto::S2K
     pub fn ciphertext(&self) -> Result<&[u8]> {
         self.ciphertext
             .as_ref()

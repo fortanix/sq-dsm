@@ -23,7 +23,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// using [`SignatureBuilder::sign_primary_key_binding`].
     ///
     ///   [primary key binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`SignatureBuilder::sign_primary_key_binding`]: signature/struct.SignatureBuilder.html#method.sign_primary_key_binding
+    ///   [`SignatureBuilder::sign_primary_key_binding`]: signature::SignatureBuilder::sign_primary_key_binding()
     ///
     /// This function adds a creation time subpacket, a issuer
     /// fingerprint subpacket, and a issuer subpacket to the

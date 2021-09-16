@@ -56,6 +56,7 @@ use openpgp::{
     serialize::Serialize,
 };
 
+pub mod updates;
 pub mod wkd;
 
 /// https://url.spec.whatwg.org/#fragment-percent-encode-set

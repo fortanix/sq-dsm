@@ -70,7 +70,7 @@ pub fn sign(bytes: &[u8], sender: &Cert) -> openpgp::Result<Vec<u8>> {
 }
 
 /// Encrypt and sign, ignoring revocation or expiration.
-/// Uses a realistic writer stac with padding and armor.
+/// Uses a realistic writer stack with padding and armor.
 pub fn encrypt_to_cert_and_sign(
     bytes: &[u8],
     sender: &Cert,

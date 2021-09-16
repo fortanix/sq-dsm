@@ -7,7 +7,6 @@ use std::convert::TryFrom;
 use std::ffi::OsStr;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use futures::{Future, Stream};
 
@@ -132,7 +131,9 @@ impl Context {
                 Mode::Windows => "--windows",
                 Mode::Unix => "--unix",
             };
-            Command::new("cygpath").arg(conversion_type).arg(path.as_ref())
+            crate::new_background_command("cygpath")
+		.arg(conversion_type)
+		.arg(path.as_ref())
                 .output()
                 .map_err(Into::into)
                 .and_then(|out|
@@ -162,7 +163,7 @@ impl Context {
         let nl = |&c: &u8| c as char == '\n';
         let colon = |&c: &u8| c as char == ':';
 
-        let mut gpgconf = Command::new("gpgconf");
+        let mut gpgconf = crate::new_background_command("gpgconf");
         if let Some(homedir) = homedir {
             gpgconf.arg("--homedir").arg(homedir);
 

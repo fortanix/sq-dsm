@@ -27,7 +27,7 @@ impl Digest for sha1collisiondetection::Sha1CD {
         let r = self.finalize_into_dirty_cd(&mut d);
         self.reset();
         let l = digest.len().min(d.len());
-        &mut digest[..l].copy_from_slice(&d[..l]);
+        digest[..l].copy_from_slice(&d[..l]);
         r.map_err(Into::into)
     }
 }

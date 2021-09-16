@@ -64,7 +64,7 @@ impl CTBNew {
 ///
 /// See [Section 4.2.1 of RFC 4880] for more details.
 ///
-///   [old CTB]: struct.CTBOld.html
+///   [old CTB]: CTBOld
 ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
 #[derive(Debug)]
 #[derive(Clone, Copy, PartialEq)]
@@ -141,7 +141,7 @@ impl CTBOld {
     /// Returns [`Error::InvalidArgument`] if the tag or the body
     /// length cannot be expressed using an old-style CTB.
     ///
-    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
     pub fn new(tag: Tag, length: BodyLength) -> Result<Self> {
         let n: u8 = tag.into();
 
@@ -196,8 +196,8 @@ impl CTBOld {
 /// There are two CTB variants: the [old CTB format] and the [new CTB
 /// format].
 ///
-///   [old CTB format]: struct.CTBOld.html
-///   [new CTB format]: struct.CTBNew.html
+///   [old CTB format]: CTBOld
+///   [new CTB format]: CTBNew
 ///
 /// Note: CTB stands for Cipher Type Byte.
 #[derive(Clone, Debug)]

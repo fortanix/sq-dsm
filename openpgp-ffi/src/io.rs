@@ -261,6 +261,9 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
 ///
+/// If you know the size of the data written to it, or can approximate
+/// it, consider using [`pgp_writer_alloc_with_capacity`].
+///
 /// # Sending objects across thread boundaries
 ///
 /// If you send a Sequoia object (like a pgp_writer_stack_t) that
@@ -320,20 +323,89 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
                     -> *mut Writer {
+    let len_ = ffi_param_ref_mut!(len);
+
+    // Assume that the capacity is the current length.
+    let capacity = *len_;
+
+    pgp_writer_alloc_with_capacity(buf, len, capacity)
+}
+
+/// Creates an allocating writer reserving space upfront.
+///
+/// Variant of [`pgp_writer_alloc`] that makes sure that the buffer
+/// can be filled up to `capacity` without causing a reallocation by
+/// allocating space upfront.
+///
+/// # Errors
+///
+/// Returns `NULL` if the initial allocation failed.
+///
+/// # Examples
+///
+/// ```c
+/// #include <assert.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+///
+/// #include <sequoia/openpgp.h>
+///
+/// /* Prepare a buffer.  */
+/// void *buf = NULL;
+/// size_t len = 0;
+///
+/// /* The allocating writer reallocates the buffer so that it grows
+///    if more data is written to it.  However, if we allocate enough
+///    space upfront, we can completely avoid the possibly costly
+///    reallocations.  Demonstrate that.  */
+/// pgp_writer_t sink = pgp_writer_alloc_with_capacity (&buf, &len, 29 * 4096);
+/// void *initial_allocation = buf;
+/// for (int i = 0; i < 4096; i++)
+///     pgp_writer_write (NULL, sink,
+///                       (uint8_t *) "This is a string of length 29", 29);
+/// pgp_writer_free (sink);
+/// assert (len == 29 * 4096);
+/// assert (memcmp (buf, "This is a string of length 29This", 29 + 4) == 0);
+/// assert (buf == initial_allocation);
+/// free (buf);
+/// ```
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_writer_alloc_with_capacity(buf: *mut *mut c_void, len: *mut size_t,
+                                  capacity: size_t)
+                                  -> *mut Writer {
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
+
+    // Sanitize capacity.
+    let capacity = capacity.max(*len);
+
+    if capacity > *len {
+        let new = unsafe {
+            realloc(*buf, capacity)
+        };
+        if new.is_null() {
+            return std::ptr::null_mut();
+        }
+
+        *buf = new;
+    }
 
     let w = WriterKind::Generic(Box::new(WriterAlloc(Mutex::new(Buffer {
         buf: buf,
         len: len,
+        capacity,
     }))));
     w.move_into_raw()
 }
 
 struct WriterAlloc(Mutex<Buffer>);
 struct Buffer {
+    /// Pointer to the buffer.
     buf: &'static mut *mut c_void,
+    /// Length of data written to the buffer.
     len: &'static mut size_t,
+    /// Capacity of the buffer.
+    capacity: usize,
 }
 
 unsafe impl Send for Buffer {}
@@ -342,22 +414,36 @@ impl Write for WriterAlloc {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let buffer = self.0.get_mut().expect("Mutex not to be poisoned");
         let old_len = *buffer.len;
-        let new_len = old_len + buf.len();
 
-        let new = unsafe {
-            realloc(*buffer.buf, new_len)
-        };
-        if new.is_null() {
-            return Err(io::Error::new(io::ErrorKind::Other, "out of memory"));
+        if old_len + buf.len() > buffer.capacity {
+            let oom = || io::Error::new(
+                io::ErrorKind::Other, "out of memory");
+
+            // Strategy: Allocate the space we need rounded up to a
+            // power of two, but at least 64k bytes.
+            let need = old_len.checked_add(buf.len()).ok_or_else(oom)?;
+            let new_capacity = (64 * 1024)
+                .max(need.checked_next_power_of_two().ok_or_else(oom)?);
+
+            let new = unsafe {
+                realloc(*buffer.buf, new_capacity)
+            };
+            if new.is_null() {
+                return Err(oom());
+            }
+
+            *buffer.buf = new;
+            buffer.capacity = new_capacity;
         }
 
-        *buffer.buf = new;
-        *buffer.len = new_len;
+        // We make sure that this write can succeed.
+        assert!(old_len + buf.len() <= buffer.capacity);
+        *buffer.len += buf.len();
 
         let sl = unsafe {
-            slice::from_raw_parts_mut(new as *mut u8, new_len)
+            slice::from_raw_parts_mut(*buffer.buf as *mut u8, *buffer.len)
         };
-        &mut sl[old_len..].copy_from_slice(buf);
+        sl[old_len..].copy_from_slice(buf);
         Ok(buf.len())
     }
 

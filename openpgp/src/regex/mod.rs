@@ -42,11 +42,9 @@
 //! behavior can be overridden using [`Regex::disable_sanitizations`]
 //! and [`RegexSet::disable_sanitizations`].
 //!
-//!   [`Regex`]: struct.Regex.html
-//!   [`UserID`]: ../packet/struct.UserID.html
-//!   [`RegexSet`]: struct.RegexSet.html
-//!   [`Regex::disable_sanitizations`]: struct.Regex.html#method.disable_sanitizations
-//!   [`RegexSet::disable_sanitizations`]: struct.RegexSet.html#method.disable_sanitizations
+//!   [`UserID`]: crate::packet::UserID
+//!   [`Regex::disable_sanitizations`]: Regex::disable_sanitizations()
+//!   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
 //!
 //! # Scoped Trust Signatures
 //!
@@ -57,12 +55,12 @@
 //! [`SignatureBuilder::set_trust_signature`] method.
 //!
 //!   [type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-//!   [GenericCertification]: ../types/enum.SignatureType.html#variant.GenericCertification
-//!   [PersonaCertification]: ../types/enum.SignatureType.html#variant.PersonaCertification
-//!   [CasualCertification]: ../types/enum.SignatureType.html#variant.CasualCertification
-//!   [PositiveCertification]: ../types/enum.SignatureType.html#variant.PositiveCertification
+//!   [GenericCertification]: crate::types::SignatureType::GenericCertification
+//!   [PersonaCertification]: crate::types::SignatureType::PersonaCertification
+//!   [CasualCertification]: crate::types::SignatureType::CasualCertification
+//!   [PositiveCertification]: crate::types::SignatureType::PositiveCertification
 //!   [Trust Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
-//!   [`SignatureBuilder::set_trust_signature`]: ../packet/signature/struct.SignatureBuilder.html#method.set_trust_signature
+//!   [`SignatureBuilder::set_trust_signature`]: crate::packet::signature::SignatureBuilder::set_trust_signature()
 //!
 //! To scope a trust signature, you add a [Regular Expression
 //! subpacket] to it using
@@ -70,12 +68,12 @@
 //! [`SignatureBuilder::add_regular_expression`].
 //!
 //! To extract any regular expressions, you can use
-//! [`SignatureBuilder::regular_expressions`].
+//! [`SubpacketAreas::regular_expressions`].
 //!
 //!   [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
-//!   [`SignatureBuilder::set_regular_expression`]: ../packet/signature/struct.SignatureBuilder.html#method.set_regular_expression
-//!   [`SignatureBuilder::add_regular_expression`]: ../packet/signature/struct.SignatureBuilder.html#method.add_regular_expression
-//!   [`SignatureBuilder::regular_expressions`]: ../packet/signature/struct.SignatureBuilder.html#method.regular_expressions
+//!   [`SignatureBuilder::set_regular_expression`]: crate::packet::signature::SignatureBuilder::set_regular_expression()
+//!   [`SignatureBuilder::add_regular_expression`]: crate::packet::signature::SignatureBuilder::add_regular_expression()
+//!   [`SubpacketAreas::regular_expressions`]: crate::packet::signature::subpacket::SubpacketAreas::regular_expressions()
 //!
 //! # Caveat Emptor
 //!
@@ -367,7 +365,7 @@ fn generate_class(caret: bool, chars: impl Iterator<Item=char>) -> Hir
 ///
 ///   [Section 8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-8
 ///   [trust signatures]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
-///   [`Regex::disable_sanitizations`]: #method.disable_sanitizations
+///   [`Regex::disable_sanitizations`]: Regex::disable_sanitizations()
 ///
 /// Regular expressions are used to scope the trust that [trust
 /// signatures] extend.
@@ -376,11 +374,10 @@ fn generate_class(caret: bool, chars: impl Iterator<Item=char>) -> Hir
 /// [`RegexSet`] data structure, which already implements the correct
 /// semantics.
 ///
-///   [`RegexSet`]: struct.RegexSet.html
 ///
 /// See the [module-level documentation] for more details.
 ///
-///   [module-level documentation]: index.html
+///   [module-level documentation]: self
 #[derive(Clone, Debug)]
 pub struct Regex {
     regex: regex::Regex,
@@ -396,7 +393,7 @@ impl Regex {
     /// This behavior can be customized using
     /// [`Regex::disable_sanitizations`].
     ///
-    ///   [`Regex::disable_sanitizations`]: #method.disable_sanitizations
+    ///   [`Regex::disable_sanitizations`]: Regex::disable_sanitizations()
     pub fn new(re: &str) -> Result<Self>
     {
         let lexer = Lexer::new(re);
@@ -428,7 +425,7 @@ impl Regex {
     /// This behavior can be customized using
     /// [`Regex::disable_sanitizations`].
     ///
-    ///   [`Regex::disable_sanitizations`]: #method.disable_sanitizations
+    ///   [`Regex::disable_sanitizations`]: Regex::disable_sanitizations()
     pub fn from_bytes(re: &[u8]) -> Result<Self> {
         Self::new(std::str::from_utf8(re)?)
     }
@@ -512,7 +509,7 @@ assert_send_and_sync!(RegexSet_);
 /// [`RegexSet::disable_sanitizations`].
 ///
 ///   [Section 8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-8
-///   [`RegexSet::disable_sanitizations`]: #method.disable_sanitizations
+///   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
 ///
 /// `RegexSet` implements the semantics of [regular expression]s used
 /// in [Trust Signatures].  In particular, a `RegexSet` makes it
@@ -534,7 +531,7 @@ assert_send_and_sync!(RegexSet_);
 ///
 /// See the [module-level documentation] for more details.
 ///
-///   [module-level documentation]: index.html
+///   [module-level documentation]: self
 #[derive(Clone)]
 pub struct RegexSet {
     re_set: RegexSet_,
@@ -567,14 +564,13 @@ impl RegexSet {
     /// Invalid regular expressions do not cause this to fail.  See
     /// [`RegexSet`]'s top-level documentation for details.
     ///
-    ///   [`RegexSet`]: struct.RegexSet.html
     ///
     /// By default, strings that don't pass a sanity check (in
     /// particular, include Unicode control characters) never match.
     /// This behavior can be customized using
     /// [`RegexSet::disable_sanitizations`].
     ///
-    ///   [`RegexSet::disable_sanitizations`]: #method.disable_sanitizations
+    ///   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
     ///
     /// # Examples
     ///
@@ -661,14 +657,13 @@ impl RegexSet {
     /// expressions do not cause this to fail.  See [`RegexSet`]'s
     /// top-level documentation for details.
     ///
-    ///   [`RegexSet`]: struct.RegexSet.html
     ///
     /// By default, strings that don't pass a sanity check (in
     /// particular, include Unicode control characters) never match.
     /// This behavior can be customized using
     /// [`RegexSet::disable_sanitizations`].
     ///
-    ///   [`RegexSet::disable_sanitizations`]: #method.disable_sanitizations
+    ///   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
     ///
     /// # Examples
     ///
@@ -767,17 +762,17 @@ impl RegexSet {
     /// error.
     ///
     ///   [type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [GenericCertification]: ../types/enum.SignatureType.html#variant.GenericCertification
-    ///   [PersonaCertification]: ../types/enum.SignatureType.html#variant.PersonaCertification
-    ///   [CasualCertification]: ../types/enum.SignatureType.html#variant.CasualCertification
-    ///   [PositiveCertification]: ../types/enum.SignatureType.html#variant.PositiveCertification
+    ///   [GenericCertification]: crate::types::SignatureType::GenericCertification
+    ///   [PersonaCertification]: crate::types::SignatureType::PersonaCertification
+    ///   [CasualCertification]: crate::types::SignatureType::CasualCertification
+    ///   [PositiveCertification]: crate::types::SignatureType::PositiveCertification
     ///
     /// By default, strings that don't pass a sanity check (in
     /// particular, include Unicode control characters) never match.
     /// This behavior can be customized using
     /// [`RegexSet::disable_sanitizations`].
     ///
-    ///   [`RegexSet::disable_sanitizations`]: #method.disable_sanitizations
+    ///   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
     ///
     /// # Examples
     ///
@@ -872,7 +867,7 @@ impl RegexSet {
     /// everything, you still need to call
     /// [`RegexSet::disable_sanitizations`].
     ///
-    ///   [`RegexSet::disable_sanitizations`]: #method.disable_sanitizations
+    ///   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
     ///
     /// This can be used to optimize the evaluation of scoping rules
     /// along a path: if a `RegexSet` matches everything, then it
@@ -896,10 +891,10 @@ impl RegexSet {
     /// like `.?`, which does in fact match everything, is detected as
     /// matching everything.
     ///
-    ///   [`RegexSet::everything`]: #method.everything
-    ///   [`RegexSet::new`]: #method.everything
-    ///   [`RegexSet::from_bytes`]: #method.from_bytes
-    ///   [`RegexSet::from_signature`]: #method.from_signature
+    ///   [`RegexSet::everything`]: RegexSet::everything()
+    ///   [`RegexSet::new`]: RegexSet::everything()
+    ///   [`RegexSet::from_bytes`]: RegexSet::from_bytes()
+    ///   [`RegexSet::from_signature`]: RegexSet::from_signature()
     ///
     /// # Examples
     ///

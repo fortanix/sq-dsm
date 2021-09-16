@@ -15,6 +15,8 @@ use cng::asymmetric::{Public, Private, AsymmetricAlgorithm, AsymmetricAlgorithmI
 use cng::asymmetric::ecc::{NamedCurve, NistP256, NistP384, NistP521, Curve25519};
 use cng::key_blob::{EccKeyPublicPayload, EccKeyPrivatePayload};
 
+const CURVE25519_SIZE: usize = 32;
+
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 #[allow(non_snake_case)]
 pub fn encrypt<R>(
@@ -47,7 +49,7 @@ where
             let blob = ephemeral.export().unwrap();
             let mut VB = [0; 33];
             VB[0] = 0x40;
-            &mut VB[1..].copy_from_slice(blob.x());
+            VB[1..].copy_from_slice(blob.x());
             let VB = MPI::new(&VB);
 
             // Compute the shared point S = vR;
@@ -177,6 +179,18 @@ where
             // Reverse the scalar.  See
             // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
             scalar.reverse();
+
+            // Some bits must be clamped.  Usually, this is done
+            // during key creation.  However, if that is not done, we
+            // should do that before handing it to CNG.  See
+            // Curve25519 Paper, Sec. 3:
+            //
+            // > A user can, for example, generate 32 uniform random
+            // > bytes, clear bits 0, 1, 2 of the first byte, clear bit
+            // > 7 of the last byte, and set bit 6 of the last byte.
+            scalar[0] &= 0b1111_1000;
+            scalar[CURVE25519_SIZE - 1] &= !0b1000_0000;
+            scalar[CURVE25519_SIZE - 1] |= 0b0100_0000;
 
             let r = AsymmetricKey::<Ecdh<Curve25519>, Private>::import_from_parts(
                 &provider,

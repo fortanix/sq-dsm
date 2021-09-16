@@ -12,14 +12,12 @@
 //! [`Encrypted`] to protect long-term secrets like passwords and
 //! secret keys.
 //!
-//!   [`Protected`]: struct.Protected.html
-//!   [`Encrypted`]: struct.Encrypted.html
 //!
 //! Furthermore, operations involving secrets must be carried out in a
 //! way that avoids leaking information.  For example, comparison
 //! must be done in constant time with [`secure_cmp`].
 //!
-//!   [`secure_cmp`]: fn.secure_cmp.html
+//!   [`secure_cmp`]: secure_cmp()
 
 use std::cmp::{min, Ordering};
 use std::fmt;

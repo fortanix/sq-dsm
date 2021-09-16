@@ -23,7 +23,7 @@
 //! A number of methods are defined on [`Signature`] for working with
 //! subpackets.
 //!
-//! [`Signature`]: ../../enum.Signature.html
+//! [`Signature`]: super::super::Signature
 //!
 //! # Examples
 //!
@@ -135,7 +135,6 @@ lazy_static::lazy_static!{
 /// The `SubpacketTag` enum holds a [`Subpacket`]'s identifier, the
 /// so-called tag.
 ///
-/// [`Subpacket`]: struct.Subpacket.html
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -465,7 +464,6 @@ mod tests {
 ///
 /// [signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
 /// [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-/// [`SubpacketAreas`]: struct.SubpacketAreas.html
 ///
 /// # Examples
 ///
@@ -804,7 +802,7 @@ impl SubpacketArea {
     /// Data`] subpacket, multiple instances of the subpacket are
     /// reasonable.
     ///
-    /// [`SubpacketArea::subpacket`]: #method.subpacket
+    /// [`SubpacketArea::subpacket`]: Self::subpacket()
     /// [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
     ///
     /// # Examples
@@ -856,7 +854,7 @@ impl SubpacketArea {
     /// they are left in place.  If you want to replace them, you
     /// should instead use the [`SubpacketArea::replace`] method.
     ///
-    /// [`SubpacketArea::replace`]: #method.replace
+    /// [`SubpacketArea::replace`]: Self::replace()
     ///
     /// # Errors
     ///
@@ -940,7 +938,7 @@ impl SubpacketArea {
     /// they are first removed.  If you want to preserve them, you
     /// should instead use the [`SubpacketArea::add`] method.
     ///
-    /// [`SubpacketArea::add`]: #method.add
+    /// [`SubpacketArea::add`]: Self::add()
     ///
     /// # Errors
     ///
@@ -1050,7 +1048,7 @@ impl SubpacketArea {
     /// creating the signature.
     ///
     /// [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [`SignatureBuilder`]: ../struct.SignatureBuilder.html
+    /// [`SignatureBuilder`]: super::SignatureBuilder
     pub fn sort(&mut self) {
         self.cache_invalidate();
         // slice::sort_by is stable.
@@ -1077,9 +1075,9 @@ impl SubpacketArea {
 /// to customize a [`StandardPolicy`] object using, for instance, the
 /// [`StandardPolicy::good_critical_notations`] method.
 ///
-/// [`Policy`]: ../../../policy/trait.Policy.html
-/// [`StandardPolicy`]: ../../../policy/struct.StandardPolicy.html
-/// [`StandardPolicy::good_critical_notations`]: ../../../policy/struct.StandardPolicy.html#method.good_critical_notations
+/// [`Policy`]: crate::policy::Policy
+/// [`StandardPolicy`]: crate::policy::StandardPolicy
+/// [`StandardPolicy::good_critical_notations`]: crate::policy::StandardPolicy::good_critical_notations()
 ///
 /// Notation names are human-readable UTF-8 strings.  There are two
 /// namespaces: The user namespace and the IETF namespace.  Names in
@@ -1360,9 +1358,8 @@ impl NotationDataFlags {
 /// byte vector.  For instance, the [`Issuer`] variant holds a
 /// [`KeyID`].
 ///
-/// [`Subpacket`]: struct.Subpacket.html
-/// [`Issuer`]: #variant.Issuer
-/// [`KeyID`]: ../../../enum.KeyID.html
+/// [`Issuer`]: SubpacketValue::Issuer
+/// [`KeyID`]: super::super::super::KeyID
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -1706,9 +1703,7 @@ impl SubpacketValue {
 /// ([`SubpacketTag`]).  The values are well-structured
 /// ([`SubpacketValue`]).
 ///
-/// [`Signature`]: ../../enum.Signature.html
-/// [`SubpacketTag`]: enum.SubpacketTag.html
-/// [`SubpacketValue`]: enum.SubpacketValue.html
+/// [`Signature`]: super::super::Signature
 ///
 /// In addition to their key and value, subpackets also include a
 /// critical flag.  When set, this flag indicates to the OpenPGP
@@ -1724,9 +1719,9 @@ impl SubpacketValue {
 /// to customize a [`StandardPolicy`] object using, for instance, the
 /// [`StandardPolicy::accept_critical_subpacket`] method.
 ///
-/// [`Policy`]: ../../../policy/trait.Policy.html
-/// [`StandardPolicy`]: ../../../policy/struct.StandardPolicy.html
-/// [`StandardPolicy::accept_critical_subpacket`]: ../../../policy/struct.StandardPolicy.html#method.accept_critical_subpacket
+/// [`Policy`]: crate::policy::Policy
+/// [`StandardPolicy`]: crate::policy::StandardPolicy
+/// [`StandardPolicy::accept_critical_subpacket`]: crate::policy::StandardPolicy::accept_critical_subpacket()
 ///
 /// The subpacket system is extensible in two ways.  First, although
 /// limited, the subpacket name space is not exhausted.  So, it is
@@ -1735,7 +1730,6 @@ impl SubpacketValue {
 /// designed for adding arbitrary data to signatures.
 ///
 ///   [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-///   [`NotationData`]: struct.NotationData.html
 ///
 /// Subpackets are described in [Section 5.2.3.1 of RFC 4880].
 ///
@@ -1914,8 +1908,7 @@ impl Subpacket {
     /// or a `Subpacket` is added to a [`SubpacketArea`], the flag is
     /// cleared.
     ///
-    ///   [`Subpacket::set_authenticated`]: #method.set_authenticated
-    ///   [`SubpacketArea`]: struct.SubpacketArea.html
+    ///   [`Subpacket::set_authenticated`]: Self::set_authenticated()
     pub fn authenticated(&self) -> bool {
         self.authenticated
     }
@@ -1925,7 +1918,7 @@ impl Subpacket {
     ///
     /// See [`Subpacket::authenticated`] for more information.
     ///
-    ///   [`Subpacket::authenticated`]: #method.authenticated
+    ///   [`Subpacket::authenticated`]: Self::authenticated()
     pub fn set_authenticated(&mut self, authenticated: bool) -> bool {
         std::mem::replace(&mut self.authenticated, authenticated)
     }
@@ -2094,7 +2087,6 @@ impl SubpacketAreas {
     ///
     /// See [`SubpacketArea::sort()`].
     ///
-    ///   [`SubpacketArea::sort()`]: struct.SubpacketArea.html#method.sort
     pub fn sort(&mut self) {
         self.hashed_area.sort();
         self.unhashed_area.sort();
@@ -2283,7 +2275,7 @@ impl SubpacketAreas {
     ///
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
     /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    /// [`SubpacketAreas::key_validity_period`]: SubpacketAreas::key_validity_period()
     ///
     /// There are several cases where having a signature expire is
     /// useful.  Say Alice certifies Bob's certificate for
@@ -2337,7 +2329,7 @@ impl SubpacketAreas {
     /// the subpacket's raw value.
     ///
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    /// [`SubpacketAreas::signature_validity_period`]: SubpacketAreas::signature_validity_period()
     ///
     /// The Signature Expiration Time subpacket is different from the
     /// [Key Expiration Time subpacket], which is accessed using
@@ -2354,7 +2346,7 @@ impl SubpacketAreas {
     /// signature.
     ///
     /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    /// [`SubpacketAreas::key_validity_period`]: SubpacketAreas::key_validity_period()
     ///
     /// There are several cases where having a signature expire is
     /// useful.  Say Alice certifies Bob's certificate for
@@ -2402,14 +2394,13 @@ impl SubpacketAreas {
     /// for `time`.
     ///
     /// If `time` is `None`, and `clock_skew_tolerance` is `None`,
-    /// then this function uses [`CLOCK_SKEW_TOLERANCE`] for the
+    /// then this function uses [`struc@CLOCK_SKEW_TOLERANCE`] for the
     /// tolerance.  If `time` is not `None `and `clock_skew_tolerance`
     /// is `None`, it uses no tolerance.  The intuition here is that
     /// we only need a tolerance when checking if a signature is alive
     /// right now; if we are checking at a specific time, we don't
     /// want to use a tolerance.
     ///
-    /// [`CLOCK_SKEW_TOLERANCE`]: struct.CLOCK_SKEW_TOLERANCE.html
     ///
     /// A small amount of tolerance for clock skew is necessary,
     /// because although most computers synchronize their clocks with
@@ -2449,7 +2440,7 @@ impl SubpacketAreas {
     /// returns [`Error::MalformedPacket`].
     ///
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///  [`Error::MalformedPacket`]: ../../../enum.Error.html#variant.MalformedPacket
+    ///  [`Error::MalformedPacket`]: super::super::super::Error::MalformedPacket
     ///
     /// # Examples
     ///
@@ -2563,7 +2554,7 @@ impl SubpacketAreas {
     ///
     /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    /// [`SubpacketAreas::signature_validity_period`]: Self::signature_validity_period()
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.  If this function returns `None`, or the
@@ -2601,7 +2592,7 @@ impl SubpacketAreas {
     ///
     /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
-    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    /// [`SubpacketAreas::key_validity_period`]: Self::key_validity_period()
     ///
     /// The Key Expiration Time subpacket is different from the
     /// [Signature Expiration Time subpacket], which is accessed using
@@ -2618,7 +2609,7 @@ impl SubpacketAreas {
     /// signature.
     ///
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    /// [`SubpacketAreas::signature_validity_period`]: Self::signature_validity_period()
     ///
     /// Because the absolute time is relative to the key's creation
     /// time, which is stored in the key itself, this function needs
@@ -2657,8 +2648,8 @@ impl SubpacketAreas {
     /// (cf. [`SubpacketAreas::signature_alive`]), or whether the key
     /// is revoked (cf. [`ValidKeyAmalgamation::revoked`]).
     ///
-    /// [`SubpacketAreas::signature_alive`]: #method.signature_alive
-    /// [`ValidKeyAmalgamation::revoked`]: ../../../cert/amalgamation/key/struct.ValidKeyAmalgamationIter.html#method.revoked
+    /// [`SubpacketAreas::signature_alive`]: Self::signature_alive()
+    /// [`ValidKeyAmalgamation::revoked`]: crate::cert::amalgamation::key::ValidKeyAmalgamationIter::revoked()
     ///
     /// If `time` is `None`, then this function uses the current time
     /// for `time`.
@@ -2730,7 +2721,7 @@ impl SubpacketAreas {
     /// checks whether the signature includes any sensitive
     /// [Revocation Key subpackets], which also shouldn't be exported.
     ///
-    /// [`Signature4::exportable`]: ../struct.Signature4.html#method.exportable
+    /// [`Signature4::exportable`]: super::Signature4::exportable()
     /// [Revocation Key subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
     ///
     /// If the subpacket is not present in the hashed subpacket area,
@@ -2806,7 +2797,7 @@ impl SubpacketAreas {
     ///
     /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
     /// [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
-    /// [`SubpacketAreas::trust_signature`]: #method.trust_signature
+    /// [`SubpacketAreas::trust_signature`]: Self::trust_signature()
     ///
     /// Note: The serialized form includes a trailing `NUL` byte.
     /// Sequoia strips the `NUL` when parsing the subpacket.
@@ -2835,7 +2826,7 @@ impl SubpacketAreas {
     /// [Revocable subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.12
     /// [Certification revocation signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
     /// [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
-    /// [`SubpacketAreas::signature_target`]: #method.signature_target
+    /// [`SubpacketAreas::signature_target`]: Self::signature_target()
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3046,7 +3037,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3095,7 +3086,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3142,7 +3133,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3195,7 +3186,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3241,7 +3232,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3289,7 +3280,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3333,7 +3324,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3365,7 +3356,7 @@ impl SubpacketAreas {
     /// Sequoia resolves this ambiguity.
     ///
     /// [Primary User ID subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
-    /// [`ValidCert::primary_userid`]: ../../../cert/struct.ValidCert.html#method.primary_userid
+    /// [`ValidCert::primary_userid`]: crate::cert::ValidCert::primary_userid()
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3500,7 +3491,7 @@ impl SubpacketAreas {
     /// behavior.
     ///
     /// [Features subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
-    /// [features]: ../../types/struct.Features.html
+    /// [features]: crate::types::Features
     ///
     /// This subpacket is a type of preference.  When looking up a
     /// preference, an OpenPGP implementation should first look for
@@ -3516,7 +3507,7 @@ impl SubpacketAreas {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
@@ -3772,7 +3763,7 @@ impl signature::SignatureBuilder {
     /// implement the required functionality), you need to do
     /// something like the following:
     ///
-    ///   [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    ///   [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -3851,11 +3842,11 @@ impl signature::SignatureBuilder {
     /// If you are only interested in modifying an existing
     /// signature's unhashed area, it may be better to simply modify
     /// the signature in place using
-    /// [`Signature4::modify_unhashed_area`] rather than to create a
+    /// [`SignatureBuilder::modify_unhashed_area`] rather than to create a
     /// new signature, because modifying the unhashed area doesn't
     /// invalidate any existing signature.
     ///
-    ///   [`Signature4::modify_unhashed_area`]: struct.Signature4.html#method.modify_unhashed_area
+    ///   [`SignatureBuilder::modify_unhashed_area`]: super::SignatureBuilder::modify_unhashed_area
     ///
     /// # Examples
     ///
@@ -3918,7 +3909,7 @@ impl signature::SignatureBuilder {
     /// implement the required functionality), you need to do
     /// something like the following:
     ///
-    ///   [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    ///   [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -4125,7 +4116,7 @@ impl signature::SignatureBuilder {
     /// they have not been set explicitly.
     ///
     /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [streaming `Signer`]: crate::serialize::stream::Signer
     ///
     /// # Examples
     ///
@@ -4184,7 +4175,7 @@ impl signature::SignatureBuilder {
     /// instead causes the signature generation code to use the cached
     /// `Signature Creation Time` subpacket.
     ///
-    /// [`Signature`]: ../enum.Signature.html
+    /// [`Signature`]: super::Signature
     /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     ///
     /// This function returns an error if there is no cached
@@ -4323,7 +4314,7 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_signature_creation_time`].
     ///
     /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    /// [`SignatureBuilder::set_signature_creation_time`]: #method.set_signature_creation_time
+    /// [`SignatureBuilder::set_signature_creation_time`]: Self::SignatureBuilder::set_signature_creation_time()
     ///
     /// A Signature Expiration Time subpacket specifies when the
     /// signature expires.  This is different from the [Key Expiration
@@ -4341,7 +4332,7 @@ impl signature::SignatureBuilder {
     /// signature.
     ///
     /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SignatureBuilder::set_key_validity_period`]: #method.set_key_validity_period
+    /// [`SignatureBuilder::set_key_validity_period`]: Self::SignatureBuilder::set_key_validity_period()
     ///
     /// There are several cases where having a signature expire is
     /// useful.  Say Alice certifies Bob's certificate for
@@ -4636,7 +4627,7 @@ impl signature::SignatureBuilder {
     /// their own employees.
     ///
     /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
-    /// [`SignatureBuilder::set_trust_signature`]: #method.set_trust_signature
+    /// [`SignatureBuilder::set_trust_signature`]: Self::SignatureBuilder::set_trust_signature()
     ///
     /// GnuPG only supports [a limited form of regular expressions].
     ///
@@ -4721,7 +4712,7 @@ impl signature::SignatureBuilder {
     /// additional Regular Expression subpacket to the hashed
     /// subpacket area.
     ///
-    /// [`SignatureBuilder::set_regular_expression`]: #method.set_regular_expression
+    /// [`SignatureBuilder::set_regular_expression`]: Self::SignatureBuilder::set_regular_expression()
     /// [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
     ///
     /// The Regular Expression subpacket is used in conjunction with a
@@ -4732,7 +4723,7 @@ impl signature::SignatureBuilder {
     /// their own employees.
     ///
     /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
-    /// [`SignatureBuilder::set_trust_signature`]: #method.set_trust_signature
+    /// [`SignatureBuilder::set_trust_signature`]: Self::SignatureBuilder::set_trust_signature()
     ///
     /// GnuPG only supports [a limited form of regular expressions].
     ///
@@ -4825,7 +4816,7 @@ impl signature::SignatureBuilder {
     ///
     /// [Certification revocation signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
     /// [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
-    /// [`SignatureBuilder::set_signature_target`]: #method.set_signature_target
+    /// [`SignatureBuilder::set_signature_target`]: Self::SignatureBuilder::set_signature_target()
     ///
     /// # Examples
     ///
@@ -4912,7 +4903,7 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_key_expiration_time`] that takes an
     /// absolute expiration time.
     ///
-    /// [`SignatureBuilder::set_key_expiration_time`]: #method.set_key_expiration_time
+    /// [`SignatureBuilder::set_key_expiration_time`]: Self::SignatureBuilder::set_key_expiration_time()
     ///
     /// A Key Expiration Time subpacket specifies when the associated
     /// key expires.  This is different from the [Signature Expiration
@@ -4930,7 +4921,7 @@ impl signature::SignatureBuilder {
     /// signature.
     ///
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    /// [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
     ///
     /// # Examples
     ///
@@ -5021,7 +5012,7 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_key_validity_period`] that takes a
     /// relative expiration time.
     ///
-    /// [`SignatureBuilder::set_key_validity_period`]: #method.set_key_validity_period
+    /// [`SignatureBuilder::set_key_validity_period`]: Self::SignatureBuilder::set_key_validity_period()
     ///
     /// A Key Expiration Time subpacket specifies when the associated
     /// key expires.  This is different from the [Signature Expiration
@@ -5039,7 +5030,7 @@ impl signature::SignatureBuilder {
     /// signature.
     ///
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    /// [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
     ///
     /// # Examples
     ///
@@ -5150,7 +5141,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -5280,7 +5271,7 @@ impl signature::SignatureBuilder {
     /// subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`add_issuer`]: #method.add_issuer
+    ///   [`add_issuer`]: Self::SignatureBuilder::add_issuer()
     ///
     /// The Issuer subpacket is used when processing a signature to
     /// identify which certificate created the signature.  Even though this
@@ -5301,9 +5292,9 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_issuer_fingerprint`]) and the Issuer
     /// subpacket, if they have not been set explicitly.
     ///
-    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    /// [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    /// [`SignatureBuilder::set_issuer_fingerprint`]: Self::SignatureBuilder::set_issuer_fingerprint()
     ///
     /// # Examples
     ///
@@ -5370,7 +5361,7 @@ impl signature::SignatureBuilder {
     /// unhashed subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`set_issuer`]: #method.set_issuer
+    ///   [`set_issuer`]: Self::SignatureBuilder::set_issuer()
     ///
     /// The Issuer subpacket is used when processing a signature to
     /// identify which certificate created the signature.  Even though this
@@ -5391,9 +5382,9 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_issuer_fingerprint`]) and the Issuer
     /// subpacket, if they have not been set explicitly.
     ///
-    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    /// [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    /// [`SignatureBuilder::set_issuer_fingerprint`]: Self::SignatureBuilder::set_issuer_fingerprint()
     ///
     /// # Examples
     ///
@@ -5459,7 +5450,7 @@ impl signature::SignatureBuilder {
     /// with the specified name from the hashed subpacket area.
     ///
     /// [Notation Data subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [`SignatureBuilder::add_notation`]: #method.add_notation
+    /// [`SignatureBuilder::add_notation`]: Self::SignatureBuilder::add_notation()
     ///
     /// Notations are key-value pairs.  They can be used by
     /// applications to annotate signatures in a structured way.  For
@@ -5552,7 +5543,7 @@ impl signature::SignatureBuilder {
     /// area.
     ///
     /// [Notation Data subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [`SignatureBuilder::set_notation`]: #method.set_notation
+    /// [`SignatureBuilder::set_notation`]: Self::SignatureBuilder::set_notation()
     ///
     /// Notations are key-value pairs.  They can be used by
     /// applications to annotate signatures in a structured way.  For
@@ -5664,7 +5655,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -5744,7 +5735,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -5823,7 +5814,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -5904,7 +5895,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -5967,7 +5958,7 @@ impl signature::SignatureBuilder {
     /// IDs.  See the documentation for [`ValidCert::primary_userid`] for
     /// an explanation of how Sequoia resolves this ambiguity.
     ///
-    /// [`ValidCert::primary_userid`]: ../../cert/struct.ValidCert.html#method.primary_userid
+    /// [`ValidCert::primary_userid`]: crate::cert::ValidCert::primary_userid()
     ///
     /// # Examples
     ///
@@ -6062,7 +6053,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -6342,7 +6333,7 @@ impl signature::SignatureBuilder {
     /// behavior.
     ///
     /// [Feature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
-    /// [features]: ../../types/struct.Features.html
+    /// [features]: crate::types::Features
     ///
     /// This subpacket is a type of preference.  When looking up a
     /// preference, an OpenPGP implementation should first look for
@@ -6358,7 +6349,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -6528,7 +6519,7 @@ impl signature::SignatureBuilder {
     /// subpackets from the hashed and unhashed subpacket area.
     ///
     ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`add_issuer_fingerprint`]: #method.add_issuer_fingerprint
+    ///   [`add_issuer_fingerprint`]: Self::SignatureBuilder::add_issuer_fingerprint()
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
     /// signature to identify which certificate created the signature.
@@ -6550,9 +6541,9 @@ impl signature::SignatureBuilder {
     /// using [`SignatureBuilder::set_issuer`]), if they have not been
     /// set explicitly.
     ///
-    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    /// [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    /// [`SignatureBuilder::set_issuer`]: Self::SignatureBuilder::set_issuer()
     ///
     /// # Examples
     ///
@@ -6620,7 +6611,7 @@ impl signature::SignatureBuilder {
     /// area.
     ///
     ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///   [`set_issuer_fingerprint`]: Self::SignatureBuilder::set_issuer_fingerprint()
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
     /// signature to identify which certificate created the signature.
@@ -6642,9 +6633,9 @@ impl signature::SignatureBuilder {
     /// using [`SignatureBuilder::set_issuer`]), if they have not been
     /// set explicitly.
     ///
-    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    /// [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    /// [`SignatureBuilder::set_issuer`]: Self::SignatureBuilder::set_issuer()
     ///
     /// # Examples
     ///
@@ -6736,7 +6727,7 @@ impl signature::SignatureBuilder {
     /// the direct key signature.  This guarantees that even if some
     /// or all User IDs are stripped, the behavior remains consistent.
     ///
-    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    /// [`Preferences`]: crate::cert::Preferences
     ///
     /// # Examples
     ///
@@ -6810,7 +6801,7 @@ impl signature::SignatureBuilder {
     /// hashed subpacket area, and then adds new ones.
     ///
     ///   [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
-    ///   [`SignatureBuilder::add_intended_recipient`]: #method.add_intended_recipient
+    ///   [`SignatureBuilder::add_intended_recipient`]: Self::SignatureBuilder::add_intended_recipient()
     ///
     /// The Intended Recipient subpacket holds the fingerprint of a
     /// certificate.
@@ -6842,7 +6833,7 @@ impl signature::SignatureBuilder {
     /// existing Intended Recipient subpackets both recipients must be
     /// added at once (cf. [`SignatureBuilder::add_intended_recipient`]):
     ///
-    /// [`SignatureBuilder::add_intended_recipient`]: #method.add_intended_recipient
+    /// [`SignatureBuilder::add_intended_recipient`]: Self::SignatureBuilder::add_intended_recipient()
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -6894,7 +6885,7 @@ impl signature::SignatureBuilder {
     /// hashed subpacket area.
     ///
     ///   [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
-    ///   [`SignatureBuilder::set_intended_recipients`]: #method.set_intended_recipients
+    ///   [`SignatureBuilder::set_intended_recipients`]: Self::SignatureBuilder::set_intended_recipients()
     ///
     /// The Intended Recipient subpacket holds the fingerprint of a
     /// certificate.
@@ -6927,7 +6918,7 @@ impl signature::SignatureBuilder {
     /// removes any existing Intended Recipient subpackets, with this
     /// function we can add one recipient after the other:
     ///
-    /// [`SignatureBuilder::set_intended_recipients`]: #method.set_intended_recipients
+    /// [`SignatureBuilder::set_intended_recipients`]: NotationDataFlags::set_intended_recipients()
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;

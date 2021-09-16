@@ -209,20 +209,18 @@
 //! # Ok(()) }
 //! ```
 //!
-//! [`ComponentBundle`]: ../bundle/index.html
-//! [`Signature`]: ../../packet/signature/index.html
-//! [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
-//! [`Cert`]: ../index.html
+//! [`ComponentBundle`]: super::bundle
+//! [`Signature`]: crate::packet::signature
+//! [`Cert`]: super
 //! [is supposed to]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-//! [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-//! [`std::iter::map`]: https://doc.rust-lang.org/std/iter/struct.Map.html
+//! [`std::iter::map`]: std::iter::Map
 //! [MD5 collisions]: https://en.wikipedia.org/wiki/MD5
-//! [`Policy`]: ../../policy/index.html
-//! [streaming verifier]: ../../parse/stream.html
+//! [`Policy`]: crate::policy::Policy
+//! [streaming verifier]: crate::parse::stream
 //! [Intended Recipients]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
 //! [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-//! [`Deref` trait]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
-//! [`ComponentAmalgamation::component`]: struct.ComponentAmalgamation.html#method.component
+//! [`Deref` trait]: std::ops::Deref
+//! [`ComponentAmalgamation::component`]: ComponentAmalgamation::component()
 use std::time;
 use std::time::SystemTime;
 use std::clone::Clone;
@@ -250,6 +248,7 @@ use crate::{
         Features,
         HashAlgorithm,
         KeyServerPreferences,
+        RevocationKey,
         RevocationStatus,
         SignatureType,
         SymmetricAlgorithm,
@@ -316,18 +315,12 @@ pub mod key;
 /// # }
 /// ```
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub trait ValidateAmalgamation<'a, C: 'a>: seal::Sealed {
     /// The type returned by `with_policy`.
     ///
     /// This is either a [`ValidComponentAmalgamation`] or
     /// a [`ValidKeyAmalgamation`].
     ///
-    /// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-    /// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
     type V;
 
     /// Uses the specified `Policy` and reference time with the amalgamation.
@@ -607,11 +600,57 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # }
     /// ```
     fn revocation_status(&self) -> RevocationStatus<'a>;
+
+    /// Returns a list of any designated revokers for this component.
+    ///
+    /// This function returns the designated revokers listed on the
+    /// components's binding signatures and the certificate's direct
+    /// key signatures.
+    ///
+    /// Note: the returned list is deduplicated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    /// // Make Alice a designated revoker for Bob.
+    /// let (bob, _) =
+    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///     .set_revocation_keys(vec![(&alice).into()])
+    ///     .generate()?;
+    ///
+    /// // Make sure Alice is listed as a designated revoker for Bob's
+    /// // primary user id.
+    /// assert_eq!(bob.with_policy(p, None)?.primary_userid()?
+    ///            .revocation_keys().collect::<Vec<&RevocationKey>>(),
+    ///            vec![&(&alice).into()]);
+    ///
+    /// // Make sure Alice is listed as a designated revoker for Bob's
+    /// // encryption subkey.
+    /// assert_eq!(bob.with_policy(p, None)?
+    ///            .keys().for_transport_encryption().next().unwrap()
+    ///            .revocation_keys().collect::<Vec<&RevocationKey>>(),
+    ///            vec![&(&alice).into()]);
+    /// # Ok(()) }
+    /// ```
+    fn revocation_keys(&self)
+                       -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>;
 }
 
 /// A certificate component, its associated data, and useful methods.
 ///
-/// [`Cert::userids`], [`Cert::primary_userid`], [`Cert::user_attributes`], and
+/// [`Cert::userids`], [`ValidCert::primary_userid`], [`Cert::user_attributes`], and
 /// [`Cert::unknowns`] return `ComponentAmalgamation`s.
 ///
 /// `ComponentAmalgamation` implements [`ValidateAmalgamation`], which
@@ -642,15 +681,13 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 /// # }
 /// ```
 ///
-/// [`Cert`]: ../struct.Cert.html
-/// [`Cert::userids`]: ../struct.Cert.html#method.userids
-/// [`Cert::primary_userid`]: ../struct.Cert.html#method.primary_userid
-/// [`Cert::user_attributes`]: ../struct.Cert.html#method.user_attributes
-/// [`Cert::unknowns`]: ../struct.Cert.html#method.unknown
-/// [`ValidateAmalgamation`]: trait.ValidateAmalgamation.html
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
-/// [`ComponentAmalgamation::with_policy`]: trait.ValidateAmalgamation.html#method.with_policy
-/// [See the module's documentation]: index.html
+/// [`Cert`]: super::Cert
+/// [`Cert::userids`]: super::Cert::userids()
+/// [`ValidCert::primary_userid`]: super::ValidCert::primary_userid()
+/// [`Cert::user_attributes`]: super::Cert::user_attributes()
+/// [`Cert::unknowns`]: super::Cert::unknowns()
+/// [`ComponentAmalgamation::with_policy`]: ValidateAmalgamation::with_policy()
+/// [See the module's documentation]: self
 #[derive(Debug, PartialEq)]
 pub struct ComponentAmalgamation<'a, C> {
     cert: &'a Cert,
@@ -662,14 +699,12 @@ assert_send_and_sync!(ComponentAmalgamation<'_, C> where C);
 ///
 /// A specialized version of [`ComponentAmalgamation`].
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
 pub type UserIDAmalgamation<'a> = ComponentAmalgamation<'a, UserID>;
 
 /// A User Attribute and its associated data.
 ///
 /// A specialized version of [`ComponentAmalgamation`].
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
 pub type UserAttributeAmalgamation<'a>
     = ComponentAmalgamation<'a, UserAttribute>;
 
@@ -677,7 +712,6 @@ pub type UserAttributeAmalgamation<'a>
 ///
 /// A specialized version of [`ComponentAmalgamation`].
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
 pub type UnknownComponentAmalgamation<'a>
     = ComponentAmalgamation<'a, Unknown>;
 
@@ -755,7 +789,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// lifetime, which is helpful when returning the reference from a
     /// function.  [See the module's documentation] for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     ///
     /// # Examples
     ///
@@ -797,7 +831,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// reference from a function.  [See the module's documentation]
     /// for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     pub fn component(&self) -> &'a C {
         self.bundle().component()
     }
@@ -885,7 +919,7 @@ impl<'a> UserIDAmalgamation<'a> {
     /// reference from a function.  [See the module's documentation]
     /// for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     pub fn userid(&self) -> &'a UserID {
         self.component()
     }
@@ -983,7 +1017,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
     /// returning the reference from a function.  [See the module's
     /// documentation] for more details.
     ///
-    /// [See the module's documentation]: index.html
+    /// [See the module's documentation]: self
     pub fn user_attribute(&self) -> &'a UserAttribute {
         self.component()
     }
@@ -1006,7 +1040,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
     ///
     /// See [`UserIDAmalgamation::attest_certifications#examples`].
     ///
-    ///   [`UserIDAmalgamation::attest_certifications#examples`]: type.UserIDAmalgamation.html#examples
+    ///   [`UserIDAmalgamation::attest_certifications#examples`]: UserIDAmalgamation#examples
     // The explicit link works around a bug in rustdoc.
     pub fn attest_certifications<C, S>(&self,
                                        policy: &dyn Policy,
@@ -1197,11 +1231,7 @@ where C: IntoIterator<Item = S>,
 /// # Ok(()) }
 /// ```
 ///
-/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
-/// [`Policy`]: ../../policy/index.html
-/// [`ValidAmalgamation`]: trait.ValidAmalgamation.html
-/// [`ValidateAmalgamation::with_policy`]: trait.ValidateAmalgamation.html#tymethod.with_policy
-/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
+/// [`Policy`]: crate::policy::Policy
 #[derive(Debug)]
 pub struct ValidComponentAmalgamation<'a, C> {
     ca: ComponentAmalgamation<'a, C>,
@@ -1215,7 +1245,6 @@ assert_send_and_sync!(ValidComponentAmalgamation<'_, C> where C);
 ///
 /// A specialized version of [`ValidComponentAmalgamation`].
 ///
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 pub type ValidUserIDAmalgamation<'a> = ValidComponentAmalgamation<'a, UserID>;
 
 impl<'a> ValidUserIDAmalgamation<'a> {
@@ -1277,7 +1306,7 @@ impl<'a> ValidUserIDAmalgamation<'a> {
     /// [`ValidUserIDAmalgamation::attested_certifications`] to
     /// iterate over all attested certifications.
     ///
-    ///   [`ValidUserIDAmalgamation::attested_certifications`]: #method.attested_certifications
+    ///   [`ValidUserIDAmalgamation::attested_certifications`]: ValidUserIDAmalgamation#method.attested_certifications()
     // The explicit link works around a bug in rustdoc.
     pub fn attestation_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync
@@ -1386,7 +1415,6 @@ impl<'a> ValidUserIDAmalgamation<'a> {
 ///
 /// A specialized version of [`ValidComponentAmalgamation`].
 ///
-/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 pub type ValidUserAttributeAmalgamation<'a>
     = ValidComponentAmalgamation<'a, UserAttribute>;
 
@@ -1449,7 +1477,7 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
     /// [`ValidUserAttributeAmalgamation::attested_certifications`] to
     /// iterate over all attested certifications.
     ///
-    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: #method.attested_certifications
+    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: ValidUserAttributeAmalgamation#method.attested_certifications()
     // The explicit link works around a bug in rustdoc.
     pub fn attestation_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync
@@ -1498,7 +1526,7 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
     ///
     /// See [`ValidUserIDAmalgamation::attest_certifications#examples`].
     ///
-    ///   [`ValidUserIDAmalgamation::attest_certifications#examples`]: type.ValidUserIDAmalgamation.html#examples
+    ///   [`ValidUserIDAmalgamation::attest_certifications#examples`]: ValidUserIDAmalgamation#examples
     // The explicit link works around a bug in rustdoc.
     pub fn attest_certifications<C, S>(&self,
                                        primary_signer: &mut dyn Signer,
@@ -1752,6 +1780,32 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
         self.bundle._revocation_status(self.policy(), self.cert.time,
                                        false, Some(self.binding_signature))
     }
+
+    fn revocation_keys(&self)
+                       -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    {
+        let mut keys = std::collections::HashSet::new();
+
+        let policy = self.policy();
+        let pk_sec = self.cert().primary_key().hash_algo_security();
+
+        // All valid self-signatures.
+        let sec = self.hash_algo_security;
+        self.self_signatures()
+            .filter(move |sig| {
+                policy.signature(sig, sec).is_ok()
+            })
+        // All direct-key signatures.
+            .chain(self.cert().primary_key()
+                   .self_signatures()
+                   .filter(|sig| {
+                       policy.signature(sig, pk_sec).is_ok()
+                   }))
+            .flat_map(|sig| sig.revocation_keys())
+            .for_each(|rk| { keys.insert(rk); });
+
+        Box::new(keys.into_iter())
+    }
 }
 
 impl<'a, C> crate::cert::Preferences<'a>
@@ -1781,6 +1835,10 @@ impl<'a, C> crate::cert::Preferences<'a>
 
     fn preferred_key_server(&self) -> Option<&'a [u8]> {
         self.map(|s| s.preferred_key_server())
+    }
+
+    fn policy_uri(&self) -> Option<&'a [u8]> {
+        self.map(|s| s.policy_uri())
     }
 
     fn features(&self) -> Option<Features> {

@@ -24,16 +24,9 @@
 //!   - and finally, [`ArbitraryWriter`] can be used to create
 //!     arbitrary packets for testing purposes.
 //!
-//!   [`io::Write`]: https://doc.rust-lang.org/nightly/std/io/trait.Write.html
-//!   [`Message::new`]: struct.Message.html#method.new
-//!   [`Message`]: struct.Message.html
-//!   [`Armorer`]: struct.Armorer.html
-//!   [`Encryptor`]: struct.Encryptor.html
-//!   [`Compressor`]: struct.Compressor.html
-//!   [`Padder`]: padding/struct.Padder.html
-//!   [`Signer`]: struct.Signer.html
-//!   [`LiteralWriter`]: struct.LiteralWriter.html
-//!   [`ArbitraryWriter`]: struct.ArbitraryWriter.html
+//!   [`io::Write`]: std::io::Write
+//!   [`Message::new`]: Message::new()
+//!   [`Padder`]: padding::Padder
 //!
 //! The most common structure is an optionally encrypted, optionally
 //! compressed, and optionally signed message.  This structure is
@@ -201,9 +194,8 @@ impl Default for Cookie {
 /// [`LiteralWriter`] filter.  Once all the has been written, the
 /// `Message` must be finalized using [`Message::finalize`].
 ///
-///   [`io::Write`]: https://doc.rust-lang.org/nightly/std/io/trait.Write.html
-///   [`LiteralWriter`]: struct.LiteralWriter.html
-///   [`Message::finalize`]: #method.finalize
+///   [`io::Write`]: std::io::Write
+///   [`Message::finalize`]: Message::finalize()
 #[derive(Debug)]
 pub struct Message<'a>(writer::BoxStack<'a, Cookie>);
 assert_send_and_sync!(Message<'_>);
@@ -356,9 +348,9 @@ impl<'a> Armorer<'a> {
     /// [`Armorer::kind`].  To add headers to the armor, use
     /// [`Armorer::add_header`].
     ///
-    ///   [`armor::Kind`]: ../../armor/enum.Kind.html
-    ///   [`Armorer::kind`]: #method.kind
-    ///   [`Armorer::add_header`]: #method.add_header
+    ///   [`armor::Kind`]: crate::armor::Kind
+    ///   [`Armorer::kind`]: Armorer::kind()
+    ///   [`Armorer::add_header`]: Armorer::add_header()
     ///
     /// # Examples
     ///
@@ -398,7 +390,7 @@ impl<'a> Armorer<'a> {
     /// The armor header and footer changes depending on the type of
     /// wrapped data.  See [`armor::Kind`] for the possible values.
     ///
-    ///   [`armor::Kind`]: ../../armor/enum.Kind.html
+    ///   [`armor::Kind`]: crate::armor::Kind
     ///
     /// # Examples
     ///
@@ -626,7 +618,7 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
 /// Signs a message with every [`crypto::Signer`] added to the
 /// streaming signer.
 ///
-///   [`crypto::Signer`]: ../../crypto/trait.Signer.html
+///   [`crypto::Signer`]: super::super::crypto::Signer
 pub struct Signer<'a> {
     // The underlying writer.
     //
@@ -673,11 +665,11 @@ impl<'a> Signer<'a> {
     /// 4880]), use [`Signer::detached`].  For even more control over
     /// the generated signatures, use [`Signer::with_template`].
     ///
-    ///   [`crypto::Signer`]: ../../crypto/trait.Signer.html
-    ///   [`Signer::add_signer`]: #method.add_signer
+    ///   [`crypto::Signer`]: super::super::crypto::Signer
+    ///   [`Signer::add_signer`]: Signer::add_signer()
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
-    ///   [`Signer::detached`]: #method.detached
-    ///   [`Signer::with_template`]: #method.with_template
+    ///   [`Signer::detached`]: Signer::detached()
+    ///   [`Signer::with_template`]: Signer::with_template()
     ///
     /// # Examples
     ///
@@ -761,12 +753,12 @@ impl<'a> Signer<'a> {
     /// and the hash algorithm set using [`Signer::hash_algo`] is used
     /// to create the signature.
     ///
-    ///   [`crypto::Signer`]: ../../crypto/trait.Signer.html
-    ///   [`Signer::new`]: #method.new
-    ///   [`signature::SignatureBuilder`]: ../../packet/signature/struct.Builder.html
-    ///   [`Signer::creation_time`]: #method.creation_time
-    ///   [`Signer::hash_algo`]: #method.hash_algo
-    ///   [`Signer::add_intended_recipient`]: #method.add_intended_recipient
+    ///   [`crypto::Signer`]: super::super::crypto::Signer
+    ///   [`Signer::new`]: Message::new()
+    ///   [`signature::SignatureBuilder`]: crate::packet::signature::SignatureBuilder
+    ///   [`Signer::creation_time`]: Signer::creation_time()
+    ///   [`Signer::hash_algo`]: Signer::hash_algo()
+    ///   [`Signer::add_intended_recipient`]: Signer::add_intended_recipient()
     ///
     /// # Examples
     ///
@@ -839,8 +831,7 @@ impl<'a> Signer<'a> {
     /// This overrides any prior call to [`Signer::cleartext`].
     ///
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
-    ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
-    ///   [`Signer::cleartext`]: #method.cleartext
+    ///   [`Signer::cleartext`]: Signer::cleartext()
     ///
     /// # Examples
     ///
@@ -939,9 +930,7 @@ impl<'a> Signer<'a> {
     ///
     ///   [Section 7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7
     ///   [Section 7.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7.1
-    ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
-    ///   [`Armorer`]: ../struct.Armorer.html
-    ///   [`Signer::detached`]: #method.detached
+    ///   [`Signer::detached`]: Signer::detached()
     ///
     /// # Examples
     ///
@@ -1218,7 +1207,6 @@ impl<'a> Signer<'a> {
     /// RFC 4880]), the literal data *must not* be wrapped using the
     /// [`LiteralWriter`].
     ///
-    ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
     ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
     ///
@@ -1784,8 +1772,8 @@ impl<'a> Compressor<'a> {
     /// To change the compression algorithm use [`Compressor::algo`].
     /// Use [`Compressor::level`] to change the compression level.
     ///
-    ///   [`Compressor::algo`]: #method.algo
-    ///   [`Compressor::level`]: #method.level
+    ///   [`Compressor::algo`]: Compressor::algo()
+    ///   [`Compressor::level`]: Compressor::level()
     ///
     /// # Examples
     ///
@@ -1878,8 +1866,6 @@ impl<'a> Compressor<'a> {
     /// [`Signer`] or the [`LiteralWriter`].  Finally, literal data
     /// *must* be wrapped using the [`LiteralWriter`].
     ///
-    ///   [`Signer`]: struct.Signer.html
-    ///   [`LiteralWriter`]: struct.LiteralWriter.html
     ///
     /// # Examples
     ///
@@ -2011,10 +1997,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 /// may be a wildcard (as returned by [`KeyID::wildcard()`]) to
 /// obscure the identity of the recipient.
 ///
-///   [`recipient`]: ../../packet/enum.PKESK.html#method.recipient
-///   [`PKESK`]: ../../packet/enum.PKESK.html
+///   [`recipient`]: crate::packet::PKESK#method.recipient
+///   [`PKESK`]: crate::packet::PKESK
 ///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
-///   [`KeyID::wildcard()`]: ../../../struct.KeyID.html#method.wildcard
+///   [`KeyID::wildcard()`]: crate::KeyID::wildcard()
 ///
 /// Note that several subkeys in a certificate may be suitable
 /// encryption subkeys.  OpenPGP does not specify what should happen
@@ -2056,9 +2042,9 @@ impl<'a> Recipient<'a> {
     /// `Recipient`s can be created from [`Key`] and
     /// [`ValidKeyAmalgamation`] using [`From`].
     ///
-    ///   [`Key`]: ../../packet/enum.Key.html
-    ///   [`ValidKeyAmalgamation`]: ../../cert/amalgamation/key/struct.ValidKeyAmalgamation.html
-    ///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
+    ///   [`Key`]: crate::packet::Key
+    ///   [`ValidKeyAmalgamation`]: crate::cert::amalgamation::key::ValidKeyAmalgamation
+    ///   [`From`]: std::convert::From
     ///
     /// # Examples
     ///
@@ -2239,7 +2225,6 @@ impl<'a> Recipient<'a> {
 /// certificate may have more than one encryption-capable subkey, and
 /// even the primary key may be encryption-capable.
 ///
-///   [`Recipient`]: struct.Recipient.html
 ///
 /// To encrypt for more than one certificate, iterate over the
 /// certificates and select encryption-capable keys, making sure that
@@ -2786,7 +2771,7 @@ impl<'a> Encryptor<'a> {
 
     /// Enables AEAD and sets the AEAD algorithm to use.
     ///
-    /// This feature is [experimental](../../index.html#experimental-features).
+    /// This feature is [experimental](super::super#experimental-features).
     ///
     /// # Examples
     ///
@@ -2831,10 +2816,7 @@ impl<'a> Encryptor<'a> {
     /// [`Signer`].  Finally, literal data *must* be wrapped using the
     /// [`LiteralWriter`].
     ///
-    ///   [`Compressor`]: struct.Compressor.html
-    ///   [`Padder`]: padding/struct.Padder.html
-    ///   [`Signer`]: struct.Signer.html
-    ///   [`LiteralWriter`]: struct.LiteralWriter.html
+    ///   [`Padder`]: padding::Padder
     ///
     /// # Examples
     ///

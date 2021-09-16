@@ -22,7 +22,6 @@ use buffered_reader::BufferedReader;
 /// [`PacketParser`].
 ///
 ///   [`PacketPile::from_file`]: ../struct.PacketPile.html#impl-Parse<%27a%2C%20PacketPile>
-///   [`PacketParser`]: struct.PacketParser.html
 ///
 /// Like [`PacketPile::from_file`] (and unlike [`PacketParser`]), a
 /// `PacketPileParser` parses an OpenPGP message and returns a
@@ -30,7 +29,7 @@ use buffered_reader::BufferedReader;
 /// [`PacketParser`]), it allows the caller to inspect each packet as
 /// it is being parsed.
 ///
-///   [`PacketPile`]: ../struct.PacketPile.html
+///   [`PacketPile`]: crate::PacketPile
 ///
 /// Thus, using a `PacketPileParser`, it is possible to decide on a
 /// per-packet basis whether to stream, buffer or drop the packet's
@@ -303,7 +302,7 @@ impl<'a> PacketPileParser<'a> {
     /// because we always visit interior nodes, we can't recurse more
     /// than one level at a time.
     ///
-    ///   [`next()`]: #method.next
+    ///   [`next()`]: PacketPileParser::next()
     ///
     /// # Examples
     ///
@@ -355,8 +354,8 @@ impl<'a> PacketPileParser<'a> {
     /// recurse into the container, but skips any packets it contains.
     /// To recurse into the container, use the [`recurse()`] method.
     ///
-    ///   [`PacketParsererBuilder`]: struct.PacketParserBuilder.html
-    ///   [`recurse()`]: #method.recurse
+    ///   [`PacketParsererBuilder`]: PacketParserBuilder
+    ///   [`recurse()`]: PacketPileParser::recurse()
     ///
     /// # Examples
     ///

@@ -11,7 +11,6 @@ members = [
     "openpgp-ffi",
     "openpgp-sdkms",
     "sq",
-    "sqv",
     "store",
 ]
 

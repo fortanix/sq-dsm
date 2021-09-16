@@ -133,34 +133,41 @@ impl Signer for KeyPair {
                     PublicKeyAlgorithm::EdDSA,
                     mpi::PublicKey::EdDSA { curve, q },
                     mpi::SecretKeyMaterial::EdDSA { scalar },
-                ) => {
-                    // CNG doesn't support EdDSA, use ed25519-dalek instead
-                    use ed25519_dalek::{Keypair, Signer};
-                    use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+                ) => match curve {
+                    Curve::Ed25519 => {
+                        // CNG doesn't support EdDSA, use ed25519-dalek instead
+                        use ed25519_dalek::{Keypair, Signer};
+                        use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 
-                    let (public, ..) = q.decode_point(&Curve::Ed25519)?;
+                        let (public, ..) = q.decode_point(&Curve::Ed25519)?;
 
-                    // It's expected for the private key to be exactly
-                    // SECRET_KEY_LENGTH bytes long but OpenPGP allows leading
-                    // zeros to be stripped.
-                    // Padding has to be unconditional; otherwise we have a
-                    // secret-dependent branch.
-                    let missing = SECRET_KEY_LENGTH.saturating_sub(scalar.value().len());
-                    let mut keypair = Protected::from(
-                        vec![0u8; SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH]
-                    );
-                    keypair.as_mut()[missing..SECRET_KEY_LENGTH].copy_from_slice(scalar.value());
-                    keypair.as_mut()[SECRET_KEY_LENGTH..].copy_from_slice(&public);
-                    let pair = Keypair::from_bytes(&keypair).unwrap();
+                        // It's expected for the private key to be exactly
+                        // SECRET_KEY_LENGTH bytes long but OpenPGP allows leading
+                        // zeros to be stripped.
+                        // Padding has to be unconditional; otherwise we have a
+                        // secret-dependent branch.
+                        let missing =
+                            SECRET_KEY_LENGTH.saturating_sub(scalar.value().len());
+                        let mut keypair = Protected::from(
+                            vec![0u8; SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH]
+                        );
+                        keypair.as_mut()[missing..SECRET_KEY_LENGTH]
+                            .copy_from_slice(scalar.value());
+                        keypair.as_mut()[SECRET_KEY_LENGTH..]
+                            .copy_from_slice(&public);
+                        let pair = Keypair::from_bytes(&keypair).unwrap();
 
-                    let sig = pair.sign(digest).to_bytes();
+                        let sig = pair.sign(digest).to_bytes();
 
-                    // https://tools.ietf.org/html/rfc8032#section-5.1.6
-                    let (r, s) = sig.split_at(sig.len() / 2);
-                    mpi::Signature::EdDSA {
-                        r: mpi::MPI::new(r),
-                        s: mpi::MPI::new(s),
-                    }
+                        // https://tools.ietf.org/html/rfc8032#section-5.1.6
+                        let (r, s) = sig.split_at(sig.len() / 2);
+                        mpi::Signature::EdDSA {
+                            r: mpi::MPI::new(r),
+                            s: mpi::MPI::new(s),
+                        }
+                    },
+                    _ => return Err(
+                        Error::UnsupportedEllipticCurve(curve.clone()).into()),
                 },
                 (PublicKeyAlgorithm::DSA,
                     mpi:: PublicKey::DSA { y, p, q, g },
@@ -185,7 +192,7 @@ impl Signer for KeyPair {
                         Version::V1 => {
                             let mut group = [0; 20];
                             assert!(q.value().len() >= 20);
-                            &mut group[..q.value().len()].copy_from_slice(q.value());
+                            group[..q.value().len()].copy_from_slice(q.value());
 
                             DsaPrivateBlob::V1(Blob::<DsaKeyPrivateBlob>::clone_from_parts(
                                 &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
@@ -330,7 +337,7 @@ impl Decryptor for KeyPair {
                 let missing = (8 - (c.value().len() % 8)) % 8;
                 let c = if missing > 0 {
                     _c = Protected::from(vec![0u8; missing + c.value().len()]);
-                    &mut _c[missing..].copy_from_slice(c.value());
+                    _c[missing..].copy_from_slice(c.value());
                     &_c
                 } else {
                     c.value()
@@ -492,7 +499,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     Version::V1 => {
                         let mut group = [0; 20];
                         assert!(q.value().len() >= 20);
-                        &mut group[..q.value().len()].copy_from_slice(q.value());
+                        group[..q.value().len()].copy_from_slice(q.value());
 
                         DsaPublicBlob::V1(Blob::<DsaKeyPublicBlob>::clone_from_parts(
                             &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
@@ -627,7 +634,10 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                         Error::UnsupportedEllipticCurve(curve.clone()).into()),
                 }
             },
-            (mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s }) => {
+            (mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s })
+                => match curve
+            {
+                Curve::Ed25519 => {
                     // CNG doesn't support EdDSA, use ed25519-dalek instead
                     use ed25519_dalek::{PublicKey, Signature, SIGNATURE_LENGTH};
                     use ed25519_dalek::{Verifier};
@@ -648,13 +658,16 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     ].concat();
                     assert_eq!(signature.len(), SIGNATURE_LENGTH);
                     let mut sig_bytes = [0u8; 64];
-                    &mut sig_bytes[..].copy_from_slice(&*signature);
+                    sig_bytes[..].copy_from_slice(&*signature);
 
                     let signature = Signature::from(sig_bytes);
 
                     key.verify(digest, &signature)
-                    .map(|_| true)
-                    .map_err(|e| Error::BadSignature(e.to_string()))?
+                        .map(|_| true)
+                        .map_err(|e| Error::BadSignature(e.to_string()))?
+                },
+                _ => return Err(
+                    Error::UnsupportedEllipticCurve(curve.clone()).into()),
             },
             _ => return Err(Error::MalformedPacket(format!(
                 "unsupported combination of key {} and signature {:?}.",
@@ -707,7 +720,7 @@ where
         // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
         let mut public = [0u8; 1 + CURVE25519_SIZE];
         public[0] = 0x40;
-        &mut public[1..].copy_from_slice(blob.x());
+        public[1..].copy_from_slice(blob.x());
 
         // Reverse the scalar.  See
         // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
@@ -746,7 +759,7 @@ where
         // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
         let mut public = [0u8; 1 + CURVE25519_SIZE];
         public[0] = 0x40;
-        &mut public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
+        public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
 
         Self::with_secret(
             ctime.into().unwrap_or_else(SystemTime::now),
@@ -907,7 +920,7 @@ where
                 // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
                 let mut public = [0u8; 1 + CURVE25519_SIZE];
                 public[0] = 0x40;
-                &mut public[1..].copy_from_slice(blob.x());
+                public[1..].copy_from_slice(blob.x());
 
                 // Reverse the scalar.  See
                 // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
@@ -938,7 +951,7 @@ where
                 // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
                 let mut compressed_public = [0u8; 1 + CURVE25519_SIZE];
                 compressed_public[0] = 0x40;
-                &mut compressed_public[1..].copy_from_slice(public.as_bytes());
+                compressed_public[1..].copy_from_slice(public.as_bytes());
 
                 (
                     EdDSA,

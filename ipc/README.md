@@ -1,2 +1,2 @@
-Sequoia uses this to communicate with backend servers.  This is an
-implementation detail.  Do not use this crate.
+This crate implements IPC mechanisms to communicate with Sequoia and
+GnuPG background services.

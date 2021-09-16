@@ -318,13 +318,13 @@ impl ConventionallyParsedUserID {
 /// create well-formed User IDs from email address, and optional name
 /// and comment.
 ///
-///   [name]: #method.name
-///   [comment]: #method.comment
-///   [email address]: #method.email
-///   [URI]: #method.uri
-///   [canonicalize the email address]: #method.email_normalized
-///   [two]: #method.from_address
-///   [constructors]: #method.from_unchecked_address
+///   [name]: UserID::name()
+///   [comment]: UserID::comment()
+///   [email address]: UserID::email()
+///   [URI]: UserID::uri()
+///   [canonicalize the email address]: UserID::email_normalized()
+///   [two]: UserID::from_address()
+///   [constructors]: UserID::from_unchecked_address()
 ///
 /// # Conventional User IDs
 ///
@@ -729,7 +729,7 @@ impl UserID {
     /// For more details, please refer to the documentation for
     /// [HashAlgoSecurity].
     ///
-    ///   [HashAlgoSecurity]: ../policy/enum.HashAlgoSecurity.html
+    ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
     pub fn hash_algo_security(&self) -> HashAlgoSecurity {
         self.hash_algo_security
     }
@@ -835,11 +835,11 @@ impl UserID {
     /// [`UserID::comment`] for how to extract parts of [conventional
     /// User ID]s.
     ///
-    ///   [`UserID::name`]: #method.name
-    ///   [`UserID::email`]: #method.email
-    ///   [`UserID::email_normalized`]: #method.email_normalized
-    ///   [`UserID::uri`]: #method.uri
-    ///   [`UserID::comment`]: #method.comment
+    ///   [`UserID::name`]: UserID::name()
+    ///   [`UserID::email`]: UserID::email()
+    ///   [`UserID::email_normalized`]: UserID::email_normalized()
+    ///   [`UserID::uri`]: UserID::uri()
+    ///   [`UserID::comment`]: UserID::comment()
     ///   [conventional User ID]: #conventional-user-ids
     pub fn value(&self) -> &[u8] {
         self.value.as_slice()

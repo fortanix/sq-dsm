@@ -219,8 +219,8 @@
 //! general-purpose parsers, like the `Zip`
 //! decompressor.
 //!
-//! [`BufRead`]: https://doc.rust-lang.org/stable/std/io/trait.BufRead.html
-//! [`BufReader`]: https://doc.rust-lang.org/stable/std/io/struct.BufReader.html
+//! [`BufRead`]: std::io::BufRead
+//! [`BufReader`]: std::io::BufReader
 //! [HTTP's chunk transfer encoding]: https://en.wikipedia.org/wiki/Chunked_transfer_encoding
 
 #![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
@@ -603,7 +603,6 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
     /// iff the end of the stream is reached, but the reader is not
     /// consummated.
     ///
-    /// [`Limitor`]: struct.Limitor.html
     fn consummated(&mut self) -> bool {
         self.eof()
     }

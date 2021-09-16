@@ -57,7 +57,7 @@ impl Digest for Hash {
             .expect("CNG to not fail internally");
 
         let l = buffer.len().min(digest.len());
-        &mut digest[..l].copy_from_slice(&buffer.as_slice()[..l]);
+        digest[..l].copy_from_slice(&buffer.as_slice()[..l]);
         Ok(())
     }
 }
@@ -125,7 +125,7 @@ impl HashAlgorithm {
     /// backend does not support this algorithm. See
     /// [`HashAlgorithm::is_supported`].
     ///
-    ///   [`HashAlgorithm::is_supported`]: #method.is_supported
+    ///   [`HashAlgorithm::is_supported`]: Hash::is_supported()
     pub(crate) fn new_hasher(self) -> Result<Box<dyn Digest>> {
         let algo = cng::HashAlgorithmId::try_from(self)?;
         let algo = cng::HashAlgorithm::open(algo)?;

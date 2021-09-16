@@ -2,8 +2,8 @@
 //!
 //! Wraps [`sequoia-openpgp::Cert`] and [related functionality].
 //!
-//! [`sequoia-openpgp::Cert`]: ../../../sequoia_openpgp/cert/struct.Cert.html
-//! [related functionality]: ../../../sequoia_openpgp/cert/index.html
+//! [`sequoia-openpgp::Cert`]: sequoia_openpgp::cert::Cert
+//! [related functionality]: sequoia_openpgp::cert
 
 use std::convert::TryFrom;
 use std::ptr;
@@ -151,7 +151,7 @@ fn pgp_cert_fingerprint(cert: *const Cert)
 ///
 /// This object writes out secret keys during serialization.
 ///
-/// [`TSK`]: ../tsk/struct.TSK.html
+/// [`TSK`]: super::tsk::TSK
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_as_tsk(cert: *const Cert) -> *mut TSK<'static> {
     cert.ref_raw().as_tsk().move_into_raw()

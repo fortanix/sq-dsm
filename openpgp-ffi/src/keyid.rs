@@ -8,7 +8,7 @@
 //!
 //! Wraps [`sequoia-openpgp::KeyID`].
 //!
-//! [`sequoia-openpgp::KeyID`]: ../../../sequoia_openpgp/enum.KeyID.html
+//! [`sequoia-openpgp::KeyID`]: sequoia_openpgp::KeyID
 
 use std::slice;
 use libc::{c_char};
@@ -29,7 +29,7 @@ use crate::MoveIntoRaw;
 ///
 /// Wraps [`sequoia-openpgp::KeyID`].
 ///
-/// [`sequoia-openpgp::KeyID`]: ../../../sequoia_openpgp/enum.KeyID.html
+/// [`sequoia-openpgp::KeyID`]: sequoia_openpgp::KeyID
 #[crate::ffi_wrapper_type(prefix = "pgp_", name = "keyid",
                      derive = "Clone, Debug, Display, Hash, PartialEq")]
 pub struct KeyID(openpgp::KeyID);

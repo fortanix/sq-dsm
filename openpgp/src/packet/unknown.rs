@@ -98,7 +98,7 @@ impl Unknown {
     /// compromised, but not completely broken.  For more details,
     /// please refer to the documentation for [HashAlgoSecurity].
     ///
-    ///   [HashAlgoSecurity]: ../policy/enum.HashAlgoSecurity.html
+    ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
     pub fn hash_algo_security(&self) -> HashAlgoSecurity {
         HashAlgoSecurity::CollisionResistance
     }

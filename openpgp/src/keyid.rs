@@ -36,10 +36,10 @@ use crate::Result;
 ///
 ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-///   [`Fingerprint`]: ./enum.Fingerprint.html
-///   [`KeyHandle`]: ./enum.KeyHandle.html
 ///   [birthday attack]: https://nullprogram.com/blog/2019/07/22/
-///   [`Issuer`]: ./packet/signature/subpacket/enum.SubpacketValue.html#variant.Issuer
+///   [`Issuer`]: crate::packet::signature::subpacket::SubpacketValue::Issuer
+///   [`Fingerprint`]: crate::Fingerprint
+///   [`KeyHandle`]: crate::KeyHandle
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.

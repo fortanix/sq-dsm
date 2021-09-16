@@ -10,20 +10,18 @@
 //! `Context::new`:
 //!
 //! ```no_run
-//! # use sequoia_ipc::core::{Context, Result};
+//! # use sequoia_ipc::{Context, Result};
 //! # fn main() -> Result<()> {
 //! let c = Context::new();
 //! # Ok(())
 //! # }
 //! ```
 
-#![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
-#![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
 
-
-use std::io;
 use std::path::{Path, PathBuf};
+
+use crate::Result;
 
 /// A `Context` for Sequoia.
 ///
@@ -33,7 +31,7 @@ use std::path::{Path, PathBuf};
 /// `Context::new`:
 ///
 /// ```no_run
-/// # use sequoia_ipc::core::{Context, Result};
+/// # use sequoia_ipc::{Context, Result};
 /// # fn main() -> Result<()> {
 /// let c = Context::new()?;
 /// # Ok(())
@@ -44,7 +42,7 @@ use std::path::{Path, PathBuf};
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_ipc::core::{Context, IPCPolicy, Result};
+/// # use sequoia_ipc::{Context, IPCPolicy, Result};
 /// # fn main() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
@@ -102,7 +100,7 @@ impl Context {
     /// `.build()` in order to turn it into a Context.
     pub fn configure() -> Config {
         Config(Context {
-            home: PathBuf::from(""),  // Defer computation of default.
+            home: PathBuf::from(""), // Defer computation of default.
             lib: prefix().join("lib").join("sequoia"),
             ipc_policy: IPCPolicy::Robust,
             ephemeral: false,
@@ -137,7 +135,7 @@ impl Context {
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_ipc::core::{Context, IPCPolicy, Result};
+/// # use sequoia_ipc::{Context, IPCPolicy, Result};
 /// # fn main() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
@@ -151,7 +149,7 @@ impl Context {
 /// one-shot programs:
 ///
 /// ```
-/// # use sequoia_ipc::core::{Context, Result};
+/// # use sequoia_ipc::{Context, Result};
 /// # use std::path::Path;
 /// # fn main() -> Result<()> {
 /// let c = Context::configure().ephemeral().build()?;
@@ -183,10 +181,9 @@ impl Config {
             c.cleanup = true;
         } else {
             if home_not_set {
-                c.home =
-                    dirs::home_dir().ok_or_else(||
-                        anyhow::anyhow!("Failed to get users home directory"))?
-                .join(".sequoia");
+                c.home = dirs::home_dir()
+                    .ok_or_else(|| anyhow::anyhow!("Failed to get users home directory"))?
+                    .join(".sequoia");
             }
         }
         Ok(c)
@@ -236,20 +233,6 @@ impl Config {
         ::std::mem::replace(&mut self.0.ephemeral, true)
     }
 }
-
-/* Error handling.  */
-
-/// Result type for Sequoia.
-pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
-
-#[derive(thiserror::Error, Debug)]
-/// Errors for Sequoia.
-pub enum Error {
-    /// An `io::Error` occurred.
-    #[error("{0}")]
-    IoError(#[from] io::Error),
-}
-
 
 /* IPC policy.  */
 
@@ -314,7 +297,6 @@ impl<'a> From<&'a IPCPolicy> for u8 {
         }
     }
 }
-
 
 // XXX: TryFrom would be nice.
 impl From<u8> for IPCPolicy {

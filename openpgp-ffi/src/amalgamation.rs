@@ -1,9 +1,8 @@
-//! `KeyAmalgamation`s.
+//! `UserIDAmalgamation`s.
 //!
 //!
-//! Wraps [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`].
-//!
-//! [`sequoia-openpgp::cert::key_amalgamation::KeyAmalgamation`]: ../../../sequoia_openpgp/cert/key_amalgamation/struct.KeyAmalgamation.html
+//! Wraps [`sequoia_openpgp::cert::amalgamation::UserIDAmalgamation`] and
+//! [`sequoia_openpgp::cert::amalgamation::ValidUserIDAmalgamation`].
 
 use libc::time_t;
 
@@ -30,9 +29,7 @@ type UserIDAmalgamationType<'a>
 
 /// A `UserIDAmalgamation` holds a `UserID` and associated data.
 ///
-/// Wraps [`sequoia-openpgp::cert::amalgamation::ComponentAmalgamation`].
-///
-/// [`sequoia-openpgp::cert::amalgamation::ComponentAmalgamation`]: ../../../sequoia_openpgp/cert/amalgamation/struct.ComponentAmalgamation.html
+/// Wraps [`sequoia_openpgp::cert::amalgamation::UserIDAmalgamation`].
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug")]
 pub struct UserIDAmalgamation<'a>(UserIDAmalgamationType<'a>);
@@ -54,9 +51,7 @@ type ValidUserIDAmalgamationType<'a>
 /// A `ValidUserIDAmalgamation` holds a `UserID` and associated data
 /// including a policy and a reference time.
 ///
-/// Wraps [`sequoia-openpgp::cert::amalgamation::ValidComponentAmalgamation`].
-///
-/// [`sequoia-openpgp::cert::amalgamation::ValidComponentAmalgamation`]: ../../../sequoia_openpgp/cert/amalgamation/struct.ValidComponentAmalgamation.html
+/// Wraps [`sequoia_openpgp::cert::amalgamation::ValidUserIDAmalgamation`].
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug")]
 pub struct ValidUserIDAmalgamation<'a>(ValidUserIDAmalgamationType<'a>);

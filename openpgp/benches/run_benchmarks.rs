@@ -18,6 +18,8 @@ mod generate_cert;
 use generate_cert::benches as generate_cert;
 mod parse_cert;
 use parse_cert::benches as parse_cert;
+mod merge_cert;
+use merge_cert::benches as merge_cert;
 
 // Add all benchmark functions here
 criterion_main!(
@@ -28,5 +30,6 @@ criterion_main!(
     encrypt,
     decrypt,
     generate_cert,
-    parse_cert
+    parse_cert,
+    merge_cert,
 );

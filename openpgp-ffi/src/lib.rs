@@ -26,17 +26,12 @@
 //! We also try hard to avoid dictating how OpenPGP should be used.
 //! This doesn't mean that we don't have opinions about how OpenPGP
 //! should be used in a number of common scenarios (for instance,
-//! message validation).  But, in this crate, we refrain from
-//! expressing those opinions; we expose an opinionated, high-level
-//! interface in the [sequoia-core] and related crates.  In our
-//! opinion, you should generally use those crates instead of this
-//! one.
+//! message validation).
 //!
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
 //! [RFC 6637]: https://tools.ietf.org/html/rfc6637
 //! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
-//! [sequoia-core]: ../sequoia_core
 //!
 //!
 //! # Dear User,
@@ -70,7 +65,7 @@
 //! closely resembles this crate.
 //!
 //! [The Rules]: #the-rules
-//! [corresponding Rust crate]: ../sequoia_openpgp/index.html
+//! [corresponding Rust crate]: sequoia_openpgp
 //!
 //!
 //! # Examples
@@ -129,32 +124,32 @@
 //!
 //! Functions that cannot fail are a nice consequence of the
 //! 'fail-fast on undefined behavior'-rule.  An example of such
-//! function is [`pgp_fingerprint_to_string`].  This function cannot
+//! function is [`Fingerprint::to_string`].  This function cannot
 //! fail, unless either the given fingerprint reference is invalid,
 //! or the allocation for the string failed, which is considered
 //! undefined behavior.
 //!
-//! [`pgp_fingerprint_to_string`]: fingerprint/struct.Fingerprint.html#method.pgp_fingerprint_to_string
+//! [`Fingerprint::to_string`]: sequoia-openpgp::Fingerprint::to_string()
 //!
 //! Failing functions signal failure either in-band (e.g. `NULL`, or
 //! -1), using `pgp_status_t`, and may store complex error information
 //! in a caller-provided location.  For example, constructors often
 //! return `NULL` to signal errors.  An example of a constructor that
 //! may fail and return `NULL`, but does not communicate complex error
-//! is [`pgp_fingerprint_from_hex`]. [`pgp_packet_parser_from_bytes`],
+//! is [`Fingerprint::from_hex`]. [`pgp_packet_parser_from_bytes`],
 //! on the other hand, will return `NULL` and store a complex error at
 //! the location given using the `errp` parameter.
 //!
-//! [`pgp_fingerprint_from_hex`]: fingerprint/struct.Fingerprint.html#method.pgp_fingerprint_from_hex
-//! [`pgp_packet_parser_from_bytes`]: parse/fn.pgp_packet_parser_from_bytes.html
+//! [`Fingerprint::from_hex`]: sequoia-openpgp::Fingerprint::from_hex()
+//! [`pgp_packet_parser_from_bytes`]: parse::pgp_packet_parser_from_bytes()
 //!
 //! Errors may be inspected using [`pgp_error_status`], and formatted
 //! as an error message using [`pgp_error_to_string`].  Errors must be freed
 //! using [`pgp_error_free`].
 //!
-//! [`pgp_error_status`]: error/fn.pgp_error_status.html
-//! [`pgp_error_to_string`]: error/fn.pgp_error_to_string.html
-//! [`pgp_error_free`]: error/fn.pgp_error_free.html
+//! [`pgp_error_status`]: error::pgp_error_status()
+//! [`pgp_error_to_string`]: error::pgp_error_to_string()
+//! [`pgp_error_free`]: error::pgp_error_free()
 //!
 //! ## Types
 //!
@@ -173,8 +168,8 @@
 //! from a hexadecimal number, and then [pretty-print] it for user
 //! consumption:
 //!
-//! [parse a fingerprint]: fingerprint/fn.pgp_fingerprint_from_hex.html
-//! [pretty-print]: fingerprint/fn.pgp_fingerprint_to_string.html
+//! [parse a fingerprint]: fingerprint::pgp_fingerprint_from_hex()
+//! [pretty-print]: fingerprint::pgp_fingerprint_to_string()
 //!
 //! ```c
 //! #include <assert.h>
@@ -281,7 +276,7 @@
 //! data, and later use `PGP_ARMOR_KIND_FILE` to check what we got in
 //! the end.
 //!
-//! [constructor]: armor/fn.pgp_armor_reader_from_bytes.html
+//! [constructor]: armor::pgp_armor_reader_from_bytes()
 //!
 //! ```c
 //! #include <assert.h>

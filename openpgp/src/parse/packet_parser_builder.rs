@@ -22,9 +22,8 @@ use crate::packet;
 /// (see [Section 6 of RFC 4880]).  This automatism can be disabled
 /// and fine-tuned using [`PacketParserBuilder::dearmor`].
 ///
-///   [`PacketParser`]: struct.PacketParser.html
 ///   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
-///   [`PacketParserBuilder::dearmor`]: struct.PacketParserBuilder.html#method.dearmor
+///   [`PacketParserBuilder::dearmor`]: PacketParserBuilder::dearmor()
 #[derive(PartialEq)]
 pub enum Dearmor {
     /// Unconditionally treat the input as if it were an OpenPGP
@@ -34,7 +33,7 @@ pub enum Dearmor {
     /// fail.  The [`ReaderMode`] allow further customization of the
     /// ASCII armor parser.
     ///
-    ///   [`ReaderMode`]: ../armor/enum.ReaderMode.html
+    ///   [`ReaderMode`]: crate::armor::ReaderMode
     Enabled(armor::ReaderMode),
     /// Unconditionally treat the input as if it were a binary OpenPGP
     /// message.
@@ -48,7 +47,7 @@ pub enum Dearmor {
     /// This is the default.  The [`ReaderMode`] allow further
     /// customization of the ASCII armor parser.
     ///
-    ///   [`ReaderMode`]: ../armor/enum.ReaderMode.html
+    ///   [`ReaderMode`]: crate::armor::ReaderMode
     Auto(armor::ReaderMode),
 }
 assert_send_and_sync!(Dearmor);
@@ -150,7 +149,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// sense.  The default is [`DEFAULT_MAX_RECURSION_DEPTH`].
     /// (GnuPG defaults to a maximum recursion depth of 32.)
     ///
-    ///   [`DEFAULT_MAX_RECURSION_DEPTH`]: constant.DEFAULT_MAX_RECURSION_DEPTH.html
+    /// [`DEFAULT_MAX_RECURSION_DEPTH`]: crate::parse::DEFAULT_MAX_RECURSION_DEPTH
     ///
     /// # Examples
     ///
@@ -192,7 +191,7 @@ impl<'a> PacketParserBuilder<'a> {
     ///
     /// The default is [`DEFAULT_MAX_PACKET_SIZE`].
     ///
-    ///   [`DEFAULT_MAX_PACKET_SIZE`]: constant.DEFAULT_MAX_PACKET_SIZE.html
+    /// [`DEFAULT_MAX_PACKET_SIZE`]: crate::parse::DEFAULT_MAX_PACKET_SIZE
     ///
     /// # Examples
     ///
@@ -242,9 +241,9 @@ impl<'a> PacketParserBuilder<'a> {
     /// The unread content can be accessed using [`Literal::body`],
     /// [`Unknown::body`], or [`Container::body`].
     ///
-    ///   [`Literal::body`]: ../packet/struct.Literal.html#method.body
-    ///   [`Unknown::body`]: ../packet/struct.Unknown.html#method.body
-    ///   [`Container::body`]: ../packet/struct.Container.html#method.body
+    ///   [`Literal::body`]: crate::packet::Literal::body()
+    ///   [`Unknown::body`]: crate::packet::Unknown::body()
+    ///   [`Container::body`]: crate::packet::Container::body()
     ///
     /// # Examples
     ///
@@ -345,7 +344,6 @@ impl<'a> PacketParserBuilder<'a> {
     /// can be used to tweak the behavior.  See [`Dearmor`] for
     /// details.
     ///
-    ///   [`Dearmor`]: enum.Dearmor.html
     ///
     /// # Examples
     ///

@@ -11,8 +11,6 @@ use crate::RefRaw;
 /// Complex errors.
 ///
 /// This wraps [`anyhow::Error`]s.
-///
-/// [`anyhow::Error`]: https://docs.rs/failure/0.1.5/failure/struct.Error.html
 #[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Display")]
 pub struct Error(anyhow::Error);
 

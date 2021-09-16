@@ -121,12 +121,14 @@ impl<'input> Iterator for Lexer<'input> {
                                             *c as char, &input[..offset])))),
                         }
                     }
+
+                    let len = String::from_utf8_lossy(&input);
+                    Some(Err(LexicalError::TruncatedInput(
+                        format!("Expected colon and data after {:?}", len))))
                 },
                 _ => return Some(Err(LexicalError::UnexpectedCharacter(
                     format!("Unexpected character {}", *c as char)))),
             }
-
-            unreachable!()
         })(&self.input)?;
 
         let (l, token) = match len_token {

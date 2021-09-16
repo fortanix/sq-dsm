@@ -1563,23 +1563,14 @@ dependencies = [
 
 [[package]]
 name = "nettle"
-version = "7.0.1"
+version = "7.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebb1286c10caea570bfd2ae584d7c2c36b961f8ed3a87c215193b45575314138"
+checksum = "2dbaef96ce04e0dafb03b2c5d3803975c84080f876356cb67f44cf85963cedb7"
 dependencies = [
  "getrandom 0.1.16",
  "libc",
  "nettle-sys",
  "thiserror",
-]
-
-[[package]]
-name = "nettle-src"
-version = "3.5.1-2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fad3c0d4be23880e92170c10f009f1d4b0dd842a523dd8b35c89738fd3b640c8"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -1589,7 +1580,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "355944b1ac94b95a54a75788d9befba1ad4630189cbd5531ba3385f5c2678edd"
 dependencies = [
  "bindgen",
- "nettle-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -2423,7 +2413,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-ipc"
-version = "0.25.0"
+version = "0.26.0"
 dependencies = [
  "anyhow",
  "buffered-reader",
@@ -2472,7 +2462,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-openpgp"
-version = "1.1.0"
+version = "1.3.0"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -2536,17 +2526,6 @@ dependencies = [
  "tempfile",
  "term_size",
  "tokio",
-]
-
-[[package]]
-name = "sequoia-sqv"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "assert_cli",
- "chrono",
- "clap",
- "sequoia-openpgp",
 ]
 
 [[package]]

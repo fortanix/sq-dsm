@@ -24,7 +24,7 @@ use crate::types::Bitfield;
 /// between semantic equality and serialized equality is that semantic
 /// equality ignores differences in the amount of padding.
 ///
-///   [`Features::normalized_eq`]: #method.normalized_eq
+///   [`Features::normalized_eq`]: Features::normalized_eq()
 ///
 /// # Examples
 ///

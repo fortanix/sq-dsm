@@ -2,7 +2,21 @@
 #+TITLE: sequoia-openpgp NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
-* Changes in 1.2.0
+* Changes in 1.4.0
+** New functionality
+   - Preferences::policy_uri
+   - TSK::eq
+   - ValidAmalgamation::revocation_keys
+   - ValidCert::policy_uri
+   - ValidCert::revocation_keys
+** Notable fixes
+   - Filters set using CertParser::unvalidated_cert_filter are now
+     preserved during iterations.
+* Changes in 1.3.1
+** Notable fixes
+   - Fixed a crash resulting from unconstrained, attacker-controlled
+     heap allocations.
+* Changes in 1.3.0
 ** New functionality
    - CertBuilder::add_subkey_with
    - CertBuilder::add_user_attribute_with
@@ -26,6 +40,9 @@
    - ValidUserIDAmalgamation::attest_certifications
    - ValidUserIDAmalgamation::attestation_key_signatures
    - ValidUserIDAmalgamation::attested_certifications
+** Notable fixes
+   - Improve Cert::insert_packets runtime from O(n^2) to O(n log n).
+   - CertParser returned errors out of order (#699).
 * Changes in 1.1.0
 ** New functionality
    - The new regex module provides regular expression support for

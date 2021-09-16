@@ -1,4 +1,7 @@
-//! Low-level IPC mechanism for Sequoia.
+//! IPC mechanisms for Sequoia.
+//!
+//! This crate implements IPC mechanisms to communicate with Sequoia
+//! and GnuPG background services.
 //!
 //! # Rationale
 //!
@@ -27,14 +30,7 @@
 //! also means that we do not spawn a thread in your process, which is
 //! frowned upon for various reasons.
 //!
-//! Please see [IPCPolicy] for more information.
-//!
-//! [IPCPolicy]: ../../sequoia_core/enum.IPCPolicy.html
-//!
-//! # Note
-//!
-//! Windows support is currently not implemented, but should be
-//! straight forward.
+//! Please see [`IPCPolicy`] for more information.
 
 #![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
 #![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
@@ -45,7 +41,7 @@ use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream, TcpListener};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use fs2::FileExt;
 
 use tokio_util::compat::Compat;
@@ -65,13 +61,15 @@ use std::thread;
 
 use sequoia_openpgp as openpgp;
 
-#[macro_use] mod trace;
+#[macro_use] mod macros;
 pub mod assuan;
 pub mod gnupg;
+pub mod keybox;
 mod keygrip;
 pub use self::keygrip::Keygrip;
 pub mod sexp;
-pub mod core;
+mod core;
+pub use crate::core::{Config, Context, IPCPolicy};
 
 #[cfg(test)]
 mod tests;
@@ -139,7 +137,7 @@ impl Descriptor {
     /// This will panic if called outside of the Tokio runtime context. See
     /// See [`Handle::enter`] for more details.
     ///
-    /// [`Handle::enter`]: https://docs.rs/tokio/0.2.22/tokio/runtime/struct.Handle.html#method.enter
+    /// [`Handle::enter`]: tokio::runtime::Handle::enter()
     pub fn connect(&self) -> Result<RpcSystem<Side>> {
         self.connect_with_policy(*self.ctx.ipc_policy())
     }
@@ -153,7 +151,7 @@ impl Descriptor {
     /// This will panic if called outside of the Tokio runtime context. See
     /// See [`Handle::enter`] for more details.
     ///
-    /// [`Handle::enter`]: https://docs.rs/tokio/0.2.22/tokio/runtime/struct.Handle.html#method.enter
+    /// [`Handle::enter`]: tokio::runtime::Handle::enter()
     pub fn connect_with_policy(&self, policy: core::IPCPolicy)
                    -> Result<RpcSystem<Side>> {
         let do_connect = |cookie: Cookie, mut s: TcpStream| {
@@ -245,7 +243,7 @@ impl Descriptor {
     }
 
     fn fork(&self, listener: TcpListener) -> Result<()> {
-        let mut cmd = Command::new(&self.executable);
+        let mut cmd = new_background_command(&self.executable);
         cmd
             .arg("--home")
             .arg(self.ctx.home())
@@ -507,6 +505,9 @@ pub enum Error {
     ConnectionClosed(Vec<u8>),
 }
 
+/// Result type specialization.
+pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
+
 // Global initialization and cleanup of the Windows Sockets API (WSA) module.
 // NOTE: This has to be top-level in order for `ctor::{ctor, dtor}` to work.
 #[cfg(windows)]
@@ -532,4 +533,24 @@ fn wsa_cleanup() {
     if WSA_INITED.load(Ordering::SeqCst) {
         let _ = unsafe { winsock2::WSACleanup() };
     }
+}
+
+pub(crate) fn new_background_command<S>(program: S) -> Command
+where
+    S: AsRef<std::ffi::OsStr>,
+{
+    let command = Command::new(program);
+
+    #[cfg(windows)]
+    let command = {
+        use std::os::windows::process::CommandExt;
+
+        // see https://docs.microsoft.com/en-us/windows/win32/procthread/process-creation-flags
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let mut command = command;
+        command.creation_flags(CREATE_NO_WINDOW);
+        command
+    };
+
+    command
 }

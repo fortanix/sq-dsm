@@ -7,7 +7,6 @@
 //! in the API (e.g. [`Password`]).  Advanced users may use these
 //! primitives to provide custom extensions to OpenPGP.
 //!
-//!   [`Password`]: struct.Password.html
 //!
 //! # Common Operations
 //!
@@ -15,9 +14,9 @@
 //!  - *Create a session key*: Use [`SessionKey::new`].
 //!  - *Use secret keys*: See the [`KeyPair` example].
 //!
-//!   [`Password::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
-//!   [`SessionKey::new`]: struct.SessionKey.html#method.new
-//!   [`KeyPair` example]: struct.KeyPair.html#examples
+//!   [`Password::from`]: std::convert::From
+//!   [`SessionKey::new`]: SessionKey::new()
+//!   [`KeyPair` example]: KeyPair#examples
 
 use std::ops::{Deref, DerefMut};
 use std::fmt;
@@ -44,8 +43,8 @@ pub(crate) mod symmetric;
 /// Session keys can be generated using [`SessionKey::new`], or
 /// converted from various types using [`From`].
 ///
-///   [`SessionKey::new`]: #method.new
-///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///   [`SessionKey::new`]: SessionKey::new()
+///   [`From`]: std::convert::From
 #[derive(Clone, PartialEq, Eq)]
 pub struct SessionKey(mem::Protected);
 assert_send_and_sync!(SessionKey);
@@ -61,7 +60,7 @@ impl SessionKey {
     /// This creates a session key and encrypts it for a given
     /// recipient key producing a [`PKESK`] packet.
     ///
-    ///   [`PKESK`]: ../packet/enum.PKESK.html
+    ///   [`PKESK`]: crate::packet::PKESK
     ///
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -149,8 +148,7 @@ impl fmt::Debug for SessionKey {
 /// The password is encrypted in memory and only decrypted on demand.
 /// See [`mem::Encrypted`] for details.
 ///
-///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
-///   [`mem::Encrypted`]: mem/struct.Encrypted.html
+///   [`From`]: std::convert::From
 ///
 /// # Examples
 ///

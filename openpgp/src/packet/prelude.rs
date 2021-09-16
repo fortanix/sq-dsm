@@ -9,9 +9,8 @@
 //! imported, because it is rarely used.  If required, it should be
 //! imported explicitly.
 //!
-//! [`PublicParts`]: ../key/struct.PublicParts.html
-//! [`key::PublicParts`]: ../key/struct.PublicParts.html
-//! [`user_attribute::Subpacket`]: ../user_attribute/struct.Subpacket.html
+//! [`PublicParts`]: key::PublicParts
+//! [`user_attribute::Subpacket`]: user_attribute::Subpacket
 //!
 //! # Examples
 //!

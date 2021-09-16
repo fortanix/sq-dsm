@@ -57,7 +57,7 @@ impl HashAlgorithm {
     /// not support this algorithm. See
     /// [`HashAlgorithm::is_supported`].
     ///
-    ///   [`HashAlgorithm::is_supported`]: #method.is_supported
+    ///   [`HashAlgorithm::is_supported`]: HashAlgorithm::is_supported()
     pub(crate) fn new_hasher(self) -> Result<Box<dyn Digest>> {
         use nettle::hash::{Sha224, Sha256, Sha384, Sha512};
         use nettle::hash::insecure_do_not_use::{

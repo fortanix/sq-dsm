@@ -2,7 +2,7 @@
 //!
 //! Wraps [`sequoia-openpgp::armor`].
 //!
-//! [`sequoia-openpgp::armor`]: ../../../sequoia_openpgp/armor/index.html
+//! [`sequoia-openpgp::armor`]: sequoia_openpgp::armor
 
 use std::mem::size_of;
 use std::ptr;
@@ -223,7 +223,7 @@ fn pgp_armor_reader_from_bytes(b: *const u8, len: size_t,
 ///
 /// See [this] example.
 ///
-///   [this]: fn.pgp_armor_reader_new.html
+///   [this]: pgp_armor_reader_new()
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_armor_reader_kind(reader: *const Reader)
                                              -> c_int {
@@ -253,7 +253,7 @@ pub extern "C" fn pgp_armor_reader_kind(reader: *const Reader)
 ///
 /// See [this] example.
 ///
-///   [this]: fn.pgp_armor_reader_new.html
+///   [this]: pgp_armor_reader_new()
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut crate::error::Error>,
                                                reader: *mut Reader,

@@ -8,7 +8,7 @@
 //! See the [get example].
 //!
 //! [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
-//! [get example]: fn.get.html#example
+//! [get example]: get()#example
 //!
 
 
@@ -107,7 +107,7 @@ impl EmailAddress {
 /// Stores the parts needed to create a Web Key Directory URL.
 ///
 /// NOTE: This is a different `Url` than [`url::Url`] (`url` crate) that is
-/// actually returned with the method [to_url](#method.to_url)
+/// actually returned with the method [to_url](Url::to_url())
 #[derive(Debug, Clone)]
 pub struct Url {
     domain: String,

@@ -236,15 +236,14 @@
 //! # }
 //! ```
 //!
-//! [`KeyAmalgamation`]: struct.KeyAmalgamation.html
-//! [`ComponentAmalgamation`]: ../struct.ComponentAmalgamation.html
-//! [`Key`]: ../../../packet/key/index.html
-//! [`Cert::keys`]: ../../struct.Cert.html#method.keys
-//! [`PrimaryKeyAmalgamation`]: ../type.PrimaryKeyAmalgamation.html
-//! [`SubordinateKeyAmalgamation`]: ../type.SubordinateKeyAmalgamation.html
-//! [`ErasedKeyAmalgamation`]: ../type.ErasedKeyAmalgamation.html
-//! [`KeyRole::UnspecifiedRole`]: ../../../packet/key/trait.KeyRole.html
-//! [`Policy` discussion]: ../index.html
+//! [`ComponentAmalgamation`]: super::ComponentAmalgamation
+//! [`Key`]: crate::packet::key
+//! [`Cert::keys`]: super::super::Cert::keys()
+//! [`PrimaryKeyAmalgamation`]: super::PrimaryKeyAmalgamation
+//! [`SubordinateKeyAmalgamation`]: super::SubordinateKeyAmalgamation
+//! [`ErasedKeyAmalgamation`]: super::ErasedKeyAmalgamation
+//! [`KeyRole::UnspecifiedRole`]: crate::packet::key::KeyRole
+//! [`Policy` discussion]: super
 //! [This discussion]: https://crypto.stackexchange.com/a/12138
 use std::time;
 use std::time::SystemTime;
@@ -276,6 +275,7 @@ use crate::{
     seal,
     types::{
         KeyFlags,
+        RevocationKey,
         RevocationStatus,
         SignatureType,
     },
@@ -294,8 +294,7 @@ pub use iter::{
 /// [`ValidKeyAmalgamation`], for instance, even though we only have
 /// specialized implementations of `PrimaryKey`.
 ///
-/// [`ValidAmalgamation`]: ../trait.ValidAmalgamation.html
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
+/// [`ValidAmalgamation`]: super::ValidAmalgamation
 ///
 /// # Sealed trait
 ///
@@ -431,16 +430,12 @@ pub trait PrimaryKey<'a, P, R>: seal::Sealed
 /// # }
 /// ```
 ///
-/// [`ComponentAmalgamation`]: ../struct.ComponentAmalgamation.html
-/// [see the module's documentation]: index.html
-/// [`PrimaryKeyAmalgamation`]: type.PrimaryKeyAmalgamation.html
-/// [`SubordinateKeyAmalgamation`]: type.SubordinateKeyAmalgamation.html
-/// [`ErasedKeyAmalgamation`]: type.ErasedKeyAmalgamation.html
-/// [`Cert::primary_key`]: ../../../cert/struct.Cert.html#method.primary_key
-/// [`Cert::keys`]: ../../../cert/struct.Cert.html#method.keys
-/// [`ValidateAmalgamation`]: ../trait.ValidateAmalgamation.html
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
-/// [`KeyAmalgamation::with_policy`]: ../trait.ValidateAmalgamation.html#method.with_policy
+/// [`ComponentAmalgamation`]: super::ComponentAmalgamation
+/// [see the module's documentation]: self
+/// [`Cert::primary_key`]: crate::cert::Cert::primary_key()
+/// [`Cert::keys`]: crate::cert::Cert::keys()
+/// [`ValidateAmalgamation`]: super::ValidateAmalgamation
+/// [`KeyAmalgamation::with_policy`]: super::ValidateAmalgamation::with_policy()
 #[derive(Debug)]
 pub struct KeyAmalgamation<'a, P, R, R2>
     where P: 'a + key::KeyParts,
@@ -478,7 +473,6 @@ impl<'a, P, R, R2> Clone for KeyAmalgamation<'a, P, R, R2>
 ///
 /// A specialized version of [`KeyAmalgamation`].
 ///
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
 pub type PrimaryKeyAmalgamation<'a, P>
     = KeyAmalgamation<'a, P, key::PrimaryRole, ()>;
 
@@ -486,7 +480,6 @@ pub type PrimaryKeyAmalgamation<'a, P>
 ///
 /// A specialized version of [`KeyAmalgamation`].
 ///
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
 pub type SubordinateKeyAmalgamation<'a, P>
     = KeyAmalgamation<'a, P, key::SubordinateRole, ()>;
 
@@ -499,10 +492,9 @@ pub type SubordinateKeyAmalgamation<'a, P>
 /// to the type system.  For details, see the [module-level
 /// documentation].
 ///
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
-/// [`Key`]: ../../../packet/key/index.html
-/// [`KeyBundle`]: ../../bundle/index.html
-/// [module-level documentation]: index.html
+/// [`Key`]: crate::packet::key
+/// [`KeyBundle`]: super::super::bundle
+/// [module-level documentation]: self
 pub type ErasedKeyAmalgamation<'a, P>
     = KeyAmalgamation<'a, P, key::UnspecifiedRole, bool>;
 
@@ -921,14 +913,12 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
 /// # Ok(()) }
 /// ```
 ///
-/// [`ValidComponentAmalgamation`]: ../struct.ValidComponentAmalgamation.html
-/// [`ComponentAmalgamation`]: ../struct.ComponentAmalgamation.html
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
-/// [`Policy`]: ../../../policy/index.html
-/// [`ValidAmalgamation`]: ../trait.ValidAmalgamation.html
-/// [`ValidAmalgamation::binding_signature`]: ../trait.ValidAmalgamation.html#method.binding_signature
-/// [`ValidateAmalgamation::with_policy`]: ../trait.ValidateAmalgamation.html#tymethod.with_policy
-/// [`KeyAmalgamationIter`]: struct.KeyAmalgamationIter.html
+/// [`ValidComponentAmalgamation`]: super::ValidComponentAmalgamation
+/// [`ComponentAmalgamation`]: super::ComponentAmalgamation
+/// [`Policy`]: crate::policy::Policy
+/// [`ValidAmalgamation`]: super::ValidAmalgamation
+/// [`ValidAmalgamation::binding_signature`]: super::ValidAmalgamation::binding_signature()
+/// [`ValidateAmalgamation::with_policy`]: super::ValidateAmalgamation::with_policy
 #[derive(Debug, Clone)]
 pub struct ValidKeyAmalgamation<'a, P, R, R2>
     where P: 'a + key::KeyParts,
@@ -957,7 +947,6 @@ assert_send_and_sync!(ValidKeyAmalgamation<'_, P, R, R2>
 ///
 /// A specialized version of [`ValidKeyAmalgamation`].
 ///
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub type ValidPrimaryKeyAmalgamation<'a, P>
     = ValidKeyAmalgamation<'a, P, key::PrimaryRole, ()>;
 
@@ -965,7 +954,6 @@ pub type ValidPrimaryKeyAmalgamation<'a, P>
 ///
 /// A specialized version of [`ValidKeyAmalgamation`].
 ///
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub type ValidSubordinateKeyAmalgamation<'a, P>
     = ValidKeyAmalgamation<'a, P, key::SubordinateRole, ()>;
 
@@ -973,7 +961,6 @@ pub type ValidSubordinateKeyAmalgamation<'a, P>
 ///
 /// A specialized version of [`ValidKeyAmalgamation`].
 ///
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub type ValidErasedKeyAmalgamation<'a, P>
     = ValidKeyAmalgamation<'a, P, key::UnspecifiedRole, bool>;
 
@@ -1238,6 +1225,32 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
                                              true, Some(self.binding_signature))
         }
     }
+
+    fn revocation_keys(&self)
+                       -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    {
+        let mut keys = std::collections::HashSet::new();
+
+        let policy = self.policy();
+        let pk_sec = self.cert().primary_key().hash_algo_security();
+
+        // All valid self-signatures.
+        let sec = self.hash_algo_security;
+        self.self_signatures()
+            .filter(move |sig| {
+                policy.signature(sig, sec).is_ok()
+            })
+        // All direct-key signatures.
+            .chain(self.cert().primary_key()
+                   .self_signatures()
+                   .filter(|sig| {
+                       policy.signature(sig, pk_sec).is_ok()
+                   }))
+            .flat_map(|sig| sig.revocation_keys())
+            .for_each(|rk| { keys.insert(rk); });
+
+        Box::new(keys.into_iter())
+    }
 }
 
 
@@ -1295,7 +1308,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// For a definition of liveness, see the [`key_alive`] method.
     ///
-    /// [`key_alive`]: ../../../packet/signature/subpacket/struct.SubpacketAreas.html#method.key_alive
+    /// [`key_alive`]: crate::packet::signature::subpacket::SubpacketAreas::key_alive()
     ///
     /// # Examples
     ///
@@ -1494,7 +1507,7 @@ impl<'a, P> ValidSubordinateKeyAmalgamation<'a, P>
     /// when updating the expiration of an non signing-capable subkey.
     ///
     ///   [primary key binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`Error::InvalidArgument`]: ../../../enum.Error.html#variant.InvalidArgument
+    ///   [`Error::InvalidArgument`]: super::super::super::Error::InvalidArgument
     ///
     /// # Examples
     ///
@@ -1732,7 +1745,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
     /// signing-capable subkey.
     ///
     ///   [primary key binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-    ///   [`Error::InvalidArgument`]: ../../../enum.Error.html#variant.InvalidArgument
+    ///   [`Error::InvalidArgument`]: super::super::super::Error::InvalidArgument
     ///
     /// # Examples
     ///
@@ -1915,7 +1928,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn has_any_key_flag<F>(&self, flags: F) -> bool
         where F: Borrow<KeyFlags>
     {
@@ -1968,7 +1981,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// ```
     ///
     /// [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
-    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_certification(&self) -> bool {
         self.has_any_key_flag(KeyFlags::empty().set_certification())
     }
@@ -2001,7 +2014,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_signing(&self) -> bool {
         self.has_any_key_flag(KeyFlags::empty().set_signing())
     }
@@ -2034,7 +2047,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_authentication(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::empty().set_authentication())
@@ -2081,7 +2094,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// [data at rest]: https://en.wikipedia.org/wiki/Data_at_rest
     /// [data in transit]: https://en.wikipedia.org/wiki/Data_in_transit
-    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_storage_encryption(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::empty().set_storage_encryption())
@@ -2128,7 +2141,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// [data at rest]: https://en.wikipedia.org/wiki/Data_at_rest
     /// [data in transit]: https://en.wikipedia.org/wiki/Data_in_transit
-    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
+    /// [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_transport_encryption(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::empty().set_transport_encryption())
@@ -2176,7 +2189,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::key_expiration_time`]: #method.key_expiration_time
+    ///   [`ValidKeyAmalgamation::key_expiration_time`]: ValidKeyAmalgamation::key_expiration_time()
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     pub fn key_validity_period(&self) -> Option<std::time::Duration> {
         self.map(|s| s.key_validity_period())
@@ -2227,7 +2240,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::key_validity_period`]: #method.key_validity_period
+    ///   [`ValidKeyAmalgamation::key_validity_period`]: ValidKeyAmalgamation::key_validity_period()
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     pub fn key_expiration_time(&self) -> Option<time::SystemTime> {
         match self.key_validity_period() {

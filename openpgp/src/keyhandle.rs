@@ -31,8 +31,6 @@ use crate::{
 ///
 ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-///   [`Fingerprint`]: ./enum.Fingerprint.html
-///   [`KeyID`]: ./enum.KeyID.html
 ///
 /// # Examples
 ///
@@ -245,7 +243,7 @@ impl KeyHandle {
     /// a == b and b == c implies a == c.
     /// ```
     ///
-    /// [transitive]: https://doc.rust-lang.org/std/cmp/trait.PartialEq.html
+    /// [transitive]: std::cmp::PartialEq
     ///
     /// That is, if `fpr1` and `fpr2` are distinct fingerprints with the
     /// same key ID then:

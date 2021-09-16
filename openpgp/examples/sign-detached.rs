@@ -61,7 +61,9 @@ fn main() -> openpgp::Result<()> {
     // Stream an OpenPGP message.
     let message = Message::new(&mut sink);
 
-    let message = Armorer::new(message).build()?;
+    let message = Armorer::new(message)
+        .kind(openpgp::armor::Kind::Signature)
+        .build()?;
 
     // Now, create a signer that emits the detached signature(s).
     let mut signer =

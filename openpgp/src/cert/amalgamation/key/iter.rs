@@ -44,17 +44,13 @@ use crate::{
 ///
 /// A `KeyAmalgamationIter` is returned by [`Cert::keys`].
 ///
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
-/// [`ComponentAmalgamationIter`]: ../struct.ComponentAmalgamationIter.html
-/// [module documentation]: index.html
-/// [`KeyAmalgamationIter::with_policy`]: ../trait.ValidateAmalgamation.html
-/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
-/// [`ValidKeyAmalgamationIter`]: struct.ValidKeyAmalgamationIter.html
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
-/// [`KeyAmalgamationIter::secret`]: #method.secret
-/// [`KeyAmalgamationIter::unencrypted_secret`]: #method.unencrypted_secret
-/// [`Iterator::filter`]: https://doc.rust-lang.org/stable/std/iter/trait.Iterator.html#method.filter
-/// [`Cert::keys`]: ../../struct.Cert.html#method.keys
+/// [`ComponentAmalgamationIter`]: super::super::ComponentAmalgamationIter
+/// [module documentation]: super
+/// [`KeyAmalgamationIter::with_policy`]: super::ValidateAmalgamation
+/// [`KeyAmalgamationIter::secret`]: KeyAmalgamationIter::secret()
+/// [`KeyAmalgamationIter::unencrypted_secret`]: KeyAmalgamationIter::unencrypted_secret()
+/// [`Iterator::filter`]: std::iter::Iterator::filter()
+/// [`Cert::keys`]: super::super::Cert::keys()
 pub struct KeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
@@ -355,9 +351,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # }
     /// ```
     ///
-    /// [`KeyHandle`s]: ../../../enum.KeyHandle.html
-    /// [`key_handles`]: #method.key_handles
-    /// [`KeyHandle::aliases`]: ../../../enum.KeyHandle.html#method.aliases
+    /// [`KeyHandle`s]: super::super::super::KeyHandle
+    /// [`key_handles`]: KeyAmalgamationIter::key_handles()
+    /// [`KeyHandle::aliases`]: super::super::super::KeyHandle::aliases()
     pub fn key_handle<H>(mut self, h: H) -> Self
         where H: Into<KeyHandle>
     {
@@ -399,9 +395,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # }
     /// ```
     ///
-    /// [`KeyHandle`s]: ../../../enum.KeyHandle.html
-    /// [`key_handle`]: #method.key_handle
-    /// [`KeyHandle::aliases`]: ../../../enum.KeyHandle.html#method.aliases
+    /// [`KeyHandle`s]: super::super::super::KeyHandle
+    /// [`key_handle`]: KeyAmalgamationIter::key_handle()
+    /// [`KeyHandle::aliases`]: super::super::super::KeyHandle::aliases()
     pub fn key_handles<'b>(mut self, h: impl Iterator<Item=&'b KeyHandle>)
         -> Self
         where 'a: 'b
@@ -474,8 +470,6 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # }
     /// ```
     ///
-    /// [`ErasedKeyAmalgamation`]: type.ErasedKeyAmalgamation.html
-    /// [`SubordinateKeyAmalgamation`]: type.SubordinateKeyAmalgamation.html
     pub fn subkeys(self) -> KeyAmalgamationIter<'a, P, key::SubordinateRole> {
         KeyAmalgamationIter {
             cert: self.cert,
@@ -526,9 +520,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # }
     /// ```
     ///
-    /// [`ValidateAmalgamation`]: ../trait.ValidateAmalgamation.html
-    /// [`alive`]: struct.ValidKeyAmalgamationIter.html#method.alive
-    /// [`revoked`]: struct.ValidKeyAmalgamationIter.html#method.revoked
+    /// [`ValidateAmalgamation`]: super::ValidateAmalgamation
+    /// [`alive`]: ValidKeyAmalgamationIter::alive()
+    /// [`revoked`]: ValidKeyAmalgamationIter::revoked()
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> ValidKeyAmalgamationIter<'a, P, R>
         where T: Into<Option<SystemTime>>
@@ -628,14 +622,12 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 /// # }
 /// ```
 ///
-/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
-/// [`KeyAmalgamationIter`]: struct.KeyAmalgamationIter.html
-/// [`Policy`]: ../../../policy/trait.Policy.html
-/// [`ValidateAmalgamation`]: ../trait.ValidateAmalgamation.html
-/// [`ValidKeyAmalgamationIter::revoked`]: #method.revoked
-/// [`ValidKeyAmalgamationIter::alive`]: #method.alive
-/// [`KeyAmalgamationIter::with_policy`]: struct.KeyAmalgamationIter.html#method.with_policy
-/// [`ValidCert::keys`]: ../../struct.ValidCert.html#method.keys
+/// [`Policy`]: crate::policy::Policy
+/// [`ValidateAmalgamation`]: super::ValidateAmalgamation
+/// [`ValidKeyAmalgamationIter::revoked`]: ValidKeyAmalgamationIter::revoked()
+/// [`ValidKeyAmalgamationIter::alive`]: ValidKeyAmalgamationIter::alive()
+/// [`KeyAmalgamationIter::with_policy`]: KeyAmalgamationIter::with_policy()
+/// [`ValidCert::keys`]: super::super::ValidCert::keys()
 pub struct ValidKeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
@@ -953,7 +945,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// ```
     ///
     ///   [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
-    ///   [`ValidKeyAmalgamation::key_flags`]: struct.ValidKeyAmalgamation.html#method.key_flags
+    ///   [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn key_flags<F>(mut self, flags: F) -> Self
         where F: Borrow<KeyFlags>
     {
@@ -1020,9 +1012,9 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::for_certification`]: struct.ValidKeyAmalgamation.html#method.for_certification
+    ///   [`ValidKeyAmalgamation::for_certification`]: ValidKeyAmalgamation::for_certification()
     ///   [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
-    ///   [`ValidKeyAmalgamation::key_flags`]: struct.ValidKeyAmalgamation.html#method.key_flags
+    ///   [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_certification(self) -> Self {
         self.key_flags(KeyFlags::empty().set_certification())
     }
@@ -1065,7 +1057,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::for_signing`]: struct.ValidKeyAmalgamation.html#method.for_signing
+    ///   [`ValidKeyAmalgamation::for_signing`]: ValidKeyAmalgamation::for_signing()
     pub fn for_signing(self) -> Self {
         self.key_flags(KeyFlags::empty().set_signing())
     }
@@ -1108,7 +1100,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::for_authentication`]: struct.ValidKeyAmalgamation.html#method.for_authentication
+    ///   [`ValidKeyAmalgamation::for_authentication`]: ValidKeyAmalgamation::for_authentication()
     pub fn for_authentication(self) -> Self {
         self.key_flags(KeyFlags::empty().set_authentication())
     }
@@ -1151,7 +1143,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::for_storage_encryption`]: struct.ValidKeyAmalgamation.html#method.for_storage_encryption
+    ///   [`ValidKeyAmalgamation::for_storage_encryption`]: ValidKeyAmalgamation::for_storage_encryption()
     pub fn for_storage_encryption(self) -> Self {
         self.key_flags(KeyFlags::empty().set_storage_encryption())
     }
@@ -1194,7 +1186,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [`ValidKeyAmalgamation::for_transport_encryption`]: struct.ValidKeyAmalgamation.html#method.for_transport_encryption
+    ///   [`ValidKeyAmalgamation::for_transport_encryption`]: ValidKeyAmalgamation::for_transport_encryption()
     pub fn for_transport_encryption(self) -> Self {
         self.key_flags(KeyFlags::empty().set_transport_encryption())
     }
@@ -1234,7 +1226,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`key_alive`]: ../../../packet/signature/subpacket/struct.SubpacketAreas.html#method.key_alive
+    /// [`key_alive`]: crate::packet::signature::subpacket::SubpacketAreas::key_alive()
     pub fn alive(mut self) -> Self
     {
         self.alive = Some(());
@@ -1466,9 +1458,9 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # }
     /// ```
     ///
-    /// [`KeyHandle`s]: ../../../enum.KeyHandle.html
-    /// [`key_handles`]: #method.key_handles
-    /// [`KeyHandle::aliases`]: ../../../enum.KeyHandle.html#method.aliases
+    /// [`KeyHandle`s]: super::super::super::KeyHandle
+    /// [`key_handles`]: ValidKeyAmalgamationIter::key_handles()
+    /// [`KeyHandle::aliases`]: super::super::super::KeyHandle::aliases()
     pub fn key_handle<H>(mut self, h: H) -> Self
         where H: Into<KeyHandle>
     {
@@ -1514,9 +1506,9 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # }
     /// ```
     ///
-    /// [`KeyHandle`s]: ../../../enum.KeyHandle.html
-    /// [`key_handle`]: #method.key_handle
-    /// [`KeyHandle::aliases`]: ../../../enum.KeyHandle.html#method.aliases
+    /// [`KeyHandle`s]: super::super::super::KeyHandle
+    /// [`key_handle`]: ValidKeyAmalgamationIter::key_handle()
+    /// [`KeyHandle::aliases`]: super::super::super::KeyHandle::aliases()
     pub fn key_handles<'b>(mut self, h: impl Iterator<Item=&'b KeyHandle>)
         -> Self
         where 'a: 'b
@@ -1594,8 +1586,6 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    /// [`ValidErasedKeyAmalgamation`]: type.ValidErasedKeyAmalgamation.html
-    /// [`ValidSubordinateKeyAmalgamation`]: type.ValidSubordinateKeyAmalgamation.html
     pub fn subkeys(self) -> ValidKeyAmalgamationIter<'a, P, key::SubordinateRole> {
         ValidKeyAmalgamationIter {
             cert: self.cert,

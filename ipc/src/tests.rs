@@ -34,6 +34,11 @@ pub fn key(name: &str) -> &'static [u8] {
     file(&format!("keys/{}", name))
 }
 
+/// Returns the content of the given file below `ipc/tests/data/keyboxes`.
+pub fn keybox(name: &str) -> &'static [u8] {
+    file(&format!("keyboxes/{}", name))
+}
+
 /// Returns the content of the given file below `ipc/tests/data/messages`.
 #[allow(dead_code)]
 pub fn message(name: &str) -> &'static [u8] {

@@ -49,7 +49,7 @@ impl std::str::FromStr for Keygrip {
         let bytes = openpgp::fmt::hex::decode_pretty(s)?;
         if bytes.len() == 20 {
             let mut digest = [0; 20];
-            &mut digest[..].copy_from_slice(&bytes[..]);
+            digest[..].copy_from_slice(&bytes[..]);
             Ok(Keygrip(digest))
         } else {
             Err(Error::InvalidArgument(

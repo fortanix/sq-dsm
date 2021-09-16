@@ -26,7 +26,6 @@ build-bullseye:
     - $MAKE_TOP
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
     - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
-    - if ! git diff --quiet sqv ; then echo "Please commit the changes to sqv/src/sqv-usage.rs." ; false ; fi
     - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
   variables:
     CARGO_TARGET_DIR: /target
@@ -41,11 +40,15 @@ build-bullseye:arm64:
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
     - codespell
+  when: manual
+  only:
+    variables:
+      # Forks of this project most likely do not have an arm64 runner
+      - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
   script:
     - $MAKE_TOP
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
     - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
-    - if ! git diff --quiet sqv ; then echo "Please commit the changes to sqv/src/sqv-usage.rs." ; false ; fi
     - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
   variables:
     CARGO_TARGET_DIR: /target
@@ -78,7 +81,11 @@ bullseye:arm64:
       - /arm64/i # refs containing 'arm64' keyword
       - tags
       - web
-      - scheduled
+      - schedules
+    variables:
+      # Forks of this project most likely do not have an arm64 runner
+      - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
+  when: manual
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
@@ -101,7 +108,7 @@ benchmarks:
       - /bench/i # refs containing 'bench' keyword
       - tags
       - web
-      - scheduled
+      - schedules
   before_script:
     - cargo install critcmp
   script:
@@ -148,7 +155,11 @@ all_commits:arm64:
       - /arm64/i # refs containing 'arm64' keyword
       - tags
       - web
-      - scheduled
+      - schedules
+    variables:
+      # Forks of this project most likely do not have an arm64 runner
+      - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
+  when: manual
   except:
     # Do not run for pushes to the pep-engine branch.
     - /^pep-engine$/
@@ -185,7 +196,7 @@ rust-stable:
     - cargo --version
     - clang --version
   script:
-    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" $MAKE_TOP test
+    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp" $MAKE_TOP test
   variables:
     CARGO_TARGET_DIR: /target
     CARGO_HOME: /cargo
@@ -196,6 +207,11 @@ rust-stable:arm64:
     - docker-arm64
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild-arm64:latest
+  only:
+    variables:
+      # Forks of this project most likely do not have an arm64 runner
+      - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
+  when: manual
   before_script:
     - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
     - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
@@ -204,7 +220,7 @@ rust-stable:arm64:
     - cargo --version
     - clang --version
   script:
-    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" $MAKE_TOP test
+    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp" $MAKE_TOP test
   variables:
     CARGO_TARGET_DIR: /target
     CARGO_HOME: /cargo
@@ -223,7 +239,7 @@ windows-gnu:
       - /windows/i # refs containing 'windows' keyword
       - tags
       - web
-      - scheduled
+      - schedules
     variables:
       # Forks of this project most likely use gitlab's shared windows runners, which
       # do not use the docker executor, so disable the windows jobs for forks.
@@ -270,8 +286,12 @@ windows-msvc-32:
   stage: build
   image:
     name: registry.gitlab.com/sequoia-pgp/build-docker-image/windows-msvc
-    # Set up a 32-bit environment with VsDevCmd.bat -arch=x86, line copied from Dockerfile.windows.msvc
-    entrypoint: ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "-arch=x86", "&&", "type", "README", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+    # Set up a cross compilation environment for building x86 binaries on amd64, line copied from Dockerfile.windows.msvc
+    # see https://renenyffenegger.ch/notes/Windows/dirs/Program-Files-x86/Microsoft-Visual-Studio/version/edition/Common7/Tools/VsDevCmd_bat
+    #
+    # Alternatively: ["C:\\BuildTools\\VC\\Auxiliary\\Build\\vcvarsamd64_x86.bat", "&&", "type", "README", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+    # see https://docs.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-160
+    entrypoint: ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "-arch=x86", "-host_arch=amd64", "&&", "type", "README", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
   only:
     variables:
       # Forks of this project most likely use gitlab's shared windows runners, which
@@ -279,15 +299,16 @@ windows-msvc-32:
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
   before_script:
     - rm rust-toolchain
-    - rustup default stable-i686-pc-windows-msvc
+    - rustup default 1.54.0-x86_64-pc-windows-msvc
+    - rustup target add i686-pc-windows-msvc
     - rustup show
     - rustc --version --verbose
     - cargo --version
   script:
     # https://github.com/rust-lang/cargo/issues/5015
-    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression
-    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression
-    - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
+    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
+    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
+    - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
   after_script: []
   variables:
     CFLAGS: "" # Silence some C warnings when compiling with MSVC

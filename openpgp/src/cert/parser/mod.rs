@@ -386,15 +386,15 @@ impl CertValidator {
 /// (In a [`Cert`], these show up as [`Unknown`] components.)  The
 /// goal is to provide some future compatibility.
 ///
-/// [`Packet`]: ../packet/enum.Packet.html
+/// [`Packet`]: crate::packet::Packet
 /// [`TPK`]: https://tools.ietf.org/html/rfc4880#section-11.1
 /// [`TSK`]: https://tools.ietf.org/html/rfc4880#section-11.2
-/// [`Public Key`]: ../enum.Packet.html#variant.PublicKey
-/// [`Secret Key`]: ../enum.Packet.html#variant.SecretKey
-/// [`Literal Data`]: ../enum.Packet.html#variant.Literal
-/// [`Compressed Data`]: ../enum.Packet.html#variant.CompressedData
-/// [`Cert`]: ../struct.Cert.html
-/// [`Unknown`]: ../enum.Packet.html#variant.Unknown
+/// [`Public Key`]: super::Packet::PublicKey
+/// [`Secret Key`]: super::Packet::SecretKey
+/// [`Literal Data`]: super::Packet::Literal
+/// [`Compressed Data`]: super::Packet::CompressedData
+/// [`Cert`]: super::Cert
+/// [`Unknown`]: super::Packet::Unknown
 ///
 /// # Examples
 ///
@@ -483,6 +483,7 @@ impl CertValidator {
 pub struct CertParser<'a> {
     source: Option<Box<dyn Iterator<Item=Result<Packet>> + 'a + Send + Sync>>,
     packets: Vec<Packet>,
+    queued_error: Option<anyhow::Error>,
     saw_error: bool,
     filter: Vec<Box<dyn Send + Sync + Fn(&Cert, bool) -> bool + 'a>>,
 }
@@ -493,6 +494,7 @@ impl<'a> Default for CertParser<'a> {
         CertParser {
             source: None,
             packets: vec![],
+            queued_error: None,
             saw_error: false,
             filter: vec![],
         }
@@ -697,7 +699,7 @@ impl<'a> CertParser<'a> {
     /// `CertParser` will not replace the existing filter, but install
     /// multiple filters.
     ///
-    /// [`Cert`]: ../struct.Cert.html
+    /// [`Cert`]: super::Cert
     ///
     /// # Examples
     ///
@@ -780,9 +782,10 @@ impl<'a> CertParser<'a> {
     //
     // Returns the old state.  Note: the packet iterator is preserved.
     fn reset(&mut self) -> Self {
-        // We need to preserve `source`.
+        // We need to preserve `source` and `filter`.
         let mut orig = mem::replace(self, Default::default());
         self.source = orig.source.take();
+        mem::swap(&mut self.filter, &mut orig.filter);
         orig
     }
 
@@ -927,6 +930,9 @@ impl<'a> Iterator for CertParser<'a> {
                 None => {
                     t!("EOF.");
 
+                    if let Some(err) = self.queued_error.take() {
+                        return Some(Err(err));
+                    }
                     if self.packets.is_empty() {
                         return None;
                     }
@@ -966,7 +972,24 @@ impl<'a> Iterator for CertParser<'a> {
                         Some(Err(err)) => {
                             t!("Error getting packet: {}", err);
                             self.saw_error = true;
-                            return Some(Err(err));
+
+                            if ! self.packets.is_empty() {
+                                // Returned any queued certificate first.
+                                match self.cert(None) {
+                                    Ok(Some(cert)) => {
+                                        self.queued_error = Some(err);
+                                        return Some(Ok(cert));
+                                    }
+                                    Ok(None) => {
+                                        return Some(Err(err));
+                                    }
+                                    Err(err) => {
+                                        return Some(Err(err));
+                                    }
+                                }
+                            } else {
+                                return Some(Err(err));
+                            }
                         }
                         None if self.packets.is_empty() => {
                             t!("Packet iterator was empty");
@@ -996,9 +1019,18 @@ impl<'a> Iterator for CertParser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
+
+    use crate::Fingerprint;
     use crate::cert::prelude::*;
     use crate::packet::prelude::*;
+    use crate::parse::RECOVERY_THRESHOLD;
+    use crate::serialize::Serialize;
     use crate::types::DataFormat;
+
+    use crate::tests;
 
     #[test]
     fn tokens() {
@@ -1411,5 +1443,309 @@ mod test {
         assert_eq!(certs.len(), 3);
         assert!(certs.iter().all(|c| c.is_ok()));
         Ok(())
+    }
+
+    fn parse_test(n: usize, literal: bool, bad: usize) -> Result<()> {
+        tracer!(TRACE, "t", 0);
+
+        // Parses keyrings with different numbers of keys and
+        // different errors.
+
+        // n: number of keys
+        // literal: whether to interleave literal packets.
+        // bad: whether to insert invalid data (NUL bytes where
+        //      the start of a certificate is expected).
+        let nulls = vec![ 0; bad ];
+
+        t!("n: {}, literals: {}, bad data: {}",
+           n, literal, bad);
+
+        let mut data = Vec::new();
+
+        let mut certs_orig = vec![];
+        for i in 0..n {
+            let (cert, _) =
+                CertBuilder::general_purpose(
+                    None, Some(format!("{}@example.org", i)))
+                .generate()?;
+
+            cert.as_tsk().serialize(&mut data)?;
+            certs_orig.push(cert);
+
+            if literal {
+                let mut lit = Literal::new(DataFormat::Text);
+                lit.set_body(b"data".to_vec());
+
+                Packet::from(lit).serialize(&mut data)?;
+            }
+            // Push some NUL bytes.
+            data.extend(&nulls[..bad]);
+        }
+        if n == 0 {
+            // Push some NUL bytes even if we didn't add any packets.
+            data.extend(&nulls[..bad]);
+        }
+        assert_eq!(certs_orig.len(), n);
+
+        t!("Start of data: {} {}",
+           if let Some(x) = data.get(0) {
+               format!("{:02X}", x)
+           } else {
+               "XX".into()
+           },
+           if let Some(x) = data.get(1) {
+               format!("{:02X}", x)
+           } else {
+               "XX".into()
+           });
+
+        let certs_parsed = CertParser::from_bytes(&data);
+
+        let certs_parsed = if n == 0 && bad > 0 {
+            // Junk at the beginning of the file results in an
+            // immediate parse error.
+            assert!(certs_parsed.is_err());
+            return Ok(());
+        } else {
+            certs_parsed.expect("Valid init")
+        };
+        let certs_parsed: Vec<_> = certs_parsed.collect();
+
+        certs_parsed.iter().enumerate().for_each(|(i, r)| {
+            t!("{}. {}",
+               i,
+               match r {
+                   Ok(c) => c.fingerprint().to_string(),
+                   Err(err) => err.to_string(),
+               });
+        });
+
+        let n = if bad > RECOVERY_THRESHOLD {
+            // We stop once we see the junk.
+            certs_orig.drain(1..);
+            std::cmp::min(n, 1)
+        } else {
+            n
+        };
+
+        let modulus = if literal && bad > 0 {
+            3
+        } else {
+            2
+        };
+        let certs_parsed: Vec<Cert> = certs_parsed.into_iter()
+            .enumerate()
+            .filter_map(|(i, c)| {
+                if literal && i % modulus == 1 {
+                    // Literals should be errors.
+                    assert!(c.is_err());
+                    None
+                } else if bad > 0 && n == 0 && i == 0 {
+                    // The first byte in the input is the NUL
+                    // byte.
+                    assert!(c.is_err());
+                    None
+                } else if bad > 0 && i % modulus == modulus - 1 {
+                    // NUL bytes are inserted after the
+                    // certificate / literal data packet.  So the
+                    // second element will be the parse error.
+                    assert!(c.is_err());
+                    None
+                } else {
+                    Some(c.unwrap())
+                }
+            })
+            .collect();
+
+        assert_eq!(certs_orig.len(), certs_parsed.len(),
+                   "number of parsed certificates: expected vs. got");
+
+        let fpr_orig = certs_orig.iter()
+            .map(|c| {
+                c.fingerprint()
+            })
+            .collect::<Vec<_>>();
+        let fpr_parsed = certs_parsed.iter()
+            .map(|c| {
+                c.fingerprint()
+            })
+            .collect::<Vec<_>>();
+        if fpr_orig != fpr_parsed {
+            t!("{} certificates in orig; {} is parsed",
+               fpr_orig.len(), fpr_parsed.len());
+
+            let fpr_set_orig: HashSet<&Fingerprint>
+                = HashSet::from_iter(fpr_orig.iter());
+            let fpr_set_parsed = HashSet::from_iter(fpr_parsed.iter());
+            t!("Only in orig:\n  {}",
+               fpr_set_orig.difference(&fpr_set_parsed)
+               .map(|f| f.to_string())
+               .collect::<Vec<_>>()
+               .join(",\n  "));
+            t!("Only in parsed:\n  {}",
+               fpr_set_parsed.difference(&fpr_set_orig)
+               .map(|f| f.to_string())
+               .collect::<Vec<_>>()
+               .join(",\n  "));
+
+            assert_eq!(fpr_orig, fpr_parsed);
+        }
+
+        // Go packet by packet.  (This makes finding an error a
+        // lot easier.)
+        for (i, (c_orig, c_parsed)) in
+            certs_orig
+            .into_iter()
+            .zip(certs_parsed.into_iter())
+            .enumerate()
+        {
+            let ps_orig: Vec<Packet> = c_orig.into_packets().collect();
+            let ps_parsed: Vec<Packet> = c_parsed.into_packets().collect();
+            if bad > 0 && ! literal && i == n - 1 {
+                // On a parse error, we lose the last successfully
+                // parsed packet.  This is annoying.  But, the
+                // file is corrupted anyway, so...
+                assert_eq!(ps_orig.len() - 1, ps_parsed.len(),
+                           "number of packets: expected vs. got");
+            } else {
+                assert_eq!(ps_orig.len(), ps_parsed.len(),
+                           "number of packets: expected vs. got");
+            }
+
+            for (j, (p_orig, p_parsed)) in
+                ps_orig
+                .into_iter()
+                .zip(ps_parsed.into_iter())
+                .enumerate()
+            {
+                assert_eq!(p_orig, p_parsed,
+                           "Cert {}, packet: {}", i, j);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_keyring_simple() -> Result<()> {
+        for n in [1, 100, 0].iter() {
+            parse_test(*n, false, 0)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_keyring_interleaved_literals() -> Result<()> {
+        for n in [1, 100, 0].iter() {
+            parse_test(*n, true, 0)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_keyring_interleaved_small_junk() -> Result<()> {
+        for n in [1, 100, 0].iter() {
+            parse_test(*n, false, 1)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_keyring_interleaved_unrecoverable_junk() -> Result<()> {
+        // PacketParser is pretty good at recovering from junk in the
+        // middle: it will search the next RECOVERY_THRESHOLD bytes
+        // for a valid packet.  If it finds it, it will turn the junk
+        // into a reserved packet and resume.  Insert a lot of NULs to
+        // prevent the recovery mechanism from working.
+        for n in [1, 100, 0].iter() {
+            parse_test(*n, false, 2 * RECOVERY_THRESHOLD)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_keyring_interleaved_literal_and_small_junk() -> Result<()> {
+        for n in [1, 100, 0].iter() {
+            parse_test(*n, true, 1)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_keyring_interleaved_literal_and_unrecoverable_junk() -> Result<()> {
+        for n in [1, 100, 0].iter() {
+            parse_test(*n, true, 2 * RECOVERY_THRESHOLD)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_keyring_no_public_key() -> Result<()> {
+        tracer!(TRACE, "parse_keyring_no_public_key", 0);
+
+        // The first few packets are not the valid start of a
+        // certificate.  Each of those should return in an Error.
+        // But, that shouldn't stop us from parsing the rest of the
+        // keyring.
+
+        let (cert_1, _) =
+            CertBuilder::general_purpose(
+                None, Some("a@example.org"))
+            .generate()?;
+        let cert_1_packets: Vec<Packet>
+            = cert_1.into_packets().collect();
+
+        let (cert_2, _) =
+            CertBuilder::general_purpose(
+                None, Some("b@example.org"))
+            .generate()?;
+
+        for n in 1..cert_1_packets.len() {
+            t!("n: {}", n);
+
+            let mut data = Vec::new();
+
+            for i in n..cert_1_packets.len() {
+                cert_1_packets[i].serialize(&mut data)?;
+            }
+
+            cert_2.as_tsk().serialize(&mut data)?;
+
+
+            let certs_parsed = CertParser::from_bytes(&data)
+                .expect("Valid parse");
+
+            let mut iter = certs_parsed;
+            for _ in n..cert_1_packets.len() {
+                assert!(iter.next().unwrap().is_err());
+            }
+            assert_eq!(iter.next().unwrap().as_ref().unwrap(), &cert_2);
+            assert!(iter.next().is_none());
+            assert!(iter.next().is_none());
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn filter() {
+        let fp = Fingerprint::from_hex(
+            "CBCD8F030588653EEDD7E2659B7DD433F254904A",
+        ).unwrap();
+
+        let cp = CertParser::from_bytes(tests::key("bad-subkey-keyring.pgp"))
+            .unwrap()
+            .unvalidated_cert_filter(|cert, _| {
+                cert.fingerprint() == fp
+            });
+        let certs = cp.collect::<Result<Vec<Cert>>>().unwrap();
+        assert_eq!(certs.len(), 1);
+        assert!(certs[0].fingerprint() == fp);
     }
 }
