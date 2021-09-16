@@ -478,8 +478,6 @@ impl Curve {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::Curve;
     ///
-    /// assert!(Curve::NistP256.is_supported());
-    /// assert!(Curve::NistP384.is_supported());
     /// assert!(Curve::Ed25519.is_supported());
     /// assert!(!Curve::Unknown(Box::new([0x2B, 0x11])).is_supported());
     /// ```
