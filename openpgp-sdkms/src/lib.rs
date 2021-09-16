@@ -30,12 +30,13 @@ use log::info;
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
     AgreeKeyMechanism, AgreeKeyRequest, DecryptRequest, DigestAlgorithm,
-    EllipticCurve as ApiCurve, KeyOperations, ObjectType,
+    EllipticCurve as ApiCurve, KeyLinks, KeyOperations, ObjectType,
     RsaEncryptionPaddingPolicy, RsaEncryptionPolicy, RsaOptions,
     RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest, Sobject,
     SobjectDescriptor, SobjectRequest,
 };
 use sdkms::SdkmsClient;
+use semver::{Version, VersionReq};
 use sequoia_openpgp::crypto::mem::Protected;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
 use sequoia_openpgp::packet::key::{
@@ -72,6 +73,7 @@ const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
 const ENV_HTTP_PROXY: &str = "http_proxy";
 const ENV_NO_PROXY: &str = "no_proxy";
 const SDKMS_LABEL_PGP: &str = "sq_sdkms";
+const MIN_SDKMS_VERSION: &str = "4.2.0";
 
 struct Credentials {
     api_endpoint: String,
@@ -101,8 +103,19 @@ impl Credentials {
         if let Some(proxy) = &self.proxy {
             builder = builder.with_hyper_client(proxy.clone());
         }
-
-        Ok(builder.build().context("could not initiate an SDKMS client")?)
+        let cli = builder.build()
+            .context("could not initiate an SDKMS client")?;
+        let min = VersionReq::parse(&(">=".to_string() + MIN_SDKMS_VERSION))?;
+        let ver = Version::parse(&cli.version()?.version)?;
+        if min.matches(&ver) {
+            Ok(cli)
+        } else {
+            Err(Error::msg(format!(
+                        "Incompatible SDKMS version: ({} < {})",
+                        ver,
+                        MIN_SDKMS_VERSION
+            )))
+        }
     }
 }
 
@@ -144,28 +157,25 @@ impl SdkmsAgent {
             .get_sobject(None, &descriptor)
             .context(format!("could not get primary key {}", key_name))?;
 
-        if let Some(dict) = sobject.custom_metadata {
-            if dict.contains_key(SDKMS_LABEL_PGP) {
-                let json_str = &dict[SDKMS_LABEL_PGP];
-                let key_md: KeyMetadata = serde_json::from_str(json_str)?;
-                if key_md.subkeys[0].len() == 0 {
-                    return Err(Error::msg("No subkeys found in SDKMS"));
-                }
-                let uid = Uuid::parse_str(&key_md.subkeys[0])?;
-                let descriptor = SobjectDescriptor::Kid(uid);
-                let sobject = http_client
-                    .get_sobject(None, &descriptor)
-                    .context("could not get subkey".to_string())?;
-                let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
-                return Ok(SdkmsAgent {
-                    descriptor,
-                    public: key.sequoia_key.expect("key is not loaded"),
-                    role: Role::Decryptor,
-                    credentials,
-                });
+        if let Some(KeyLinks { subkeys, .. }) = sobject.links {
+            if subkeys.len() == 0 {
+                return Err(Error::msg("No subkeys found in SDKMS"));
             }
+            let uid = subkeys[0];
+            let descriptor = SobjectDescriptor::Kid(uid);
+            let sobject = http_client
+                .get_sobject(None, &descriptor)
+                .context("could not get subkey".to_string())?;
+            let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
+            Ok(SdkmsAgent {
+                descriptor,
+                public: key.sequoia_key.expect("key is not loaded"),
+                role: Role::Decryptor,
+                credentials,
+            })
+        } else {
+            Err(Error::msg("was not able to get decryption subkey"))
         }
-        Err(Error::msg("was not able to get decryption subkey"))
     }
 }
 
@@ -191,7 +201,6 @@ enum KeyRole {
 #[derive(Serialize, Deserialize)]
 struct KeyMetadata {
     certificate: String,
-    subkeys:     Vec<String>,
 }
 
 impl KeyMetadata {
@@ -264,6 +273,18 @@ pub fn generate_key(
         exportable,
     )?;
 
+    info!("bind subkey to primary key in SDKMS");
+    let links = KeyLinks {
+        parent: Some(primary.uid()?),
+        ..Default::default()
+    };
+    let link_update_req = SobjectRequest {
+        links: Some(links),
+        ..Default::default()
+    };
+
+    http_client.update_sobject(&subkey.uid()?, &link_update_req)?;
+
     info!("generate certificate");
     // Primary, UserID + sig, subkey + sig
     let mut packets = Vec::<Packet>::with_capacity(5);
@@ -323,12 +344,11 @@ pub fn generate_key(
     cert = cert
         .insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
 
-    info!("bind keys and store certificate in SDKMS");
+    info!("store certificate in SDKMS");
     let armored = String::from_utf8(cert.armored().to_vec()?)?;
 
     let key_md = KeyMetadata {
         certificate: armored,
-        subkeys:     vec![subkey.uid()?.to_string()],
     };
 
     let key_json = serde_json::to_string(&key_md)?;
@@ -385,17 +405,20 @@ pub fn extract_tsk_from_sdkms(key_name: &str) -> Result<Cert> {
         .export_sobject(&SobjectDescriptor::Name(key_name.to_string()))
         .context(format!("could not export primary secret {}", key_name))?;
     let key_md = KeyMetadata::from_primary_sobject(&prim_sob)?;
-    let packet = secret_packet_from_sobject(prim_sob, KeyRole::Primary)?;
+    let packet = secret_packet_from_sobject(&prim_sob, KeyRole::Primary)?;
     packets.push(packet);
 
     // Subkeys
-    for subkey_name in &key_md.subkeys {
-        let uid = Uuid::parse_str(&subkey_name)?;
-        let sob = http_client
-            .export_sobject(&SobjectDescriptor::Kid(uid))
-            .context(format!("could not export subkey secret {}", key_name))?;
-        let packet = secret_packet_from_sobject(sob, KeyRole::Subkey)?;
-        packets.push(packet);
+    if let Some(KeyLinks { subkeys, .. }) = prim_sob.links {
+        for uid in &subkeys {
+            let sob = http_client
+                .export_sobject(&SobjectDescriptor::Kid(*uid))
+                .context(format!("could not export subkey secret {}", key_name))?;
+            let packet = secret_packet_from_sobject(&sob, KeyRole::Subkey)?;
+            packets.push(packet);
+        }
+    } else {
+        return Err(Error::msg("could not find subkeys"));
     }
 
     // Merge with the known public certificate
@@ -843,13 +866,15 @@ impl Decryptor for SdkmsAgent {
 }
 
 fn secret_packet_from_sobject(
-    sobject: Sobject,
+    sobject: &Sobject,
     role: KeyRole,
 ) -> Result<Packet> {
     let time: SystemTime = sobject.created_at.to_datetime().into();
-    let raw_secret = sobject.value.context("secret bits missing in Sobject")?;
+    let raw_secret = sobject.value.as_ref()
+        .context("secret bits missing in Sobject")?;
     let raw_public =
-        sobject.pub_key.context("public bits missing in Sobject")?;
+        sobject.pub_key.as_ref()
+        .context("public bits missing in Sobject")?;
     let is_signer =
         (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
     match sobject.obj_type {

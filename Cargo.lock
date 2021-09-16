@@ -1721,6 +1721,7 @@ dependencies = [
  "lalrpop",
  "log 0.4.14",
  "sdkms",
+ "semver 1.0.4",
  "sequoia-openpgp",
  "serde",
  "serde_derive",
@@ -2273,7 +2274,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
- "semver",
+ "semver 0.9.0",
 ]
 
 [[package]]
@@ -2316,8 +2317,7 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 [[package]]
 name = "sdkms"
 version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c843377a2ed87d63e487c7b41b1a82446ab7dc836addd66d63010ea05b14aaf7"
+source = "git+https://github.com/zugzwang/sdkms-client-rust.git?branch=keylinks#83328a1e8a704d210dbad59771cf85be32d654e8"
 dependencies = [
  "bitflags",
  "chrono",
@@ -2363,6 +2363,12 @@ checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
  "semver-parser",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "568a8e6258aa33c13358f81fd834adb854c6f7c9468520910a9b1e8fac068012"
 
 [[package]]
 name = "semver-parser"
