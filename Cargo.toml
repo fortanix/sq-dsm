@@ -9,7 +9,7 @@ members = [
     "net",
     "openpgp",
     "openpgp-ffi",
-    "openpgp-sdkms",
+    "openpgp-dsm",
     "sq",
     "sqv",
     "store",

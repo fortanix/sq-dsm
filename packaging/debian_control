@@ -1,4 +1,4 @@
-Package: sq-sdkms
+Package: sq-dsm
 Version: __VERSION__
 Priority: important
 Section: utils
@@ -6,7 +6,7 @@ Origin: Fortanix
 Architecture: amd64
 Maintainer: Francisco Vial-Prado <francisco.vialprado@fortanix.com>
 Depends: __DEPENDENCIES__
-Description: sq-sdkms
-  This fork of Sequoia-PGP leverages sdkms-client-rust to perform OpenPGP operations
-  with keys stored in the Fortanix Self-Defending Key-Management System (SDKMS),
+Description: sq-dsm
+  This fork of Sequoia-PGP leverages sdkms-client-rust to perform OpenPGP
+  operations with keys stored in the Fortanix Data Security Manager (DSM),
   adding options to the existing CLI Sequoia frontend, `sq`.

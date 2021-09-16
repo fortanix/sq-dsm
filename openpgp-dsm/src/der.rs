@@ -157,7 +157,7 @@ pub mod serialize {
             }
             _ => {
                 //
-                // Note: SDKMS expects UNRESTRICTED ALGORITHM IDENTIFIER
+                // Note: DSM expects UNRESTRICTED ALGORITHM IDENTIFIER
                 // AND PARAMETERS (RFC5480 sec. 2.1.1) for Nist curves
                 //
                 let nist_oid = Oid::from_slice(&[1, 2, 840, 10045, 2, 1]);

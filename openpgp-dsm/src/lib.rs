@@ -1,15 +1,15 @@
 //! Fortanix Self-Defending KMS
 //!
 //! This module implements the necessary logic to use secrets stored inside
-//! Fortanix SDKMS for low-level signing and decryption operations, given proper
+//! Fortanix DSM for low-level signing and decryption operations, given proper
 //! credentials (namely, the `FORTANIX_API_KEY` and `FORTANIX_API_ENDPOINT`
 //! environment variables).
 //!
 //! # Proxy configuration
 //!
-//! The connection with SDKMS can be set through an http proxy. This crate
+//! The connection with DSM can be set through an http proxy. This crate
 //! follows the `http_proxy` / `no_proxy` environment variables convention,
-//! i.e., if `http_proxy` is set and the SDKMS API endpoint is not in
+//! i.e., if `http_proxy` is set and the DSM API endpoint is not in
 //! `no_proxy`, then a connection through said proxy is established.
 
 use std::collections::HashMap;
@@ -35,7 +35,7 @@ use sdkms::api_model::{
     RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest, Sobject,
     SobjectDescriptor, SobjectRequest,
 };
-use sdkms::SdkmsClient;
+use sdkms::SdkmsClient as DsmClient;
 use semver::{Version, VersionReq};
 use sequoia_openpgp::crypto::mem::Protected;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
@@ -56,12 +56,12 @@ use uuid::Uuid;
 
 mod der;
 
-/// SdkmsAgent implements [Signer] and [Decryptor] with secrets stored inside
-/// Fortanix SDKMS.
+/// DsmAgent implements [Signer] and [Decryptor] with secrets stored inside
+/// Fortanix DSM.
 ///
 ///   [Decryptor]: ../../crypto/trait.Decryptor.html
 ///   [Signer]: ../../crypto/trait.Signer.html
-pub struct SdkmsAgent {
+pub struct DsmAgent {
     credentials: Credentials,
     descriptor:  SobjectDescriptor,
     public:      Key<PublicParts, UnspecifiedRole>,
@@ -72,8 +72,8 @@ const ENV_API_KEY: &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
 const ENV_HTTP_PROXY: &str = "http_proxy";
 const ENV_NO_PROXY: &str = "no_proxy";
-const SDKMS_LABEL_PGP: &str = "sq_sdkms";
-const MIN_SDKMS_VERSION: &str = "4.2.0";
+const DSM_LABEL_PGP: &str = "sq_dsm";
+const MIN_DSM_VERSION: &str = "4.2.0";
 
 struct Credentials {
     api_endpoint: String,
@@ -96,24 +96,24 @@ impl Credentials {
         })
     }
 
-    fn http_client(&self) -> Result<SdkmsClient> {
-        let mut builder = SdkmsClient::builder()
+    fn http_client(&self) -> Result<DsmClient> {
+        let mut builder = DsmClient::builder()
             .with_api_endpoint(&self.api_endpoint)
             .with_api_key(&self.api_key);
         if let Some(proxy) = &self.proxy {
             builder = builder.with_hyper_client(proxy.clone());
         }
         let cli = builder.build()
-            .context("could not initiate an SDKMS client")?;
-        let min = VersionReq::parse(&(">=".to_string() + MIN_SDKMS_VERSION))?;
+            .context("could not initiate a DSM client")?;
+        let min = VersionReq::parse(&(">=".to_string() + MIN_DSM_VERSION))?;
         let ver = Version::parse(&cli.version()?.version)?;
         if min.matches(&ver) {
             Ok(cli)
         } else {
             Err(Error::msg(format!(
-                        "Incompatible SDKMS version: ({} < {})",
+                        "Incompatible DSM version: ({} < {})",
                         ver,
-                        MIN_SDKMS_VERSION
+                        MIN_DSM_VERSION
             )))
         }
     }
@@ -125,9 +125,9 @@ enum Role {
     Decryptor,
 }
 
-impl SdkmsAgent {
-    /// Returns an SdkmsAgent with signing capabilities, corresponding to the
-    /// given key name.
+impl DsmAgent {
+    /// Returns a DsmAgent with signing capabilities, corresponding to the given
+    /// key name.
     pub fn new_signer(key_name: &str) -> Result<Self> {
         let credentials = Credentials::new_from_env()?;
         let http_client = credentials.http_client()?;
@@ -138,7 +138,7 @@ impl SdkmsAgent {
             .context(format!("could not get primary key {}", key_name))?;
         let key = PublicKey::from_sobject(sobject, KeyRole::Primary)?;
 
-        Ok(SdkmsAgent {
+        Ok(DsmAgent {
             credentials,
             descriptor,
             public: key.sequoia_key.expect("key is not loaded"),
@@ -146,7 +146,7 @@ impl SdkmsAgent {
         })
     }
 
-    /// Returns an SdkmsAgent with decryption capabilities, corresponding to the
+    /// Returns a DsmAgent with decryption capabilities, corresponding to the
     /// given key name.
     pub fn new_decryptor(key_name: &str) -> Result<Self> {
         let credentials = Credentials::new_from_env()?;
@@ -159,7 +159,7 @@ impl SdkmsAgent {
 
         if let Some(KeyLinks { subkeys, .. }) = sobject.links {
             if subkeys.len() == 0 {
-                return Err(Error::msg("No subkeys found in SDKMS"));
+                return Err(Error::msg("No subkeys found in DSM"));
             }
             let uid = subkeys[0];
             let descriptor = SobjectDescriptor::Kid(uid);
@@ -167,7 +167,7 @@ impl SdkmsAgent {
                 .get_sobject(None, &descriptor)
                 .context("could not get subkey".to_string())?;
             let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
-            Ok(SdkmsAgent {
+            Ok(DsmAgent {
                 descriptor,
                 public: key.sequoia_key.expect("key is not loaded"),
                 role: Role::Decryptor,
@@ -207,11 +207,11 @@ impl KeyMetadata {
     fn from_primary_sobject(sob: &Sobject) -> Result<Self> {
         match &sob.custom_metadata {
             Some(dict) => {
-                if !dict.contains_key(SDKMS_LABEL_PGP) {
+                if !dict.contains_key(DSM_LABEL_PGP) {
                     return Err(anyhow::anyhow!("malformed metadata"));
                 }
                 let key_md: KeyMetadata =
-                    serde_json::from_str(&dict[SDKMS_LABEL_PGP])?;
+                    serde_json::from_str(&dict[DSM_LABEL_PGP])?;
                 Ok(key_md)
             }
             None => Err(anyhow::anyhow!("no custom metadata found")),
@@ -219,13 +219,13 @@ impl KeyMetadata {
     }
 }
 
-/// Generates an OpenPGP key with secrets stored in SDKMS. At the OpenPGP
+/// Generates an OpenPGP key with secrets stored in DSM. At the OpenPGP
 /// level, this method produces a key consisting of
 ///
 /// - A primary signing key (flags C + S),
 /// - a transport and storage encryption subkey (flags Et + Er).
 ///
-/// At the SDKMS level, this method creates the two corresponding Sobjects.
+/// At the DSM level, this method creates the two corresponding Sobjects.
 /// The encryption key's KID is stored as a custom metadata field of the
 /// signing key.
 ///
@@ -273,7 +273,7 @@ pub fn generate_key(
         exportable,
     )?;
 
-    info!("bind subkey to primary key in SDKMS");
+    info!("bind subkey to primary key in DSM");
     let links = KeyLinks {
         parent: Some(primary.uid()?),
         ..Default::default()
@@ -299,7 +299,7 @@ pub fn generate_key(
 
     packets.push(prim.into());
 
-    let mut prim_signer = SdkmsAgent::new_signer(&key_name)?;
+    let mut prim_signer = DsmAgent::new_signer(&key_name)?;
 
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
@@ -344,7 +344,7 @@ pub fn generate_key(
     cert = cert
         .insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
 
-    info!("store certificate in SDKMS");
+    info!("store certificate in DSM");
     let armored = String::from_utf8(cert.armored().to_vec()?)?;
 
     let key_md = KeyMetadata {
@@ -354,7 +354,7 @@ pub fn generate_key(
     let key_json = serde_json::to_string(&key_md)?;
 
     let mut metadata = HashMap::<String, String>::new();
-    metadata.insert(SDKMS_LABEL_PGP.to_string(), key_json);
+    metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
 
     let update_req = SobjectRequest {
         custom_metadata: Some(metadata),
@@ -370,7 +370,7 @@ pub fn generate_key(
 /// certificate, created at key-generation time, is stored in the custom
 /// metadata of the Security Object representing the primary key.
 pub fn extract_cert(key_name: &str) -> Result<Cert> {
-    info!("sdkms extract_cert");
+    info!("dsm extract_cert");
     let credentials = Credentials::new_from_env()?;
     let http_client = credentials.http_client()?;
 
@@ -384,16 +384,16 @@ pub fn extract_cert(key_name: &str) -> Result<Cert> {
             Some(dict) => dict,
         }
     };
-    if !metadata.contains_key(SDKMS_LABEL_PGP) {
-        return Err(Error::msg("malformed metadata in SDKMS".to_string()));
+    if !metadata.contains_key(DSM_LABEL_PGP) {
+        return Err(Error::msg("malformed metadata in DSM".to_string()));
     }
 
-    let key_md: KeyMetadata = serde_json::from_str(&metadata[SDKMS_LABEL_PGP])?;
+    let key_md: KeyMetadata = serde_json::from_str(&metadata[DSM_LABEL_PGP])?;
 
     Ok(Cert::from_str(&key_md.certificate)?)
 }
 
-pub fn extract_tsk_from_sdkms(key_name: &str) -> Result<Cert> {
+pub fn extract_tsk_from_dsm(key_name: &str) -> Result<Cert> {
     // Extract all secrets as packets
     let credentials = Credentials::new_from_env()?;
     let http_client = credentials.http_client()?;
@@ -433,13 +433,13 @@ pub fn extract_tsk_from_sdkms(key_name: &str) -> Result<Cert> {
 
 impl PublicKey {
     fn create(
-        client: &SdkmsClient,
+        client: &DsmClient,
         name: String,
         role: KeyRole,
         algo: &SupportedPkAlgo,
         exportable: bool,
     ) -> Result<Self> {
-        let description = Some("Created with sq-sdkms".to_string());
+        let description = Some("Created with sq-dsm".to_string());
 
         let mut sobject_request = match (&role, algo) {
             (KeyRole::Primary, SupportedPkAlgo::Rsa(key_size)) => {
@@ -536,7 +536,7 @@ impl PublicKey {
         }
 
         let sobject = client.create_sobject(&sobject_request)
-            .context("sdkms client could not create sobject")?;
+            .context("dsm client could not create sobject")?;
 
         PublicKey::from_sobject(sobject, role)
     }
@@ -667,7 +667,7 @@ impl PublicKey {
     }
 }
 
-impl Signer for SdkmsAgent {
+impl Signer for DsmAgent {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
 
     fn sign(
@@ -676,7 +676,7 @@ impl Signer for SdkmsAgent {
         digest: &[u8],
     ) -> Result<mpi::Signature> {
         if self.role != Role::Signer {
-            return Err(Error::msg("bad role for SDKMS agent"));
+            return Err(Error::msg("bad role for DSM agent"));
         }
         let http_client = self.credentials.http_client()
             .expect("could not initialize the http client");
@@ -752,7 +752,7 @@ impl Signer for SdkmsAgent {
     }
 }
 
-impl Decryptor for SdkmsAgent {
+impl Decryptor for DsmAgent {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
 
     fn decrypt(
@@ -761,7 +761,7 @@ impl Decryptor for SdkmsAgent {
         _plaintext_len: Option<usize>,
     ) -> Result<SessionKey> {
         if self.role != Role::Decryptor {
-            return Err(Error::msg("bad role for SDKMS agent"));
+            return Err(Error::msg("bad role for DSM agent"));
         }
 
         let mut cli = self.credentials.http_client()
@@ -810,9 +810,9 @@ impl Decryptor for SdkmsAgent {
                     };
                     let e_tkey = cli
                         .import_sobject(&req)
-                        .expect("failed import ephemeral public key into SDKMS")
+                        .expect("failed import ephemeral public key into DSM")
                         .transient_key
-                        .expect("could not retrieve SDKMS transient key \
+                        .expect("could not retrieve DSM transient key \
                                  (representing ECDH ephemeral public key)");
 
                     SobjectDescriptor::TransientKey(e_tkey)
@@ -841,7 +841,7 @@ impl Decryptor for SdkmsAgent {
 
                     let agreed_tkey = cli
                         .agree(&agree_req)
-                        .expect("failed ECDH agreement on SDKMS")
+                        .expect("failed ECDH agreement on DSM")
                         .transient_key
                         .expect("could not retrieve agreed key");
 

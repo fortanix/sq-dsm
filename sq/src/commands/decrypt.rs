@@ -17,7 +17,7 @@ use crate::openpgp::parse::{
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
-use openpgp_sdkms::SdkmsAgent;
+use openpgp_dsm::DsmAgent;
 
 use crate::{
     Config,
@@ -37,7 +37,7 @@ struct Helper<'a> {
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
     dumper: Option<PacketDumper>,
-    sdkms_keys_names: Vec<String>,
+    dsm_keys_names: Vec<String>,
 }
 
 impl<'a> Helper<'a> {
@@ -49,11 +49,11 @@ impl<'a> Helper<'a> {
         let mut keys = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
-        let mut sdkms_keys_names = Vec::new();
+        let mut dsm_keys_names = Vec::new();
         for presecret in presecrets {
             match presecret {
-                PreSecret::Sdkms(name) => {
-                    sdkms_keys_names.push(name);
+                PreSecret::Dsm(name) => {
+                    dsm_keys_names.push(name);
                 }
                 PreSecret::InMemory(tsk) => {
                     let hint = match tsk.with_policy(&config.policy, None)
@@ -92,7 +92,7 @@ impl<'a> Helper<'a> {
             } else {
                 None
             },
-            sdkms_keys_names,
+            dsm_keys_names,
         }
     }
 
@@ -147,8 +147,8 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
-        for sdkms_key in &self.sdkms_keys_names {
-            let mut decryptor = SdkmsAgent::new_decryptor(&sdkms_key)?;
+        for dsm_key in &self.dsm_keys_names {
+            let mut decryptor = DsmAgent::new_decryptor(&dsm_key)?;
             for pkesk in pkesks {
                 if let Some(fp) = self.try_decrypt(pkesk, sym_algo, &mut decryptor,
                     &mut decrypt) {

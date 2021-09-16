@@ -1708,7 +1708,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
-name = "openpgp-sdkms"
+name = "openpgp-dsm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2528,7 +2528,7 @@ dependencies = [
  "chrono",
  "clap",
  "itertools 0.9.0",
- "openpgp-sdkms",
+ "openpgp-dsm",
  "rpassword",
  "sequoia-autocrypt",
  "sequoia-net",

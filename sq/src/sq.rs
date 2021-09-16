@@ -433,8 +433,8 @@ fn main() -> Result<()> {
             let mut secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
-            if let Some(name) = m.value_of("sdkms-key") {
-                secrets.push(PreSecret::Sdkms(name.to_string()));
+            if let Some(name) = m.value_of("dsm-key") {
+                secrets.push(PreSecret::Dsm(name.to_string()));
             }
             commands::decrypt(config,
                               &mut input, &mut output,
@@ -471,8 +471,8 @@ fn main() -> Result<()> {
             } else {
                 None
             };
-            if let Some(name) = m.value_of("signer-sdkms-key") {
-                additional_secrets.push(secrets::PreSecret::Sdkms(name.to_string()));
+            if let Some(name) = m.value_of("signer-dsm-key") {
+                additional_secrets.push(secrets::PreSecret::Dsm(name.to_string()));
             }
             commands::encrypt(policy, &mut input, output,
                               m.occurrences_of("symmetric") as usize,
@@ -523,8 +523,8 @@ fn main() -> Result<()> {
                 }
             }
 
-            if let Some(name) = m.value_of("sdkms-key") {
-                secrets.push(secrets::PreSecret::Sdkms(name.to_string()));
+            if let Some(name) = m.value_of("dsm-key") {
+                secrets.push(secrets::PreSecret::Dsm(name.to_string()));
             }
             if let Some(merge) = m.value_of("merge") {
                 let output = config.create_or_stdout_pgp(output, binary,
@@ -654,8 +654,8 @@ fn main() -> Result<()> {
                 let mut secrets = m.values_of("secret-key-file")
                     .map(load_keys)
                     .unwrap_or_else(|| Ok(vec![]))?;
-                if let Some(name) = m.value_of("sdkms-key") {
-                    secrets.push(PreSecret::Sdkms(name.to_string()));
+                if let Some(name) = m.value_of("dsm-key") {
+                    secrets.push(PreSecret::Dsm(name.to_string()));
                 }
                 commands::decrypt::decrypt_unwrap(
                     config,
