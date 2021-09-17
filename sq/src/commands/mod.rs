@@ -69,7 +69,8 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
                     SecretKeyMaterial::Encrypted(ref e) => {
                         let password = rpassword::read_password_from_tty(Some(
                             &format!("Please enter password to decrypt {}/{}: ",
-                                     tsk, key))).unwrap();
+                                     tsk, key)))
+                            .context("Reading password from tty")?;
                         e.decrypt(key.pk_algo(), &password.into())
                             .expect("decryption failed")
                     },
