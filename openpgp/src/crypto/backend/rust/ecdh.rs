@@ -52,6 +52,27 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
 
             (VB, shared)
         },
+        Curve::NistP256 => {
+            use p256::{EncodedPoint, PublicKey, ecdh::EphemeralSecret};
+
+            // Decode the recipient's public key.
+            let recipient_key = PublicKey::from_sec1_bytes(q.value())?;
+
+            // Generate a keypair and perform Diffie-Hellman.
+            let secret = EphemeralSecret::random(
+                &mut p256::elliptic_curve::rand_core::OsRng);
+            let public = EncodedPoint::from(PublicKey::from(&secret));
+            let shared = secret.diffie_hellman(&recipient_key);
+
+            // Encode our public key.
+            let VB = MPI::new(public.as_bytes());
+
+            // Encode the shared secret.
+            let shared: &[u8] = shared.as_bytes();
+            let shared = Protected::from(shared);
+
+            (VB, shared)
+        },
         _ =>
             return Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
     };
@@ -89,6 +110,25 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
 
             let secret = r.diffie_hellman(&V);
             Vec::from(secret.to_bytes()).into()
+        },
+        Curve::NistP256 => {
+            use p256::{
+                SecretKey,
+                PublicKey,
+                elliptic_curve::ecdh::diffie_hellman,
+            };
+
+            const NISTP256_SIZE: usize = 32;
+
+            // Get the public part V of the ephemeral key.
+            let V = dbg!(PublicKey::from_sec1_bytes(e.value()))?;
+
+            let scalar: [u8; NISTP256_SIZE] =
+                scalar.value_padded(NISTP256_SIZE).as_ref().try_into()?;
+            let r = SecretKey::from_bytes(scalar)?;
+
+            let secret = diffie_hellman(r.secret_scalar(), V.as_affine());
+            Vec::from(secret.as_bytes().as_slice()).into()
         },
         _ => {
             return Err(Error::UnsupportedEllipticCurve(curve.clone()).into());

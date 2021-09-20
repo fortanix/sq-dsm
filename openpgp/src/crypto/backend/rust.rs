@@ -27,9 +27,9 @@ impl PublicKeyAlgorithm {
         use PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match &self {
-            RSAEncryptSign | RSAEncrypt | RSASign | ECDH | EdDSA
+            RSAEncryptSign | RSAEncrypt | RSASign | ECDH | EdDSA | ECDSA
                 => true,
-            DSA | ECDSA
+            DSA
                 => false,
             ElGamalEncrypt | ElGamalEncryptSign | Private(_) | Unknown(_)
                 => false,
@@ -41,7 +41,9 @@ impl Curve {
     pub(crate) fn is_supported_by_backend(&self) -> bool {
         use self::Curve::*;
         match &self {
-            NistP256 | NistP384 | NistP521
+            NistP256
+                => true,
+            NistP384 | NistP521
                 => false,
             Ed25519 | Cv25519
                 => true,
