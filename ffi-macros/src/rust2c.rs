@@ -152,7 +152,7 @@ pub fn rust2c(fun: &syn::ItemFn) -> String {
         }
 
         match arg {
-            &syn::FnArg::Typed(ref cap) => {
+            syn::FnArg::Typed(ref cap) => {
                 let pat_ident = match *cap.pat {
                     syn::Pat::Ident(ref i) => i,
                     _ => unimplemented!(),

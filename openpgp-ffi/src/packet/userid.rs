@@ -129,7 +129,7 @@ pub extern "C"
 fn pgp_user_id_value(uid: *const Packet, value_len: Option<&mut size_t>)
     -> *const u8
 {
-    if let &openpgp::Packet::UserID(ref uid) = uid.ref_raw() {
+    if let openpgp::Packet::UserID(ref uid) = uid.ref_raw() {
         if let Some(p) = value_len {
             *p = uid.value().len();
         }
@@ -158,7 +158,7 @@ fn pgp_user_id_name(
     ffi_make_fry_from_errp!(errp);
     let uid = uid.ref_raw();
 
-    if let &openpgp::Packet::UserID(ref uid) = uid {
+    if let openpgp::Packet::UserID(ref uid) = uid {
         match uid.name() {
             Ok(Some(name)) =>
                 *namep = ffi_return_string!(name),
@@ -199,7 +199,7 @@ fn pgp_user_id_comment(
     ffi_make_fry_from_errp!(errp);
     let uid = uid.ref_raw();
 
-    if let &openpgp::Packet::UserID(ref uid) = uid {
+    if let openpgp::Packet::UserID(ref uid) = uid {
         match uid.comment() {
             Ok(Some(comment)) =>
                 *commentp = ffi_return_string!(comment),
@@ -240,7 +240,7 @@ fn pgp_user_id_email(
     ffi_make_fry_from_errp!(errp);
     let uid = uid.ref_raw();
 
-    if let &openpgp::Packet::UserID(ref uid) = uid {
+    if let openpgp::Packet::UserID(ref uid) = uid {
         match uid.email() {
             Ok(Some(address)) =>
                 *addressp = ffi_return_string!(address),
@@ -280,7 +280,7 @@ fn pgp_user_id_uri(
     ffi_make_fry_from_errp!(errp);
     let uid = uid.ref_raw();
 
-    if let &openpgp::Packet::UserID(ref uid) = uid {
+    if let openpgp::Packet::UserID(ref uid) = uid {
         match uid.uri() {
             Ok(Some(uri)) =>
                 *urip = ffi_return_string!(uri),
@@ -330,7 +330,7 @@ fn pgp_user_id_email_normalized(
     ffi_make_fry_from_errp!(errp);
     let uid = uid.ref_raw();
 
-    if let &openpgp::Packet::UserID(ref uid) = uid {
+    if let openpgp::Packet::UserID(ref uid) = uid {
         match uid.email_normalized() {
             Ok(Some(email)) =>
                 *emailp = ffi_return_string!(email),

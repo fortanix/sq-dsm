@@ -240,8 +240,8 @@ impl KeyID {
     /// ```
     pub fn as_bytes(&self) -> &[u8] {
         match self {
-            &KeyID::V4(ref id) => id,
-            &KeyID::Invalid(ref id) => id,
+            KeyID::V4(ref id) => id,
+            KeyID::Invalid(ref id) => id,
         }
     }
 
@@ -353,8 +353,8 @@ impl KeyID {
     /// Common code for the above functions.
     fn convert_to_string(&self, pretty: bool) -> String {
         let raw = match self {
-            &KeyID::V4(ref fp) => &fp[..],
-            &KeyID::Invalid(ref fp) => &fp[..],
+            KeyID::V4(ref fp) => &fp[..],
+            KeyID::Invalid(ref fp) => &fp[..],
         };
 
         // We currently only handle V4 Key IDs, which look like:

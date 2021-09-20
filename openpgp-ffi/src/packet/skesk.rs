@@ -32,7 +32,7 @@ pub extern "C" fn pgp_skesk_decrypt(errp: Option<&mut *mut crate::error::Error>,
     let algo = ffi_param_ref_mut!(algo);
     let key_len = ffi_param_ref_mut!(key_len);
 
-    if let &openpgp::Packet::SKESK(ref skesk) = skesk.ref_raw() {
+    if let openpgp::Packet::SKESK(ref skesk) = skesk.ref_raw() {
         match skesk.decrypt(&password.to_owned().into()) {
             Ok((a, k)) => {
                 *algo = a.into();

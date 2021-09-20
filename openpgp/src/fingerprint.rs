@@ -141,8 +141,8 @@ impl Fingerprint {
     /// ```
     pub fn as_bytes(&self) -> &[u8] {
         match self {
-            &Fingerprint::V4(ref fp) => fp,
-            &Fingerprint::Invalid(ref fp) => fp,
+            Fingerprint::V4(ref fp) => fp,
+            Fingerprint::Invalid(ref fp) => fp,
         }
     }
 
@@ -233,8 +233,8 @@ impl Fingerprint {
     /// Common code for the above functions.
     fn convert_to_string(&self, pretty: bool) -> String {
         let raw = match self {
-            &Fingerprint::V4(ref fp) => &fp[..],
-            &Fingerprint::Invalid(ref fp) => &fp[..],
+            Fingerprint::V4(ref fp) => &fp[..],
+            Fingerprint::Invalid(ref fp) => &fp[..],
         };
 
         // We currently only handle V4 fingerprints, which look like:

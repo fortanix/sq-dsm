@@ -211,11 +211,11 @@ impl Kind {
 
     fn blurb(&self) -> &str {
         match self {
-            &Kind::Message => "MESSAGE",
-            &Kind::PublicKey => "PUBLIC KEY BLOCK",
-            &Kind::SecretKey => "PRIVATE KEY BLOCK",
-            &Kind::Signature => "SIGNATURE",
-            &Kind::File => "ARMORED FILE",
+            Kind::Message => "MESSAGE",
+            Kind::PublicKey => "PUBLIC KEY BLOCK",
+            Kind::SecretKey => "PRIVATE KEY BLOCK",
+            Kind::Signature => "SIGNATURE",
+            Kind::File => "ARMORED FILE",
         }
     }
 

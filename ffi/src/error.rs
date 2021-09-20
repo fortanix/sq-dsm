@@ -28,63 +28,63 @@ impl<'a> FromSequoiaError<'a> for Status {
 
         if let Some(e) = e.downcast_ref::<openpgp::Error>() {
             return match e {
-                &openpgp::Error::InvalidArgument(_) =>
+                openpgp::Error::InvalidArgument(_) =>
                     Status::InvalidArgument,
-                &openpgp::Error::InvalidOperation(_) =>
+                openpgp::Error::InvalidOperation(_) =>
                     Status::InvalidOperation,
-                &openpgp::Error::MalformedPacket(_) =>
+                openpgp::Error::MalformedPacket(_) =>
                     Status::MalformedPacket,
-                &openpgp::Error::PacketTooLarge(_, _, _) =>
+                openpgp::Error::PacketTooLarge(_, _, _) =>
                     Status::PacketTooLarge,
-                &openpgp::Error::UnsupportedPacketType(_) =>
+                openpgp::Error::UnsupportedPacketType(_) =>
                     Status::UnsupportedPacketType,
-                &openpgp::Error::UnsupportedHashAlgorithm(_) =>
+                openpgp::Error::UnsupportedHashAlgorithm(_) =>
                     Status::UnsupportedHashAlgorithm,
-                &openpgp::Error::UnsupportedPublicKeyAlgorithm(_) =>
+                openpgp::Error::UnsupportedPublicKeyAlgorithm(_) =>
                     Status::UnsupportedPublicKeyAlgorithm,
-                &openpgp::Error::UnsupportedEllipticCurve(_) =>
+                openpgp::Error::UnsupportedEllipticCurve(_) =>
                     Status::UnsupportedEllipticCurve,
-                &openpgp::Error::UnsupportedSymmetricAlgorithm(_) =>
+                openpgp::Error::UnsupportedSymmetricAlgorithm(_) =>
                     Status::UnsupportedSymmetricAlgorithm,
-                &openpgp::Error::UnsupportedAEADAlgorithm(_) =>
+                openpgp::Error::UnsupportedAEADAlgorithm(_) =>
                     Status::UnsupportedAEADAlgorithm,
-                &openpgp::Error::UnsupportedCompressionAlgorithm(_) =>
+                openpgp::Error::UnsupportedCompressionAlgorithm(_) =>
                     Status::UnsupportedCompressionAlgorithm,
-                &openpgp::Error::UnsupportedSignatureType(_) =>
+                openpgp::Error::UnsupportedSignatureType(_) =>
                     Status::UnsupportedSignatureType,
-                &openpgp::Error::InvalidPassword =>
+                openpgp::Error::InvalidPassword =>
                     Status::InvalidPassword,
-                &openpgp::Error::InvalidSessionKey(_) =>
+                openpgp::Error::InvalidSessionKey(_) =>
                     Status::InvalidSessionKey,
-                &openpgp::Error::MissingSessionKey(_) =>
+                openpgp::Error::MissingSessionKey(_) =>
                     Status::MissingSessionKey,
-                &openpgp::Error::MalformedMPI(_) =>
+                openpgp::Error::MalformedMPI(_) =>
                     Status::MalformedMPI,
-                &openpgp::Error::BadSignature(_) =>
+                openpgp::Error::BadSignature(_) =>
                     Status::BadSignature,
-                &openpgp::Error::ManipulatedMessage =>
+                openpgp::Error::ManipulatedMessage =>
                     Status::ManipulatedMessage,
-                &openpgp::Error::MalformedMessage(_) =>
+                openpgp::Error::MalformedMessage(_) =>
                     Status::MalformedMessage,
-                &openpgp::Error::MalformedCert(_) =>
+                openpgp::Error::MalformedCert(_) =>
                     Status::MalformedCert,
-                &openpgp::Error::IndexOutOfRange =>
+                openpgp::Error::IndexOutOfRange =>
                     Status::IndexOutOfRange,
-                &openpgp::Error::UnsupportedCert(_) =>
+                openpgp::Error::UnsupportedCert(_) =>
                     Status::UnsupportedCert,
-                &openpgp::Error::Expired(_) =>
+                openpgp::Error::Expired(_) =>
                     Status::Expired,
-                &openpgp::Error::NotYetLive(_) =>
+                openpgp::Error::NotYetLive(_) =>
                     Status::NotYetLive,
-                &openpgp::Error::NoBindingSignature(_) =>
+                openpgp::Error::NoBindingSignature(_) =>
                     Status::NoBindingSignature,
-                &openpgp::Error::InvalidKey(_) =>
+                openpgp::Error::InvalidKey(_) =>
                     Status::InvalidKey,
-                &openpgp::Error::PolicyViolation(_, _) =>
+                openpgp::Error::PolicyViolation(_, _) =>
                     Status::PolicyViolation,
                 // openpgp::Error is non_exhaustive, match on &_ to handle
                 // future additions.
-                &_ => Status::UnknownError
+                _ => Status::UnknownError
             }
         }
 

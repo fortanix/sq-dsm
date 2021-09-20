@@ -648,7 +648,8 @@ impl Marshal for BodyLength {
     /// [`serialize_old(..)`]: BodyLength::serialize_old()
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &BodyLength::Full(l) => {
+            BodyLength::Full(l) => {
+                let l = *l;
                 if l <= 191 {
                     write_byte(o, l as u8)?;
                 } else if l <= 8383 {
@@ -660,7 +661,8 @@ impl Marshal for BodyLength {
                     write_be_u32(o, l)?;
                 }
             },
-            &BodyLength::Partial(l) => {
+            BodyLength::Partial(l) => {
+                let l = *l;
                 if l > 1 << 30 {
                     return Err(Error::InvalidArgument(
                         format!("Partial length too large: {}", l)).into());
@@ -678,7 +680,7 @@ impl Marshal for BodyLength {
                 assert!(size_byte < 255);
                 write_byte(o, size_byte as u8)?;
             },
-            &BodyLength::Indeterminate =>
+            BodyLength::Indeterminate =>
                 return Err(Error::InvalidArgument(
                     "Indeterminate lengths are not support for new format packets".
                         into()).into()),
@@ -691,7 +693,8 @@ impl Marshal for BodyLength {
 impl MarshalInto for BodyLength {
     fn serialized_len(&self) -> usize {
         match self {
-            &BodyLength::Full(l) => {
+            BodyLength::Full(l) => {
+                let l = *l;
                 if l <= 191 {
                     1
                 } else if l <= 8383 {
@@ -700,8 +703,8 @@ impl MarshalInto for BodyLength {
                     5
                 }
             },
-            &BodyLength::Partial(_) => 1,
-            &BodyLength::Indeterminate => 0,
+            BodyLength::Partial(_) => 1,
+            BodyLength::Indeterminate => 0,
         }
     }
 
@@ -727,7 +730,8 @@ impl BodyLength {
         // Assume an optimal encoding is desired.
         let mut buffer = Vec::with_capacity(4);
         match self {
-            &BodyLength::Full(l) => {
+            BodyLength::Full(l) => {
+                let l = *l;
                 match l {
                     // One octet length.
                     // write_byte can't fail for a Vec.
@@ -741,8 +745,8 @@ impl BodyLength {
                         write_be_u32(&mut buffer, l as u32).unwrap(),
                 }
             },
-            &BodyLength::Indeterminate => {},
-            &BodyLength::Partial(_) =>
+            BodyLength::Indeterminate => {},
+            BodyLength::Partial(_) =>
                 return Err(Error::InvalidArgument(
                     "Partial body lengths are not support for old format packets".
                         into()).into()),
@@ -792,8 +796,8 @@ impl seal::Sealed for CTB {}
 impl Marshal for CTB {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &CTB::New(ref c) => c.serialize(o),
-            &CTB::Old(ref c) => c.serialize(o),
+            CTB::New(ref c) => c.serialize(o),
+            CTB::Old(ref c) => c.serialize(o),
         }?;
         Ok(())
     }
@@ -831,8 +835,8 @@ impl seal::Sealed for KeyID {}
 impl Marshal for KeyID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let raw = match self {
-            &KeyID::V4(ref fp) => &fp[..],
-            &KeyID::Invalid(ref fp) => &fp[..],
+            KeyID::V4(ref fp) => &fp[..],
+            KeyID::Invalid(ref fp) => &fp[..],
         };
         o.write_all(raw)?;
         Ok(())
@@ -843,8 +847,8 @@ impl SerializeInto for KeyID {}
 impl MarshalInto for KeyID {
     fn serialized_len(&self) -> usize {
         match self {
-            &KeyID::V4(_) => 8,
-            &KeyID::Invalid(ref fp) => fp.len(),
+            KeyID::V4(_) => 8,
+            KeyID::Invalid(ref fp) => fp.len(),
         }
     }
 
@@ -933,41 +937,41 @@ impl Marshal for crypto::mpi::PublicKey {
         use crate::crypto::mpi::PublicKey::*;
 
         match self {
-            &RSA { ref e, ref n } => {
+            RSA { ref e, ref n } => {
                 n.serialize(w)?;
                 e.serialize(w)?;
             }
 
-            &DSA { ref p, ref q, ref g, ref y } => {
+            DSA { ref p, ref q, ref g, ref y } => {
                 p.serialize(w)?;
                 q.serialize(w)?;
                 g.serialize(w)?;
                 y.serialize(w)?;
             }
 
-            &ElGamal { ref p, ref g, ref y } => {
+            ElGamal { ref p, ref g, ref y } => {
                 p.serialize(w)?;
                 g.serialize(w)?;
                 y.serialize(w)?;
             }
 
-            &EdDSA { ref curve, ref q } => {
+            EdDSA { ref curve, ref q } => {
                 write_field_with_u8_size(w, "Curve's OID", curve.oid())?;
                 q.serialize(w)?;
             }
 
-            &ECDSA { ref curve, ref q } => {
+            ECDSA { ref curve, ref q } => {
                 write_field_with_u8_size(w, "Curve's OID", curve.oid())?;
                 q.serialize(w)?;
             }
 
-            &ECDH { ref curve, ref q, hash, sym } => {
+            ECDH { ref curve, ref q, hash, sym } => {
                 write_field_with_u8_size(w, "Curve's OID", curve.oid())?;
                 q.serialize(w)?;
-                w.write_all(&[3u8, 1u8, u8::from(hash), u8::from(sym)])?;
+                w.write_all(&[3u8, 1u8, u8::from(*hash), u8::from(*sym)])?;
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
                 }
@@ -983,32 +987,32 @@ impl MarshalInto for crypto::mpi::PublicKey {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpi::PublicKey::*;
         match self {
-            &RSA { ref e, ref n } => {
+            RSA { ref e, ref n } => {
                 n.serialized_len() + e.serialized_len()
             }
 
-            &DSA { ref p, ref q, ref g, ref y } => {
+            DSA { ref p, ref q, ref g, ref y } => {
                 p.serialized_len() + q.serialized_len() + g.serialized_len()
                     + y.serialized_len()
             }
 
-            &ElGamal { ref p, ref g, ref y } => {
+            ElGamal { ref p, ref g, ref y } => {
                 p.serialized_len() + g.serialized_len() + y.serialized_len()
             }
 
-            &EdDSA { ref curve, ref q } => {
+            EdDSA { ref curve, ref q } => {
                 1 + curve.oid().len() + q.serialized_len()
             }
 
-            &ECDSA { ref curve, ref q } => {
+            ECDSA { ref curve, ref q } => {
                 1 + curve.oid().len() + q.serialized_len()
             }
 
-            &ECDH { ref curve, ref q, hash: _, sym: _ } => {
+            ECDH { ref curve, ref q, hash: _, sym: _ } => {
                 1 + curve.oid().len() + q.serialized_len() + 4
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
@@ -1026,34 +1030,34 @@ impl Marshal for crypto::mpi::SecretKeyMaterial {
         use crate::crypto::mpi::SecretKeyMaterial::*;
 
         match self {
-            &RSA{ ref d, ref p, ref q, ref u } => {
+            RSA{ ref d, ref p, ref q, ref u } => {
                 d.serialize(w)?;
                 p.serialize(w)?;
                 q.serialize(w)?;
                 u.serialize(w)?;
             }
 
-            &DSA{ ref x } => {
+            DSA{ ref x } => {
                 x.serialize(w)?;
             }
 
-            &ElGamal{ ref x } => {
+            ElGamal{ ref x } => {
                 x.serialize(w)?;
             }
 
-            &EdDSA{ ref scalar } => {
+            EdDSA{ ref scalar } => {
                 scalar.serialize(w)?;
             }
 
-            &ECDSA{ ref scalar } => {
+            ECDSA{ ref scalar } => {
                 scalar.serialize(w)?;
             }
 
-            &ECDH{ ref scalar } => {
+            ECDH{ ref scalar } => {
                 scalar.serialize(w)?;
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
                 }
@@ -1069,32 +1073,32 @@ impl MarshalInto for crypto::mpi::SecretKeyMaterial {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpi::SecretKeyMaterial::*;
         match self {
-            &RSA{ ref d, ref p, ref q, ref u } => {
+            RSA{ ref d, ref p, ref q, ref u } => {
                 d.serialized_len() + p.serialized_len() + q.serialized_len()
                     + u.serialized_len()
             }
 
-            &DSA{ ref x } => {
+            DSA{ ref x } => {
                 x.serialized_len()
             }
 
-            &ElGamal{ ref x } => {
+            ElGamal{ ref x } => {
                 x.serialized_len()
             }
 
-            &EdDSA{ ref scalar } => {
+            EdDSA{ ref scalar } => {
                 scalar.serialized_len()
             }
 
-            &ECDSA{ ref scalar } => {
+            ECDSA{ ref scalar } => {
                 scalar.serialized_len()
             }
 
-            &ECDH{ ref scalar } => {
+            ECDH{ ref scalar } => {
                 scalar.serialized_len()
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
@@ -1142,21 +1146,21 @@ impl Marshal for crypto::mpi::Ciphertext {
         use crate::crypto::mpi::Ciphertext::*;
 
         match self {
-            &RSA{ ref c } => {
+            RSA{ ref c } => {
                 c.serialize(w)?;
             }
 
-            &ElGamal{ ref e, ref c } => {
+            ElGamal{ ref e, ref c } => {
                 e.serialize(w)?;
                 c.serialize(w)?;
             }
 
-            &ECDH{ ref e, ref key } => {
+            ECDH{ ref e, ref key } => {
                 e.serialize(w)?;
                 write_field_with_u8_size(w, "Key", key)?;
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
                 }
@@ -1172,19 +1176,19 @@ impl MarshalInto for crypto::mpi::Ciphertext {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpi::Ciphertext::*;
         match self {
-            &RSA{ ref c } => {
+            RSA{ ref c } => {
                 c.serialized_len()
             }
 
-            &ElGamal{ ref e, ref c } => {
+            ElGamal{ ref e, ref c } => {
                 e.serialized_len() + c.serialized_len()
             }
 
-            &ECDH{ ref e, ref key } => {
+            ECDH{ ref e, ref key } => {
                 e.serialized_len() + 1 + key.len()
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
@@ -1202,27 +1206,27 @@ impl Marshal for crypto::mpi::Signature {
         use crate::crypto::mpi::Signature::*;
 
         match self {
-            &RSA { ref s } => {
+            RSA { ref s } => {
                 s.serialize(w)?;
             }
-            &DSA { ref r, ref s } => {
+            DSA { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &ElGamal { ref r, ref s } => {
+            ElGamal { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &EdDSA { ref r, ref s } => {
+            EdDSA { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &ECDSA { ref r, ref s } => {
+            ECDSA { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
                 }
@@ -1238,23 +1242,23 @@ impl MarshalInto for crypto::mpi::Signature {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpi::Signature::*;
         match self {
-            &RSA { ref s } => {
+            RSA { ref s } => {
                 s.serialized_len()
             }
-            &DSA { ref r, ref s } => {
+            DSA { ref r, ref s } => {
                 r.serialized_len() + s.serialized_len()
             }
-            &ElGamal { ref r, ref s } => {
+            ElGamal { ref r, ref s } => {
                 r.serialized_len() + s.serialized_len()
             }
-            &EdDSA { ref r, ref s } => {
+            EdDSA { ref r, ref s } => {
                 r.serialized_len() + s.serialized_len()
             }
-            &ECDSA { ref r, ref s } => {
+            ECDSA { ref r, ref s } => {
                 r.serialized_len() + s.serialized_len()
             }
 
-            &Unknown { ref mpis, ref rest } => {
+            Unknown { ref mpis, ref rest } => {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
@@ -1590,13 +1594,13 @@ impl seal::Sealed for Signature {}
 impl Marshal for Signature {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &Signature::V4(ref s) => s.serialize(o),
+            Signature::V4(ref s) => s.serialize(o),
         }
     }
 
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &Signature::V4(ref s) => s.export(o),
+            Signature::V4(ref s) => s.export(o),
         }
     }
 }
@@ -1604,25 +1608,25 @@ impl Marshal for Signature {
 impl MarshalInto for Signature {
     fn serialized_len(&self) -> usize {
         match self {
-            &Signature::V4(ref s) => s.serialized_len(),
+            Signature::V4(ref s) => s.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &Signature::V4(ref s) => s.serialize_into(buf),
+            Signature::V4(ref s) => s.serialize_into(buf),
         }
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &Signature::V4(ref s) => s.export_into(buf),
+            Signature::V4(ref s) => s.export_into(buf),
         }
     }
 
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         match self {
-            &Signature::V4(ref s) => s.export_to_vec(),
+            Signature::V4(ref s) => s.export_to_vec(),
         }
     }
 }
@@ -1714,7 +1718,7 @@ impl seal::Sealed for OnePassSig {}
 impl Marshal for OnePassSig {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &OnePassSig::V3(ref s) => s.serialize(o),
+            OnePassSig::V3(ref s) => s.serialize(o),
         }
     }
 }
@@ -1722,13 +1726,13 @@ impl Marshal for OnePassSig {
 impl MarshalInto for OnePassSig {
     fn serialized_len(&self) -> usize {
         match self {
-            &OnePassSig::V3(ref s) => s.serialized_len(),
+            OnePassSig::V3(ref s) => s.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &OnePassSig::V3(ref s) => s.serialize_into(buf),
+            OnePassSig::V3(ref s) => s.serialize_into(buf),
         }
     }
 }
@@ -1772,7 +1776,7 @@ impl<P: key::KeyParts, R: key::KeyRole> seal::Sealed for Key<P, R> {}
 impl<P: key::KeyParts, R: key::KeyRole> Marshal for Key<P, R> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         match self {
-            &Key::V4(ref p) => p.serialize(o),
+            Key::V4(ref p) => p.serialize(o),
         }
     }
 }
@@ -1780,13 +1784,13 @@ impl<P: key::KeyParts, R: key::KeyRole> Marshal for Key<P, R> {
 impl<P: key::KeyParts, R: key::KeyRole> MarshalInto for Key<P, R> {
     fn serialized_len(&self) -> usize {
         match self {
-            &Key::V4(ref p) => p.serialized_len(),
+            Key::V4(ref p) => p.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &Key::V4(ref p) => p.serialize_into(buf),
+            Key::V4(ref p) => p.serialize_into(buf),
         }
     }
 }
@@ -2244,7 +2248,7 @@ impl seal::Sealed for PKESK {}
 impl Marshal for PKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &PKESK::V3(ref p) => p.serialize(o),
+            PKESK::V3(ref p) => p.serialize(o),
         }
     }
 }
@@ -2252,7 +2256,7 @@ impl Marshal for PKESK {
 impl MarshalInto for PKESK {
     fn serialized_len(&self) -> usize {
         match self {
-            &PKESK::V3(ref p) => p.serialized_len(),
+            PKESK::V3(ref p) => p.serialized_len(),
         }
     }
 
@@ -2299,8 +2303,8 @@ impl seal::Sealed for SKESK {}
 impl Marshal for SKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &SKESK::V4(ref s) => s.serialize(o),
-            &SKESK::V5(ref s) => s.serialize(o),
+            SKESK::V4(ref s) => s.serialize(o),
+            SKESK::V5(ref s) => s.serialize(o),
         }
     }
 }
@@ -2308,8 +2312,8 @@ impl Marshal for SKESK {
 impl NetLength for SKESK {
     fn net_len(&self) -> usize {
         match self {
-            &SKESK::V4(ref s) => s.net_len(),
-            &SKESK::V5(ref s) => s.net_len(),
+            SKESK::V4(ref s) => s.net_len(),
+            SKESK::V5(ref s) => s.net_len(),
         }
     }
 }
@@ -2317,8 +2321,8 @@ impl NetLength for SKESK {
 impl MarshalInto for SKESK {
     fn serialized_len(&self) -> usize {
         match self {
-            &SKESK::V4(ref s) => s.serialized_len(),
-            &SKESK::V5(ref s) => s.serialized_len(),
+            SKESK::V4(ref s) => s.serialized_len(),
+            SKESK::V5(ref s) => s.serialized_len(),
         }
     }
 
@@ -2472,7 +2476,7 @@ impl seal::Sealed for AED {}
 impl Marshal for AED {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
-            &AED::V1(ref p) => p.serialize(o),
+            AED::V1(ref p) => p.serialize(o),
         }
     }
 }
@@ -2480,13 +2484,13 @@ impl Marshal for AED {
 impl MarshalInto for AED {
     fn serialized_len(&self) -> usize {
         match self {
-            &AED::V1(ref p) => p.serialized_len(),
+            AED::V1(ref p) => p.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &AED::V1(ref p) => p.serialize_into(buf),
+            AED::V1(ref p) => p.serialize_into(buf),
         }
     }
 }
@@ -2572,24 +2576,24 @@ impl Marshal for Packet {
 
         BodyLength::Full(self.net_len() as u32).serialize(o)?;
         match self {
-            &Packet::Unknown(ref p) => p.serialize(o),
-            &Packet::Signature(ref p) => p.serialize(o),
-            &Packet::OnePassSig(ref p) => p.serialize(o),
-            &Packet::PublicKey(ref p) => p.serialize(o),
-            &Packet::PublicSubkey(ref p) => p.serialize(o),
-            &Packet::SecretKey(ref p) => p.serialize(o),
-            &Packet::SecretSubkey(ref p) => p.serialize(o),
-            &Packet::Marker(ref p) => p.serialize(o),
-            &Packet::Trust(ref p) => p.serialize(o),
-            &Packet::UserID(ref p) => p.serialize(o),
-            &Packet::UserAttribute(ref p) => p.serialize(o),
-            &Packet::Literal(ref p) => p.serialize(o),
-            &Packet::CompressedData(_) => unreachable!("handled above"),
-            &Packet::PKESK(ref p) => p.serialize(o),
-            &Packet::SKESK(ref p) => p.serialize(o),
-            &Packet::SEIP(ref p) => p.serialize(o),
-            &Packet::MDC(ref p) => p.serialize(o),
-            &Packet::AED(ref p) => p.serialize(o),
+            Packet::Unknown(ref p) => p.serialize(o),
+            Packet::Signature(ref p) => p.serialize(o),
+            Packet::OnePassSig(ref p) => p.serialize(o),
+            Packet::PublicKey(ref p) => p.serialize(o),
+            Packet::PublicSubkey(ref p) => p.serialize(o),
+            Packet::SecretKey(ref p) => p.serialize(o),
+            Packet::SecretSubkey(ref p) => p.serialize(o),
+            Packet::Marker(ref p) => p.serialize(o),
+            Packet::Trust(ref p) => p.serialize(o),
+            Packet::UserID(ref p) => p.serialize(o),
+            Packet::UserAttribute(ref p) => p.serialize(o),
+            Packet::Literal(ref p) => p.serialize(o),
+            Packet::CompressedData(_) => unreachable!("handled above"),
+            Packet::PKESK(ref p) => p.serialize(o),
+            Packet::SKESK(ref p) => p.serialize(o),
+            Packet::SEIP(ref p) => p.serialize(o),
+            Packet::MDC(ref p) => p.serialize(o),
+            Packet::AED(ref p) => p.serialize(o),
         }
     }
 
@@ -2613,24 +2617,24 @@ impl Marshal for Packet {
 
         BodyLength::Full(self.net_len() as u32).export(o)?;
         match self {
-            &Packet::Unknown(ref p) => p.export(o),
-            &Packet::Signature(ref p) => p.export(o),
-            &Packet::OnePassSig(ref p) => p.export(o),
-            &Packet::PublicKey(ref p) => p.export(o),
-            &Packet::PublicSubkey(ref p) => p.export(o),
-            &Packet::SecretKey(ref p) => p.export(o),
-            &Packet::SecretSubkey(ref p) => p.export(o),
-            &Packet::Marker(ref p) => p.export(o),
-            &Packet::Trust(ref p) => p.export(o),
-            &Packet::UserID(ref p) => p.export(o),
-            &Packet::UserAttribute(ref p) => p.export(o),
-            &Packet::Literal(ref p) => p.export(o),
-            &Packet::CompressedData(_) => unreachable!("handled above"),
-            &Packet::PKESK(ref p) => p.export(o),
-            &Packet::SKESK(ref p) => p.export(o),
-            &Packet::SEIP(ref p) => p.export(o),
-            &Packet::MDC(ref p) => p.export(o),
-            &Packet::AED(ref p) => p.export(o),
+            Packet::Unknown(ref p) => p.export(o),
+            Packet::Signature(ref p) => p.export(o),
+            Packet::OnePassSig(ref p) => p.export(o),
+            Packet::PublicKey(ref p) => p.export(o),
+            Packet::PublicSubkey(ref p) => p.export(o),
+            Packet::SecretKey(ref p) => p.export(o),
+            Packet::SecretSubkey(ref p) => p.export(o),
+            Packet::Marker(ref p) => p.export(o),
+            Packet::Trust(ref p) => p.export(o),
+            Packet::UserID(ref p) => p.export(o),
+            Packet::UserAttribute(ref p) => p.export(o),
+            Packet::Literal(ref p) => p.export(o),
+            Packet::CompressedData(_) => unreachable!("handled above"),
+            Packet::PKESK(ref p) => p.export(o),
+            Packet::SKESK(ref p) => p.export(o),
+            Packet::SEIP(ref p) => p.export(o),
+            Packet::MDC(ref p) => p.export(o),
+            Packet::AED(ref p) => p.export(o),
         }
     }
 }
@@ -2638,24 +2642,24 @@ impl Marshal for Packet {
 impl NetLength for Packet {
     fn net_len(&self) -> usize {
         match self {
-            &Packet::Unknown(ref p) => p.net_len(),
-            &Packet::Signature(ref p) => p.net_len(),
-            &Packet::OnePassSig(ref p) => p.net_len(),
-            &Packet::PublicKey(ref p) => p.net_len(),
-            &Packet::PublicSubkey(ref p) => p.net_len(),
-            &Packet::SecretKey(ref p) => p.net_len(),
-            &Packet::SecretSubkey(ref p) => p.net_len(),
-            &Packet::Marker(ref p) => p.net_len(),
-            &Packet::Trust(ref p) => p.net_len(),
-            &Packet::UserID(ref p) => p.net_len(),
-            &Packet::UserAttribute(ref p) => p.net_len(),
-            &Packet::Literal(ref p) => p.net_len(),
-            &Packet::CompressedData(ref p) => p.net_len(),
-            &Packet::PKESK(ref p) => p.net_len(),
-            &Packet::SKESK(ref p) => p.net_len(),
-            &Packet::SEIP(ref p) => p.net_len(),
-            &Packet::MDC(ref p) => p.net_len(),
-            &Packet::AED(ref p) => p.net_len(),
+            Packet::Unknown(ref p) => p.net_len(),
+            Packet::Signature(ref p) => p.net_len(),
+            Packet::OnePassSig(ref p) => p.net_len(),
+            Packet::PublicKey(ref p) => p.net_len(),
+            Packet::PublicSubkey(ref p) => p.net_len(),
+            Packet::SecretKey(ref p) => p.net_len(),
+            Packet::SecretSubkey(ref p) => p.net_len(),
+            Packet::Marker(ref p) => p.net_len(),
+            Packet::Trust(ref p) => p.net_len(),
+            Packet::UserID(ref p) => p.net_len(),
+            Packet::UserAttribute(ref p) => p.net_len(),
+            Packet::Literal(ref p) => p.net_len(),
+            Packet::CompressedData(ref p) => p.net_len(),
+            Packet::PKESK(ref p) => p.net_len(),
+            Packet::SKESK(ref p) => p.net_len(),
+            Packet::SEIP(ref p) => p.net_len(),
+            Packet::MDC(ref p) => p.net_len(),
+            Packet::AED(ref p) => p.net_len(),
         }
     }
 }

@@ -92,10 +92,10 @@ pub enum Policy {
 impl fmt::Display for Policy {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
-            &Policy::Offline    => "Offline",
-            &Policy::Anonymized => "Anonymized",
-            &Policy::Encrypted  => "Encrypted",
-            &Policy::Insecure   => "Insecure",
+            Policy::Offline    => "Offline",
+            Policy::Anonymized => "Anonymized",
+            Policy::Encrypted  => "Encrypted",
+            Policy::Insecure   => "Insecure",
         })
     }
 }
@@ -115,10 +115,10 @@ impl Policy {
 impl<'a> From<&'a Policy> for u8 {
     fn from(policy: &Policy) -> Self {
         match policy {
-            &Policy::Offline    => 0,
-            &Policy::Anonymized => 1,
-            &Policy::Encrypted  => 2,
-            &Policy::Insecure   => 3,
+            Policy::Offline    => 0,
+            Policy::Anonymized => 1,
+            Policy::Encrypted  => 2,
+            Policy::Insecure   => 3,
         }
     }
 }

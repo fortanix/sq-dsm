@@ -1201,19 +1201,19 @@ impl fmt::Debug for node::Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "node::Error::{}",
                match self {
-                   &node::Error::Unspecified => "Unspecified",
-                   &node::Error::NotFound => "NotFound",
-                   &node::Error::Conflict => "Conflict",
-                   &node::Error::SystemError => "SystemError",
-                   &node::Error::MalformedCert => "MalformedCert",
-                   &node::Error::MalformedFingerprint => "MalformedFingerprint",
-                   &node::Error::NetworkPolicyViolationOffline =>
+                   node::Error::Unspecified => "Unspecified",
+                   node::Error::NotFound => "NotFound",
+                   node::Error::Conflict => "Conflict",
+                   node::Error::SystemError => "SystemError",
+                   node::Error::MalformedCert => "MalformedCert",
+                   node::Error::MalformedFingerprint => "MalformedFingerprint",
+                   node::Error::NetworkPolicyViolationOffline =>
                        "NetworkPolicyViolation(Offline)",
-                   &node::Error::NetworkPolicyViolationAnonymized =>
+                   node::Error::NetworkPolicyViolationAnonymized =>
                        "NetworkPolicyViolation(Anonymized)",
-                   &node::Error::NetworkPolicyViolationEncrypted =>
+                   node::Error::NetworkPolicyViolationEncrypted =>
                        "NetworkPolicyViolation(Encrypted)",
-                   &node::Error::NetworkPolicyViolationInsecure =>
+                   node::Error::NetworkPolicyViolationInsecure =>
                        "NetworkPolicyViolation(Insecure)",
                })
     }
@@ -1238,7 +1238,7 @@ impl From<anyhow::Error> for node::Error {
     fn from(e: anyhow::Error) -> Self {
         if let Some(e) = e.downcast_ref::<openpgp::Error>() {
             return match e {
-                &openpgp::Error::MalformedCert(_) =>
+                openpgp::Error::MalformedCert(_) =>
                     node::Error::MalformedCert,
                 _ => node::Error::SystemError,
             }
@@ -1246,15 +1246,15 @@ impl From<anyhow::Error> for node::Error {
 
         if let Some(e) = e.downcast_ref::<super::Error>() {
             return match e {
-                &super::Error::NotFound => node::Error::NotFound,
-                &super::Error::Conflict => node::Error::Conflict,
+                super::Error::NotFound => node::Error::NotFound,
+                super::Error::Conflict => node::Error::Conflict,
                 _ => unreachable!(),
             }
         }
 
         if let Some(e) = e.downcast_ref::<net::Error>() {
             return match e {
-                &net::Error::PolicyViolation(p) =>
+                net::Error::PolicyViolation(p) =>
                     match p {
                         net::Policy::Offline =>
                             node::Error::NetworkPolicyViolationOffline,
@@ -1271,12 +1271,12 @@ impl From<anyhow::Error> for node::Error {
 
         if let Some(e) = e.downcast_ref::<rusqlite::Error>() {
             return match e {
-                &rusqlite::Error::SqliteFailure(f, _) => match f.code {
+                rusqlite::Error::SqliteFailure(f, _) => match f.code {
                     rusqlite::ErrorCode::ConstraintViolation =>
                         node::Error::NotFound,
                     _ => node::Error::SystemError,
                 },
-                &rusqlite::Error::QueryReturnedNoRows =>
+                rusqlite::Error::QueryReturnedNoRows =>
                     node::Error::NotFound,
                 _ => node::Error::SystemError,
             }
@@ -1399,10 +1399,10 @@ CREATE TABLE log (
 impl<'a> From<&'a net::Policy> for node::NetworkPolicy {
     fn from(policy: &net::Policy) -> Self {
         match policy {
-            &net::Policy::Offline    => node::NetworkPolicy::Offline,
-            &net::Policy::Anonymized => node::NetworkPolicy::Anonymized,
-            &net::Policy::Encrypted  => node::NetworkPolicy::Encrypted,
-            &net::Policy::Insecure   => node::NetworkPolicy::Insecure,
+            net::Policy::Offline    => node::NetworkPolicy::Offline,
+            net::Policy::Anonymized => node::NetworkPolicy::Anonymized,
+            net::Policy::Encrypted  => node::NetworkPolicy::Encrypted,
+            net::Policy::Insecure   => node::NetworkPolicy::Insecure,
         }
     }
 }

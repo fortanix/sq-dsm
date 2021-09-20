@@ -1447,8 +1447,8 @@ impl Signature4 {
         // The absolute minimum size for the header is 11 bytes (this
         // doesn't include the signature MPIs).
 
-        if let &BodyLength::Full(len) = header.length() {
-            if len < 11 {
+        if let BodyLength::Full(len) = header.length() {
+            if *len < 11 {
                 // Much too short.
                 return Err(
                     Error::MalformedPacket("Packet too short".into()).into());
@@ -2290,8 +2290,8 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
         bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
                  -> Result<()> {
         // The packet's header is 6 bytes.
-        if let &BodyLength::Full(len) = header.length() {
-            if len < 6 {
+        if let BodyLength::Full(len) = header.length() {
+            if *len < 6 {
                 // Much too short.
                 return Err(Error::MalformedPacket(
                     format!("Packet too short ({} bytes)", len)).into());
@@ -2402,7 +2402,8 @@ impl Marker {
                     -> Result<()>
         where T: BufferedReader<Cookie>,
     {
-        if let &BodyLength::Full(len) = header.length() {
+        if let BodyLength::Full(len) = header.length() {
+            let len = *len;
             if len as usize != Marker::BODY.len() {
                 return Err(Error::MalformedPacket(
                     format!("Unexpected packet length {}", len)).into());
@@ -4342,9 +4343,9 @@ impl <'a> PacketParser<'a> {
                 Tag::Literal | Tag::CompressedData | Tag::SED | Tag::SEIP
                     | Tag::AED => (),
                 _ => match header.length() {
-                    &BodyLength::Full(l) => if l > max_size {
+                    BodyLength::Full(l) => if *l > max_size {
                         header_syntax_error = Some(
-                            Error::PacketTooLarge(tag, l, max_size).into());
+                            Error::PacketTooLarge(tag, *l, max_size).into());
                     },
                     _ => unreachable!("non-data packets have full length, \
                                        syntax check above"),

@@ -64,15 +64,15 @@ assert_send_and_sync!(Component);
 impl<'a> From<&'a Token> for Tag {
     fn from(token: &'a Token) -> Self {
         match token {
-            &Token::PublicKey(_) => Tag::PublicKey,
-            &Token::SecretKey(_) => Tag::SecretKey,
-            &Token::PublicSubkey(_) => Tag::PublicSubkey,
-            &Token::SecretSubkey(_) => Tag::SecretSubkey,
-            &Token::UserID(_) => Tag::UserID,
-            &Token::UserAttribute(_) => Tag::UserAttribute,
-            &Token::Signature(_) => Tag::Signature,
-            &Token::Trust(_) => Tag::Trust,
-            &Token::Unknown(tag, _) => tag,
+            Token::PublicKey(_) => Tag::PublicKey,
+            Token::SecretKey(_) => Tag::SecretKey,
+            Token::PublicSubkey(_) => Tag::PublicSubkey,
+            Token::SecretSubkey(_) => Tag::SecretSubkey,
+            Token::UserID(_) => Tag::UserID,
+            Token::UserAttribute(_) => Tag::UserAttribute,
+            Token::Signature(_) => Tag::Signature,
+            Token::Trust(_) => Tag::Trust,
+            Token::Unknown(tag, _) => *tag,
         }
     }
 }

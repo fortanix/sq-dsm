@@ -19,7 +19,7 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
 {
     let mut rng = Yarrow::default();
 
-    if let &PublicKey::ECDH {
+    if let PublicKey::ECDH {
         ref curve, ref q,..
     } = recipient.mpis() {
         match curve {

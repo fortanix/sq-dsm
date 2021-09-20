@@ -330,24 +330,24 @@ impl Packet {
     ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
     pub fn tag(&self) -> Tag {
         match self {
-            &Packet::Unknown(ref packet) => packet.tag(),
-            &Packet::Signature(_) => Tag::Signature,
-            &Packet::OnePassSig(_) => Tag::OnePassSig,
-            &Packet::PublicKey(_) => Tag::PublicKey,
-            &Packet::PublicSubkey(_) => Tag::PublicSubkey,
-            &Packet::SecretKey(_) => Tag::SecretKey,
-            &Packet::SecretSubkey(_) => Tag::SecretSubkey,
-            &Packet::Marker(_) => Tag::Marker,
-            &Packet::Trust(_) => Tag::Trust,
-            &Packet::UserID(_) => Tag::UserID,
-            &Packet::UserAttribute(_) => Tag::UserAttribute,
-            &Packet::Literal(_) => Tag::Literal,
-            &Packet::CompressedData(_) => Tag::CompressedData,
-            &Packet::PKESK(_) => Tag::PKESK,
-            &Packet::SKESK(_) => Tag::SKESK,
-            &Packet::SEIP(_) => Tag::SEIP,
-            &Packet::MDC(_) => Tag::MDC,
-            &Packet::AED(_) => Tag::AED,
+            Packet::Unknown(ref packet) => packet.tag(),
+            Packet::Signature(_) => Tag::Signature,
+            Packet::OnePassSig(_) => Tag::OnePassSig,
+            Packet::PublicKey(_) => Tag::PublicKey,
+            Packet::PublicSubkey(_) => Tag::PublicSubkey,
+            Packet::SecretKey(_) => Tag::SecretKey,
+            Packet::SecretSubkey(_) => Tag::SecretSubkey,
+            Packet::Marker(_) => Tag::Marker,
+            Packet::Trust(_) => Tag::Trust,
+            Packet::UserID(_) => Tag::UserID,
+            Packet::UserAttribute(_) => Tag::UserAttribute,
+            Packet::Literal(_) => Tag::Literal,
+            Packet::CompressedData(_) => Tag::CompressedData,
+            Packet::PKESK(_) => Tag::PKESK,
+            Packet::SKESK(_) => Tag::SKESK,
+            Packet::SEIP(_) => Tag::SEIP,
+            Packet::MDC(_) => Tag::MDC,
+            Packet::AED(_) => Tag::AED,
         }
     }
 
@@ -360,7 +360,7 @@ impl Packet {
     /// whereas `kind()` returns `None`.
     pub fn kind(&self) -> Option<Tag> {
         match self {
-            &Packet::Unknown(_) => None,
+            Packet::Unknown(_) => None,
             _ => Some(self.tag()),
         }
     }
@@ -413,25 +413,25 @@ impl Deref for Packet {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            &Packet::Unknown(ref packet) => &packet.common,
-            &Packet::Signature(ref packet) => &packet.common,
-            &Packet::OnePassSig(ref packet) => &packet.common,
-            &Packet::PublicKey(ref packet) => &packet.common,
-            &Packet::PublicSubkey(ref packet) => &packet.common,
-            &Packet::SecretKey(ref packet) => &packet.common,
-            &Packet::SecretSubkey(ref packet) => &packet.common,
-            &Packet::Marker(ref packet) => &packet.common,
-            &Packet::Trust(ref packet) => &packet.common,
-            &Packet::UserID(ref packet) => &packet.common,
-            &Packet::UserAttribute(ref packet) => &packet.common,
-            &Packet::Literal(ref packet) => &packet.common,
-            &Packet::CompressedData(ref packet) => &packet.common,
-            &Packet::PKESK(ref packet) => &packet.common,
-            &Packet::SKESK(SKESK::V4(ref packet)) => &packet.common,
-            &Packet::SKESK(SKESK::V5(ref packet)) => &packet.skesk4.common,
-            &Packet::SEIP(ref packet) => &packet.common,
-            &Packet::MDC(ref packet) => &packet.common,
-            &Packet::AED(ref packet) => &packet.common,
+            Packet::Unknown(ref packet) => &packet.common,
+            Packet::Signature(ref packet) => &packet.common,
+            Packet::OnePassSig(ref packet) => &packet.common,
+            Packet::PublicKey(ref packet) => &packet.common,
+            Packet::PublicSubkey(ref packet) => &packet.common,
+            Packet::SecretKey(ref packet) => &packet.common,
+            Packet::SecretSubkey(ref packet) => &packet.common,
+            Packet::Marker(ref packet) => &packet.common,
+            Packet::Trust(ref packet) => &packet.common,
+            Packet::UserID(ref packet) => &packet.common,
+            Packet::UserAttribute(ref packet) => &packet.common,
+            Packet::Literal(ref packet) => &packet.common,
+            Packet::CompressedData(ref packet) => &packet.common,
+            Packet::PKESK(ref packet) => &packet.common,
+            Packet::SKESK(SKESK::V4(ref packet)) => &packet.common,
+            Packet::SKESK(SKESK::V5(ref packet)) => &packet.skesk4.common,
+            Packet::SEIP(ref packet) => &packet.common,
+            Packet::MDC(ref packet) => &packet.common,
+            Packet::AED(ref packet) => &packet.common,
         }
     }
 }
@@ -439,25 +439,25 @@ impl Deref for Packet {
 impl DerefMut for Packet {
     fn deref_mut(&mut self) -> &mut Common {
         match self {
-            &mut Packet::Unknown(ref mut packet) => &mut packet.common,
-            &mut Packet::Signature(ref mut packet) => &mut packet.common,
-            &mut Packet::OnePassSig(ref mut packet) => &mut packet.common,
-            &mut Packet::PublicKey(ref mut packet) => &mut packet.common,
-            &mut Packet::PublicSubkey(ref mut packet) => &mut packet.common,
-            &mut Packet::SecretKey(ref mut packet) => &mut packet.common,
-            &mut Packet::SecretSubkey(ref mut packet) => &mut packet.common,
-            &mut Packet::Marker(ref mut packet) => &mut packet.common,
-            &mut Packet::Trust(ref mut packet) => &mut packet.common,
-            &mut Packet::UserID(ref mut packet) => &mut packet.common,
-            &mut Packet::UserAttribute(ref mut packet) => &mut packet.common,
-            &mut Packet::Literal(ref mut packet) => &mut packet.common,
-            &mut Packet::CompressedData(ref mut packet) => &mut packet.common,
-            &mut Packet::PKESK(ref mut packet) => &mut packet.common,
-            &mut Packet::SKESK(SKESK::V4(ref mut packet)) => &mut packet.common,
-            &mut Packet::SKESK(SKESK::V5(ref mut packet)) => &mut packet.skesk4.common,
-            &mut Packet::SEIP(ref mut packet) => &mut packet.common,
-            &mut Packet::MDC(ref mut packet) => &mut packet.common,
-            &mut Packet::AED(ref mut packet) => &mut packet.common,
+            Packet::Unknown(ref mut packet) => &mut packet.common,
+            Packet::Signature(ref mut packet) => &mut packet.common,
+            Packet::OnePassSig(ref mut packet) => &mut packet.common,
+            Packet::PublicKey(ref mut packet) => &mut packet.common,
+            Packet::PublicSubkey(ref mut packet) => &mut packet.common,
+            Packet::SecretKey(ref mut packet) => &mut packet.common,
+            Packet::SecretSubkey(ref mut packet) => &mut packet.common,
+            Packet::Marker(ref mut packet) => &mut packet.common,
+            Packet::Trust(ref mut packet) => &mut packet.common,
+            Packet::UserID(ref mut packet) => &mut packet.common,
+            Packet::UserAttribute(ref mut packet) => &mut packet.common,
+            Packet::Literal(ref mut packet) => &mut packet.common,
+            Packet::CompressedData(ref mut packet) => &mut packet.common,
+            Packet::PKESK(ref mut packet) => &mut packet.common,
+            Packet::SKESK(SKESK::V4(ref mut packet)) => &mut packet.common,
+            Packet::SKESK(SKESK::V5(ref mut packet)) => &mut packet.skesk4.common,
+            Packet::SEIP(ref mut packet) => &mut packet.common,
+            Packet::MDC(ref mut packet) => &mut packet.common,
+            Packet::AED(ref mut packet) => &mut packet.common,
         }
     }
 }
@@ -972,7 +972,7 @@ impl Signature {
     /// Gets the version.
     pub fn version(&self) -> u8 {
         match self {
-            &Signature::V4(_) => 4,
+            Signature::V4(_) => 4,
         }
     }
 }
@@ -1030,7 +1030,7 @@ impl OnePassSig {
     /// Gets the version.
     pub fn version(&self) -> u8 {
         match self {
-            &OnePassSig::V3(_) => 3,
+            OnePassSig::V3(_) => 3,
         }
     }
 }
@@ -1154,8 +1154,8 @@ impl SKESK {
     /// Gets the version.
     pub fn version(&self) -> u8 {
         match self {
-            &SKESK::V4(_) => 4,
-            &SKESK::V5(_) => 5,
+            SKESK::V4(_) => 4,
+            SKESK::V5(_) => 5,
         }
     }
 }

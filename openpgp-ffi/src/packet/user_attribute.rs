@@ -18,7 +18,7 @@ use crate::RefRaw;
 pub extern "C" fn pgp_user_attribute_value(ua: *const Packet,
                                                value_len: Option<&mut size_t>)
                                                -> *const u8 {
-    if let &openpgp::Packet::UserAttribute(ref ua) = ua.ref_raw() {
+    if let openpgp::Packet::UserAttribute(ref ua) = ua.ref_raw() {
         if let Some(p) = value_len {
             *p = ua.value().len();
         }

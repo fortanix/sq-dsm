@@ -40,7 +40,7 @@ pub(crate) fn encrypt_wrap<R>(recipient: &Key<key::PublicParts, R>,
     where R: key::KeyRole
 {
     match recipient.mpis() {
-        &mpi::PublicKey::ECDH { ref curve, ref hash, ref sym,.. } => {
+        mpi::PublicKey::ECDH { ref curve, ref hash, ref sym,.. } => {
             // m = sym_alg_ID || session key || checksum || pkcs5_padding;
             let mut m = Vec::with_capacity(40);
             m.extend_from_slice(session_key);

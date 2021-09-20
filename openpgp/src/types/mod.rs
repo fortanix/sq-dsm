@@ -426,14 +426,14 @@ impl Curve {
     /// ```
     pub fn oid(&self) -> &[u8] {
         match self {
-            &Curve::NistP256 => NIST_P256_OID,
-            &Curve::NistP384 => NIST_P384_OID,
-            &Curve::NistP521 => NIST_P521_OID,
-            &Curve::BrainpoolP256 => BRAINPOOL_P256_OID,
-            &Curve::BrainpoolP512 => BRAINPOOL_P512_OID,
-            &Curve::Ed25519 => ED25519_OID,
-            &Curve::Cv25519 => CV25519_OID,
-            &Curve::Unknown(ref oid) => oid,
+            Curve::NistP256 => NIST_P256_OID,
+            Curve::NistP384 => NIST_P384_OID,
+            Curve::NistP521 => NIST_P521_OID,
+            Curve::BrainpoolP256 => BRAINPOOL_P256_OID,
+            Curve::BrainpoolP512 => BRAINPOOL_P512_OID,
+            Curve::Ed25519 => ED25519_OID,
+            Curve::Cv25519 => CV25519_OID,
+            Curve::Unknown(ref oid) => oid,
         }
     }
 
@@ -457,14 +457,14 @@ impl Curve {
     /// supported.
     pub fn len(&self) -> Result<usize> {
         match self {
-            &Curve::NistP256 => Ok(256),
-            &Curve::NistP384 => Ok(384),
-            &Curve::NistP521 => Ok(521),
-            &Curve::BrainpoolP256 => Ok(256),
-            &Curve::BrainpoolP512 => Ok(512),
-            &Curve::Ed25519 => Ok(256),
-            &Curve::Cv25519 => Ok(256),
-            &Curve::Unknown(_) =>
+            Curve::NistP256 => Ok(256),
+            Curve::NistP384 => Ok(384),
+            Curve::NistP521 => Ok(521),
+            Curve::BrainpoolP256 => Ok(256),
+            Curve::BrainpoolP512 => Ok(512),
+            Curve::Ed25519 => Ok(256),
+            Curve::Cv25519 => Ok(256),
+            Curve::Unknown(_) =>
                 Err(Error::UnsupportedEllipticCurve(self.clone())
                     .into()),
         }

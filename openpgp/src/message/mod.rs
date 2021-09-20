@@ -408,7 +408,7 @@ impl Message {
     /// ```
     pub fn body(&self) -> Option<&Literal> {
         for packet in self.pile.descendants() {
-            if let &Packet::Literal(ref l) = packet {
+            if let Packet::Literal(ref l) = packet {
                 return Some(l);
             }
         }

@@ -30,8 +30,8 @@ impl SKESK {
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
         match self {
-            &SKESK::V4(ref s) => s.decrypt(password),
-            &SKESK::V5(ref s) => s.decrypt(password),
+            SKESK::V4(ref s) => s.decrypt(password),
+            SKESK::V5(ref s) => s.decrypt(password),
         }
     }
 }

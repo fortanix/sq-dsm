@@ -291,9 +291,9 @@ pub enum IPCPolicy {
 impl<'a> From<&'a IPCPolicy> for u8 {
     fn from(policy: &IPCPolicy) -> Self {
         match policy {
-            &IPCPolicy::External => 0,
-            &IPCPolicy::Internal => 1,
-            &IPCPolicy::Robust => 2,
+            IPCPolicy::External => 0,
+            IPCPolicy::Internal => 1,
+            IPCPolicy::Robust => 2,
         }
     }
 }

@@ -521,13 +521,13 @@ impl PublicKey {
     pub fn bits(&self) -> Option<usize> {
         use self::PublicKey::*;
         match self {
-            &RSA { ref n,.. } => Some(n.bits()),
-            &DSA { ref p,.. } => Some(p.bits()),
-            &ElGamal { ref p,.. } => Some(p.bits()),
-            &EdDSA { ref curve,.. } => curve.bits(),
-            &ECDSA { ref curve,.. } => curve.bits(),
-            &ECDH { ref curve,.. } => curve.bits(),
-            &Unknown { .. } => None,
+            RSA { ref n,.. } => Some(n.bits()),
+            DSA { ref p,.. } => Some(p.bits()),
+            ElGamal { ref p,.. } => Some(p.bits()),
+            EdDSA { ref curve,.. } => curve.bits(),
+            ECDSA { ref curve,.. } => curve.bits(),
+            ECDH { ref curve,.. } => curve.bits(),
+            Unknown { .. } => None,
         }
     }
 
@@ -671,36 +671,36 @@ impl fmt::Debug for SecretKeyMaterial {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if cfg!(debug_assertions) {
             match self {
-                &SecretKeyMaterial::RSA{ ref d, ref p, ref q, ref u } =>
+                SecretKeyMaterial::RSA{ ref d, ref p, ref q, ref u } =>
                     write!(f, "RSA {{ d: {:?}, p: {:?}, q: {:?}, u: {:?} }}", d, p, q, u),
-                &SecretKeyMaterial::DSA{ ref x } =>
+                SecretKeyMaterial::DSA{ ref x } =>
                     write!(f, "DSA {{ x: {:?} }}", x),
-                &SecretKeyMaterial::ElGamal{ ref x } =>
+                SecretKeyMaterial::ElGamal{ ref x } =>
                     write!(f, "ElGamal {{ x: {:?} }}", x),
-                &SecretKeyMaterial::EdDSA{ ref scalar } =>
+                SecretKeyMaterial::EdDSA{ ref scalar } =>
                     write!(f, "EdDSA {{ scalar: {:?} }}", scalar),
-                &SecretKeyMaterial::ECDSA{ ref scalar } =>
+                SecretKeyMaterial::ECDSA{ ref scalar } =>
                     write!(f, "ECDSA {{ scalar: {:?} }}", scalar),
-                &SecretKeyMaterial::ECDH{ ref scalar } =>
+                SecretKeyMaterial::ECDH{ ref scalar } =>
                     write!(f, "ECDH {{ scalar: {:?} }}", scalar),
-                &SecretKeyMaterial::Unknown{ ref mpis, ref rest } =>
+                SecretKeyMaterial::Unknown{ ref mpis, ref rest } =>
                     write!(f, "Unknown {{ mips: {:?}, rest: {:?} }}", mpis, rest),
             }
         } else {
             match self {
-                &SecretKeyMaterial::RSA{ .. } =>
+                SecretKeyMaterial::RSA{ .. } =>
                     f.write_str("RSA { <Redacted> }"),
-                &SecretKeyMaterial::DSA{ .. } =>
+                SecretKeyMaterial::DSA{ .. } =>
                     f.write_str("DSA { <Redacted> }"),
-                &SecretKeyMaterial::ElGamal{ .. } =>
+                SecretKeyMaterial::ElGamal{ .. } =>
                     f.write_str("ElGamal { <Redacted> }"),
-                &SecretKeyMaterial::EdDSA{ .. } =>
+                SecretKeyMaterial::EdDSA{ .. } =>
                     f.write_str("EdDSA { <Redacted> }"),
-                &SecretKeyMaterial::ECDSA{ .. } =>
+                SecretKeyMaterial::ECDSA{ .. } =>
                     f.write_str("ECDSA { <Redacted> }"),
-                &SecretKeyMaterial::ECDH{ .. } =>
+                SecretKeyMaterial::ECDH{ .. } =>
                     f.write_str("ECDH { <Redacted> }"),
-                &SecretKeyMaterial::Unknown{ .. } =>
+                SecretKeyMaterial::Unknown{ .. } =>
                     f.write_str("Unknown { <Redacted> }"),
             }
         }
@@ -713,13 +713,13 @@ impl PartialOrd for SecretKeyMaterial {
 
         fn discriminant(sk: &SecretKeyMaterial) -> usize {
             match sk {
-                &SecretKeyMaterial::RSA{ .. } => 0,
-                &SecretKeyMaterial::DSA{ .. } => 1,
-                &SecretKeyMaterial::ElGamal{ .. } => 2,
-                &SecretKeyMaterial::EdDSA{ .. } => 3,
-                &SecretKeyMaterial::ECDSA{ .. } => 4,
-                &SecretKeyMaterial::ECDH{ .. } => 5,
-                &SecretKeyMaterial::Unknown{ .. } => 6,
+                SecretKeyMaterial::RSA{ .. } => 0,
+                SecretKeyMaterial::DSA{ .. } => 1,
+                SecretKeyMaterial::ElGamal{ .. } => 2,
+                SecretKeyMaterial::EdDSA{ .. } => 3,
+                SecretKeyMaterial::ECDSA{ .. } => 4,
+                SecretKeyMaterial::ECDH{ .. } => 5,
+                SecretKeyMaterial::Unknown{ .. } => 6,
             }
         }
 
@@ -928,10 +928,10 @@ impl Ciphertext {
         // plus the big endian value itself. All other field types are
         // commented.
         match self {
-            &RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
-            &ElGamal { .. } => Some(PublicKeyAlgorithm::ElGamalEncrypt),
-            &ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
-            &Unknown { .. } => None,
+            RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
+            ElGamal { .. } => Some(PublicKeyAlgorithm::ElGamalEncrypt),
+            ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
+            Unknown { .. } => None,
         }
     }
 }
