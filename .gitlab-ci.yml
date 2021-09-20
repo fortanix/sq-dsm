@@ -23,6 +23,7 @@ build-bullseye:
   dependencies:
     - codespell
   script:
+    - cargo run --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-nettle,compression --example supported-algorithms
     - $MAKE_TOP
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
     - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
@@ -272,6 +273,7 @@ windows-msvc:
     - cargo --version
   script:
     # https://github.com/rust-lang/cargo/issues/5015
+    - cargo run --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression --example supported-algorithms
     - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression
     - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
