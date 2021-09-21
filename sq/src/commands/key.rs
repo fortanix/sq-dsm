@@ -243,7 +243,7 @@ fn password(config: Config, m: &ArgMatches) -> Result<()> {
             return Err(anyhow::anyhow!("Passwords do not match"));
         }
 
-        if prompt_0.len() == 0 {
+        if prompt_0.is_empty() {
             // Empty password means no password.
             None
         } else {
