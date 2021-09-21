@@ -834,7 +834,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
                 writeln!(sink, "  {}. {}, {:?}", i, r, cookie)?;
             }
             reader = r.get_ref();
-            i = i + 1;
+            i += 1;
         }
         Ok(())
     }

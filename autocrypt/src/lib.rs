@@ -471,7 +471,7 @@ impl AutocryptSetupMessage {
             }
 
             p.push(b'0' + ((p_as_u128 as u8) % 10));
-            p_as_u128 = p_as_u128 / 10;
+            p_as_u128 /= 10;
         }
 
         p.into()

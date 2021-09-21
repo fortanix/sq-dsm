@@ -4254,7 +4254,7 @@ impl <'a> PacketParser<'a> {
                 }
             }
 
-            skip = skip + 1;
+            skip += 1;
         }
 
         // Prepare to actually consume the header or garbage.

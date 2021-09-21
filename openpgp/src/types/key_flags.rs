@@ -137,7 +137,7 @@ impl BitOr for &KeyFlags {
 
         let mut l = l.to_vec();
         for (i, r) in r.into_iter().enumerate() {
-            l[i] = l[i] | r;
+            l[i] |= r;
         }
 
         KeyFlags(l.into())
