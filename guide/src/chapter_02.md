@@ -601,7 +601,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
         // XXX: In production code, return the Fingerprint of the
         // recipient's Cert here
-		Ok(None)
+        Ok(None)
     }
 }
 ```
