@@ -800,6 +800,7 @@ impl<'a> Reader<'a> {
 
 impl<'a> Reader<'a> {
     /// Consumes the header if not already done.
+    #[allow(clippy::nonminimal_bool)]
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
