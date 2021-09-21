@@ -102,7 +102,7 @@ impl<'a> Helper<'a> {
                 if self.dump_session_key {
                     eprintln!("Session key: {}", hex::encode(&sk));
                 }
-                Some(self.key_identities.get(&keyid).map(|fp| fp.clone()))
+                Some(self.key_identities.get(&keyid).cloned())
             },
             None => None,
         }
@@ -115,7 +115,7 @@ impl<'a> VerificationHelper for Helper<'a> {
             dumper.packet(&mut io::stderr(),
                           pp.recursion_depth() as usize,
                           pp.header().clone(), pp.packet.clone(),
-                          pp.map().map(|m| m.clone()), None)?;
+                          pp.map().cloned(), None)?;
         }
         Ok(())
     }
