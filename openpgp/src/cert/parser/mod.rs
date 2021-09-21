@@ -783,7 +783,7 @@ impl<'a> CertParser<'a> {
     // Returns the old state.  Note: the packet iterator is preserved.
     fn reset(&mut self) -> Self {
         // We need to preserve `source` and `filter`.
-        let mut orig = mem::replace(self, Default::default());
+        let mut orig = mem::take(self);
         self.source = orig.source.take();
         mem::swap(&mut self.filter, &mut orig.filter);
         orig

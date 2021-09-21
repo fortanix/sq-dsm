@@ -370,8 +370,7 @@ pub(crate) fn hash_buffered_reader<R>(reader: R,
     reader.drop_eof()?;
 
     let hashes =
-        mem::replace(&mut reader.cookie_mut().sig_group_mut().hashes,
-                     Default::default());
+        mem::take(&mut reader.cookie_mut().sig_group_mut().hashes);
     Ok(hashes)
 }
 
