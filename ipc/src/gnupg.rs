@@ -708,7 +708,7 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
                             (), // Ignore.
                         assuan::Response::Status { ref keyword, ref message } =>
                             if keyword == "PADDING" {
-                                *padding = &message != &"0";
+                                *padding = message != "0";
                             },
                         assuan::Response::Error { ref message, .. } =>
                             return Poll::Ready(operation_failed(message)),

@@ -512,7 +512,7 @@ impl SKESK5 {
             let mut digest = vec![0; self.aead_algo.digest_size()?];
             cipher.decrypt(&mut plain, esk);
             cipher.digest(&mut digest);
-            if &digest[..] == &self.aead_digest[..] {
+            if digest[..] == self.aead_digest[..] {
                 Ok((SymmetricAlgorithm::Unencrypted, plain))
             } else {
                 Err(Error::ManipulatedMessage.into())

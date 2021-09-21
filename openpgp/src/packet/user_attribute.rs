@@ -182,7 +182,7 @@ impl<'a> Iterator for SubpacketIterator<'a> {
         match typ {
             // Image.
             1 => if raw.len() >= 16 &&
-                    &raw[..3] == &[0x10, 0x00, 0x01]
+                    raw[..3] == [0x10, 0x00, 0x01]
                     && raw[4..16].iter().all(|b| *b == 0)
             {
                 let image_kind = raw[3];
