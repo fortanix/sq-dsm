@@ -162,7 +162,7 @@ impl Manifest {
 
                 read += n;
                 if read == 4 {
-                    prefixes.insert(u32::from_be_bytes(prefix.clone()));
+                    prefixes.insert(u32::from_be_bytes(prefix));
                     continue 'parse;
                 }
             }
