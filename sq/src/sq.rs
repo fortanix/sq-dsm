@@ -137,8 +137,8 @@ fn load_keys<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
         let cert = Cert::from_file(f)
             .context(format!("Failed to load key from file {:?}", f))?;
         if ! cert.is_tsk() {
-            Err(anyhow::anyhow!(
-                "Cert in file {:?} does not contain secret keys", f))?;
+            return Err(anyhow::anyhow!(
+                "Cert in file {:?} does not contain secret keys", f));
         }
         certs.push(cert);
     }

@@ -91,9 +91,9 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
                 serialize_keyring(&mut output, &certs,
                                   m.is_present("binary"))?;
             } else {
-                Err(anyhow::anyhow!(
+                return Err(anyhow::anyhow!(
                     "Query must be a fingerprint, a keyid, \
-                     or an email address: {:?}", query))?;
+                     or an email address: {:?}", query));
             }
         },
         ("send",  Some(m)) => {
