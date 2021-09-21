@@ -161,7 +161,8 @@ impl PKESK3 {
 
         if key_rgn.len() != sym_algo.key_size()? {
             return Err(Error::MalformedPacket(
-                format!("session key has the wrong size")).into());
+                format!("session key has the wrong size (got: {}, expected: {})",
+                        key_rgn.len(), sym_algo.key_size()?)).into())
         }
 
         key.copy_from_slice(&plain[key_rgn]);
@@ -174,7 +175,7 @@ impl PKESK3 {
         if their_checksum == our_checksum {
             Ok((sym_algo, key))
         } else {
-            Err(Error::MalformedPacket(format!("key checksum wrong"))
+            Err(Error::MalformedPacket("key checksum wrong".to_string())
                 .into())
         }
     }

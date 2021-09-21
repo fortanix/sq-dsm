@@ -5185,11 +5185,11 @@ impl<'a> PacketParser<'a> {
 
         if self.content_was_read {
             return Err(Error::InvalidOperation(
-                format!("Packet's content has already been read.")).into());
+                "Packet's content has already been read.".to_string()).into());
         }
         if ! self.encrypted {
             return Err(Error::InvalidOperation(
-                format!("Packet not encrypted.")).into());
+                "Packet not encrypted.".to_string()).into());
         }
 
         if algo.key_size()? != key.len () {
