@@ -249,7 +249,7 @@ impl TryFrom<signature::SignatureBuilder> for CertRevocationBuilder {
             return Err(
                 crate::Error::InvalidArgument(
                     format!("Expected signature type to be KeyRevocation but got {}",
-                            builder.typ()).into()).into());
+                            builder.typ())).into());
         }
         Ok(Self {
             builder
@@ -493,7 +493,7 @@ impl TryFrom<signature::SignatureBuilder> for SubkeyRevocationBuilder {
             return Err(
                 crate::Error::InvalidArgument(
                     format!("Expected signature type to be SubkeyRevocation but got {}",
-                            builder.typ()).into()).into());
+                            builder.typ())).into());
         }
         Ok(Self {
             builder
@@ -745,7 +745,7 @@ impl TryFrom<signature::SignatureBuilder> for UserIDRevocationBuilder {
             return Err(
                 crate::Error::InvalidArgument(
                     format!("Expected signature type to be CertificationRevocation but got {}",
-                            builder.typ()).into()).into());
+                            builder.typ())).into());
         }
         Ok(Self {
             builder
@@ -1011,7 +1011,7 @@ impl TryFrom<signature::SignatureBuilder> for UserAttributeRevocationBuilder {
             return Err(
                 crate::Error::InvalidArgument(
                     format!("Expected signature type to be CertificationRevocation but got {}",
-                            builder.typ()).into()).into());
+                            builder.typ())).into());
         }
         Ok(Self {
             builder
