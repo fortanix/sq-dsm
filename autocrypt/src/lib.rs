@@ -265,9 +265,8 @@ impl AutocryptHeaders {
             const AUTOCRYPT_GOSSIP : &str = "Autocrypt-Gossip: ";
             const FROM : &str = "From: ";
 
-            if line.starts_with(FROM) {
-                headers.from
-                    = Some(line[FROM.len()..].trim_matches(' ').into());
+            if let Some(rest) = line.strip_prefix(FROM) {
+                headers.from = Some(rest.trim_matches(' ').into());
             } else if line.starts_with(AUTOCRYPT) || line.starts_with(AUTOCRYPT_GOSSIP) {
                 headers.headers.push(Self::decode_autocrypt_like_header(&line));
             }
