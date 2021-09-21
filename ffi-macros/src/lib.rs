@@ -405,7 +405,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
     const C_TYPE_NAME_LEN: usize = 48;
     let c_type_name_type = syn::parse_quote!([u8; #C_TYPE_NAME_LEN]);
     let mut c_type_name_padded = [0u8; C_TYPE_NAME_LEN];
-    &mut c_type_name_padded[..::std::cmp::min(C_TYPE_NAME_LEN,
+    c_type_name_padded[..::std::cmp::min(C_TYPE_NAME_LEN,
                                               c_type_name.as_bytes().len())]
         .copy_from_slice(c_type_name.as_bytes());
     let c_type_name_padded_literal =
