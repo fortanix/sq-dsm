@@ -576,8 +576,8 @@ impl node::binding::Server for BindingServer {
             }
         }
 
-        if current.is_some() {
-            new = sry!(current.unwrap().merge_public(new));
+        if let Some(cert) = current {
+            new = sry!(cert.merge_public(new));
         }
 
         // Write key back to the database.
