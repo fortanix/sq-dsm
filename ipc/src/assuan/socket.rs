@@ -158,7 +158,7 @@ fn read_port_and_nonce_from_string(contents: &[u8]) -> Result<Rendezvous> {
                     };
                     Ok(Rendezvous { port, nonce, uds_emulation: UdsEmulation::Cygwin })
                 },
-                _ => return Err(anyhow!("Couldn't parse Cygwin socket: {}", buf)),
+                _ => Err(anyhow!("Couldn't parse Cygwin socket: {}", buf)),
             }
         },
         // libassuan's own socket emulation

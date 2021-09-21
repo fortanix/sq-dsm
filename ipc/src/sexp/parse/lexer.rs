@@ -84,10 +84,10 @@ impl<'input> Iterator for Lexer<'input> {
         let len_token = (|input: &'input [u8]| {
             let c = input.iter().next()?;
             match *c as char {
-                '(' => return Some(Ok((1, LPAREN))),
-                ')' => return Some(Ok((1, RPAREN))),
-                '[' => return Some(Ok((1, LBRACKET))),
-                ']' => return Some(Ok((1, RBRACKET))),
+                '(' => Some(Ok((1, LPAREN))),
+                ')' => Some(Ok((1, RPAREN))),
+                '[' => Some(Ok((1, LBRACKET))),
+                ']' => Some(Ok((1, RBRACKET))),
                 '0'..='9' => {
                     for (i, c) in input.iter().enumerate() {
                         let offset = i + 1;       // Offset in input.
@@ -126,7 +126,7 @@ impl<'input> Iterator for Lexer<'input> {
                     Some(Err(LexicalError::TruncatedInput(
                         format!("Expected colon and data after {:?}", len))))
                 },
-                _ => return Some(Err(LexicalError::UnexpectedCharacter(
+                _ => Some(Err(LexicalError::UnexpectedCharacter(
                     format!("Unexpected character {}", *c as char)))),
             }
         })(&self.input)?;
