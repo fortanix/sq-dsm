@@ -584,11 +584,9 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             crate::Maybe<#wrapper #generics>
         {
             fn ref_mut_raw(self) -> Option<& #ref_lifetime mut #wrapped> {
-                if self.is_none() {
-                    return None;
-                }
+                self?;
                 let wrapper = unsafe {
-                    &mut (*self.unwrap().as_ptr())
+                    &mut (*self?.as_ptr())
                 };
                 wrapper.assert_tag();
                 match wrapper.0 {
