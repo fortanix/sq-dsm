@@ -4807,7 +4807,7 @@ impl <'a> PacketParser<'a> {
         tracer!(TRACE, "PacketParser::finish", indent);
 
         if self.finished {
-            return Ok(&mut self.packet);
+            return Ok(&self.packet);
         }
 
         let recursion_depth = self.recursion_depth();
@@ -4848,7 +4848,7 @@ impl <'a> PacketParser<'a> {
 
         self.finished = true;
 
-        Ok(&mut self.packet)
+        Ok(&self.packet)
     }
 
     /// Hashes content that has been streamed.
