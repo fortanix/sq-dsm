@@ -270,7 +270,7 @@ impl Container {
     /// Returns an iterator over the packet's immediate children.
     ///
     /// Returns `None` if the body is not structured.
-    pub fn children<'a>(&'a self) -> Option<slice::Iter<'a, Packet>> {
+    pub fn children(&self) -> Option<slice::Iter<Packet>> {
         Some(self.children_ref()?.iter())
     }
 
@@ -435,8 +435,8 @@ impl Packet {
     }
 
     /// Returns an iterator over the packet's immediate children.
-    pub(crate) fn children<'a>(&'a self)
-                               -> Option<impl Iterator<Item = &'a Packet>> {
+    pub(crate) fn children(& self)
+                           -> Option<impl Iterator<Item = &Packet>> {
         self.container_ref().and_then(|c| c.children())
     }
 

@@ -138,7 +138,7 @@ impl Client {
     /// using this objects [`Stream`] implementation.
     ///
     /// [`Stream`]: #impl-Stream
-    pub fn cancel<'a>(&'a mut self) -> Result<()> {
+    pub fn cancel(&mut self) -> Result<()> {
         self.send("CAN")
     }
 

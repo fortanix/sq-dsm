@@ -198,7 +198,7 @@ impl Cert {
     /// This object writes out secret keys during serialization.
     ///
     /// [`TSK`]: crate::serialize::TSK
-    pub fn as_tsk<'a>(&'a self) -> TSK<'a> {
+    pub fn as_tsk(&self) -> TSK {
         TSK::new(self)
     }
 }

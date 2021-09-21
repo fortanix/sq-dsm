@@ -324,7 +324,7 @@ impl Agent {
     /// Note: This function does not try to start the server.  If no
     /// server is running for the given context, this operation will
     /// fail.
-    pub async fn connect<'c>(ctx: &'c Context) -> Result<Self> {
+    pub async fn connect(ctx: &Context) -> Result<Self> {
         let path = ctx.socket("agent")?;
         Self::connect_to(path).await
     }
