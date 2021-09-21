@@ -699,8 +699,8 @@ impl<C> ComponentBundle<C> {
     /// function uses the component's type (`C`) to determine the
     /// packet's type; the type is not a function of whether the key
     /// has secret key material.
-    pub(crate) fn into_packets<'a>(self)
-                                   -> impl Iterator<Item=Packet> + Send + Sync
+    pub(crate) fn into_packets(self)
+                               -> impl Iterator<Item=Packet> + Send + Sync
         where Packet: From<C>
     {
         let p : Packet = self.component.into();
