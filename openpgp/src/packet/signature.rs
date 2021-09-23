@@ -3248,6 +3248,17 @@ mod test {
                 continue;
             }
 
+            if let Some(curve) = match cert.primary_key().mpis() {
+                mpi::PublicKey::EdDSA { curve, .. } => Some(curve),
+                mpi::PublicKey::ECDSA { curve, .. } => Some(curve),
+                _ => None,
+            } {
+                if ! curve.is_supported() {
+                    eprintln!("Skipping because we don't support {}", curve);
+                    continue;
+                }
+            }
+
             let mut good = 0;
             let mut ppr = PacketParser::from_bytes(
                 crate::tests::message(test.data)).unwrap();
@@ -3320,6 +3331,17 @@ mod test {
             if ! cert.primary_key().pk_algo().is_supported() {
                 eprintln!("Skipping because we don't support the algo");
                 continue;
+            }
+
+            if let Some(curve) = match cert.primary_key().mpis() {
+                mpi::PublicKey::EdDSA { curve, .. } => Some(curve),
+                mpi::PublicKey::ECDSA { curve, .. } => Some(curve),
+                _ => None,
+            } {
+                if ! curve.is_supported() {
+                eprintln!("Skipping because we don't support {}", curve);
+                    continue;
+                }
             }
 
             let mut pair = cert.primary_key().key().clone()
