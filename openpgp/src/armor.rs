@@ -840,7 +840,7 @@ impl<'a> Reader<'a> {
                 // If there are no dashes at all, match on the BEGIN.
                 valid_start.push(b'B');
 
-                valid_start.sort();
+                valid_start.sort_unstable();
                 valid_start.dedup();
                 valid_start
             };
@@ -858,7 +858,7 @@ impl<'a> Reader<'a> {
                 // If there are no dashes at all, match on the BEGIN.
                 valid_start.push(b'B');
 
-                valid_start.sort();
+                valid_start.sort_unstable();
                 valid_start.dedup();
                 valid_start
             };
