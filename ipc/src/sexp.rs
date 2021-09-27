@@ -245,7 +245,7 @@ impl Sexp {
             Sexp::List(ref ll) => match ll.get(0) {
                 Some(Sexp::String(ref tag)) =>
                     if tag.deref() == key {
-                        Ok(Some(ll[1..].iter().cloned().collect()))
+                        Ok(Some(ll[1..].to_vec()))
                     } else {
                         Ok(None)
                     }
