@@ -2052,8 +2052,8 @@ fn one_pass_sig_parser_test () {
 
 impl<'a> Parse<'a, OnePassSig3> for OnePassSig3 {
     fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-        OnePassSig::from_reader(reader).and_then(|p| match p {
-            OnePassSig::V3(p) => Ok(p),
+        OnePassSig::from_reader(reader).map(|p| match p {
+            OnePassSig::V3(p) => p,
             // XXX: Once we have a second variant.
             //
             // p => Err(Error::InvalidOperation(
@@ -2992,8 +2992,8 @@ impl PKESK3 {
 
 impl<'a> Parse<'a, PKESK3> for PKESK3 {
     fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-        PKESK::from_reader(reader).and_then(|p| match p {
-            PKESK::V3(p) => Ok(p),
+        PKESK::from_reader(reader).map(|p| match p {
+            PKESK::V3(p) => p,
             // XXX: Once we have a second variant.
             //
             // p => Err(Error::InvalidOperation(
