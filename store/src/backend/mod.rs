@@ -46,7 +46,12 @@ fn min_sleep_time() -> Duration {
 
 /// Interval after which all keys should be refreshed once.
 fn refresh_interval() -> Duration {
-    Duration::new(1 * 7 * 24 * 60 * 60, 0)
+    let secs_in_min = 60;
+    let mins_in_hour = 60;
+    let hours_in_day = 24;
+    let days_in_week = 7;
+    let weeks = 1;
+    Duration::new(weeks * days_in_week * hours_in_day * mins_in_hour * secs_in_min, 0)
 }
 
 /// Returns a value from the uniform distribution over [0, 2*d).
