@@ -400,7 +400,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
         .open(well_known.expect("at least one address").join("policy"))
     {
         Err(ref e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
-        r @ _ => drop(r?),
+        r => drop(r?),
     }
 
     Ok(())

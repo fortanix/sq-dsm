@@ -347,7 +347,7 @@ fn inspect_signatures(output: &mut dyn io::Write,
     for sig in sigs {
         match sig.typ() {
             Binary | Text => (),
-            signature_type @ _ =>
+            signature_type =>
                 writeln!(output, "           Kind: {}", signature_type)?,
         }
 
