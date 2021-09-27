@@ -123,8 +123,8 @@ fn write_literal_<'a, 'b>(
                 .unwrap();
         }
 
-        let foo = pp.recurse()?; //TODO rename
-        Ok((sink, foo.0, foo.1))
+        let (packet, ppr) = pp.recurse()?;
+        Ok((sink, packet, ppr))
     } else {
         Err(anyhow::anyhow!("Unexpected end of file"))
     }
