@@ -171,8 +171,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                             self.key_hints.get(&keyid).unwrap())))?.into();
 
                     let algo = key.pk_algo();
-                    if let Some(()) =
-                        key.secret_mut().decrypt_in_place(algo, &p).ok() {
+                    if key.secret_mut().decrypt_in_place(algo, &p).is_ok() {
                         break key.clone().into_keypair().unwrap()
                     } else {
                         eprintln!("Bad password.");
@@ -230,8 +229,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                             self.key_hints.get(&keyid).unwrap())))?.into();
 
                     let algo = key.pk_algo();
-                    if let Some(()) =
-                        key.secret_mut().decrypt_in_place(algo, &p).ok() {
+                    if key.secret_mut().decrypt_in_place(algo, &p).is_ok() {
                         break key.clone().into_keypair().unwrap()
                     } else {
                         eprintln!("Bad password.");
