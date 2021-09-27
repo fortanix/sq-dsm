@@ -162,13 +162,13 @@ impl KeyboxRecord {
         let record = KeyboxRecord::Unknown(bytes.clone());
         match record.typ() {
             KeyboxRecordType::Header => {
-                HeaderRecord::new(bytes).map(|r| KeyboxRecord::Header(r))
+                HeaderRecord::new(bytes).map(KeyboxRecord::Header)
             }
             KeyboxRecordType::OpenPGP => {
-                OpenPGPRecordV1::new(&record).map(|r| KeyboxRecord::OpenPGP(r))
+                OpenPGPRecordV1::new(&record).map(KeyboxRecord::OpenPGP)
             }
             KeyboxRecordType::X509 => {
-                X509Record::new(bytes).map(|r| KeyboxRecord::X509(r))
+                X509Record::new(bytes).map(KeyboxRecord::X509)
             }
             KeyboxRecordType::Unknown(_) => Ok(record),
         }

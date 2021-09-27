@@ -494,6 +494,7 @@ impl VerificationHelper for VHelper {
             &mut free);
 
         // Free the KeyID wrappers.
+        #[allow(clippy::redundant_closure)]
         ids.into_iter().for_each(|id| super::super::keyid::pgp_keyid_free(id));
 
         if result != Status::Success {
