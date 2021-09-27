@@ -37,12 +37,8 @@ impl Cert {
         // Create a header per userid.
         let mut headers: Vec<String> = self.userids().with_policy(p, None)
             // Ignore revoked userids.
-            .filter_map(|uidb| {
-                if let RevocationStatus::Revoked(_) = uidb.revocation_status() {
-                    None
-                } else {
-                    Some(uidb)
-                }
+            .filter(|uidb| {
+                !matches!(uidb.revocation_status(), RevocationStatus::Revoked(_))
             // Ignore userids with non-printable characters.
             }).filter_map(|uidb| {
                 let value = str::from_utf8(uidb.userid().value()).ok()?;
