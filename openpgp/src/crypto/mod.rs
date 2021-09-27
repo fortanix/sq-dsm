@@ -34,6 +34,9 @@ mod s2k;
 pub use s2k::S2K;
 pub(crate) mod symmetric;
 
+#[cfg(test)]
+mod tests;
+
 /// Holds a session key.
 ///
 /// The session key is cleared when dropped.  Sequoia uses this type
