@@ -887,11 +887,11 @@ macro_rules! impl_with_policy {
             Ok(ValidComponentAmalgamation {
                 ca: self,
                 cert: ValidCert {
-                    cert: cert,
-                    policy: policy,
-                    time: time,
+                    cert,
+                    policy,
+                    time,
                 },
-                binding_signature: binding_signature,
+                binding_signature,
             })
         }
     }

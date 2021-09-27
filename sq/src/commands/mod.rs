@@ -226,7 +226,7 @@ impl<'a> VHelper<'a> {
            -> Self {
         VHelper {
             config: config.clone(),
-            signatures: signatures,
+            signatures,
             certs: Some(certs),
             labels: HashMap::new(),
             trusted: HashSet::new(),

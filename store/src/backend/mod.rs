@@ -281,7 +281,7 @@ impl Query for MappingServer {
 
 impl MappingServer {
     fn new(c: Rc<Connection>, id: ID) -> MappingServer {
-        MappingServer{c: c, id: id}
+        MappingServer{c, id}
     }
 
     fn open(c: Rc<Connection>, realm: &str, policy: net::Policy, name: &str)
@@ -423,8 +423,8 @@ struct BindingServer {
 impl BindingServer {
     fn new(c: Rc<Connection>, id: ID) -> Self {
         BindingServer {
-            c: c,
-            id: id,
+            c,
+            id,
         }
     }
 
@@ -691,8 +691,8 @@ struct KeyServer {
 impl KeyServer {
     fn new(c: Rc<Connection>, id: ID) -> Self {
         KeyServer {
-            c: c,
-            id: id,
+            c,
+            id,
         }
     }
 
@@ -1088,7 +1088,7 @@ struct MappingIterServer {
 
 impl MappingIterServer {
     fn new(c: Rc<Connection>, prefix: &str) -> Self {
-        MappingIterServer{c: c, prefix: String::from(prefix) + "%", n: ID::null()}
+        MappingIterServer{c, prefix: String::from(prefix) + "%", n: ID::null()}
     }
 }
 
@@ -1132,7 +1132,7 @@ struct BundleIterServer {
 
 impl BundleIterServer {
     fn new(c: Rc<Connection>, mapping_id: ID) -> Self {
-        BundleIterServer{c: c, mapping_id: mapping_id, n: ID::null()}
+        BundleIterServer{c, mapping_id, n: ID::null()}
     }
 }
 
@@ -1168,7 +1168,7 @@ struct KeyIterServer {
 
 impl KeyIterServer {
     fn new(c: Rc<Connection>) -> Self {
-        KeyIterServer{c: c, n: ID::null()}
+        KeyIterServer{c, n: ID::null()}
     }
 }
 

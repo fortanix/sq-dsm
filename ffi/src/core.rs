@@ -52,7 +52,7 @@ pub struct Context {
 
 impl Context {
     fn new(c: sequoia_ipc::Context) -> Self {
-        Context{c: c, e: ptr::null_mut()}
+        Context{c, e: ptr::null_mut()}
     }
 
     pub(crate) fn errp(&mut self) -> &mut *mut crate::error::Error {

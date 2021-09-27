@@ -597,9 +597,9 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
             // need to check the user's policy.  So, it is safe to
             // create a ValidCert from scratch.
             cert: ValidCert {
-                cert: cert,
-                policy: policy,
-                time: time,
+                cert,
+                policy,
+                time,
             },
             binding_signature
         };

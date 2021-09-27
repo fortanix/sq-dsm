@@ -84,7 +84,7 @@ pub struct IterServer {
 
 impl IterServer {
     pub fn new(c: Rc<Connection>, selector: Selector) -> Self {
-        IterServer{c: c, selector: selector, n: ID::max()}
+        IterServer{c, selector, n: ID::max()}
     }
 }
 

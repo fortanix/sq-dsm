@@ -128,7 +128,7 @@ impl Url {
         let local_encoded = encode_local_part(&email.local_part);
         let url = Url {
             domain : email.domain,
-            local_encoded : local_encoded,
+            local_encoded,
             local_part : email.local_part,
         };
         Ok(url)

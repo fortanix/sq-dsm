@@ -452,11 +452,11 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
         };
         PacketHeaderParser {
             reader: buffered_reader::Dup::with_cookie(inner, cookie),
-            header: header,
-            header_bytes: header_bytes,
-            path: path,
-            state: state,
-            map: map,
+            header,
+            header_bytes,
+            path,
+            state,
+            map,
         }
     }
 
@@ -3050,7 +3050,7 @@ struct PacketParserState {
 impl PacketParserState {
     fn new(settings: PacketParserSettings) -> Self {
         PacketParserState {
-            settings: settings,
+            settings,
             message_validator: Default::default(),
             keyring_validator: Default::default(),
             cert_validator: Default::default(),

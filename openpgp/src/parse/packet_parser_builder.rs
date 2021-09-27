@@ -133,7 +133,7 @@ impl<'a> PacketParserBuilder<'a> {
             -> Result<Self> {
         bio.cookie_mut().level = None;
         Ok(PacketParserBuilder {
-            bio: bio,
+            bio,
             dearmor: Default::default(),
             settings: PacketParserSettings::default(),
             csf_transformation: false,

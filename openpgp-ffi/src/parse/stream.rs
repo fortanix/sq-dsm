@@ -452,7 +452,7 @@ impl VHelper {
             inspect_cb,
             get_certs_cb: get_certs,
             check_signatures_cb: check_signatures,
-            cookie: cookie,
+            cookie,
         }))
     }
 }

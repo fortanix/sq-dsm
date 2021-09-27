@@ -391,8 +391,8 @@ fn pgp_writer_alloc_with_capacity(buf: *mut *mut c_void, len: *mut size_t,
     }
 
     let w = WriterKind::Generic(Box::new(WriterAlloc(Mutex::new(Buffer {
-        buf: buf,
-        len: len,
+        buf,
+        len,
         capacity,
     }))));
     w.move_into_raw()

@@ -50,7 +50,7 @@ impl Map {
         Map {
             length: 0,
             entries: Vec::new(),
-            header: header,
+            header,
             data: Vec::new(),
         }
     }
@@ -235,7 +235,7 @@ struct Iter<'a> {
 impl<'a> Iter<'a> {
     fn new(map: &'a Map) -> Iter<'a> {
         Iter {
-            map: map,
+            map,
             i: 0,
         }
     }

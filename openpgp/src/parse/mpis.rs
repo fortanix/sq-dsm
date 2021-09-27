@@ -48,7 +48,7 @@ impl mpi::PublicKey {
                 let n = MPI::parse("rsa_public_n_len", "rsa_public_n", php)?;
                 let e = MPI::parse("rsa_public_e_len", "rsa_public_e", php)?;
 
-                Ok(mpi::PublicKey::RSA { e: e, n: n })
+                Ok(mpi::PublicKey::RSA { e, n })
             }
 
             DSA => {
@@ -58,10 +58,10 @@ impl mpi::PublicKey {
                 let y = MPI::parse("dsa_public_y_len", "dsa_public_y", php)?;
 
                 Ok(mpi::PublicKey::DSA {
-                    p: p,
-                    q: q,
-                    g: g,
-                    y: y,
+                    p,
+                    q,
+                    g,
+                    y,
                 })
             }
 
@@ -74,9 +74,9 @@ impl mpi::PublicKey {
                                    php)?;
 
                 Ok(mpi::PublicKey::ElGamal {
-                    p: p,
-                    g: g,
-                    y: y,
+                    p,
+                    g,
+                    y,
                 })
             }
 
@@ -87,7 +87,7 @@ impl mpi::PublicKey {
 
                 Ok(mpi::PublicKey::EdDSA {
                     curve: Curve::from_oid(&curve),
-                    q: q
+                    q
                 })
             }
 
@@ -98,7 +98,7 @@ impl mpi::PublicKey {
 
                 Ok(mpi::PublicKey::ECDSA {
                     curve: Curve::from_oid(&curve),
-                    q: q
+                    q
                 })
             }
 
@@ -332,7 +332,7 @@ impl mpi::Ciphertext {
                                    php)?;
 
                 Ok(mpi::Ciphertext::RSA {
-                    c: c,
+                    c,
                 })
             }
 
@@ -341,8 +341,8 @@ impl mpi::Ciphertext {
                 let c = MPI::parse("elgamal_c_len", "elgamal_c", php)?;
 
                 Ok(mpi::Ciphertext::ElGamal {
-                    e: e,
-                    c: c,
+                    e,
+                    c,
                 })
             }
 
@@ -353,7 +353,7 @@ impl mpi::Ciphertext {
                                     [..key_len]);
 
                 Ok(mpi::Ciphertext::ECDH {
-                    e: e, key: key.into_boxed_slice()
+                    e, key: key.into_boxed_slice()
                 })
             }
 
@@ -410,7 +410,7 @@ impl mpi::Signature {
                 let s = MPI::parse("rsa_signature_len", "rsa_signature", php)?;
 
                 Ok(mpi::Signature::RSA {
-                    s: s,
+                    s,
                 })
             }
 
@@ -421,8 +421,8 @@ impl mpi::Signature {
                                    php)?;
 
                 Ok(mpi::Signature::DSA {
-                    r: r,
-                    s: s,
+                    r,
+                    s,
                 })
             }
 
@@ -433,8 +433,8 @@ impl mpi::Signature {
                                    "elgamal_sig_s", php)?;
 
                 Ok(mpi::Signature::ElGamal {
-                    r: r,
-                    s: s,
+                    r,
+                    s,
                 })
             }
 
@@ -445,8 +445,8 @@ impl mpi::Signature {
                                    php)?;
 
                 Ok(mpi::Signature::EdDSA {
-                    r: r,
-                    s: s,
+                    r,
+                    s,
                 })
             }
 
@@ -457,8 +457,8 @@ impl mpi::Signature {
                                    php)?;
 
                 Ok(mpi::Signature::ECDSA {
-                    r: r,
-                    s: s,
+                    r,
+                    s,
                 })
             }
 

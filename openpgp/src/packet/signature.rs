@@ -1685,7 +1685,7 @@ impl From<Signature4> for SignatureBuilder {
         SignatureBuilder {
             overrode_creation_time: false,
             original_creation_time: creation_time,
-            fields: fields,
+            fields,
         }
     }
 }

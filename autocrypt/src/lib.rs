@@ -96,7 +96,7 @@ pub struct AutocryptHeader {
 impl AutocryptHeader {
     fn empty(header_type: AutocryptHeaderType) -> Self {
         AutocryptHeader {
-            header_type: header_type,
+            header_type,
             key: None,
             attributes: Vec::new(),
         }
@@ -645,8 +645,8 @@ impl AutocryptSetupMessage {
         Ok(AutocryptSetupMessageParser {
             passcode_format: format,
             passcode_begin: begin,
-            skesk: skesk,
-            pp: pp,
+            skesk,
+            pp,
             passcode: None,
         })
     }
@@ -809,7 +809,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
 
         // We're done!
         Ok(AutocryptSetupMessage {
-            prefer_encrypt: prefer_encrypt,
+            prefer_encrypt,
             passcode: self.passcode,
             passcode_format: self.passcode_format,
             passcode_begin: self.passcode_begin,

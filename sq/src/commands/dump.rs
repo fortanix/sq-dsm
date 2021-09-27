@@ -185,10 +185,10 @@ impl Node {
     fn new(header: Header, packet: Packet, map: Option<Map>,
            additional_fields: Option<Vec<String>>) -> Self {
         Node {
-            header: header,
-            packet: packet,
-            map: map,
-            additional_fields: additional_fields,
+            header,
+            packet,
+            map,
+            additional_fields,
             children: Vec::new(),
         }
     }
@@ -211,8 +211,8 @@ pub struct PacketDumper {
 impl PacketDumper {
     pub fn new(width: usize, mpis: bool) -> Self {
         PacketDumper {
-            width: width,
-            mpis: mpis,
+            width,
+            mpis,
             root: None,
         }
     }

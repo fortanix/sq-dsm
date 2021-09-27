@@ -252,7 +252,7 @@ impl<'a> PacketPileParser<'a> {
     {
         Ok(PacketPileParser {
             pile: Default::default(),
-            ppr: ppr,
+            ppr,
         })
     }
 

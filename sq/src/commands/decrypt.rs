@@ -72,7 +72,7 @@ impl<'a> Helper<'a> {
             secret_keys: keys,
             key_identities: identities,
             key_hints: hints,
-            dump_session_key: dump_session_key,
+            dump_session_key,
             dumper: if dump {
                 let width = term_size::dimensions_stdout().map(|(w, _)| w)
                     .unwrap_or(80);

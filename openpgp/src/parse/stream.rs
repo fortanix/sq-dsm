@@ -458,8 +458,8 @@ impl<'a> MessageStructure<'a> {
     fn new_encryption_layer(&mut self, sym_algo: SymmetricAlgorithm,
                             aead_algo: Option<AEADAlgorithm>) {
         self.0.push(MessageLayer::Encryption {
-            sym_algo: sym_algo,
-            aead_algo: aead_algo,
+            sym_algo,
+            aead_algo,
         })
     }
 
@@ -597,8 +597,8 @@ impl IMessageStructure {
         self.layers.push(IMessageLayer::Encryption {
             depth,
             expect_mdc,
-            sym_algo: sym_algo,
-            aead_algo: aead_algo,
+            sym_algo,
+            aead_algo,
         });
     }
 
@@ -2784,7 +2784,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                                sigid[0], sigid[1], ka.fingerprint());
                                             results.push_verification_result(
                                                 Ok(GoodChecksum {
-                                                    sig: sig,
+                                                    sig,
                                                     ka,
                                                 }));
                                             // Continue to the next sig.

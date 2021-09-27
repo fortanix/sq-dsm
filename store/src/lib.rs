@@ -291,7 +291,7 @@ impl Store {
         let (mut core, client) = Store::connect(c)?;
         let request = client.iter_keys_request();
         let iter = make_request!(&mut core, request)?;
-        Ok(KeyIter{core: Rc::new(RefCell::new(core)), iter: iter})
+        Ok(KeyIter{core: Rc::new(RefCell::new(core)), iter})
     }
 
     /// Lists all log entries.
@@ -299,7 +299,7 @@ impl Store {
         let (mut core, client) = Store::connect(c)?;
         let request = client.log_request();
         let iter = make_request!(&mut core, request)?;
-        Ok(LogIter{core: Rc::new(RefCell::new(core)), iter: iter})
+        Ok(LogIter{core: Rc::new(RefCell::new(core)), iter})
     }
 }
 
@@ -343,7 +343,7 @@ impl Mapping {
     }
 
     fn new(core: Rc<RefCell<RpcRuntime>>, name: &str, mapping: node::mapping::Client) -> Self {
-        Mapping{core: core, name: name.into(), mapping: mapping}
+        Mapping{core, name: name.into(), mapping}
     }
 
     /// Lists all mappings with the given prefix.
@@ -352,7 +352,7 @@ impl Mapping {
         let mut request = client.iter_request();
         request.get().set_realm_prefix(realm_prefix);
         let iter = make_request!(&mut core, request)?;
-        Ok(MappingIter{core: Rc::new(RefCell::new(core)), iter: iter})
+        Ok(MappingIter{core: Rc::new(RefCell::new(core)), iter})
     }
 
     /// Adds a key identified by fingerprint to the mapping.
@@ -536,14 +536,14 @@ impl Mapping {
     pub fn iter(&self) -> Result<BundleIter> {
         let request = self.mapping.iter_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
-        Ok(BundleIter{core: self.core.clone(), iter: iter})
+        Ok(BundleIter{core: self.core.clone(), iter})
     }
 
     /// Lists all log entries related to this mapping.
     pub fn log(&self) -> Result<LogIter> {
         let request = self.mapping.log_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
-        Ok(LogIter{core: self.core.clone(), iter: iter})
+        Ok(LogIter{core: self.core.clone(), iter})
     }
 }
 
@@ -588,7 +588,7 @@ impl Binding {
     fn new(core: Rc<RefCell<RpcRuntime>>,
            label: Option<&str>,
            binding: node::binding::Client) -> Self {
-        Binding{label: label.map(|l| l.into()), core: core, binding: binding}
+        Binding{label: label.map(|l| l.into()), core, binding}
     }
 
     /// Returns stats for this binding.
@@ -799,7 +799,7 @@ impl Binding {
     pub fn log(&self) -> Result<LogIter> {
         let request = self.binding.log_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
-        Ok(LogIter{core: self.core.clone(), iter: iter})
+        Ok(LogIter{core: self.core.clone(), iter})
     }
 
     /// Gets this binding's label.
@@ -832,7 +832,7 @@ impl fmt::Debug for Key {
 
 impl Key {
     fn new(core: Rc<RefCell<RpcRuntime>>, key: node::key::Client) -> Self {
-        Key{core: core, key: key}
+        Key{core, key}
     }
 
     /// Returns the Cert.
@@ -904,7 +904,7 @@ impl Key {
     pub fn log(&self) -> Result<LogIter> {
         let request = self.key.log_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
-        Ok(LogIter{core: self.core.clone(), iter: iter})
+        Ok(LogIter{core: self.core.clone(), iter})
     }
 }
 
@@ -975,10 +975,10 @@ impl Log {
         let timestamp = from_unix(timestamp)?;
 
         Some(Log{
-            timestamp: timestamp,
-            mapping: mapping,
-            binding: binding,
-            key: key,
+            timestamp,
+            mapping,
+            binding,
+            key,
             slug: slug.into(),
             status: if let Some(error) = error {
                 Err((message.into(), error.into()))
@@ -1024,8 +1024,8 @@ impl Stamps {
            last: Option<time::SystemTime>) -> Self {
         Stamps {
             count: count as usize,
-            first: first,
-            last: last,
+            first,
+            last,
         }
     }
 }
