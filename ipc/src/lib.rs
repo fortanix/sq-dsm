@@ -357,14 +357,11 @@ impl Server {
     ///
     /// use sequoia_ipc::Server;
     ///
-    /// fn main() {
-    ///     let ctx = Server::context()
-    ///         .expect("Failed to create context");
-    ///     Server::new(sequoia_store::descriptor(&ctx))
-    ///         .expect("Failed to create server")
-    ///         .serve()
-    ///         .expect("Failed to start server");
-    /// }
+    /// let ctx = Server::context().expect("Failed to create context");
+    /// Server::new(sequoia_store::descriptor(&ctx))
+    ///     .expect("Failed to create server")
+    ///     .serve()
+    ///     .expect("Failed to start server");
     /// ```
     pub fn serve(&mut self) -> Result<()> {
         let listener = platform! {
