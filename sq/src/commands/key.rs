@@ -420,12 +420,11 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
                 .into_keypair()?;
 
             let backsig = builder.embedded_signatures()
-                .filter(|backsig| {
+                .find(|backsig| {
                     (*backsig).clone().verify_primary_key_binding(
                         &cert.primary_key(),
                         &key).is_ok()
                 })
-                .next()
                 .map(|sig| SignatureBuilder::from(sig.clone()))
                 .unwrap_or_else(|| {
                     SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
