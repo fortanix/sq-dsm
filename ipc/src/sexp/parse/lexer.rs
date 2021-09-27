@@ -54,12 +54,6 @@ impl<'a> From<Token<'a>> for String {
     }
 }
 
-impl<'a> Token<'a> {
-    pub fn to_string(self) -> String {
-        self.into()
-    }
-}
-
 #[derive(Debug)]
 pub(crate) struct Lexer<'input> {
     offset: usize,

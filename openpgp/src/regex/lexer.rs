@@ -75,10 +75,6 @@ impl From<Token> for String {
 }
 
 impl Token {
-    pub fn to_string(self) -> String {
-        self.into()
-    }
-
     pub fn to_char(&self) -> char {
         use self::Token::*;
         match self {
