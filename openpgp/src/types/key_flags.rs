@@ -113,7 +113,7 @@ impl BitAnd for &KeyFlags {
         let r = rhs.as_slice();
 
         let mut c = Vec::with_capacity(std::cmp::min(l.len(), r.len()));
-        for (l, r) in l.into_iter().zip(r.into_iter()) {
+        for (l, r) in l.iter().zip(r.iter()) {
             c.push(l & r);
         }
 
@@ -136,7 +136,7 @@ impl BitOr for &KeyFlags {
         };
 
         let mut l = l.to_vec();
-        for (i, r) in r.into_iter().enumerate() {
+        for (i, r) in r.iter().enumerate() {
             l[i] |= r;
         }
 

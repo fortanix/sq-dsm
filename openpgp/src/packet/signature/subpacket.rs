@@ -6869,7 +6869,7 @@ impl signature::SignatureBuilder {
         where T: AsRef<[Fingerprint]>
     {
         self.hashed_area.remove_all(SubpacketTag::IntendedRecipient);
-        for fp in recipients.as_ref().into_iter() {
+        for fp in recipients.as_ref().iter() {
             self.hashed_area.add(
                 Subpacket::new(SubpacketValue::IntendedRecipient(fp.clone()), false)?)?;
         }
