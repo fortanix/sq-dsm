@@ -175,11 +175,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
                         t!("PK algo is supported... skipping.");
                         continue;
                     }
-                } else {
-                    if want_supported {
-                        t!("PK algo is not supported... skipping.");
-                        continue;
-                    }
+                } else if want_supported {
+                    t!("PK algo is not supported... skipping.");
+                    continue;
                 }
             }
 
@@ -190,11 +188,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
                         t!("Have a secret... skipping.");
                         continue;
                     }
-                } else {
-                    if want_secret {
-                        t!("No secret... skipping.");
-                        continue;
-                    }
+                } else if want_secret {
+                    t!("No secret... skipping.");
+                    continue;
                 }
             }
 
@@ -205,11 +201,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
                             t!("Unencrypted secret... skipping.");
                             continue;
                         }
-                    } else {
-                        if want_unencrypted_secret {
-                            t!("Encrypted secret... skipping.");
-                            continue;
-                        }
+                    } else if want_unencrypted_secret {
+                        t!("Encrypted secret... skipping.");
+                        continue;
                     }
                 } else {
                     // No secret.
@@ -797,11 +791,9 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
                         t!("PK algo is supported... skipping.");
                         continue;
                     }
-                } else {
-                    if want_supported {
-                        t!("PK algo is not supported... skipping.");
-                        continue;
-                    }
+                } else if want_supported {
+                    t!("PK algo is not supported... skipping.");
+                    continue;
                 }
             }
 
@@ -843,11 +835,9 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
                         t!("Have a secret... skipping.");
                         continue;
                     }
-                } else {
-                    if want_secret {
-                        t!("No secret... skipping.");
-                        continue;
-                    }
+                } else if want_secret {
+                    t!("No secret... skipping.");
+                    continue;
                 }
             }
 
@@ -858,11 +848,9 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
                             t!("Unencrypted secret... skipping.");
                             continue;
                         }
-                    } else {
-                        if want_unencrypted_secret {
-                            t!("Encrypted secret... skipping.");
-                            continue;
-                        }
+                    } else if want_unencrypted_secret {
+                        t!("Encrypted secret... skipping.");
+                        continue;
                     }
                 } else {
                     // No secret.

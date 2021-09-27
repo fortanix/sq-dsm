@@ -1409,12 +1409,10 @@ impl<'a> Write for Signer<'a> {
                 // later, we will hash it then.  Otherwise, it is
                 // implicitly omitted when the signer is finalized.
                 self.hash_stash.extend_from_slice(&data[l..]);
+            } else if self.template.typ() == SignatureType::Text {
+                crate::parse::hash_update_text(&mut self.hash, data);
             } else {
-                if self.template.typ() == SignatureType::Text {
-                    crate::parse::hash_update_text(&mut self.hash, data);
-                } else {
-                    self.hash.update(data);
-                }
+                self.hash.update(data);
             }
             self.position += amount as u64;
         }

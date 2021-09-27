@@ -453,10 +453,8 @@ impl Regex {
     ///
     ///   [`char::is_control`]: https://doc.rust-lang.org/std/primitive.char.html#method.is_control
     pub fn is_match(&self, s: &str) -> bool {
-        if ! self.disable_sanitizations {
-            if s.chars().any(char::is_control) {
-                return false;
-            }
+        if ! self.disable_sanitizations && s.chars().any(char::is_control) {
+            return false;
         }
 
         self.is_match_clean(s)
@@ -975,10 +973,8 @@ impl RegexSet {
     /// # Ok(()) }
     /// ```
     pub fn is_match(&self, s: &str) -> bool {
-        if ! self.disable_sanitizations {
-            if s.chars().any(char::is_control) {
-                return false;
-            }
+        if ! self.disable_sanitizations && s.chars().any(char::is_control) {
+            return false;
         }
 
         match self.re_set {

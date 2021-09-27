@@ -2325,11 +2325,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         format!("Expected signature, got {}", pp.packet.tag()))
                                .into());
                 }
-            } else {
-                if let Err(err) = pp.possible_message() {
-                    t!("Malformed message: {}", err);
-                    return Err(err.context("Malformed OpenPGP message"));
-                }
+            } else if let Err(err) = pp.possible_message() {
+                t!("Malformed message: {}", err);
+                return Err(err.context("Malformed OpenPGP message"));
             }
 
             let sym_algo_hint = if let Packet::AED(ref aed) = pp.packet {

@@ -1336,17 +1336,15 @@ impl CertBuilder<'_> {
                     a.remove_all(SubpacketTag::PrimaryUserID);
                     Ok(a)
                 })?;
+            } else if have_primary_user_thing {
+                // Check if this is the first explicitly selected
+                // user thing.
+                emitted_primary_user_thing |=
+                    sig.primary_userid().unwrap_or(false);
             } else {
-                if have_primary_user_thing {
-                    // Check if this is the first explicitly selected
-                    // user thing.
-                    emitted_primary_user_thing |=
-                        sig.primary_userid().unwrap_or(false);
-                } else {
-                    // Implicitly mark the first as primary.
-                    sig = sig.set_primary_userid(true)?;
-                    emitted_primary_user_thing = true;
-                }
+                // Implicitly mark the first as primary.
+                sig = sig.set_primary_userid(true)?;
+                emitted_primary_user_thing = true;
             }
 
             let signature = uid.bind(&mut signer, &cert, sig)?;
@@ -1368,17 +1366,15 @@ impl CertBuilder<'_> {
                     a.remove_all(SubpacketTag::PrimaryUserID);
                     Ok(a)
                 })?;
+            } else if have_primary_user_thing {
+                // Check if this is the first explicitly selected
+                // user thing.
+                emitted_primary_user_thing |=
+                    sig.primary_userid().unwrap_or(false);
             } else {
-                if have_primary_user_thing {
-                    // Check if this is the first explicitly selected
-                    // user thing.
-                    emitted_primary_user_thing |=
-                        sig.primary_userid().unwrap_or(false);
-                } else {
-                    // Implicitly mark the first as primary.
-                    sig = sig.set_primary_userid(true)?;
-                    emitted_primary_user_thing = true;
-                }
+                // Implicitly mark the first as primary.
+                sig = sig.set_primary_userid(true)?;
+                emitted_primary_user_thing = true;
             }
 
             let signature = ua.bind(&mut signer, &cert, sig)?;

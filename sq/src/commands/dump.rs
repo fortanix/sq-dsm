@@ -225,14 +225,12 @@ impl PacketDumper {
         if self.root.is_none() {
             assert_eq!(depth, 0);
             self.root = Some(node);
+        } else if depth == 0 {
+            let root = self.root.take().unwrap();
+            self.dump_tree(output, "", &root)?;
+            self.root = Some(node);
         } else {
-            if depth == 0 {
-                let root = self.root.take().unwrap();
-                self.dump_tree(output, "", &root)?;
-                self.root = Some(node);
-            } else {
-                self.root.as_mut().unwrap().append(depth - 1, node);
-            }
+            self.root.as_mut().unwrap().append(depth - 1, node);
         }
         Ok(())
     }

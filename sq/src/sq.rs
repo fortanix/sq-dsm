@@ -715,10 +715,8 @@ fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
             if let Ok(d) = DateTime::parse_from_str(s, *f) {
                 return Ok(d.into());
             }
-        } else {
-            if let Ok(d) = chrono::NaiveDateTime::parse_from_str(s, *f) {
-                return Ok(DateTime::from_utc(d, Utc));
-            }
+        } else if let Ok(d) = chrono::NaiveDateTime::parse_from_str(s, *f) {
+            return Ok(DateTime::from_utc(d, Utc));
         }
     }
     for f in &[

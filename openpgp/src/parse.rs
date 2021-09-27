@@ -2229,12 +2229,10 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                     format!("Unexpected secret key found in {:?} packet", tag)
                 ).into());
             }
-        } else {
-            if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
-                return php.error(Error::MalformedPacket(
-                    format!("Expected secret key in {:?} packet", tag)
-                ).into());
-            }
+        } else if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
+            return php.error(Error::MalformedPacket(
+                format!("Expected secret key in {:?} packet", tag)
+            ).into());
         }
 
         fn k<R>(creation_time: u32,

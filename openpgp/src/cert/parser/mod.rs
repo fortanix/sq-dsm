@@ -904,12 +904,10 @@ pub(crate) fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
             } else {
                 other_revs.push(sig);
             }
+        } else if is_selfsig {
+            self_signatures.push(sig);
         } else {
-            if is_selfsig {
-                self_signatures.push(sig);
-            } else {
-                certifications.push(sig);
-            }
+            certifications.push(sig);
         }
     }
 

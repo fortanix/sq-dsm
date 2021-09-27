@@ -179,12 +179,10 @@ impl Config {
             let tmp = tempfile::Builder::new().prefix("sequoia").tempdir()?;
             c.home = tmp.into_path();
             c.cleanup = true;
-        } else {
-            if home_not_set {
-                c.home = dirs::home_dir()
-                    .ok_or_else(|| anyhow::anyhow!("Failed to get users home directory"))?
-                    .join(".sequoia");
-            }
+        } else if home_not_set {
+            c.home = dirs::home_dir()
+                .ok_or_else(|| anyhow::anyhow!("Failed to get users home directory"))?
+            .join(".sequoia");
         }
         Ok(c)
     }
