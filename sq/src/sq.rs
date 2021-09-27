@@ -501,7 +501,7 @@ fn main() -> Result<()> {
                     let value = n.next().unwrap();
 
                     let (critical, name) = if !name.is_empty()
-                        && Some('!') == name.chars().next()
+                        && name.starts_with('!')
                     {
                         (true, &name[1..])
                     } else {
