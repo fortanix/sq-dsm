@@ -80,9 +80,7 @@ impl Signer for KeyPair {
                         Error::UnsupportedEllipticCurve(curve.clone())
                     )?;
                     let curve_bytes = (curve_bits + 7) / 8;
-                    let mut secret = Protected::from(vec![0u8; curve_bytes]);
-                    let missing = curve_bytes.saturating_sub(scalar.value().len());
-                    secret.as_mut()[missing..].copy_from_slice(scalar.value());
+                    let secret = scalar.value_padded(curve_bytes);
 
                     use cng::asymmetric::{ecc::{NistP256, NistP384, NistP521}, Ecdsa};
 
@@ -140,20 +138,21 @@ impl Signer for KeyPair {
                         use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 
                         let (public, ..) = q.decode_point(&Curve::Ed25519)?;
+                        // MPI::decode_point ensures we got the right length.
+                        assert_eq!(public.len(), PUBLIC_KEY_LENGTH);
 
                         // It's expected for the private key to be exactly
                         // SECRET_KEY_LENGTH bytes long but OpenPGP allows leading
                         // zeros to be stripped.
                         // Padding has to be unconditional; otherwise we have a
                         // secret-dependent branch.
-                        let missing =
-                            SECRET_KEY_LENGTH.saturating_sub(scalar.value().len());
                         let mut keypair = Protected::from(
                             vec![0u8; SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH]
                         );
-                        keypair.as_mut()[missing..SECRET_KEY_LENGTH]
-                            .copy_from_slice(scalar.value());
-                        keypair.as_mut()[SECRET_KEY_LENGTH..]
+                        keypair[..SECRET_KEY_LENGTH]
+                            .copy_from_slice(
+                                &scalar.value_padded(SECRET_KEY_LENGTH));
+                        keypair[SECRET_KEY_LENGTH..]
                             .copy_from_slice(&public);
                         let pair = Keypair::from_bytes(&keypair).unwrap();
 
@@ -333,17 +332,12 @@ impl Decryptor for KeyPair {
 
                 // CNG expects RSA ciphertext length to be a multiple of 8
                 // bytes. Since this is a big endian MPI, left-pad it with zeros
-                let mut _c: Protected = Protected::from(Vec::new());
-                let missing = (8 - (c.value().len() % 8)) % 8;
-                let c = if missing > 0 {
-                    _c = Protected::from(vec![0u8; missing + c.value().len()]);
-                    _c[missing..].copy_from_slice(c.value());
-                    &_c
-                } else {
-                    c.value()
-                };
+                let pad_to = round_up_to_multiple_of(c.value().len(), 8);
+                assert!(pad_to >= c.value().len());
+                let c = c.value_padded(pad_to).expect("we don't truncate");
 
-                let decrypted = key.decrypt(Some(EncryptionPadding::Pkcs1), c)?;
+                let decrypted =
+                    key.decrypt(Some(EncryptionPadding::Pkcs1), &c)?;
 
                 SessionKey::from(decrypted)
             }
@@ -427,6 +421,10 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
         use cng::asymmetric::ecc::NamedCurve;
         use cng::asymmetric::signature::{Verifier, SignaturePadding};
         use cng::key_blob::RsaKeyPublicPayload;
+
+        fn bad(e: impl ToString) -> anyhow::Error {
+            Error::BadSignature(e.to_string()).into()
+        }
 
         let ok = match (self.mpis(), sig) {
             (mpi::PublicKey::RSA { e, n }, mpi::Signature::RSA { s }) => {
@@ -651,14 +649,15 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
 
                     // ed25519 expects full-sized signatures but OpenPGP allows
                     // for stripped leading zeroes, pad each part with zeroes.
-                    let (r, s) = (r.value(), s.value());
-                    let signature = [
-                        [&vec![0u8; (SIGNATURE_LENGTH / 2) - r.len()], r].concat(),
-                        [&vec![0u8; (SIGNATURE_LENGTH / 2) - s.len()], s].concat(),
-                    ].concat();
-                    assert_eq!(signature.len(), SIGNATURE_LENGTH);
-                    let mut sig_bytes = [0u8; 64];
-                    sig_bytes[..].copy_from_slice(&*signature);
+                    let mut sig_bytes = [0u8; SIGNATURE_LENGTH];
+
+                    // We need to zero-pad them at the front, because
+                    // the MPI encoding drops leading zero bytes.
+                    let half = SIGNATURE_LENGTH / 2;
+                    sig_bytes[..half].copy_from_slice(
+                        &r.value_padded(half).map_err(bad)?);
+                    sig_bytes[half..].copy_from_slice(
+                        &s.value_padded(half).map_err(bad)?);
 
                     let signature = Signature::from(sig_bytes);
 
@@ -966,5 +965,34 @@ where
         };
 
         Self::with_secret(SystemTime::now(), algo, public, private.into())
+    }
+}
+
+/// Rounds `n` up to the next multiple of `m`.
+fn round_up_to_multiple_of(n: usize, m: usize) -> usize {
+    ((n + m - 1) / m) * m
+}
+
+
+#[cfg(test)]
+mod tests {
+    quickcheck! {
+        fn round_up_to_multiple_of(n: usize, m: usize) -> bool {
+            if n.checked_add(m).is_none() {
+                // cannot round up because it overflows
+                return true;
+            }
+
+            if m == 0 {
+                // avoid dividing by zero
+                return true;
+            }
+
+            let rounded_up = super::round_up_to_multiple_of(n, m);
+            assert!(rounded_up >= n);
+            assert!(rounded_up - n < m);
+            assert_eq!(rounded_up % m, 0);
+            true
+        }
     }
 }
