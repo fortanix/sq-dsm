@@ -3,8 +3,12 @@
 //! This crate provides access to keyservers using the [HKP] protocol,
 //! and searching and publishing [Web Key Directories].
 //!
+//! Additionally the `pks` module exposes private key operations using
+//! the [PKS][PKS] protocol.
+//!
 //! [HKP]: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
 //! [Web Key Directories]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
+//! [PKS]: https://gitlab.com/wiktor/pks
 //!
 //! # Examples
 //!
@@ -56,6 +60,7 @@ use openpgp::{
     serialize::Serialize,
 };
 
+pub mod pks;
 pub mod updates;
 pub mod wkd;
 
