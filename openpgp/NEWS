@@ -5,7 +5,9 @@
 * Changes in 1.4.0
 ** New functionality
    - CipherSuite::is_supported
+   - MPI::value_padded
    - Preferences::policy_uri
+   - ProtectedMPI::value_padded
    - TSK::eq
    - ValidAmalgamation::revocation_keys
    - ValidCert::policy_uri

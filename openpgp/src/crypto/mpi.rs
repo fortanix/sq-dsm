@@ -18,6 +18,7 @@
 use std::fmt;
 use std::cmp::Ordering;
 use std::io::Write;
+use std::borrow::Cow;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
@@ -133,6 +134,15 @@ impl MPI {
     /// may be shorter than expected.
     pub fn value(&self) -> &[u8] {
         &self.value
+    }
+
+    /// Returns the value of this MPI zero-padded to the given length.
+    ///
+    /// MPI-encoding strips leading zero-bytes.  This function adds
+    /// them back, if necessary.  If the size exceeds `to`, an error
+    /// is returned.
+    pub fn value_padded(&self, to: usize) -> Result<Cow<[u8]>> {
+        crate::crypto::pad(self.value(), to)
     }
 
     /// Decodes an EC point encoded as MPI.
@@ -385,6 +395,20 @@ impl ProtectedMPI {
     /// may be shorter than expected.
     pub fn value(&self) -> &[u8] {
         &self.value
+    }
+
+    /// Returns the value of this MPI zero-padded to the given length.
+    ///
+    /// MPI-encoding strips leading zero-bytes.  This function adds
+    /// them back.  This operation is done unconditionally to avoid
+    /// timing differences.  If the size exceeds `to`, the result is
+    /// silently truncated to avoid timing differences.
+    pub fn value_padded(&self, to: usize) -> Protected {
+        let missing = to.saturating_sub(self.value.len());
+        let limit = self.value.len().min(to);
+        let mut v: Protected = vec![0; to].into();
+        v[missing..].copy_from_slice(&self.value()[..limit]);
+        v
     }
 
     /// Decodes an EC point encoded as MPI.

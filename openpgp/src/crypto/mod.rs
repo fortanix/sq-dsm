@@ -247,7 +247,6 @@ impl Password {
 /// Some encodings strip leading zero-bytes.  This function adds them
 /// back, if necessary.  If the size exceeds `to`, an error is
 /// returned.
-#[allow(dead_code)]
 pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<[u8]>>
 {
     if value.len() == to {
