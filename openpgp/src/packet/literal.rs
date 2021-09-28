@@ -110,7 +110,7 @@ impl Literal {
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should normally be ignored.
     pub fn filename(&self) -> Option<&[u8]> {
-        self.filename.as_ref().map(|b| b.as_slice())
+        self.filename.as_deref()
     }
 
     /// Sets the literal packet's filename field.
