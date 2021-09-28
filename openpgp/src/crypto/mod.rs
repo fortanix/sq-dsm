@@ -20,6 +20,12 @@
 
 use std::ops::{Deref, DerefMut};
 use std::fmt;
+use std::borrow::Cow;
+
+use crate::{
+    Error,
+    Result,
+};
 
 pub(crate) mod aead;
 mod asymmetric;
@@ -233,5 +239,46 @@ impl Password {
         where F: FnMut(&mem::Protected) -> T
     {
         self.0.map(fun)
+    }
+}
+
+/// Returns the value zero-padded to the given length.
+///
+/// Some encodings strip leading zero-bytes.  This function adds them
+/// back, if necessary.  If the size exceeds `to`, an error is
+/// returned.
+#[allow(dead_code)]
+pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<[u8]>>
+{
+    if value.len() == to {
+        Ok(Cow::Borrowed(value))
+    } else if value.len() < to {
+        let missing = to - value.len();
+        let mut v = vec![0; to];
+        v[missing..].copy_from_slice(value);
+        Ok(Cow::Owned(v))
+    } else {
+        Err(Error::InvalidOperation(
+            format!("Input value is longer than expected: {} > {}",
+                    value.len(), to)).into())
+    }
+}
+
+/// Returns the value zero-padded or truncated to the given length.
+///
+/// Some encodings strip leading zero-bytes.  This function adds them
+/// back, if necessary.  If the size exceeds `to`, the value is
+/// silently truncated.
+#[allow(dead_code)]
+pub(crate) fn pad_truncating(value: &[u8], to: usize) -> Cow<[u8]>
+{
+    if value.len() == to {
+        Cow::Borrowed(value)
+    } else {
+        let missing = to.saturating_sub(value.len());
+        let limit = value.len().min(to);
+        let mut v = vec![0; to];
+        v[missing..].copy_from_slice(&value[..limit]);
+        Cow::Owned(v)
     }
 }
