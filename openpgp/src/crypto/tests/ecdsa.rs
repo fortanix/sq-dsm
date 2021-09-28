@@ -22,7 +22,7 @@ fn fips_186_4() -> Result<()> {
         }
 
         if ! hash.is_supported() {
-            eprintln!("Skipping because {} is not supported.", curve);
+            eprintln!("Skipping because {} is not supported.", hash);
             return Ok(());
         }
 
