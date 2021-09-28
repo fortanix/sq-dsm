@@ -4853,7 +4853,9 @@ impl <'a> PacketParser<'a> {
     fn hash_read_content(&mut self, b: &[u8]) {
         if !b.is_empty() {
             assert!(self.body_hash.is_some());
-            self.body_hash.as_mut().map(|h| h.update(b));
+            if let Some(h) = self.body_hash.as_mut() {
+                h.update(b);
+            }
             self.content_was_read = true;
         }
     }
