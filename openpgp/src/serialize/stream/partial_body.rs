@@ -52,6 +52,7 @@ const PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE : usize = 1 << 30;
 // lots of small partial body packets, which is annoying.
 const PARTIAL_BODY_FILTER_BUFFER_THRESHOLD : usize = 4 * 1024 * 1024;
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> PartialBodyFilter<'a, Cookie> {
     /// Returns a new partial body encoder.
     pub fn new(inner: Message<'a>, cookie: Cookie)

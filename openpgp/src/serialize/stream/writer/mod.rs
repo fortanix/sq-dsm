@@ -191,6 +191,7 @@ pub struct Identity<'a, C> {
 }
 assert_send_and_sync!(Identity<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> Identity<'a, Cookie> {
     /// Makes an identity writer.
     pub fn new(inner: Message<'a>, cookie: Cookie)
@@ -272,6 +273,7 @@ pub struct Generic<W: io::Write + Send + Sync, C> {
 }
 assert_send_and_sync!(Generic<W, C> where W: io::Write, C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a, W: 'a + io::Write + Send + Sync> Generic<W, Cookie> {
     /// Wraps an `io::Write`r.
     pub fn new(inner: W, cookie: Cookie) -> Message<'a> {
@@ -357,6 +359,7 @@ pub struct Armorer<'a, C: 'a> {
 }
 assert_send_and_sync!(Armorer<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> Armorer<'a, Cookie> {
     /// Makes an armoring writer.
     pub fn new<I, K, V>(inner: Message<'a>, cookie: Cookie,
@@ -430,6 +433,7 @@ pub struct Encryptor<'a, C: 'a> {
 }
 assert_send_and_sync!(Encryptor<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> Encryptor<'a, Cookie> {
     /// Makes an encrypting writer.
     pub fn new(inner: Message<'a>, cookie: Cookie, algo: SymmetricAlgorithm,
@@ -502,6 +506,7 @@ pub struct AEADEncryptor<'a, C: 'a> {
 }
 assert_send_and_sync!(AEADEncryptor<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> AEADEncryptor<'a, Cookie> {
     /// Makes an encrypting writer.
     pub fn new(inner: Message<'a>, cookie: Cookie,

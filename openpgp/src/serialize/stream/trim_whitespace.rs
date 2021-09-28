@@ -33,6 +33,7 @@ pub(super) struct TrailingWSFilter<'a, C: 'a> {
 }
 assert_send_and_sync!(TrailingWSFilter<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> TrailingWSFilter<'a, Cookie> {
     /// Returns a new filter trimming spaces and tabs from lines.
     pub fn new(inner: Message<'a>, cookie: Cookie)

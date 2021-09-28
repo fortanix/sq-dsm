@@ -12,6 +12,7 @@ pub struct ZIP<'a, C: 'a> {
 }
 assert_send_and_sync!(ZIP<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> ZIP<'a, Cookie> {
     /// Makes a ZIP compressing writer.
     pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>
@@ -81,6 +82,7 @@ pub struct ZLIB<'a, C: 'a> {
 }
 assert_send_and_sync!(ZLIB<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> ZLIB<'a, Cookie> {
     /// Makes a ZLIB compressing writer.
     pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>

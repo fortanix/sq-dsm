@@ -12,6 +12,7 @@ pub struct BZ<'a, C: 'a> {
 }
 assert_send_and_sync!(BZ<'_, C> where C);
 
+#[allow(clippy::new_ret_no_self)]
 impl<'a> BZ<'a, Cookie> {
     /// Makes a BZ compressing writer.
     pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>

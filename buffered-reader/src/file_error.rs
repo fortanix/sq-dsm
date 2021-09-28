@@ -12,6 +12,7 @@ pub(crate) struct FileError {
     source: io::Error,
 }
 
+#[allow(clippy::new_ret_no_self)]
 impl FileError {
     /// Returns a new `io::Error` backed by a `FileError`.
     pub fn new<P: AsRef<Path>>(path: P, source: io::Error) -> io::Error {
