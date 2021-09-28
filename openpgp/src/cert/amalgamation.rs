@@ -1067,6 +1067,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
 }
 
 /// Attests to third-party certifications.
+#[allow(clippy::let_and_return)]
 fn attest_certifications_common<C, S>(hash: Box<dyn Digest>,
                                       old_attestation: Option<Signature>,
                                       primary_signer: &mut dyn Signer,
@@ -1109,8 +1110,10 @@ where C: IntoIterator<Item = S>,
         let creation_time =
             time::SystemTime::now() - time::Duration::new(SIG_BACKDATE_BY, 0);
 
-        SignatureBuilder::new(SignatureType::AttestationKey)
-            .set_signature_creation_time(creation_time)?
+        let template = SignatureBuilder::new(SignatureType::AttestationKey)
+            .set_signature_creation_time(creation_time)?;
+        template
+
     };
 
     let template = template
