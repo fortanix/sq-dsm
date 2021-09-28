@@ -1109,9 +1109,8 @@ where C: IntoIterator<Item = S>,
         let creation_time =
             time::SystemTime::now() - time::Duration::new(SIG_BACKDATE_BY, 0);
 
-        let template = SignatureBuilder::new(SignatureType::AttestationKey)
-            .set_signature_creation_time(creation_time)?;
-        template
+        SignatureBuilder::new(SignatureType::AttestationKey)
+            .set_signature_creation_time(creation_time)?
     };
 
     let template = template
