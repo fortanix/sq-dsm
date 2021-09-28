@@ -92,6 +92,11 @@ impl Manifest {
         self.end
     }
 
+    /// Is the Manifest empty?
+    pub fn is_empty(&self) -> bool {
+        self.prefixes.is_empty()
+    }
+
     /// Returns the number of fingerprint prefixes in this Update
     /// Manifest.
     pub fn len(&self) -> usize {

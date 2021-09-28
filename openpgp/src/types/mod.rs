@@ -387,6 +387,7 @@ const ED25519_OID: &[u8] =
 const CV25519_OID: &[u8] =
     &[0x2B, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01];
 
+#[allow(clippy::len_without_is_empty)]
 impl Curve {
     /// Parses the given OID.
     ///
