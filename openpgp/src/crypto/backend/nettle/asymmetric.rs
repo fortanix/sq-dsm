@@ -85,17 +85,9 @@ impl Signer for KeyPair {
                     // zeros to be stripped.
                     // Padding has to be unconditional; otherwise we have a
                     // secret-dependent branch.
-                    let missing = ed25519::ED25519_KEY_SIZE
-                        .saturating_sub(scalar.value().len());
-                    let mut sec = [0u8; ed25519::ED25519_KEY_SIZE];
-                    sec[missing..].copy_from_slice(scalar.value());
+                    let sec = scalar.value_padded(ed25519::ED25519_KEY_SIZE);
 
-                    let res = ed25519::sign(public, &sec[..], digest, &mut sig);
-                    unsafe {
-                        memsec::memzero(sec.as_mut_ptr(),
-                                        ed25519::ED25519_KEY_SIZE);
-                    }
-                    res?;
+                    ed25519::sign(public, &sec[..], digest, &mut sig)?;
 
                     Ok(mpi::Signature::EdDSA {
                         r: MPI::new(&sig[..ed25519::ED25519_KEY_SIZE]),
@@ -242,6 +234,10 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     {
         use crate::crypto::mpi::Signature;
 
+        fn bad(e: impl ToString) -> anyhow::Error {
+            Error::BadSignature(e.to_string()).into()
+        }
+
         let ok = match (self.mpis(), sig) {
             (PublicKey::RSA { e, n }, Signature::RSA { s }) => {
                 let key = rsa::PublicKey::new(n.value(), e.value())?;
@@ -279,26 +275,14 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     // We need to zero-pad them at the front, because
                     // the MPI encoding drops leading zero bytes.
                     let half = ed25519::ED25519_SIGNATURE_SIZE / 2;
-                    if r.value().len() < half {
-                        for _ in 0..half - r.value().len() {
-                            signature.push(0);
-                        }
-                    }
-                    signature.extend_from_slice(r.value());
-                    if s.value().len() < half {
-                        for _ in 0..half - s.value().len() {
-                            signature.push(0);
-                        }
-                    }
-                    signature.extend_from_slice(s.value());
+                    signature.extend_from_slice(
+                        &r.value_padded(half).map_err(bad)?);
+                    signature.extend_from_slice(
+                        &s.value_padded(half).map_err(bad)?);
 
                     // Let's see if we got it right.
-                    if signature.len() != ed25519::ED25519_SIGNATURE_SIZE {
-                        return Err(Error::MalformedPacket(
-                            format!(
-                                "Invalid signature size: {}, r: {:?}, s: {:?}",
-                                signature.len(), r.value(), s.value())).into());
-                    }
+                    assert_eq!(signature.len(),
+                               ed25519::ED25519_SIGNATURE_SIZE);
 
                     ed25519::verify(&q.value()[1..], digest, &signature)?
                 },

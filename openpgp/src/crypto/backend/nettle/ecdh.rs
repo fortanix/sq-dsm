@@ -138,14 +138,11 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                     // zeros to be stripped.
                     // Padding has to be unconditional; otherwise we have a
                     // secret-dependent branch.
-                    //
+                    let mut r =
+                        scalar.value_padded(curve25519::CURVE25519_SIZE);
+
                     // Reverse the scalar.  See
                     // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
-                    let missing = curve25519::CURVE25519_SIZE
-                        .saturating_sub(scalar.value().len());
-                    let mut r = [0u8; curve25519::CURVE25519_SIZE];
-
-                    r[missing..].copy_from_slice(scalar.value());
                     r.reverse();
 
                     // Compute the shared point S = rV = rvG, where (r, R)
