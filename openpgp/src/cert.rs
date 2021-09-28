@@ -2690,8 +2690,8 @@ impl Cert {
         }
         // Note: Vec::retain visits the elements in the original
         // order.
-        let mut i = 0;
-        self.userids.retain(|_| (keep[i], i += 1).0);
+        let mut keep = keep.iter();
+        self.userids.retain(|_| *keep.next().unwrap());
         self
     }
 
@@ -2729,8 +2729,8 @@ impl Cert {
         }
         // Note: Vec::retain visits the elements in the original
         // order.
-        let mut i = 0;
-        self.user_attributes.retain(|_| (keep[i], i += 1).0);
+        let mut keep = keep.iter();
+        self.user_attributes.retain(|_| *keep.next().unwrap());
         self
     }
 
@@ -2783,8 +2783,8 @@ impl Cert {
         }
         // Note: Vec::retain visits the elements in the original
         // order.
-        let mut i = 0;
-        self.subkeys.retain(|_| (keep[i], i += 1).0);
+        let mut keep = keep.iter();
+        self.subkeys.retain(|_| *keep.next().unwrap());
         self
     }
 
