@@ -245,6 +245,7 @@ impl<'a> Parse<'a, PacketPileParser<'a>> for PacketPileParser<'a> {
     }
 }
 
+#[allow(clippy::should_implement_trait)]
 impl<'a> PacketPileParser<'a> {
     /// Creates a `PacketPileParser` from a *fresh* `PacketParser`.
     fn from_packet_parser(ppr: PacketParserResult<'a>)
