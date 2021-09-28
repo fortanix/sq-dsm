@@ -49,8 +49,7 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
         KeyServer::keys_openpgp_org(network_policy)
     }.context("Malformed keyserver URI")?;
 
-    let mut rt = tokio::runtime::Builder::new()
-        .basic_scheduler()
+    let rt = tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
         .build()?;
@@ -113,8 +112,7 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
 pub fn dispatch_wkd(config: Config, m: &clap::ArgMatches) -> Result<()> {
     let network_policy = parse_network_policy(m);
 
-    let mut rt = tokio::runtime::Builder::new()
-        .basic_scheduler()
+    let rt = tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
         .build()?;

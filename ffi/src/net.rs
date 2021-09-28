@@ -127,7 +127,7 @@ fn sq_keyserver_get(ctx: *mut Context,
     let ks = ffi_param_ref_mut!(ks);
     let id = id.ref_raw().clone();
 
-    let mut core = ffi_try_or!(basic_runtime(), None);
+    let core = ffi_try_or!(basic_runtime(), None);
     core.block_on(ks.get(id)).move_into_raw(Some(ctx.errp()))
 }
 
@@ -146,13 +146,12 @@ fn sq_keyserver_send(ctx: *mut Context,
 
     ffi_try_status!(basic_runtime()
                     .map_err(|e| e.into())
-                    .and_then(|mut rt| rt.block_on(ks.send(cert))))
+                    .and_then(|rt| rt.block_on(ks.send(cert))))
 }
 
 /// Constructs a basic Tokio runtime.
 fn basic_runtime() -> tokio::io::Result<tokio::runtime::Runtime> {
-    tokio::runtime::Builder::new()
-        .basic_scheduler()
+    tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
         .build()
