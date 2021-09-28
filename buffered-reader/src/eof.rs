@@ -20,6 +20,7 @@ impl<C> fmt::Display for EOF<C> {
     }
 }
 
+#[allow(clippy::new_without_default)]
 impl EOF<()> {
     /// Instantiates a new `EOF`.
     pub fn new() -> Self {

@@ -235,6 +235,7 @@ pub struct CertBuilder<'a> {
 }
 assert_send_and_sync!(CertBuilder<'_>);
 
+#[allow(clippy::new_without_default)]
 impl CertBuilder<'_> {
     /// Returns a new `CertBuilder`.
     ///

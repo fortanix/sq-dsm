@@ -46,6 +46,7 @@ impl std::ops::DerefMut for SEIP1 {
     }
 }
 
+#[allow(clippy::new_without_default)]
 impl SEIP1 {
     /// Creates a new SEIP1 packet.
     pub fn new() -> Self {
