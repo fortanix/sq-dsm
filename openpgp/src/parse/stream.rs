@@ -2265,6 +2265,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     }
 
     /// Creates the `Decryptor`, and buffers the data up to `buffer_size`.
+    #[allow(clippy::redundant_pattern_matching)]
     fn from_buffered_reader<T>(
         policy: &'a dyn Policy,
         bio: Box<dyn BufferedReader<Cookie> + 'a>,

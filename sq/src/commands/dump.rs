@@ -52,6 +52,7 @@ impl Convert<chrono::DateTime<chrono::offset::Utc>> for Timestamp {
     }
 }
 
+#[allow(clippy::redundant_pattern_matching)]
 pub fn dump<W>(input: &mut (dyn io::Read + Sync + Send),
                output: &mut dyn io::Write,
                mpis: bool, hex: bool, sk: Option<&SessionKey>,

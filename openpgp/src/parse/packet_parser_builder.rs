@@ -396,6 +396,7 @@ impl<'a> PacketParserBuilder<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    #[allow(clippy::redundant_pattern_matching)]
     pub fn build(mut self)
         -> Result<PacketParserResult<'a>>
         where Self: 'a

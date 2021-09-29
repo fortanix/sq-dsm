@@ -208,6 +208,7 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
 }
 
 impl<'a> From<&'a anyhow::Error> for Status {
+    #[allow(clippy::redundant_pattern_matching)]
     fn from(e: &'a anyhow::Error) -> Self {
         if let Some(e) = e.downcast_ref::<openpgp::Error>() {
             return match e {

@@ -2141,6 +2141,7 @@ impl SubpacketAreas {
     ///
     /// For subpackets that can safely occur in both subpacket areas,
     /// this function prefers instances in the hashed subpacket area.
+    #[allow(clippy::redundant_pattern_matching)]
     pub fn subpacket_mut(&mut self, tag: SubpacketTag)
                          -> Option<&mut Subpacket> {
         if let Some(_) = self.hashed_area().subpacket(tag) {

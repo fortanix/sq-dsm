@@ -13,6 +13,7 @@ trait FromSequoiaError<'a> {
 }
 
 impl<'a> FromSequoiaError<'a> for Status {
+    #[allow(clippy::redundant_pattern_matching)]
     fn from_sequoia_error(e: &'a anyhow::Error) -> Self {
         if let Some(e) = e.downcast_ref::<net::Error>() {
             return match e {
