@@ -52,6 +52,7 @@ pub mod net;
 pub mod certify;
 
 /// Returns suitable signing keys from a given list of Certs.
+#[allow(clippy::never_loop)]
 fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
                     timestamp: Option<SystemTime>)
     -> Result<Vec<crypto::KeyPair>>

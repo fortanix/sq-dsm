@@ -218,6 +218,7 @@ const ARMOR_DETECTION_LIMIT: u64 = 1 << 24;
 ///
 /// Returns the given reader unchanged.  If the detection fails,
 /// armor::Kind::File is returned as safe default.
+#[allow(clippy::never_loop)]
 fn detect_armor_kind(input: Box<dyn BufferedReader<()>>)
                      -> (Box<dyn BufferedReader<()>>, armor::Kind) {
     let mut dup = Limitor::new(Dup::new(input), ARMOR_DETECTION_LIMIT).as_boxed();
