@@ -363,6 +363,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Padder<'a>
 /// [example].
 ///
 ///   [example]: Padder#examples
+#[allow(clippy::many_single_char_names)]
 pub fn padme(l: u64) -> u64 {
     if l < 2 {
         return 1; // Avoid cornercase.
