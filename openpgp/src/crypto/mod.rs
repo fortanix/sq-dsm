@@ -18,6 +18,7 @@
 //!   [`SessionKey::new`]: SessionKey::new()
 //!   [`KeyPair` example]: KeyPair#examples
 
+use std::cmp::Ordering;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::borrow::Cow;
@@ -249,17 +250,19 @@ impl Password {
 /// returned.
 pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<[u8]>>
 {
-    if value.len() == to {
-        Ok(Cow::Borrowed(value))
-    } else if value.len() < to {
-        let missing = to - value.len();
-        let mut v = vec![0; to];
-        v[missing..].copy_from_slice(value);
-        Ok(Cow::Owned(v))
-    } else {
-        Err(Error::InvalidOperation(
-            format!("Input value is longer than expected: {} > {}",
-                    value.len(), to)).into())
+    match value.len().cmp(&to) {
+        Ordering::Equal => Ok(Cow::Borrowed(value)),
+        Ordering::Less => {
+            let missing = to - value.len();
+            let mut v = vec![0; to];
+            v[missing..].copy_from_slice(value);
+            Ok(Cow::Owned(v))
+        }
+        Ordering::Greater => {
+            Err(Error::InvalidOperation(
+                format!("Input value is longer than expected: {} > {}",
+                        value.len(), to)).into())
+        }
     }
 }
 
