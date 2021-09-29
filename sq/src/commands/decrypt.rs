@@ -129,6 +129,7 @@ impl<'a> VerificationHelper for Helper<'a> {
 }
 
 impl<'a> DecryptionHelper for Helper<'a> {
+    #[allow(clippy::if_let_some_result)]
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
