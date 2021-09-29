@@ -289,6 +289,7 @@ impl KeyServer {
     ///
     /// Returned certificates must be mistrusted, and be carefully
     /// interpreted under a policy and trust model.
+    #[allow(clippy::blocks_in_if_conditions)]
     pub async fn search<U: Into<UserID>>(&mut self, userid: U)
                                          -> Result<Vec<Cert>>
     {

@@ -1874,6 +1874,7 @@ impl OnePassSig {
 impl_parse_generic_packet!(OnePassSig);
 
 impl OnePassSig3 {
+    #[allow(clippy::blocks_in_if_conditions)]
     fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>)
         -> Result<PacketParser<'a>>
     {

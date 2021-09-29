@@ -587,6 +587,7 @@ impl<C> ComponentBundle<C> {
     ///     even if there is a newer self-signature).
     ///
     /// selfsig must be the newest live self signature at time `t`.
+    #[allow(clippy::blocks_in_if_conditions)]
     pub(crate) fn _revocation_status<'a, T>(&'a self, policy: &dyn Policy, t: T,
                                             hard_revocations_are_final: bool,
                                             selfsig: Option<&Signature>)

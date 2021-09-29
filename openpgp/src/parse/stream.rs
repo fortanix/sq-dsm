@@ -2609,6 +2609,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     }
 
     /// Verifies the signatures.
+    #[allow(clippy::blocks_in_if_conditions)]
     fn verify_signatures(&mut self) -> Result<()> {
         tracer!(TRACE, "Decryptor::verify_signatures", 0);
         t!("called");
