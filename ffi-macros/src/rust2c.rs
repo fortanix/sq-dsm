@@ -132,6 +132,7 @@ fn type2c<T: ToTokens>(typ: T) -> String {
     c_typ
 }
 
+#[allow(clippy::single_match)]
 pub fn rust2c(fun: &syn::ItemFn) -> String {
     let return_type = match &fun.sig.output {
         syn::ReturnType::Default => "void".into(),

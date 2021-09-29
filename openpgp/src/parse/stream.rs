@@ -2477,6 +2477,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
     /// Stashes the given Signature (if it is one) for later
     /// verification.
+    #[allow(clippy::single_match)]
     fn push_sig(&mut self, p: Packet) -> Result<()> {
         match p {
             Packet::Signature(sig) => {

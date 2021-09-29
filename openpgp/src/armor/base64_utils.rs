@@ -29,6 +29,7 @@ use crate::{
 ///
 /// This function will stop after it sees base64 padding, and if it
 /// sees invalid base64 data.
+#[allow(clippy::single_match)]
 pub fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize,
                      mut prefix_remaining: usize, prefix_len: usize)
     -> (Cow<[u8]>, usize, usize)
