@@ -263,6 +263,17 @@ pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<[u8]>>
     }
 }
 
+/// Returns the value zero-padded to the given length.
+///
+/// Some encodings strip leading zero-bytes.  This function adds them
+/// back, if necessary.  If the size exceeds `to`, the value is
+/// returned as-is.
+#[allow(dead_code)]
+pub(crate) fn pad_at_least(value: &[u8], to: usize) -> Cow<[u8]>
+{
+    pad(value, to).unwrap_or_else(|_| Cow::Borrowed(value))
+}
+
 /// Returns the value zero-padded or truncated to the given length.
 ///
 /// Some encodings strip leading zero-bytes.  This function adds them

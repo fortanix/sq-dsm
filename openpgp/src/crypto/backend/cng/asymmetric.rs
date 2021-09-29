@@ -10,6 +10,7 @@ use crate::crypto::asymmetric::{Decryptor, KeyPair, Signer};
 use crate::crypto::mem::Protected;
 use crate::crypto::mpi;
 use crate::crypto::SessionKey;
+use crate::crypto::{pad, pad_at_least, pad_truncating};
 use crate::packet::key::{Key4, SecretParts};
 use crate::packet::{key, Key};
 use crate::types::{PublicKeyAlgorithm, SymmetricAlgorithm};
@@ -265,19 +266,10 @@ impl Signer for KeyPair {
                     // digest or pad it with zeroes (since it's treated as a
                     // big-endian number).
                     // See https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.SignVerify.cs#L148.
-                    let mut _digest = vec![];
-                    let digest = match std::cmp::Ord::cmp(&q.value().len(), &digest.len()) {
-                        std::cmp::Ordering::Equal => digest,
-                        std::cmp::Ordering::Less => &digest[..q.value().len()],
-                        std::cmp::Ordering::Greater => {
-                            let pad = vec![0; q.value().len() - digest.len()];
-                            _digest = [pad.as_ref(), digest].concat();
-                            &_digest
-                        }
-                    };
+                    let digest = pad_truncating(&digest, q.value().len());
                     assert_eq!(q.value().len(), digest.len());
 
-                    let sig = pair.sign(digest, None)?;
+                    let sig = pair.sign(&digest, None)?;
 
                     // https://tools.ietf.org/html/rfc8032#section-5.1.6
                     let (r, s) = sig.split_at(sig.len() / 2);
@@ -430,32 +422,18 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
             (mpi::PublicKey::RSA { e, n }, mpi::Signature::RSA { s }) => {
                 // CNG accepts only full-size signatures. Since for RSA it's a
                 // big-endian number, just left-pad with zeroes as necessary.
-                let sig_diff = n.value().len().saturating_sub(s.value().len());
-                let mut _s: Vec<u8> = vec![];
-                let s = if sig_diff > 0 {
-                    _s = [&vec![0u8; sig_diff], s.value()].concat();
-                    &_s
-                } else {
-                    s.value()
-                };
+                let s = pad(s.value(), n.value().len()).map_err(bad)?;
 
                 // CNG supports RSA keys that are at least 512 bit long.
                 // Since it just checks the MPI length rather than data itself,
                 // just pad it with zeroes as necessary.
-                let mut _n: Vec<u8> = vec![];
-                let missing_size = 512usize.saturating_sub(n.value().len());
-                let n = if missing_size > 0 {
-                    _n = [&vec![0u8; missing_size], n.value()].concat();
-                    &_n
-                } else {
-                    n.value()
-                };
+                let n = pad_at_least(n.value(), 512);
 
                 let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Rsa)?;
                 let key = AsymmetricKey::<Rsa, Public>::import_from_parts(
                     &provider,
                     &RsaKeyPublicPayload {
-                        modulus: n,
+                        modulus: &n,
                         pub_exp: e.value(),
                     }
                 )?;
@@ -469,7 +447,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 let hash = hash_algo.try_into()?;
                 let padding = SignaturePadding::pkcs1(hash);
 
-                key.verify(digest, s, Some(padding)).map(|_| true)?
+                key.verify(digest, &s, Some(padding)).map(|_| true)?
             },
             (mpi::PublicKey::DSA { y, p, q, g }, mpi::Signature::DSA { r, s }) => {
                 use win_crypto_ng::key_blob::{DsaKeyPublicPayload, DsaKeyPublicBlob};
@@ -485,9 +463,14 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
 
                 // CNG expects full-sized signatures
                 let field_sz = q.value().len();
-                let r = [&vec![0u8; field_sz - r.value().len()], r.value()].concat();
-                let s = [&vec![0u8; field_sz - s.value().len()], s.value()].concat();
-                let signature = [r, s].concat();
+                let mut signature = vec![0u8; 2 * field_sz];
+
+                // We need to zero-pad them at the front, because
+                // the MPI encoding drops leading zero bytes.
+                signature[..field_sz].copy_from_slice(
+                    &r.value_padded(field_sz).map_err(bad)?);
+                signature[field_sz..].copy_from_slice(
+                    &s.value_padded(field_sz).map_err(bad)?);
 
                 enum Version { V1, V2 }
                 // 1024-bit DSA keys are handled differently
@@ -589,9 +572,14 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 let (x, y) = q.decode_point(curve)?;
                 // CNG expects full-sized signatures
                 let field_sz = x.len();
-                let r = [&vec![0u8; field_sz - r.value().len()], r.value()].concat();
-                let s = [&vec![0u8; field_sz - s.value().len()], s.value()].concat();
-                let signature = [r, s].concat();
+                let mut signature = vec![0u8; 2 * field_sz];
+
+                // We need to zero-pad them at the front, because
+                // the MPI encoding drops leading zero bytes.
+                signature[..field_sz].copy_from_slice(
+                    &r.value_padded(field_sz).map_err(bad)?);
+                signature[field_sz..].copy_from_slice(
+                    &s.value_padded(field_sz).map_err(bad)?);
 
                 use cng::key_blob::EccKeyPublicPayload;
                 use cng::asymmetric::{ecc::{NistP256, NistP384, NistP521}, Ecdsa};
