@@ -178,7 +178,10 @@ impl Signer for KeyPair {
                     use win_crypto_ng::asymmetric::{Dsa, DsaPrivateBlob};
                     use win_crypto_ng::helpers::Blob;
 
-                    if y.value().len() > 3072 / 8 {
+                    let y = y.value_padded(p.value().len())
+                        .map_err(|e| Error::InvalidKey(e.to_string()))?;
+
+                    if y.len() > 3072 / 8 {
                         return Err(Error::InvalidOperation(
                             "DSA keys are supported up to 3072-bits".to_string()).into()
                         );
@@ -186,7 +189,7 @@ impl Signer for KeyPair {
 
                     enum Version { V1, V2 }
                     // 1024-bit DSA keys are handled differently
-                    let version = if y.value().len() <= 128 { Version::V1 } else { Version::V2 };
+                    let version = if y.len() <= 128 { Version::V1 } else { Version::V2 };
 
                     let blob: DsaPrivateBlob = match version {
                         Version::V1 => {
@@ -197,7 +200,7 @@ impl Signer for KeyPair {
                             DsaPrivateBlob::V1(Blob::<DsaKeyPrivateBlob>::clone_from_parts(
                                 &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
                                     dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC,
-                                    cbKey: y.value().len() as u32,
+                                    cbKey: y.len() as u32,
                                     Count: [0; 4], // unused
                                     Seed: [0; 20], // unused
                                     q: group,
@@ -205,7 +208,7 @@ impl Signer for KeyPair {
                                 &DsaKeyPrivatePayload {
                                     modulus: p.value(),
                                     generator: g.value(),
-                                    public: y.value(),
+                                    public: &y,
                                     priv_exp: x.value(),
                                 },
                             ))
@@ -235,7 +238,7 @@ impl Signer for KeyPair {
                                     // bits, q is 20 bytes long.
                                     // If the key exceeds 256 bits, q is 32 bytes long.
                                     cbGroupSize: std::cmp::min(q.value().len(), 32) as u32,
-                                    cbKey: y.value().len() as u32,
+                                    cbKey: y.len() as u32,
                                     cbSeedLength: seed.len() as u32,
                                     hashAlgorithm: hash,
                                     standardVersion: 1, // FIPS 186-3
@@ -246,7 +249,7 @@ impl Signer for KeyPair {
                                     group: q.value(),
                                     modulus: p.value(),
                                     generator: g.value(),
-                                    public: y.value(),
+                                    public: &y,
                                     priv_exp: x.value(),
                                 },
                             ))
@@ -455,7 +458,10 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 use win_crypto_ng::asymmetric::{Dsa, DsaPublicBlob};
                 use win_crypto_ng::helpers::Blob;
 
-                if y.value().len() > 3072 / 8 {
+                let y = y.value_padded(p.value().len())
+                    .map_err(|e| Error::InvalidKey(e.to_string()))?;
+
+                if y.len() > 3072 / 8 {
                     return Err(Error::InvalidOperation(
                         "DSA keys are supported up to 3072-bits".to_string()).into()
                     );
@@ -474,7 +480,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
 
                 enum Version { V1, V2 }
                 // 1024-bit DSA keys are handled differently
-                let version = if y.value().len() <= 128 { Version::V1 } else { Version::V2 };
+                let version = if y.len() <= 128 { Version::V1 } else { Version::V2 };
 
                 let blob: DsaPublicBlob = match version {
                     Version::V1 => {
@@ -485,7 +491,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                         DsaPublicBlob::V1(Blob::<DsaKeyPublicBlob>::clone_from_parts(
                             &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
                                 dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC,
-                                cbKey: y.value().len() as u32,
+                                cbKey: y.len() as u32,
                                 Count: [0; 4], // unused
                                 Seed: [0; 20], // unused
                                 q: group,
@@ -493,7 +499,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                             &DsaKeyPublicPayload {
                                 modulus: p.value(),
                                 generator: g.value(),
-                                public: y.value(),
+                                public: &y,
                             },
                         ))
                     },
@@ -522,7 +528,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                                 // bits, q is 20 bytes long.
                                 // If the key exceeds 256 bits, q is 32 bytes long.
                                 cbGroupSize: q.value().len() as u32,
-                                cbKey: y.value().len() as u32,
+                                cbKey: y.len() as u32,
                                 // https://csrc.nist.gov/csrc/media/publications/fips/186/3/archive/2009-06-25/documents/fips_186-3.pdf
                                 // Length of the seed used to generate the
                                 // prime number q.
@@ -536,7 +542,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                                 group: q.value(),
                                 modulus: p.value(),
                                 generator: g.value(),
-                                public: y.value(),
+                                public: &y,
                             },
                         ))
                     },
