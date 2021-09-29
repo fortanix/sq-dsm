@@ -4,3 +4,4 @@
 
 enum-variant-size-threshold = 512
 too-many-arguments-threshold = 10
+type-complexity-threshold = 500
