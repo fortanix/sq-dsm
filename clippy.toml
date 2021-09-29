@@ -3,3 +3,4 @@
 #msrv = "1.48.0"
 
 enum-variant-size-threshold = 512
+too-many-arguments-threshold = 10
