@@ -149,13 +149,8 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                     // is the recipient's key pair.
                     let mut S: Protected =
                         vec![0; curve25519::CURVE25519_SIZE].into();
-                    let res = curve25519::mul(&mut S, &r[..], V);
-
-                    unsafe {
-                        memsec::memzero(r.as_mut_ptr(),
-                        curve25519::CURVE25519_SIZE);
-                    }
-                    res.expect("buffers are of the wrong size");
+                    curve25519::mul(&mut S, &r[..], V)
+                        .expect("buffers are of the wrong size");
                     S
                 }
 
