@@ -560,18 +560,10 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 // digest or pad it with zeroes (since it's treated as a
                 // big-endian number).
                 // See https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.SignVerify.cs#L148.
-                let mut _digest = vec![];
-                let digest = match std::cmp::Ord::cmp(&q.value().len(), &digest.len()) {
-                    std::cmp::Ordering::Equal => digest,
-                    std::cmp::Ordering::Less => &digest[..q.value().len()],
-                    std::cmp::Ordering::Greater => {
-                        let pad = vec![0; q.value().len() - digest.len()];
-                        _digest = [pad.as_ref(), digest].concat();
-                        &_digest
-                    }
-                };
+                let digest = pad_truncating(&digest, q.value().len());
+                assert_eq!(q.value().len(), digest.len());
 
-                key.verify(digest, &signature, None).map(|_| true)?
+                key.verify(&digest, &signature, None).map(|_| true)?
             },
             (mpi::PublicKey::ECDSA { curve, q }, mpi::Signature::ECDSA { s, r }) =>
             {
