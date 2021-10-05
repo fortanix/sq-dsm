@@ -194,8 +194,13 @@ impl Signer for KeyPair {
                     let blob: DsaPrivateBlob = match version {
                         Version::V1 => {
                             let mut group = [0; 20];
-                            assert!(q.value().len() >= 20);
-                            group[..q.value().len()].copy_from_slice(q.value());
+                            if let Ok(v) = q.value_padded(group.len()) {
+                                group[..].copy_from_slice(&v);
+                            } else {
+                                return Err(Error::InvalidOperation(
+                                    "DSA keys' group parameter exceeds 160 bits"
+                                        .to_string()).into());
+                            }
 
                             DsaPrivateBlob::V1(Blob::<DsaKeyPrivateBlob>::clone_from_parts(
                                 &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
@@ -485,8 +490,13 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 let blob: DsaPublicBlob = match version {
                     Version::V1 => {
                         let mut group = [0; 20];
-                        assert!(q.value().len() >= 20);
-                        group[..q.value().len()].copy_from_slice(q.value());
+                        if let Ok(v) = q.value_padded(group.len()) {
+                            group[..].copy_from_slice(&v);
+                        } else {
+                            return Err(Error::InvalidOperation(
+                                "DSA keys' group parameter exceeds 160 bits"
+                                    .to_string()).into());
+                        }
 
                         DsaPublicBlob::V1(Blob::<DsaKeyPublicBlob>::clone_from_parts(
                             &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
