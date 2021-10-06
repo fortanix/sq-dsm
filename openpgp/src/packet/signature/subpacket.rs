@@ -3764,7 +3764,7 @@ impl signature::SignatureBuilder {
     /// implement the required functionality), you need to do
     /// something like the following:
     ///
-    ///   [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
+    ///   [`SignatureBuilder::set_signature_validity_period`]: super::SignatureBuilder::set_signature_validity_period()
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -3910,7 +3910,7 @@ impl signature::SignatureBuilder {
     /// implement the required functionality), you need to do
     /// something like the following:
     ///
-    ///   [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
+    ///   [`SignatureBuilder::set_signature_validity_period`]: super::SignatureBuilder::set_signature_validity_period()
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -4315,7 +4315,7 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_signature_creation_time`].
     ///
     /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    /// [`SignatureBuilder::set_signature_creation_time`]: Self::SignatureBuilder::set_signature_creation_time()
+    /// [`SignatureBuilder::set_signature_creation_time`]: super::SignatureBuilder::set_signature_creation_time()
     ///
     /// A Signature Expiration Time subpacket specifies when the
     /// signature expires.  This is different from the [Key Expiration
@@ -4333,7 +4333,7 @@ impl signature::SignatureBuilder {
     /// signature.
     ///
     /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SignatureBuilder::set_key_validity_period`]: Self::SignatureBuilder::set_key_validity_period()
+    /// [`SignatureBuilder::set_key_validity_period`]: super::SignatureBuilder::set_key_validity_period()
     ///
     /// There are several cases where having a signature expire is
     /// useful.  Say Alice certifies Bob's certificate for
@@ -4628,7 +4628,7 @@ impl signature::SignatureBuilder {
     /// their own employees.
     ///
     /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
-    /// [`SignatureBuilder::set_trust_signature`]: Self::SignatureBuilder::set_trust_signature()
+    /// [`SignatureBuilder::set_trust_signature`]: super::SignatureBuilder::set_trust_signature()
     ///
     /// GnuPG only supports [a limited form of regular expressions].
     ///
@@ -4713,7 +4713,7 @@ impl signature::SignatureBuilder {
     /// additional Regular Expression subpacket to the hashed
     /// subpacket area.
     ///
-    /// [`SignatureBuilder::set_regular_expression`]: Self::SignatureBuilder::set_regular_expression()
+    /// [`SignatureBuilder::set_regular_expression`]: super::SignatureBuilder::set_regular_expression()
     /// [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
     ///
     /// The Regular Expression subpacket is used in conjunction with a
@@ -4724,7 +4724,7 @@ impl signature::SignatureBuilder {
     /// their own employees.
     ///
     /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
-    /// [`SignatureBuilder::set_trust_signature`]: Self::SignatureBuilder::set_trust_signature()
+    /// [`SignatureBuilder::set_trust_signature`]: super::SignatureBuilder::set_trust_signature()
     ///
     /// GnuPG only supports [a limited form of regular expressions].
     ///
@@ -4817,7 +4817,7 @@ impl signature::SignatureBuilder {
     ///
     /// [Certification revocation signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
     /// [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
-    /// [`SignatureBuilder::set_signature_target`]: Self::SignatureBuilder::set_signature_target()
+    /// [`SignatureBuilder::set_signature_target`]: super::SignatureBuilder::set_signature_target()
     ///
     /// # Examples
     ///
@@ -4904,7 +4904,7 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_key_expiration_time`] that takes an
     /// absolute expiration time.
     ///
-    /// [`SignatureBuilder::set_key_expiration_time`]: Self::SignatureBuilder::set_key_expiration_time()
+    /// [`SignatureBuilder::set_key_expiration_time`]: super::SignatureBuilder::set_key_expiration_time()
     ///
     /// A Key Expiration Time subpacket specifies when the associated
     /// key expires.  This is different from the [Signature Expiration
@@ -4922,7 +4922,7 @@ impl signature::SignatureBuilder {
     /// signature.
     ///
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
+    /// [`SignatureBuilder::set_signature_validity_period`]: super::SignatureBuilder::set_signature_validity_period()
     ///
     /// # Examples
     ///
@@ -5013,7 +5013,7 @@ impl signature::SignatureBuilder {
     /// [`SignatureBuilder::set_key_validity_period`] that takes a
     /// relative expiration time.
     ///
-    /// [`SignatureBuilder::set_key_validity_period`]: Self::SignatureBuilder::set_key_validity_period()
+    /// [`SignatureBuilder::set_key_validity_period`]: super::SignatureBuilder::set_key_validity_period()
     ///
     /// A Key Expiration Time subpacket specifies when the associated
     /// key expires.  This is different from the [Signature Expiration
@@ -5031,7 +5031,7 @@ impl signature::SignatureBuilder {
     /// signature.
     ///
     /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SignatureBuilder::set_signature_validity_period`]: Self::SignatureBuilder::set_signature_validity_period()
+    /// [`SignatureBuilder::set_signature_validity_period`]: super::SignatureBuilder::set_signature_validity_period()
     ///
     /// # Examples
     ///
@@ -5272,7 +5272,7 @@ impl signature::SignatureBuilder {
     /// subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`add_issuer`]: Self::SignatureBuilder::add_issuer()
+    ///   [`add_issuer`]: super::SignatureBuilder::add_issuer()
     ///
     /// The Issuer subpacket is used when processing a signature to
     /// identify which certificate created the signature.  Even though this
@@ -5295,7 +5295,7 @@ impl signature::SignatureBuilder {
     ///
     /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    /// [`SignatureBuilder::set_issuer_fingerprint`]: Self::SignatureBuilder::set_issuer_fingerprint()
+    /// [`SignatureBuilder::set_issuer_fingerprint`]: super::SignatureBuilder::set_issuer_fingerprint()
     ///
     /// # Examples
     ///
@@ -5362,7 +5362,7 @@ impl signature::SignatureBuilder {
     /// unhashed subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [`set_issuer`]: Self::SignatureBuilder::set_issuer()
+    ///   [`set_issuer`]: super::SignatureBuilder::set_issuer()
     ///
     /// The Issuer subpacket is used when processing a signature to
     /// identify which certificate created the signature.  Even though this
@@ -5385,7 +5385,7 @@ impl signature::SignatureBuilder {
     ///
     /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    /// [`SignatureBuilder::set_issuer_fingerprint`]: Self::SignatureBuilder::set_issuer_fingerprint()
+    /// [`SignatureBuilder::set_issuer_fingerprint`]: super::SignatureBuilder::set_issuer_fingerprint()
     ///
     /// # Examples
     ///
@@ -5451,7 +5451,7 @@ impl signature::SignatureBuilder {
     /// with the specified name from the hashed subpacket area.
     ///
     /// [Notation Data subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [`SignatureBuilder::add_notation`]: Self::SignatureBuilder::add_notation()
+    /// [`SignatureBuilder::add_notation`]: super::SignatureBuilder::add_notation()
     ///
     /// Notations are key-value pairs.  They can be used by
     /// applications to annotate signatures in a structured way.  For
@@ -5544,7 +5544,7 @@ impl signature::SignatureBuilder {
     /// area.
     ///
     /// [Notation Data subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [`SignatureBuilder::set_notation`]: Self::SignatureBuilder::set_notation()
+    /// [`SignatureBuilder::set_notation`]: super::SignatureBuilder::set_notation()
     ///
     /// Notations are key-value pairs.  They can be used by
     /// applications to annotate signatures in a structured way.  For
@@ -6520,7 +6520,7 @@ impl signature::SignatureBuilder {
     /// subpackets from the hashed and unhashed subpacket area.
     ///
     ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`add_issuer_fingerprint`]: Self::SignatureBuilder::add_issuer_fingerprint()
+    ///   [`add_issuer_fingerprint`]: super::SignatureBuilder::add_issuer_fingerprint()
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
     /// signature to identify which certificate created the signature.
@@ -6544,7 +6544,7 @@ impl signature::SignatureBuilder {
     ///
     /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    /// [`SignatureBuilder::set_issuer`]: Self::SignatureBuilder::set_issuer()
+    /// [`SignatureBuilder::set_issuer`]: super::SignatureBuilder::set_issuer()
     ///
     /// # Examples
     ///
@@ -6612,7 +6612,7 @@ impl signature::SignatureBuilder {
     /// area.
     ///
     ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///   [`set_issuer_fingerprint`]: Self::SignatureBuilder::set_issuer_fingerprint()
+    ///   [`set_issuer_fingerprint`]: super::SignatureBuilder::set_issuer_fingerprint()
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
     /// signature to identify which certificate created the signature.
@@ -6636,7 +6636,7 @@ impl signature::SignatureBuilder {
     ///
     /// [streaming `Signer`]: crate::serialize::stream::Signer
     /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    /// [`SignatureBuilder::set_issuer`]: Self::SignatureBuilder::set_issuer()
+    /// [`SignatureBuilder::set_issuer`]: super::SignatureBuilder::set_issuer()
     ///
     /// # Examples
     ///
@@ -6802,7 +6802,7 @@ impl signature::SignatureBuilder {
     /// hashed subpacket area, and then adds new ones.
     ///
     ///   [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
-    ///   [`SignatureBuilder::add_intended_recipient`]: Self::SignatureBuilder::add_intended_recipient()
+    ///   [`SignatureBuilder::add_intended_recipient`]: super::SignatureBuilder::add_intended_recipient()
     ///
     /// The Intended Recipient subpacket holds the fingerprint of a
     /// certificate.
@@ -6833,8 +6833,6 @@ impl signature::SignatureBuilder {
     /// certificates.  Because this function first removes any
     /// existing Intended Recipient subpackets both recipients must be
     /// added at once (cf. [`SignatureBuilder::add_intended_recipient`]):
-    ///
-    /// [`SignatureBuilder::add_intended_recipient`]: Self::SignatureBuilder::add_intended_recipient()
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -6886,7 +6884,7 @@ impl signature::SignatureBuilder {
     /// hashed subpacket area.
     ///
     ///   [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
-    ///   [`SignatureBuilder::set_intended_recipients`]: Self::SignatureBuilder::set_intended_recipients()
+    ///   [`SignatureBuilder::set_intended_recipients`]: super::SignatureBuilder::set_intended_recipients()
     ///
     /// The Intended Recipient subpacket holds the fingerprint of a
     /// certificate.
