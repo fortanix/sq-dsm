@@ -2395,7 +2395,7 @@ impl SubpacketAreas {
     /// for `time`.
     ///
     /// If `time` is `None`, and `clock_skew_tolerance` is `None`,
-    /// then this function uses [`struc@CLOCK_SKEW_TOLERANCE`] for the
+    /// then this function uses [`struct@CLOCK_SKEW_TOLERANCE`] for the
     /// tolerance.  If `time` is not `None `and `clock_skew_tolerance`
     /// is `None`, it uses no tolerance.  The intuition here is that
     /// we only need a tolerance when checking if a signature is alive
