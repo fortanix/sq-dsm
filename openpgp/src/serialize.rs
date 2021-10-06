@@ -725,7 +725,7 @@ impl BodyLength {
     /// new-style length, use [`serialize(..)`].
     ///
     /// [`Error::InvalidArgument`]: Error::InvalidArgument
-    /// [`serialize(..)`]: #impl-Serialize
+    /// [`serialize(..)`]: Serialize
     pub fn serialize_old<W: io::Write>(&self, o: &mut W) -> Result<()> {
         // Assume an optimal encoding is desired.
         let mut buffer = Vec::with_capacity(4);
