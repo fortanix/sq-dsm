@@ -2357,7 +2357,7 @@ impl crate::packet::Signature {
 
 /// Verification-related functionality.
 ///
-/// <a name="verification-functions"></a>
+/// <a id="verification-functions"></a>
 impl Signature {
     /// Verifies the signature against `hash`.
     ///

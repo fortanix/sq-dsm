@@ -379,7 +379,7 @@ impl Hash for signature::SignatureFields {
 
 /// Hashing-related functionality.
 ///
-/// <a name="hashing-functions"></a>
+/// <a id="hashing-functions"></a>
 impl signature::SignatureFields {
     /// Hashes this standalone signature.
     pub fn hash_standalone(&self, hash: &mut dyn Digest)
@@ -457,7 +457,7 @@ impl signature::SignatureFields {
 
 /// Hashing-related functionality.
 ///
-/// <a name="hashing-functions"></a>
+/// <a id="hashing-functions"></a>
 impl Signature {
     /// Hashes this signature for use in a Third-Party Confirmation
     /// signature.
@@ -470,7 +470,7 @@ impl Signature {
 
 /// Hashing-related functionality.
 ///
-/// <a name="hashing-functions"></a>
+/// <a id="hashing-functions"></a>
 impl Signature4 {
     /// Hashes this signature for use in a Third-Party Confirmation
     /// signature.
