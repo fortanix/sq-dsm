@@ -2497,7 +2497,6 @@ dependencies = [
  "thiserror",
  "twofish",
  "typenum",
- "unicode-normalization",
  "win-crypto-ng",
  "winapi 0.3.9",
  "x25519-dalek",
