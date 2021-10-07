@@ -232,6 +232,28 @@ rust-stable:
     CARGO_HOME: /cargo
     RUSTFLAGS: -D warnings -A unused-parens
 
+clippy:
+  tags:
+    - linux
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild:latest
+  before_script:
+    - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
+    - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
+    - apt-get -y install libssl-dev capnproto libsqlite3-dev
+    - rustup override unset
+    - rustup component add clippy
+    - cargo clippy --version
+    - rustc --version
+    - cargo --version
+    - clang --version
+  script:
+    - cargo clippy
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+
 rust-stable:arm64:
   tags:
     - docker-arm64
