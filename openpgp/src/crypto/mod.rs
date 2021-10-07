@@ -272,9 +272,10 @@ pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<[u8]>>
 /// back, if necessary.  If the size exceeds `to`, the value is
 /// returned as-is.
 #[allow(dead_code)]
+#[allow(clippy::unnecessary_lazy_evaluations)]
 pub(crate) fn pad_at_least(value: &[u8], to: usize) -> Cow<[u8]>
 {
-    pad(value, to).unwrap_or_else(|_| Cow::Borrowed(value))
+    pad(value, to).unwrap_or(Cow::Borrowed(value))
 }
 
 /// Returns the value zero-padded or truncated to the given length.
