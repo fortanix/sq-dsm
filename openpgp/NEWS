@@ -2,6 +2,16 @@
 #+TITLE: sequoia-openpgp NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.6.0
+** New functionality
+   - CertRevocationBuilder::add_notation
+   - CertRevocationBuilder::set_notation
+   - SubkeyRevocationBuilder::add_notation
+   - SubkeyRevocationBuilder::set_notation
+   - UserIDRevocationBuilder::add_notation
+   - UserIDRevocationBuilder::set_notation
+   - UserAttributeRevocationBuilder::add_notation
+   - UserAttributeRevocationBuilder::set_notation
 * Changes in 1.5.0
 ** Notable changes
    - This crate is now licensed under the LGPL 2.0 or later.

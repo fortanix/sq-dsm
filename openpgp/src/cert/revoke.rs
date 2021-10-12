@@ -19,6 +19,7 @@ use crate::packet::{
     UserAttribute,
     UserID,
 };
+use crate::packet::signature::subpacket::NotationDataFlags;
 use crate::cert::prelude::*;
 
 /// A builder for revocation certificates for OpenPGP certificates.
@@ -180,6 +181,84 @@ impl CertRevocationBuilder {
     {
         Ok(Self {
             builder: self.builder.set_signature_creation_time(creation_time)?
+        })
+    }
+
+    /// Adds a notation to the revocation certificate.
+    ///
+    /// Unlike the [`CertRevocationBuilder::set_notation`] method, this function
+    /// does not first remove any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::add_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::add_notation`]: crate::packet::signature::SignatureBuilder::add_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().add_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn add_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.add_notation(name, value, flags, critical)?
+        })
+    }
+
+    /// Sets a notation to the revocation certificate.
+    ///
+    /// Unlike the [`CertRevocationBuilder::add_notation`] method, this function
+    /// first removes any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::set_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::set_notation`]: crate::packet::signature::SignatureBuilder::set_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().set_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn set_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.set_notation(name, value, flags, critical)?
         })
     }
 
@@ -416,6 +495,84 @@ impl SubkeyRevocationBuilder {
     {
         Ok(Self {
             builder: self.builder.set_signature_creation_time(creation_time)?
+        })
+    }
+
+    /// Adds a notation to the revocation certificate.
+    ///
+    /// Unlike the [`SubkeyRevocationBuilder::set_notation`] method, this function
+    /// does not first remove any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::add_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::add_notation`]: crate::packet::signature::SignatureBuilder::add_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().add_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn add_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.add_notation(name, value, flags, critical)?
+        })
+    }
+
+    /// Sets a notation to the revocation certificate.
+    ///
+    /// Unlike the [`SubkeyRevocationBuilder::add_notation`] method, this function
+    /// first removes any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::set_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::set_notation`]: crate::packet::signature::SignatureBuilder::set_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().set_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn set_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.set_notation(name, value, flags, critical)?
         })
     }
 
@@ -670,6 +827,84 @@ impl UserIDRevocationBuilder {
     {
         Ok(Self {
             builder: self.builder.set_signature_creation_time(creation_time)?
+        })
+    }
+
+    /// Adds a notation to the revocation certificate.
+    ///
+    /// Unlike the [`UserIDRevocationBuilder::set_notation`] method, this function
+    /// does not first remove any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::add_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::add_notation`]: crate::packet::signature::SignatureBuilder::add_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().add_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn add_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.add_notation(name, value, flags, critical)?
+        })
+    }
+
+    /// Sets a notation to the revocation certificate.
+    ///
+    /// Unlike the [`UserIDRevocationBuilder::add_notation`] method, this function
+    /// first removes any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::set_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::set_notation`]: crate::packet::signature::SignatureBuilder::set_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().set_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn set_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.set_notation(name, value, flags, critical)?
         })
     }
 
@@ -930,6 +1165,84 @@ impl UserAttributeRevocationBuilder {
     {
         Ok(Self {
             builder: self.builder.set_signature_creation_time(creation_time)?
+        })
+    }
+
+    /// Adds a notation to the revocation certificate.
+    ///
+    /// Unlike the [`UserAttributeRevocationBuilder::set_notation`] method, this function
+    /// does not first remove any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::add_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::add_notation`]: crate::packet::signature::SignatureBuilder::add_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().add_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn add_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.add_notation(name, value, flags, critical)?
+        })
+    }
+
+    /// Sets a notation to the revocation certificate.
+    ///
+    /// Unlike the [`UserAttributeRevocationBuilder::add_notation`] method, this function
+    /// first removes any existing notation with the specified name.
+    ///
+    /// See [`SignatureBuilder::set_notation`] for further documentation.
+    ///
+    /// [`SignatureBuilder::set_notation`]: crate::packet::signature::SignatureBuilder::set_notation()
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new().set_notation(
+    ///     "revocation-policy@example.org",
+    ///     "https://policy.example.org/cert-revocation-policy",
+    ///     NotationDataFlags::empty().set_human_readable(),
+    ///     false,
+    /// );
+    /// # Ok(())
+    /// # }
+    pub fn set_notation<N, V, F>(self, name: N, value: V, flags: F,
+                                 critical: bool)
+        -> Result<Self>
+    where
+        N: AsRef<str>,
+        V: AsRef<[u8]>,
+        F: Into<Option<NotationDataFlags>>,
+    {
+        Ok(Self {
+            builder: self.builder.set_notation(name, value, flags, critical)?
         })
     }
 
