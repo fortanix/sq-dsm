@@ -371,8 +371,13 @@ fn merge(inputs: Option<clap::Values>, output: &mut dyn io::Write)
         }
     }
 
-    for (_, cert) in certs.iter_mut() {
-        cert.take().unwrap().as_tsk().serialize(output)?;
+    let mut fingerprints: Vec<Fingerprint> = certs.keys().cloned().collect();
+    fingerprints.sort();
+
+    for fpr in fingerprints.iter() {
+        if let Some(Some(cert)) = certs.get(fpr) {
+            cert.as_tsk().serialize(output)?;
+        }
     }
 
     Ok(())
