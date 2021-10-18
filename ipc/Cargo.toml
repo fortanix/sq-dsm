@@ -12,7 +12,7 @@ build = "build.rs"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"
-license = "GPL-2.0-or-later"
+license = "LGPL-2.0-or-later"
 edition = "2018"
 
 [badges]

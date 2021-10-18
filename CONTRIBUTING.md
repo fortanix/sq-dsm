@@ -1,5 +1,5 @@
 Sequoia PGP is owned by the [p≡p foundation] and licensed under the
-terms of the GPLv3+.
+terms of the LGPLv2+.
 
   [p≡p foundation]: https://pep.foundation/
 

@@ -14,7 +14,7 @@ readme = "../README.md"
 keywords = ["cryptography", "openpgp", "pgp", "encryption", "signing"]
 categories = ["cryptography", "authentication", "development-tools::ffi",
               "email"]
-license = "GPL-2.0-or-later"
+license = "LGPL-2.0-or-later"
 edition = "2018"
 
 [badges]

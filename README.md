@@ -70,9 +70,10 @@ detached messages called ['sqv'].
 LICENSE
 =======
 
-Sequoia is licensed under the GNU General Public License version 2 or
-any later version.  See the file [LICENSE.txt](LICENSE.txt) or visit
-https://www.gnu.org/licenses/gpl-2.0.html for details.
+Sequoia is licensed under the GNU Library General Public License
+version 2 or any later version.  See the file
+[LICENSE.txt](LICENSE.txt) or visit
+https://www.gnu.org/licenses/lgpl-2.0.html for details.
 
 Using Sequoia
 =============
