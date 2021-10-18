@@ -95,6 +95,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --private-key-store <KEY_STORE>
+//!             Provides parameters for private key store
+//!
 //!         --recipient-cert <CERT-RING>...
 //!             Encrypts for all recipients in CERT-RING
 //!
@@ -165,6 +168,9 @@
 //! OPTIONS:
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
+//!
+//!         --private-key-store <KEY_STORE>
+//!             Provides parameters for private key store
 //!
 //!         --recipient-key <KEY>...
 //!             Decrypts with KEY
@@ -240,6 +246,9 @@
 //!             is marked as being human readable.
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
+//!
+//!         --private-key-store <KEY_STORE>
+//!             Provides parameters for private key store
 //!
 //!         --signer-key <KEY>...
 //!             Signs using KEY
@@ -1504,6 +1513,9 @@
 //! OPTIONS:
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
+//!
+//!         --private-key-store <KEY_STORE>
+//!             Provides parameters for private key store
 //!
 //!         --recipient-key <KEY>...
 //!             Decrypts the message with KEY

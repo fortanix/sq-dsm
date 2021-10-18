@@ -23,29 +23,41 @@ use crate::{
     Config,
 };
 
-pub fn sign(config: Config,
-            input: &mut (dyn io::Read + Sync + Send),
-            output_path: Option<&str>,
-            secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
-            append: bool, notarize: bool, time: Option<SystemTime>,
-            notations: &[(bool, NotationData)])
-            -> Result<()> {
-    match (detached, append|notarize) {
+pub struct SignOpts<'a> {
+    pub config: Config<'a>,
+    pub private_key_store: Option<&'a str>,
+    pub input: &'a mut (dyn io::Read + Sync + Send),
+    pub output_path: Option<&'a str>,
+    pub secrets: Vec<openpgp::Cert>,
+    pub detached: bool,
+    pub binary: bool,
+    pub append: bool,
+    pub notarize: bool,
+    pub time: Option<SystemTime>,
+    pub notations: &'a [(bool, NotationData)]
+}
+
+pub fn sign(opts: SignOpts) -> Result<()> {
+    match (opts.detached, opts.append|opts.notarize) {
         (_, false) | (true, true) =>
-            sign_data(config, input, output_path, secrets, detached, binary,
-                      append, time, notations),
+            sign_data(opts),
         (false, true) =>
-            sign_message(config, input, output_path, secrets, binary, notarize,
-                         time, notations),
+            sign_message(opts),
     }
 }
 
-fn sign_data(config: Config,
-             input: &mut dyn io::Read, output_path: Option<&str>,
-             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
-             append: bool, time: Option<SystemTime>,
-             notations: &[(bool, NotationData)])
-             -> Result<()> {
+fn sign_data(opts: SignOpts) -> Result<()> {
+    let SignOpts {
+        config,
+        private_key_store,
+        input,
+        output_path,
+        secrets,
+        detached,
+        binary,
+        append,
+        time,
+        notations, ..} = opts;
     let (mut output, prepend_sigs, tmp_path):
     (Box<dyn io::Write + Sync + Send>, Vec<Signature>, Option<PathBuf>) =
         if detached && append && output_path.is_some() {
@@ -79,7 +91,7 @@ fn sign_data(config: Config,
             (config.create_or_stdout_safe(output_path)?, Vec::new(), None)
         };
 
-    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
+    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, private_key_store, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
     }
@@ -151,31 +163,28 @@ fn sign_data(config: Config,
     Ok(())
 }
 
-fn sign_message(config: Config,
-                input: &mut (dyn io::Read + Sync + Send),
-                output_path: Option<&str>,
-                secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
-                time: Option<SystemTime>,
-                notations: &[(bool, NotationData)])
-             -> Result<()> {
+fn sign_message(opts: SignOpts) -> Result<()> {
     let mut output =
-        config.create_or_stdout_pgp(output_path,
-                                    binary,
+        opts.config.create_or_stdout_pgp(opts.output_path,
+                                    opts.binary,
                                     armor::Kind::Message)?;
-    sign_message_(config, input, &mut output, secrets, notarize, time, notations)?;
+    sign_message_(opts, &mut output)?;
     output.finalize()?;
     Ok(())
 }
 
-fn sign_message_(config: Config,
-                 input: &mut (dyn io::Read + Sync + Send),
-                 output: &mut (dyn io::Write + Sync + Send),
-                 secrets: Vec<openpgp::Cert>, notarize: bool,
-                 time: Option<SystemTime>,
-                 notations: &[(bool, NotationData)])
-                 -> Result<()>
+fn sign_message_(opts: SignOpts, output: &mut (dyn io::Write + Sync + Send)) -> Result<()>
 {
-    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
+    let SignOpts {
+        config,
+        private_key_store,
+        input,
+        secrets,
+        notarize,
+        time,
+        notations, ..
+    } = opts;
+    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, private_key_store, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
     }
@@ -373,6 +382,7 @@ fn sign_message_(config: Config,
 }
 
 pub fn clearsign(config: Config,
+                 private_key_store: Option<&str>,
                  mut input: impl io::Read + Sync + Send,
                  mut output: impl io::Write + Sync + Send,
                  secrets: Vec<openpgp::Cert>,
@@ -380,7 +390,7 @@ pub fn clearsign(config: Config,
                  notations: &[(bool, NotationData)])
                  -> Result<()>
 {
-    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
+    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, private_key_store, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
     }

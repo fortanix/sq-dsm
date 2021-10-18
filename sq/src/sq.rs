@@ -433,7 +433,8 @@ fn main() -> Result<()> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
-            commands::decrypt(config,
+            let private_key_store = m.value_of("private-key-store");
+            commands::decrypt(config, private_key_store,
                               &mut input, &mut output,
                               signatures, certs, secrets,
                               m.is_present("dump-session-key"),
@@ -468,14 +469,20 @@ fn main() -> Result<()> {
             } else {
                 None
             };
-            commands::encrypt(policy, &mut input, output,
-                              m.occurrences_of("symmetric") as usize,
-                              &recipients, additional_secrets,
-                              mode,
-                              m.value_of("compression").expect("has default"),
-                              time,
-                              m.is_present("use-expired-subkey"),
-            )?;
+            let private_key_store = m.value_of("private-key-store");
+            commands::encrypt(commands::EncryptOpts {
+                policy,
+                private_key_store,
+                input: &mut input,
+                message: output,
+                npasswords: m.occurrences_of("symmetric") as usize,
+                recipients: &recipients,
+                signers: additional_secrets,
+                mode,
+                compression: m.value_of("compression").expect("has default"),
+                time,
+                use_expired_subkey: m.is_present("use-expired-subkey"),
+            })?;
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
@@ -484,6 +491,7 @@ fn main() -> Result<()> {
             let binary = m.is_present("binary");
             let append = m.is_present("append");
             let notarize = m.is_present("notarize");
+            let private_key_store = m.value_of("private-key-store");
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
@@ -524,11 +532,22 @@ fn main() -> Result<()> {
                 commands::merge_signatures(&mut input, &mut input2, output)?;
             } else if m.is_present("clearsign") {
                 let output = config.create_or_stdout_safe(output)?;
-                commands::sign::clearsign(config, input, output, secrets,
+                commands::sign::clearsign(config, private_key_store, input, output, secrets,
                                           time, &notations)?;
             } else {
-                commands::sign(config, &mut input, output, secrets, detached,
-                               binary, append, notarize, time, &notations)?;
+                commands::sign(commands::sign::SignOpts {
+                    config,
+                    private_key_store,
+                    input: &mut input,
+                    output_path: output,
+                    secrets,
+                    detached,
+                    binary,
+                    append,
+                    notarize,
+                    time,
+                    notations: &notations
+                })?;
             }
         },
         ("verify",  Some(m)) => {

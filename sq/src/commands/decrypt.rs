@@ -37,7 +37,7 @@ struct Helper<'a> {
 }
 
 impl<'a> Helper<'a> {
-    fn new(config: &Config<'a>,
+    fn new(config: &Config<'a>, _private_key_store: Option<&str>,
            signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
            dump_session_key: bool, dump: bool)
            -> Self
@@ -276,14 +276,15 @@ impl<'a> DecryptionHelper for Helper<'a> {
 }
 
 pub fn decrypt(config: Config,
+               private_key_store: Option<&str>,
                input: &mut (dyn io::Read + Sync + Send),
                output: &mut dyn io::Write,
                signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(&config, signatures, certs, secrets,
-                             dump_session_key, dump || hex);
+    let helper = Helper::new(&config, private_key_store, signatures, certs,
+                             secrets, dump_session_key, dump || hex);
     let mut decryptor = DecryptorBuilder::from_reader(input)?
         .mapping(hex)
         .with_policy(&config.policy, None, helper)
@@ -305,7 +306,7 @@ pub fn decrypt_unwrap(config: Config,
                       secrets: Vec<Cert>, dump_session_key: bool)
                       -> Result<()>
 {
-    let mut helper = Helper::new(&config, 0, Vec::new(), secrets,
+    let mut helper = Helper::new(&config, None, 0, Vec::new(), secrets,
                                  dump_session_key, false);
 
     let mut ppr = PacketParser::from_reader(input)?;
