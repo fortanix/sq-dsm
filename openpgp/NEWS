@@ -2,6 +2,9 @@
 #+TITLE: sequoia-openpgp NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.5.0
+** Notable changes
+   - This crate is now licensed under the LGPL 2.0 or later.
 * Changes in 1.4.0
 ** New cryptographic backends
    - We added a backend based on the RustCrypto crates.
