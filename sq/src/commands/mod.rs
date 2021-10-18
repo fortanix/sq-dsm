@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::time::SystemTime;
 
+use sequoia_net::pks;
 use sequoia_openpgp as openpgp;
 use crate::openpgp::{
     armor,
@@ -54,11 +55,11 @@ pub mod certify;
 /// Returns suitable signing keys from a given list of Certs.
 #[allow(clippy::never_loop)]
 fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
-                    _private_key_store: Option<&str>,
+                    private_key_store: Option<&str>,
                     timestamp: Option<SystemTime>)
-    -> Result<Vec<crypto::KeyPair>>
+    -> Result<Vec<Box<dyn crypto::Signer + Send + Sync>>>
 {
-    let mut keys = Vec::new();
+    let mut keys: Vec<Box<dyn crypto::Signer + Send + Sync>> = Vec::new();
     'next_cert: for tsk in certs {
         for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
             .for_signing()
@@ -78,9 +79,19 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
                     SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
                 };
 
-                keys.push(crypto::KeyPair::new(key.clone(), unencrypted)
-                          .unwrap());
+                keys.push(Box::new(crypto::KeyPair::new(key.clone(), unencrypted)
+                          .unwrap()));
                 break 'next_cert;
+            } else if let Some(private_key_store) = private_key_store {
+                let password = rpassword::read_password_from_tty(
+                    Some(&format!("Please enter password to key {}/{}: ", tsk, key))).unwrap().into();
+                match pks::unlock_signer(private_key_store, key.clone(), &password) {
+                    Ok(signer) => {
+                        keys.push(signer);
+                        break 'next_cert;
+                    },
+                    Err(error) => eprintln!("Could not unlock signer: {:?}", error),
+                }
             }
         }
 

@@ -431,7 +431,7 @@ fn main() -> Result<()> {
                     1
                 };
             let secrets = m.values_of("secret-key-file")
-                .map(load_keys)
+                .map(load_certs)
                 .unwrap_or_else(|| Ok(vec![]))?;
             let private_key_store = m.value_of("private-key-store");
             commands::decrypt(config, private_key_store,
@@ -450,7 +450,7 @@ fn main() -> Result<()> {
                                             m.is_present("binary"),
                                             armor::Kind::Message)?;
             let additional_secrets = m.values_of("signer-key-file")
-                .map(load_keys)
+                .map(load_certs)
                 .unwrap_or_else(|| Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
                 "rest" => KeyFlags::empty()
@@ -493,7 +493,7 @@ fn main() -> Result<()> {
             let notarize = m.is_present("notarize");
             let private_key_store = m.value_of("private-key-store");
             let secrets = m.values_of("secret-key-file")
-                .map(load_keys)
+                .map(load_certs)
                 .unwrap_or_else(|| Ok(vec![]))?;
             let time = if let Some(time) = m.value_of("time") {
                 Some(parse_iso8601(time, chrono::NaiveTime::from_hms(0, 0, 0))
