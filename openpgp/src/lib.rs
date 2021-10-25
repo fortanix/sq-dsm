@@ -115,10 +115,10 @@ macro_rules! assert_match {
         }
     }};
     ( $error: pat = $expr: expr, $fmt:expr ) => {
-        assert_match!($error = $expr, $fmt, );
+        assert_match!($error = $expr, $fmt, )
     };
     ( $error: pat = $expr: expr ) => {
-        assert_match!($error = $expr, "");
+        assert_match!($error = $expr, "")
     };
 }
 
