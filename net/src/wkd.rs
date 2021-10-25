@@ -179,10 +179,10 @@ impl Url {
 
 /// Returns a 32 characters string from the local part of an email address
 ///
-/// [draft-koch]:
+/// From [draft-koch]:
 ///     The so mapped local-part is hashed using the SHA-1 algorithm. The
 ///     resulting 160 bit digest is encoded using the Z-Base-32 method as
-///     described in [RFC6189], section 5.1.6. The resulting string has a
+///     described in RFC6189, section 5.1.6. The resulting string has a
 ///     fixed length of 32 octets.
 fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
     let local_part = local_part.as_ref();

@@ -99,7 +99,7 @@ impl Arbitrary for Kind {
 /// This is a non-public variant of `Kind` that is currently only used
 /// for detecting the kind on consumption.
 ///
-/// See also https://gitlab.com/sequoia-pgp/sequoia/-/issues/672
+/// See also <https://gitlab.com/sequoia-pgp/sequoia/-/issues/672>.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Label {
     /// A generic OpenPGP message.  (Since its structure hasn't been

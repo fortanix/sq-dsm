@@ -1,6 +1,6 @@
 //! [Sealing Traits]
 //!
-//!   [sealing traits:] https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+//!   [Sealing Traits]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
 //!
 //! Prevent the implementation of traits outside of the crate
 //! to allow extension of the traits at a later time.
