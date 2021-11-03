@@ -76,6 +76,15 @@ fn vec_truncate(v: &mut Vec<u8>, len: usize) {
     }
 }
 
+/// Like `Vec<u8>::resize`, but fast in debug builds.
+fn vec_resize(v: &mut Vec<u8>, new_size: usize) {
+    if v.len() < new_size {
+        v.resize(new_size, 0);
+    } else {
+        vec_truncate(v, new_size);
+    }
+}
+
 /// Like `drop(Vec<u8>::drain(..prefix_len))`, but fast in debug
 /// builds.
 fn vec_drain_prefix(v: &mut Vec<u8>, prefix_len: usize) {
