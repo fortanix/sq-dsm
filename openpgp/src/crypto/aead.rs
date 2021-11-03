@@ -441,8 +441,8 @@ impl<'a> BufferedReaderDecryptor<'a> {
     {
         Ok(BufferedReaderDecryptor {
             reader: buffered_reader::Generic::with_cookie(
-                Decryptor::new(version, sym_algo, aead, chunk_size, iv, key,
-                               source)?,
+                Decryptor::from_buffered_reader(
+                    version, sym_algo, aead, chunk_size, iv, key, source)?,
                 None, cookie),
         })
     }
