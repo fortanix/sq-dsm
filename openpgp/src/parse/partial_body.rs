@@ -32,8 +32,8 @@ pub(crate) struct BufferedReaderPartialBodyFilter<T: BufferedReader<Cookie>> {
     buffer: Option<Vec<u8>>,
     // The position within the buffer.
     cursor: usize,
-    /// Currently unused buffer.
-    unused_buffer: Option<Vec<u8>>,
+    /// Currently unused buffers.
+    unused_buffers: Vec<Vec<u8>>,
 
     // The user-defined cookie.
     cookie: Cookie,
@@ -81,7 +81,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
             last: false,
             buffer: None,
             cursor: 0,
-            unused_buffer: None,
+            unused_buffers: Vec::with_capacity(2),
             cookie,
             hash_headers,
         }
@@ -97,7 +97,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
 
         // We want to avoid double buffering as much as possible.
         // Thus, we only buffer as much as needed.
-        let mut buffer = self.unused_buffer.take()
+        let mut buffer = self.unused_buffers.pop()
             .map(|mut v| {
                 vec_resize(&mut v, amount);
                 v
@@ -217,7 +217,9 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
 
         // We're done.
 
-        self.unused_buffer = self.buffer.take();
+        if let Some(b) = self.buffer.take() {
+            self.unused_buffers.push(b);
+        }
         self.buffer = Some(buffer);
         self.cursor = 0;
 
@@ -233,6 +235,15 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
         let mut need_fill = false;
 
         //println!("BufferedReaderPartialBodyFilter::data_helper({})", amount);
+
+        if self.buffer.as_ref().map(|b| b.len() == self.cursor).unwrap_or(false)
+        {
+            // We have data and it has been exhausted exactly.  This
+            // is our opportunity to get back to the happy path where
+            // we don't need to double buffer.
+            self.unused_buffers.push(self.buffer.take().expect("have buffer"));
+            self.cursor = 0;
+        }
 
         if let Some(ref buffer) = self.buffer {
             // We have some data buffered locally.
