@@ -6,7 +6,7 @@ use std::fmt;
 
 use crate::Result;
 use crate::SymmetricAlgorithm;
-use crate::{vec_resize, vec_truncate};
+use crate::vec_resize;
 use crate::{
     parse::Cookie,
 };
@@ -48,8 +48,6 @@ pub struct Decryptor<'a> {
     block_size: usize,
     // Up to a block of unread data.
     buffer: Vec<u8>,
-    // Ciphertext buffer.
-    ciphertext: Vec<u8>,
 }
 assert_send_and_sync!(Decryptor<'_>);
 
@@ -82,42 +80,8 @@ impl<'a> Decryptor<'a> {
             dec,
             block_size,
             buffer: Vec::with_capacity(block_size),
-            ciphertext: Vec::with_capacity(8 * 1024),
         })
     }
-}
-
-// Fills `buffer` with data from `R` and returns the number of bytes
-// actually read.  This will only return less than `buffer.len()`
-// bytes if the end of the file is reached or an error is encountered.
-fn read_exact<R: io::Read>(reader: &mut R, mut buffer: &mut [u8])
-    -> io::Result<usize>
-{
-    let mut read = 0;
-
-    while !buffer.is_empty() {
-        match reader.read(buffer) {
-            Ok(0) => break,
-            Ok(n) => {
-                read += n;
-                let tmp = buffer;
-                buffer = &mut tmp[n..];
-            },
-            Err(ref e) if e.kind() == io::ErrorKind::Interrupted => {}
-            Err(e) => {
-                // We don't buffer the error.  Instead, we assume that
-                // the same error will be encountered if the user
-                // tries to read from source again.
-                if read > 0 {
-                    return Ok(read);
-                } else {
-                    return Err(e);
-                }
-            },
-        }
-    }
-
-    Ok(read)
 }
 
 // Note: this implementation tries *very* hard to make sure we don't
@@ -143,22 +107,21 @@ impl<'a> io::Read for Decryptor<'a> {
         // 2. Decrypt as many whole blocks as `plaintext` can hold.
         let mut to_copy
             = ((plaintext.len() - pos) / self.block_size) *  self.block_size;
-        vec_resize(&mut self.ciphertext, to_copy);
-        let result = read_exact(&mut self.source, &mut self.ciphertext[..]);
+        let result = self.source.data_consume(to_copy);
         let short_read;
-        match result {
-            Ok(amount) => {
-                short_read = amount < to_copy;
-                to_copy = amount;
-                vec_truncate(&mut self.ciphertext, to_copy);
+        let ciphertext = match result {
+            Ok(data) => {
+                short_read = data.len() < to_copy;
+                to_copy = data.len().min(to_copy);
+                &data[..to_copy]
             },
             // We encountered an error, but we did read some.
             Err(_) if pos > 0 => return Ok(pos),
             Err(e) => return Err(e),
-        }
+        };
 
         self.dec.decrypt(&mut plaintext[pos..pos + to_copy],
-                         &self.ciphertext[..])
+                         ciphertext)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                         format!("{}", e)))?;
 
@@ -173,26 +136,23 @@ impl<'a> io::Read for Decryptor<'a> {
         assert!(0 < to_copy);
         assert!(to_copy < self.block_size);
 
-        vec_resize(&mut self.ciphertext, self.block_size);
-        let result = read_exact(&mut self.source, &mut self.ciphertext[..]);
-        match result {
-            Ok(amount) => {
-                // Make sure `ciphertext` is not larger than the
-                // amount of data that was actually read.
-                vec_truncate(&mut self.ciphertext, amount);
-
+        let to_read = self.block_size;
+        let result = self.source.data_consume(to_read);
+        let ciphertext = match result {
+            Ok(data) => {
                 // Make sure we don't read more than is available.
-                to_copy = cmp::min(to_copy, self.ciphertext.len());
+                to_copy = cmp::min(to_copy, data.len());
+                &data[..data.len().min(to_read)]
             },
             // We encountered an error, but we did read some.
             Err(_) if pos > 0 => return Ok(pos),
             Err(e) => return Err(e),
-        }
-        assert!(self.ciphertext.len() <= self.block_size);
+        };
+        assert!(ciphertext.len() <= self.block_size);
 
-        vec_resize(&mut self.buffer, self.ciphertext.len());
+        vec_resize(&mut self.buffer, ciphertext.len());
 
-        self.dec.decrypt(&mut self.buffer, &self.ciphertext[..])
+        self.dec.decrypt(&mut self.buffer, ciphertext)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                         format!("{}", e)))?;
 
