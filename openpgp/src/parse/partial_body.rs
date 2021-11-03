@@ -5,7 +5,7 @@ use std::io::{Error, ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
 
-use crate::vec_truncate;
+use crate::{vec_resize, vec_truncate};
 use crate::packet::header::BodyLength;
 use crate::parse::{Cookie, Hashing};
 
@@ -29,9 +29,11 @@ pub(crate) struct BufferedReaderPartialBodyFilter<T: BufferedReader<Cookie>> {
     // Sometimes we have to double buffer.  This happens if the caller
     // requests X bytes and that chunk straddles a partial body length
     // boundary.
-    buffer: Option<Box<[u8]>>,
+    buffer: Option<Vec<u8>>,
     // The position within the buffer.
     cursor: usize,
+    /// Currently unused buffer.
+    unused_buffer: Option<Vec<u8>>,
 
     // The user-defined cookie.
     cookie: Cookie,
@@ -79,6 +81,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
             last: false,
             buffer: None,
             cursor: 0,
+            unused_buffer: None,
             cookie,
             hash_headers,
         }
@@ -94,7 +97,12 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
 
         // We want to avoid double buffering as much as possible.
         // Thus, we only buffer as much as needed.
-        let mut buffer = vec![0; amount];
+        let mut buffer = self.unused_buffer.take()
+            .map(|mut v| {
+                vec_resize(&mut v, amount);
+                v
+            })
+            .unwrap_or_else(|| vec![0u8; amount]);
         let mut amount_buffered = 0;
 
         if let Some(ref old_buffer) = self.buffer {
@@ -206,10 +214,11 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
             }
         }
         vec_truncate(&mut buffer, amount_buffered);
-        buffer.shrink_to_fit();
 
         // We're done.
-        self.buffer = Some(buffer.into_boxed_slice());
+
+        self.unused_buffer = self.buffer.take();
+        self.buffer = Some(buffer);
         self.cursor = 0;
 
         if let Some(err) = err {
