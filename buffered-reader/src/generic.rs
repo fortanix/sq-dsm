@@ -12,9 +12,11 @@ use super::*;
 /// [`Memory`].  Both are more efficient than `Generic`.
 ///
 pub struct Generic<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> {
-    buffer: Option<Box<[u8]>>,
+    buffer: Option<Vec<u8>>,
     // The next byte to read in the buffer.
     cursor: usize,
+    /// Currently unused buffer.
+    unused_buffer: Option<Vec<u8>>,
     // The preferred chunk size.  This is just a hint.
     preferred_chunk_size: usize,
     // The wrapped reader.
@@ -71,6 +73,7 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
         Generic {
             buffer: None,
             cursor: 0,
+            unused_buffer: None,
             preferred_chunk_size:
                 if let Some(s) = preferred_chunk_size { s }
                 else { DEFAULT_BUF_SIZE },
@@ -135,7 +138,12 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
                 DEFAULT_BUF_SIZE,
                 2 * self.preferred_chunk_size), amount);
 
-            let mut buffer_new : Vec<u8> = vec![0u8; capacity];
+            let mut buffer_new = self.unused_buffer.take()
+                .map(|mut v| {
+                    vec_resize(&mut v, capacity);
+                    v
+                })
+                .unwrap_or_else(|| vec![0u8; capacity]);
 
             let mut amount_read = 0;
             while amount_buffered + amount_read < amount {
@@ -170,9 +178,9 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
                 }
 
                 vec_truncate(&mut buffer_new, amount_buffered + amount_read);
-                buffer_new.shrink_to_fit();
 
-                self.buffer = Some(buffer_new.into_boxed_slice());
+                self.unused_buffer = self.buffer.take();
+                self.buffer = Some(buffer_new);
                 self.cursor = 0;
             }
         }
