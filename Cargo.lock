@@ -2875,6 +2875,7 @@ dependencies = [
  "win-crypto-ng",
  "winapi 0.3.9",
  "x25519-dalek",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -4005,6 +4006,12 @@ dependencies = [
  "rand_core 0.5.1",
  "zeroize",
 ]
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e575e15bedf6e57b5c2d763ffc6c3c760143466cbd09d762d539680ab5992ded"
 
 [[package]]
 name = "yaml-rust"

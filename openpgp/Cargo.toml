@@ -42,6 +42,7 @@ regex = "1"
 regex-syntax = "0.6"
 sha1collisiondetection = { version = "0.2.3", default-features = false, features = ["std"] }
 thiserror = "1.0.2"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 backtrace = "0.3.3"
 
 # RustCrypto crates.

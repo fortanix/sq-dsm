@@ -8,11 +8,11 @@ use std::hash::{Hash, Hasher};
 use std::slice;
 use std::vec;
 
+use xxhash_rust::xxh3::Xxh3;
+
 use crate::{
     Packet,
-    crypto::hash,
     packet::Iter,
-    types::HashAlgorithm,
 };
 
 /// A packet's body holds either unprocessed bytes, processed bytes,
@@ -126,7 +126,7 @@ pub struct Container {
     body: Body,
 
     /// We compute a digest over the body to implement comparison.
-    body_digest: Vec<u8>,
+    body_digest: u64,
 }
 
 assert_send_and_sync!(Container);
@@ -137,14 +137,6 @@ impl std::ops::Deref for Container {
         &self.body
     }
 }
-
-// Pick the fastest hash function from the SHA2 family for the
-// architectures word size.  On 64-bit architectures, SHA512 is almost
-// twice as fast, but on 32-bit ones, SHA256 is faster.
-#[cfg(target_pointer_width = "64")]
-const CONTAINER_BODY_HASH: HashAlgorithm = HashAlgorithm::SHA512;
-#[cfg(not(target_pointer_width = "64"))]
-const CONTAINER_BODY_HASH: HashAlgorithm = HashAlgorithm::SHA256;
 
 impl PartialEq for Container {
     fn eq(&self, other: &Container) -> bool {
@@ -177,7 +169,7 @@ impl Default for Container {
     fn default() -> Self {
         Self {
             body: Body::Structured(Vec::with_capacity(0)),
-            body_digest: Vec::with_capacity(0),
+            body_digest: 0,
         }
     }
 }
@@ -186,7 +178,7 @@ impl From<Vec<Packet>> for Container {
     fn from(packets: Vec<Packet>) -> Self {
         Self {
             body: Body::Structured(packets),
-            body_digest: Vec::with_capacity(0),
+            body_digest: 0,
         }
     }
 }
@@ -304,36 +296,31 @@ impl Container {
     }
 
     /// Returns the hash for the empty body.
-    fn empty_body_digest() -> Vec<u8> {
+    fn empty_body_digest() -> u64 {
         lazy_static::lazy_static!{
-            static ref DIGEST: Vec<u8> = {
-                let mut h = Container::make_body_hash();
-                let mut d = vec![0; h.digest_size()];
-                let _ = h.digest(&mut d);
-                d
+            static ref DIGEST: u64 = {
+                Container::make_body_hash().digest()
             };
         }
 
-        DIGEST.clone()
+        *DIGEST
     }
 
     /// Creates a hash context for hashing the body.
     pub(crate) // For parse.rs
-    fn make_body_hash() -> Box<dyn hash::Digest> {
-        CONTAINER_BODY_HASH.context()
-            .expect("CONTAINER_BODY_HASH must be implemented")
+    fn make_body_hash() -> Box<Xxh3> {
+        Box::new(Xxh3::new())
     }
 
     /// Hashes content that has been streamed.
     pub(crate) // For parse.rs
-    fn set_body_hash(&mut self, mut h: Box<dyn hash::Digest>) {
-        self.body_digest.resize(h.digest_size(), 0);
-        let _ = h.digest(&mut self.body_digest);
+    fn set_body_hash(&mut self, h: Box<Xxh3>) {
+        self.body_digest = h.digest();
     }
 
     pub(crate)
     fn body_digest(&self) -> String {
-        crate::fmt::hex::encode(&self.body_digest)
+        format!("{:08X}", self.body_digest)
     }
 
     // Converts an indentation level to whitespace.

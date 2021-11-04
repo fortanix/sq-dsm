@@ -183,6 +183,8 @@ use std::fmt;
 use std::path::Path;
 use std::result::Result as StdResult;
 
+use xxhash_rust::xxh3::Xxh3;
+
 use ::buffered_reader::*;
 
 use crate::{
@@ -3309,7 +3311,7 @@ pub struct PacketParser<'a> {
 
     /// We compute a hashsum over the body to implement comparison on
     /// containers that have been streamed.
-    body_hash: Option<Box<dyn crate::crypto::hash::Digest>>,
+    body_hash: Option<Box<Xxh3>>,
 
     state: PacketParserState,
 }
