@@ -95,6 +95,12 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
                       amount, self.partial_body_length, self.last);
         }
 
+        if self.last && self.partial_body_length == 0 {
+            // We reached the end.  Avoid fruitlessly copying data
+            // over and over again trying to buffer more data.
+            return Ok(());
+        }
+
         // We want to avoid double buffering as much as possible.
         // Thus, we only buffer as much as needed.
         let mut buffer = self.unused_buffers.pop()
