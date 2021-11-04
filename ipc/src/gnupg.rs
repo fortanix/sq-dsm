@@ -785,7 +785,7 @@ impl<'a> crypto::Signer for KeyPair<'a> {
                 | (DSA, PublicKey::DSA { .. })
                 | (EdDSA, PublicKey::EdDSA { .. })
                 | (ECDSA, PublicKey::ECDSA { .. }) => {
-                    let mut rt = tokio::runtime::Runtime::new()?;
+                    let rt = tokio::runtime::Runtime::new()?;
 
                     rt.block_on(async move {
                         let mut a = Agent::connect_to(&self.agent_socket).await?;
@@ -816,7 +816,7 @@ impl<'a> crypto::Decryptor for KeyPair<'a> {
             (PublicKey::RSA { .. }, Ciphertext::RSA { .. })
                 | (PublicKey::ElGamal { .. }, Ciphertext::ElGamal { .. })
                 | (PublicKey::ECDH { .. }, Ciphertext::ECDH { .. }) => {
-                    let mut rt = tokio::runtime::Runtime::new()?;
+                    let rt = tokio::runtime::Runtime::new()?;
 
                     rt.block_on(async move {
                         let mut a = Agent::connect_to(&self.agent_socket).await?;

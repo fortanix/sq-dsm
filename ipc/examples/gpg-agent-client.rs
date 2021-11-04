@@ -23,7 +23,7 @@ fn main() {
         Context::new().unwrap()
     };
 
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let mut agent = Agent::connect(&ctx).await.unwrap();
 

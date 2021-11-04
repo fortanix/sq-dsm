@@ -162,8 +162,8 @@ impl Descriptor {
             stream.set_nodelay(true)?;
 
             let (reader, writer) = stream.into_split();
-            use tokio_util::compat::Tokio02AsyncReadCompatExt;
-            use tokio_util::compat::Tokio02AsyncWriteCompatExt;
+            use tokio_util::compat::TokioAsyncReadCompatExt;
+            use tokio_util::compat::TokioAsyncWriteCompatExt;
             let (reader, writer) = (reader.compat(), writer.compat_write());
 
             let network =
@@ -388,7 +388,7 @@ impl Server {
         let handler = (self.descriptor.factory)(self.descriptor.clone(), &local)?;
 
         let server = async move {
-            let mut socket = tokio::net::TcpListener::from_std(l).unwrap();
+            let socket = tokio::net::TcpListener::from_std(l).unwrap();
 
             loop {
                 let (mut socket, _) = socket.accept().await?;
@@ -401,8 +401,8 @@ impl Server {
 
                 let (reader, writer) = socket.into_split();
 
-                use tokio_util::compat::Tokio02AsyncReadCompatExt;
-                use tokio_util::compat::Tokio02AsyncWriteCompatExt;
+                use tokio_util::compat::TokioAsyncReadCompatExt;
+                use tokio_util::compat::TokioAsyncWriteCompatExt;
                 let (reader, writer) = (reader.compat(), writer.compat_write());
 
                 let network =
@@ -414,7 +414,7 @@ impl Server {
             }
         };
 
-        local.block_on(&mut self.runtime, server)
+        local.block_on(&self.runtime, server)
     }
 }
 

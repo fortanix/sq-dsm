@@ -15,7 +15,7 @@ fn main() {
              .help("Commands to send to the server"))
         .get_matches();
 
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let mut c = Client::connect(matches.value_of("server").unwrap()).await.unwrap();
         for command in matches.values_of("commands").unwrap() {

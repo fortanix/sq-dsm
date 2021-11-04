@@ -299,32 +299,24 @@ impl Stream for Client {
             }
 
             // No more linebreaks in the buffer.  We need to get more.
-            // First, grow the buffer.
-            let buffer_len = buffer.len();
-            buffer.resize(buffer_len + MAX_LINE_LENGTH, 0);
+            // First, get a new read buffer.
+            // Later, append the read data to the Client's buffer
 
-            match reader.as_mut().poll_read(cx, &mut buffer[buffer_len..])? {
-                Poll::Ready(n_read) if n_read == 0 => {
-                    // EOF.
-                    buffer.resize(buffer_len, 0);
-                    if ! buffer.is_empty() {
-                        // Incomplete server response.
-                        return Poll::Ready(Some(Err(Error::ConnectionClosed(
-                            buffer.clone()).into())));
+            let mut vec = vec![0u8; MAX_LINE_LENGTH];
+            let mut read_buf = tokio::io::ReadBuf::new(&mut vec);
 
+            match reader.as_mut().poll_read(cx, &mut read_buf)? {
+                Poll::Ready(()) => {
+                    if read_buf.filled().is_empty() {
+                        // End of stream.
+                        return Poll::Ready(None)
+                    } else {
+                        buffer.extend_from_slice(read_buf.filled());
+                        continue;
                     }
-
-                    // End of stream.
-                    return Poll::Ready(None);
-                },
-
-                Poll::Ready(n_read) => {
-                    buffer.resize(buffer_len + n_read, 0);
-                    continue;
                 },
 
                 Poll::Pending => {
-                    buffer.resize(buffer_len, 0);
                     return Poll::Pending;
                 },
             }
