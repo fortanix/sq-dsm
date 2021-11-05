@@ -18,16 +18,43 @@ impl CRC {
         CRC { n: CRC24_INIT }
     }
 
+    /// Updates the CRC sum using the given data.
+    ///
+    /// This implementation uses a lookup table.  See:
+    ///
+    /// Sarwate, Dilip V. "Computation of cyclic redundancy checks via
+    /// table look-up." Communications of the ACM 31.8 (1988):
+    /// 1008-1013.
     pub fn update(&mut self, buf: &[u8]) -> &Self {
-        for octet in buf {
-            self.n ^= (*octet as u32) << 16;
-            for _ in 0..8 {
-                self.n <<= 1;
-                if self.n & 0x1000000 > 0 {
-                    self.n ^= CRC24_POLY;
+        lazy_static::lazy_static! {
+            static ref TABLE: Vec<u32> = {
+                let mut t = vec![0u32; 256];
+
+                let mut crc = 0x80_0000; // 24 bit polynomial
+                let mut i = 1;
+                loop {
+                    if crc & 0x80_0000 > 0 {
+                        crc = (crc << 1) ^ CRC24_POLY;
+                    } else {
+                        crc <<= 1;
+                    }
+                    for j in 0..i {
+                        t[i + j] = crc ^ t[j];
+                    }
+                    i <<= 1;
+                    if i == 256 {
+                        break;
+                    }
                 }
-            }
+                t
+            };
         }
+
+        for octet in buf {
+            self.n = (self.n << 8)
+                ^ TABLE[(*octet ^ ((self.n >> 16) as u8)) as usize];
+        }
+
         self
     }
 
