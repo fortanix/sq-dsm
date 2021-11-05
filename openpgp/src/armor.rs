@@ -46,7 +46,7 @@ use crate::packet::prelude::*;
 use crate::packet::header::{BodyLength, CTBNew, CTBOld};
 use crate::parse::Cookie;
 use crate::serialize::MarshalInto;
-use crate::vec_truncate;
+use crate::{vec_resize, vec_truncate};
 
 mod base64_utils;
 use base64_utils::*;
@@ -237,6 +237,7 @@ pub struct Writer<W: Write> {
     crc: CRC,
     header: Vec<u8>,
     dirty: bool,
+    scratch: Vec<u8>,
 }
 assert_send_and_sync!(Writer<W> where W: Write);
 
@@ -309,6 +310,7 @@ impl<W: Write> Writer<W> {
             crc: CRC::new(),
             header: Vec::with_capacity(128),
             dirty: false,
+            scratch: vec![0; 4096],
         };
 
         {
@@ -401,6 +403,7 @@ impl<W: Write> Writer<W> {
                LINE_ENDING, self.kind.end(), LINE_ENDING)?;
 
         self.dirty = false;
+        crate::vec_truncate(&mut self.scratch, 0);
         Ok(())
     }
 
@@ -418,6 +421,7 @@ impl<W: Write> Writer<W> {
 impl<W: Write> Write for Writer<W> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.finalize_headers()?;
+        assert!(self.dirty);
 
         // Update CRC on the unencoded data.
         self.crc.update(buf);
@@ -430,16 +434,15 @@ impl<W: Write> Write for Writer<W> {
         // might end up with a stash of size 3.
         assert!(self.stash.len() <= 3);
         if !self.stash.is_empty() {
-            while self.stash.len() < 3 {
-                if input.is_empty() {
-                    /* We exhausted the input.  Return now, any
-                     * stashed bytes are encoded when finalizing the
-                     * writer.  */
-                    return Ok(written);
-                }
-                self.stash.push(input[0]);
-                input = &input[1..];
-                written += 1;
+            let missing = 3 - self.stash.len();
+            let n = missing.min(input.len());
+            self.stash.extend_from_slice(&input[..n]);
+            input = &input[n..];
+            written += n;
+            if input.is_empty() {
+                // We exhausted the input.  Return now, any stashed
+                // bytes are encoded when finalizing the writer.
+                return Ok(written);
             }
             assert_eq!(self.stash.len(), 3);
 
@@ -453,30 +456,37 @@ impl<W: Write> Write for Writer<W> {
             crate::vec_truncate(&mut self.stash, 0);
         }
 
-        // Ensure that a multiple of 3 bytes are encoded, stash the
-        // rest from the end of input.
-        while input.len() % 3 > 0 {
-            self.stash.push(input[input.len()-1]);
-            input = &input[..input.len()-1];
-            written += 1;
-        }
-        // We popped values from the end of the input, fix the order.
-        self.stash.reverse();
-        assert!(self.stash.len() < 3);
+        // Encode all whole blocks of 3 bytes.
+        let n_blocks = input.len() / 3;
+        let input_bytes = n_blocks * 3;
+        if input_bytes > 0 {
+            // Encrypt whole blocks.
+            let encoded_bytes = n_blocks * 4;
+            if self.scratch.len() < encoded_bytes {
+                vec_resize(&mut self.scratch, encoded_bytes);
+            }
 
-        // We know that we have a multiple of 3 bytes, encode them and write them out.
-        assert!(input.len() % 3 == 0);
-        let encoded = base64::encode_config(input, base64::STANDARD_NO_PAD);
-        written += input.len();
-        let mut enc = encoded.as_bytes();
-        while !enc.is_empty() {
-            let n = cmp::min(LINE_LENGTH - self.column, enc.len());
-            self.sink
-                .write_all(&enc[..n])?;
-            enc = &enc[n..];
-            self.column += n;
-            self.linebreak()?;
+            written += input_bytes;
+            base64::encode_config_slice(&input[..input_bytes],
+                                        base64::STANDARD_NO_PAD,
+                                        &mut self.scratch[..encoded_bytes]);
+
+            let mut n = 0;
+            while ! self.scratch[n..encoded_bytes].is_empty() {
+                let m = self.scratch[n..encoded_bytes].len()
+                    .min(LINE_LENGTH - self.column);
+                self.sink.write_all(&self.scratch[n..n + m])?;
+                n += m;
+                self.column += m;
+                self.linebreak()?;
+            }
         }
+
+        // Stash rest for later.
+        input = &input[input_bytes..];
+        assert!(input.is_empty() || self.stash.is_empty());
+        self.stash.extend_from_slice(input);
+        written += input.len();
 
         assert_eq!(written, buf.len());
         Ok(written)
