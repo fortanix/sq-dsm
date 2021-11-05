@@ -50,6 +50,8 @@ use crate::{vec_resize, vec_truncate};
 
 mod base64_utils;
 use base64_utils::*;
+mod crc;
+use crc::CRC;
 
 /// The encoded output stream must be represented in lines of no more
 /// than 76 characters each (see (see [RFC 4880, section
@@ -1725,40 +1727,6 @@ impl BufferedReader<Cookie> for Reader<'_> {
     }
 }
 
-const CRC24_INIT: u32 = 0xB704CE;
-const CRC24_POLY: u32 = 0x864CFB;
-
-#[derive(Debug)]
-struct CRC {
-    n: u32,
-}
-
-/// Computes the CRC-24, (see [RFC 4880, section 6.1]).
-///
-/// [RFC 4880, section 6.1]: https://tools.ietf.org/html/rfc4880#section-6.1
-impl CRC {
-    fn new() -> Self {
-        CRC { n: CRC24_INIT }
-    }
-
-    fn update(&mut self, buf: &[u8]) -> &Self {
-        for octet in buf {
-            self.n ^= (*octet as u32) << 16;
-            for _ in 0..8 {
-                self.n <<= 1;
-                if self.n & 0x1000000 > 0 {
-                    self.n ^= CRC24_POLY;
-                }
-            }
-        }
-        self
-    }
-
-    fn finalize(&self) -> u32 {
-        self.n & 0xFFFFFF
-    }
-}
-
 /// Returns all character from Unicode's "Dash Punctuation" category.
 fn dashes() -> impl Iterator<Item = char> {
     ['\u{002D}', // - (Hyphen-Minus)
@@ -1839,30 +1807,8 @@ fn dash_prefix(d: &[u8]) -> (&[u8], &[u8]) {
 #[cfg(test)]
 mod test {
     use std::io::{Cursor, Read, Write};
-    use super::CRC;
     use super::Kind;
     use super::Writer;
-
-    #[test]
-    fn crc() {
-        let b = b"foobarbaz";
-        let crcs = [
-            0xb704ce,
-            0x6d2804,
-            0xa2d10d,
-            0x4fc255,
-            0x7aafca,
-            0xc79c46,
-            0x7334de,
-            0x77dc72,
-            0x000f65,
-            0xf40d86,
-        ];
-
-        for len in 0..b.len() + 1 {
-            assert_eq!(CRC::new().update(&b[..len]).finalize(), crcs[len]);
-        }
-    }
 
     macro_rules! t {
         ( $path: expr ) => {
@@ -1896,7 +1842,9 @@ mod test {
 
     #[test]
     fn enarmor() {
-        for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
+        for (i, (bin, asc)) in TEST_BIN.iter().zip(TEST_ASC.iter()).enumerate()
+        {
+            eprintln!("Test {}", i);
             let mut w =
                 Writer::new(Vec::new(), Kind::File).unwrap();
             w.write(&[]).unwrap();  // Avoid zero-length optimization.
