@@ -299,15 +299,13 @@ impl<W: io::Write> Encryptor<W> {
         let block_size = algo.block_size()?;
         let iv = vec![0; block_size];
         let cipher = algo.make_encrypt_cfb(key, iv)?;
-        let mut scratch = Vec::with_capacity(block_size);
-        unsafe { scratch.set_len(block_size); }
 
         Ok(Encryptor {
             inner: Some(sink),
             cipher,
             block_size,
             buffer: Vec::with_capacity(block_size),
-            scratch,
+            scratch: vec![0; 4096],
         })
     }
 
@@ -315,10 +313,12 @@ impl<W: io::Write> Encryptor<W> {
     pub fn finish(&mut self) -> Result<W> {
         if let Some(mut inner) = self.inner.take() {
             if !self.buffer.is_empty() {
-                unsafe { self.scratch.set_len(self.buffer.len()) }
-                self.cipher.encrypt(&mut self.scratch, &self.buffer)?;
+                let n = self.buffer.len();
+                assert!(n <= self.block_size);
+                self.cipher.encrypt(&mut self.scratch[..n], &self.buffer)?;
                 crate::vec_truncate(&mut self.buffer, 0);
-                inner.write_all(&self.scratch)?;
+                inner.write_all(&self.scratch[..n])?;
+                crate::vec_truncate(&mut self.scratch, 0);
             }
             Ok(inner)
         } else {
@@ -357,29 +357,33 @@ impl<W: io::Write> io::Write for Encryptor<W> {
 
             // And possibly encrypt the block.
             if self.buffer.len() == self.block_size {
-                self.cipher.encrypt(&mut self.scratch, &self.buffer)
+                self.cipher.encrypt(&mut self.scratch[..self.block_size],
+                                    &self.buffer)
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                                 format!("{}", e)))?;
                 crate::vec_truncate(&mut self.buffer, 0);
-                inner.write_all(&self.scratch)?;
+                inner.write_all(&self.scratch[..self.block_size])?;
             }
         }
 
         // Then, encrypt all whole blocks.
-        // XXX: If this turns out to be too slow, encrypt larger chunks.
-        for block in buf.chunks(self.block_size) {
-            if block.len() == self.block_size {
-                // Complete block.
-                self.cipher.encrypt(&mut self.scratch, block)
-                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
-                                                format!("{}", e)))?;
-                inner.write_all(&self.scratch)?;
-            } else {
-                // Stash for later.
-                assert!(self.buffer.is_empty());
-                self.buffer.extend_from_slice(block);
+        let whole_blocks = (buf.len() / self.block_size) * self.block_size;
+        if whole_blocks > 0 {
+            // Encrypt whole blocks.
+            if self.scratch.len() < whole_blocks {
+                vec_resize(&mut self.scratch, whole_blocks);
             }
+
+            self.cipher.encrypt(&mut self.scratch[..whole_blocks],
+                                &buf[..whole_blocks])
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
+                                            format!("{}", e)))?;
+            inner.write_all(&self.scratch[..whole_blocks])?;
         }
+
+        // Stash rest for later.
+        assert!(buf.is_empty() || self.buffer.is_empty());
+        self.buffer.extend_from_slice(&buf[whole_blocks..]);
 
         Ok(amount)
     }
