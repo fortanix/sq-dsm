@@ -364,10 +364,16 @@ impl KeyFlags {
         self.get(KEY_FLAG_GROUP_KEY)
     }
 
-    /// Declares that the private component of this key should not be
-    /// in possession of more than one person.
+    /// Declares that the private component of this key is in
+    /// possession of more than one person.
     pub fn set_group_key(self) -> Self {
         self.set(KEY_FLAG_GROUP_KEY)
+    }
+
+    /// Declares that the private component of this key should not be
+    /// in possession of more than one person.
+    pub fn clear_group_key(self) -> Self {
+        self.clear(KEY_FLAG_GROUP_KEY)
     }
 
     /// Returns whether no flags are set.
