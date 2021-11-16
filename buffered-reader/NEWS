@@ -2,6 +2,11 @@
 #+TITLE: buffered-reader NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.1.1
+** Notable changes
+   - The generic buffered reader now recycles buffers reducing
+     pressure on the heap allocator.
+
 * Changes in 1.1.0
 ** Notable changes
    - This crate is now licensed under the LGPL 2.0 or later.
