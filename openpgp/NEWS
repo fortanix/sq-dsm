@@ -3,6 +3,10 @@
 #+STARTUP: content hidestars
 
 * Changes in 1.6.0
+** Notable fixes
+   - Decryption of encrypted messages and verification of
+     inline-signed messages is now considerably faster, as is ASCII
+     Armor encoding and decoding.
 ** New functionality
    - CertRevocationBuilder::add_notation
    - CertRevocationBuilder::set_notation

@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-openpgp"
 description = "OpenPGP data types and associated machinery"
-version = "1.5.0"
+version = "1.6.0"
 authors = [
     "Igor Matuszewski <igor@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
