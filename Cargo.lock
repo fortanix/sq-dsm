@@ -3059,13 +3059,12 @@ dependencies = [
 
 [[package]]
 name = "sha1collisiondetection"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a6cf187c4059b3e63de2358b7e2f9a2261b6f3fd8ef4e7342308d0863ed082"
+checksum = "bc164aaaccb1cdd48663ff54a6ffc3026522e6ce5c4fa24608ea061259b16e8f"
 dependencies = [
  "digest 0.9.0",
- "generic-array 0.14.4",
- "libc",
+ "generic-array 0.12.4",
 ]
 
 [[package]]
