@@ -952,7 +952,7 @@ impl<R> Key4<key::PublicParts, R>
         point.insert(0, 0x40);
 
         Self::new(
-            ctime.into().unwrap_or_else(time::SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::ECDH,
             mpi::PublicKey::ECDH {
                 curve: Curve::Cv25519,
@@ -976,7 +976,7 @@ impl<R> Key4<key::PublicParts, R>
         point.insert(0, 0x40);
 
         Self::new(
-            ctime.into().unwrap_or_else(time::SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::EdDSA,
             mpi::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
@@ -994,7 +994,7 @@ impl<R> Key4<key::PublicParts, R>
         -> Result<Self> where T: Into<Option<time::SystemTime>>
     {
         Self::new(
-            ctime.into().unwrap_or_else(time::SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::RSAEncryptSign,
             mpi::PublicKey::RSA {
                 e: mpi::MPI::new(e),

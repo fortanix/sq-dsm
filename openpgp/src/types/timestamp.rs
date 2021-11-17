@@ -124,7 +124,7 @@ impl fmt::Debug for Timestamp {
 impl Timestamp {
     /// Returns the current time.
     pub fn now() -> Timestamp {
-        SystemTime::now().try_into()
+        crate::now().try_into()
             .expect("representable for the next hundred years")
     }
 

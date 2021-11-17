@@ -177,7 +177,7 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
         ValidComponentAmalgamationIter {
             cert: self.cert,
             iter: self.iter,
-            time: time.into().unwrap_or_else(SystemTime::now),
+            time: time.into().unwrap_or_else(crate::now),
             policy,
             revoked: None,
         }

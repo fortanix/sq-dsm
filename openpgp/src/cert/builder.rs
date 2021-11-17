@@ -1287,7 +1287,7 @@ impl CertBuilder<'_> {
         let creation_time =
             self.creation_time.unwrap_or_else(|| {
                 use crate::packet::signature::SIG_BACKDATE_BY;
-                time::SystemTime::now() -
+                crate::now() -
                     time::Duration::new(SIG_BACKDATE_BY, 0)
             });
 
@@ -1659,7 +1659,7 @@ mod tests {
     fn validity_periods() {
         let p = &P::new();
 
-        let now = std::time::SystemTime::now();
+        let now = crate::now();
         let s = std::time::Duration::new(1, 0);
 
         let (cert,_) = CertBuilder::new()

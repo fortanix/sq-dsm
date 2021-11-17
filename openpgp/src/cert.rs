@@ -1050,7 +1050,7 @@ impl Cert {
         -> Result<ValidUserIDAmalgamation<'a>>
         where T: Into<Option<std::time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(std::time::SystemTime::now);
+        let t = t.into().unwrap_or_else(crate::now);
         ValidComponentAmalgamation::primary(self, self.userids.iter(),
                                             policy, t, valid_cert)
     }
@@ -2830,7 +2830,7 @@ impl Cert {
                               -> Result<ValidCert<'a>>
         where T: Into<Option<time::SystemTime>>,
     {
-        let time = time.into().unwrap_or_else(time::SystemTime::now);
+        let time = time.into().unwrap_or_else(crate::now);
         self.primary_key().with_policy(policy, time)?;
 
         Ok(ValidCert {
@@ -4842,7 +4842,7 @@ mod test {
         assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, t34));
         assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, t4));
         assert_match!(RevocationStatus::Revoked(_)
-                      = cert.revocation_status(p, time::SystemTime::now()));
+                      = cert.revocation_status(p, crate::now()));
     }
 
     #[test]
@@ -4999,7 +4999,7 @@ mod test {
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
 
-            let now = time::SystemTime::now();
+            let now = crate::now();
             let selfsig0
                 = cert.userids().with_policy(p, now).map(|b| {
                     b.binding_signature().signature_creation_time().unwrap()
@@ -5246,7 +5246,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let cert = Cert::from_bytes(
             crate::tests::key("really-revoked-userid-0-public.pgp")).unwrap();
 
-        let now = time::SystemTime::now();
+        let now = crate::now();
         let selfsig0
             = cert.userids().with_policy(p, now).map(|b| {
                 b.binding_signature().signature_creation_time().unwrap()

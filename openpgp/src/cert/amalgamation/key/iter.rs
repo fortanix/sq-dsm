@@ -524,7 +524,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             subkey_iter: self.subkey_iter,
 
             policy,
-            time: time.into().unwrap_or_else(SystemTime::now),
+            time: time.into().unwrap_or_else(crate::now),
 
             // The filters.
             secret: self.secret,
@@ -1649,7 +1649,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::empty().set_transport_encryption();
 
-        let now = SystemTime::now()
+        let now = crate::now()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
         assert_eq!(cert.keys().with_policy(p, now).key_flags(flags).alive().count(),
                    0);

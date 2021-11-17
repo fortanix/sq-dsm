@@ -1607,10 +1607,10 @@ impl SignatureBuilder {
                 if let Some(oct) = self.original_creation_time {
                     let t =
                         (oct + time::Duration::new(1, 0)).max(
-                            time::SystemTime::now() -
+                            crate::now() -
                                 time::Duration::new(SIG_BACKDATE_BY, 0));
 
-                    if t > time::SystemTime::now() {
+                    if t > crate::now() {
                         return Err(Error::InvalidOperation(
                             "Cannot create valid signature newer than template"
                                 .into()).into());
@@ -1618,7 +1618,7 @@ impl SignatureBuilder {
 
                     self.set_signature_creation_time(t)?
                 } else {
-                    self.set_signature_creation_time(time::SystemTime::now())?
+                    self.set_signature_creation_time(crate::now())?
                 };
         }
 

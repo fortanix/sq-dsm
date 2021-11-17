@@ -778,7 +778,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         -> Result<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
-        let time = time.into().unwrap_or_else(SystemTime::now);
+        let time = time.into().unwrap_or_else(crate::now);
         self.bundle.binding_signature(policy, time)
     }
 
@@ -872,7 +872,7 @@ macro_rules! impl_with_policy {
             where T: Into<Option<time::SystemTime>>,
                   Self: Sized
         {
-            let time = time.into().unwrap_or_else(SystemTime::now);
+            let time = time.into().unwrap_or_else(crate::now);
 
             if $value {
                 self.cert.with_policy(policy, time)?;
@@ -1108,7 +1108,7 @@ where C: IntoIterator<Item = S>,
         // override it.
         use crate::packet::signature::SIG_BACKDATE_BY;
         let creation_time =
-            time::SystemTime::now() - time::Duration::new(SIG_BACKDATE_BY, 0);
+            crate::now() - time::Duration::new(SIG_BACKDATE_BY, 0);
 
         let template = SignatureBuilder::new(SignatureType::AttestationKey)
             .set_signature_creation_time(creation_time)?;
@@ -1751,7 +1751,7 @@ impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     {
         assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
 
-        let time = time.into().unwrap_or_else(SystemTime::now);
+        let time = time.into().unwrap_or_else(crate::now);
         self.ca.with_policy(policy, time)
     }
 }

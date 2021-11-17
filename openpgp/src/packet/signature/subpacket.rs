@@ -2500,10 +2500,10 @@ impl SubpacketAreas {
         let (time, tolerance)
             = match (time.into(), clock_skew_tolerance.into()) {
                 (None, None) =>
-                    (time::SystemTime::now(),
+                    (crate::now(),
                      *CLOCK_SKEW_TOLERANCE),
                 (None, Some(tolerance)) =>
-                    (time::SystemTime::now(),
+                    (crate::now(),
                      tolerance),
                 (Some(time), None) =>
                     (time, time::Duration::new(0, 0)),
@@ -2695,7 +2695,7 @@ impl SubpacketAreas {
               R: key::KeyRole,
               T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::SystemTime::now);
+        let t = t.into().unwrap_or_else(crate::now);
 
         match self.key_validity_period() {
             Some(e) if e.as_secs() > 0 && key.creation_time() + e <= t =>
@@ -7028,7 +7028,7 @@ fn accessors() {
     // Cook up a timestamp without ns resolution.
     use std::convert::TryFrom;
     let now: time::SystemTime =
-        Timestamp::try_from(time::SystemTime::now()).unwrap().into();
+        Timestamp::try_from(crate::now()).unwrap().into();
 
     sig = sig.set_signature_creation_time(now).unwrap();
     let sig_ =

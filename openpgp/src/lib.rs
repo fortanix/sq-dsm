@@ -104,6 +104,16 @@ fn vec_drain_prefix(v: &mut Vec<u8>, prefix_len: usize) {
     }
 }
 
+/// Like std::time::SystemTime::now, but works on WASM.
+fn now() -> std::time::SystemTime {
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))] {
+        chrono::Utc::now().into()
+    }
+    #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))] {
+        std::time::SystemTime::now()
+    }
+}
+
 // Like assert!, but checks a pattern.
 //
 //   assert_match!(Some(_) = x);

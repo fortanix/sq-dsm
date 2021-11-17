@@ -2155,7 +2155,7 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::now().checked_add(Duration::from_secs(SECS_IN_YEAR)));
+            crate::now().checked_add(Duration::from_secs(SECS_IN_YEAR)));
         reject.hash_revocation_tolerance(0);
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
@@ -2165,7 +2165,7 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
+            crate::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
         reject.hash_revocation_tolerance(0);
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
@@ -2177,7 +2177,7 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
+            crate::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
         reject.hash_revocation_tolerance(2 * SECS_IN_YEAR as u32);
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
@@ -2190,10 +2190,10 @@ mod test {
         assert!(algo_u8 != 0u8);
         reject.reject_hash_at(
             (algo_u8 - 1).into(),
-            SystemTime::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
+            crate::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
         reject.reject_hash_at(
             (algo_u8 + 1).into(),
-            SystemTime::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
+            crate::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
         reject.hash_revocation_tolerance(0);
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
@@ -2205,7 +2205,7 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
+            crate::now().checked_sub(Duration::from_secs(SECS_IN_YEAR)));
         reject.hash_revocation_tolerance(0);
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());

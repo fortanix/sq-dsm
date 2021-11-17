@@ -77,7 +77,7 @@ win-crypto-ng = { version = "0.4", features = ["rand", "block-cipher"], optional
 winapi = { version = "0.3.8", default-features = false, features = ["bcrypt"], optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-chrono = { version = "0.4.10", default-features = false, features = ["std"] }
+chrono = { version = "0.4.10", default-features = false, features = ["std", "wasmbind"] }
 
 [build-dependencies]
 lalrpop = ">=0.17"

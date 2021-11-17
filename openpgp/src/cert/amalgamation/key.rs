@@ -565,7 +565,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
         -> Result<Self::V>
         where T: Into<Option<time::SystemTime>>
     {
-        let time = time.into().unwrap_or_else(SystemTime::now);
+        let time = time.into().unwrap_or_else(crate::now);
 
         // We need to make sure the certificate is okay.  This means
         // checking the primary key.  But, be careful: we don't need
@@ -779,7 +779,7 @@ impl<'a, P: 'a + key::KeyParts> ErasedKeyAmalgamation<'a, P> {
         -> Result<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
-        let time = time.into().unwrap_or_else(SystemTime::now);
+        let time = time.into().unwrap_or_else(crate::now);
         if self.primary {
             self.cert().primary_userid_relaxed(policy, time, false)
                 .map(|u| u.binding_signature())
@@ -1838,7 +1838,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
         };
 
         self.set_validity_period_as_of(primary_signer, subkey_signer,
-                                       expiration, time::SystemTime::now())
+                                       expiration, crate::now())
     }
 }
 
@@ -2273,7 +2273,7 @@ mod test {
         // 0: Setkeys set to expire in 1 year
         // 1: Subkeys expire
 
-        let now = time::SystemTime::now();
+        let now = crate::now();
         let a_year = time::Duration::from_secs(365 * 24 * 60 * 60);
         let in_a_year = now + a_year;
         let in_two_years = now + 2 * a_year;
@@ -2372,7 +2372,7 @@ mod test {
         }
 
         // Make the primary key expire in a week.
-        let t = time::SystemTime::now()
+        let t = crate::now()
             + time::Duration::from_secs(7 * 24 * 60 * 60);
 
         let mut signer = vc

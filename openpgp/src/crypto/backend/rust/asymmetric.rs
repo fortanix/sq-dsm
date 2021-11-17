@@ -361,7 +361,7 @@ impl<R> Key4<SecretParts, R>
         private_key.reverse();
 
         Self::with_secret(
-            ctime.into().unwrap_or_else(SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::ECDH,
             mpi::PublicKey::ECDH {
                 curve: Curve::Cv25519,
@@ -396,7 +396,7 @@ impl<R> Key4<SecretParts, R>
         &mut public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
 
         Self::with_secret(
-            ctime.into().unwrap_or_else(SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::EdDSA,
             mpi::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
@@ -435,7 +435,7 @@ impl<R> Key4<SecretParts, R>
             .ok_or_else(|| Error::MalformedMPI("RSA: `p` and `q` aren't coprime".into()))?;
 
         Self::with_secret(
-            ctime.into().unwrap_or_else(SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::RSAEncryptSign,
             mpi::PublicKey::RSA {
                 e: mpi::MPI::new(&e.to_bytes_be()),
@@ -474,7 +474,7 @@ impl<R> Key4<SecretParts, R>
         };
 
         Self::with_secret(
-            SystemTime::now(),
+            crate::now(),
             PublicKeyAlgorithm::RSAEncryptSign,
             public,
             private.into(),
@@ -573,7 +573,7 @@ impl<R> Key4<SecretParts, R>
                 return Err(Error::UnsupportedEllipticCurve(curve).into());
             }
         };
-        Self::with_secret(SystemTime::now(), algo, public, private.into())
+        Self::with_secret(crate::now(), algo, public, private.into())
     }
 }
 

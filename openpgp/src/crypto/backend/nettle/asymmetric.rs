@@ -344,7 +344,7 @@ impl<R> Key4<SecretParts, R>
         private_key.reverse();
 
         Self::with_secret(
-            ctime.into().unwrap_or_else(SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::ECDH,
             mpi::PublicKey::ECDH {
                 curve: Curve::Cv25519,
@@ -370,7 +370,7 @@ impl<R> Key4<SecretParts, R>
         ed25519::public_key(&mut public_key, private_key).unwrap();
 
         Self::with_secret(
-            ctime.into().unwrap_or_else(SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::EdDSA,
             mpi::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
@@ -395,7 +395,7 @@ impl<R> Key4<SecretParts, R>
         let (a, b, c) = sec.as_rfc4880();
 
         Self::with_secret(
-            ctime.into().unwrap_or_else(SystemTime::now),
+            ctime.into().unwrap_or_else(crate::now),
             PublicKeyAlgorithm::RSAEncryptSign,
             mpi::PublicKey::RSA {
                 e: mpi::MPI::new(&key.e()[..]),
@@ -427,7 +427,7 @@ impl<R> Key4<SecretParts, R>
         };
 
         Self::with_secret(
-            SystemTime::now(),
+            crate::now(),
             PublicKeyAlgorithm::RSAEncryptSign,
             public_mpis,
             private_mpis.into())
@@ -565,7 +565,7 @@ impl<R> Key4<SecretParts, R>
         };
 
         Self::with_secret(
-            SystemTime::now(),
+            crate::now(),
             pk_algo,
             mpis,
             secret)
