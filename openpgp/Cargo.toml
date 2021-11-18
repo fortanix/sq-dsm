@@ -79,6 +79,7 @@ winapi = { version = "0.3.8", default-features = false, features = ["bcrypt"], o
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 chrono = { version = "0.4.10", default-features = false, features = ["std", "wasmbind"] }
 getrandom = { version = "0.2", features = ["js"] }
+rand = { version = "0.7", features = ["wasm-bindgen"] }
 
 [build-dependencies]
 lalrpop = ">=0.17"
