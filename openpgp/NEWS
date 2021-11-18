@@ -2,6 +2,9 @@
 #+TITLE: sequoia-openpgp NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.7.0
+** Notable fixes
+   - sequoia-openpgp can now be compiled to WASM.
 * Changes in 1.6.0
 ** Notable fixes
    - Decryption of encrypted messages and verification of

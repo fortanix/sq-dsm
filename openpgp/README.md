@@ -106,6 +106,22 @@ algorithms, `compression-deflate` to enable *DEFLATE* and *zlib*
 compression support, and `compression-bzip2` to enable *bzip2*
 support.
 
+# Compiling to WASM
+
+With the right feature flags, Sequoia can be compiled to WASM.  To do
+that, enable the RustCrypto backend, and make sure not to enable
+*bzip2* compression support:
+
+```toml
+sequoia-openpgp = { version = "*", default-features = false, features = ["crypto-rust", "allow-experimental-crypto", "allow-variable-time-crypto"] }
+```
+
+Or, with `compression-deflate` support:
+
+```toml
+sequoia-openpgp = { version = "*", default-features = false, features = ["crypto-rust", "allow-experimental-crypto", "allow-variable-time-crypto", "compression-deflate"] }
+```
+
 # Minimum Supported Rust Version (MSRV)
 
 `sequoia-openpgp` requires Rust 1.48.
