@@ -5,6 +5,7 @@
 * Changes in 1.7.0
 ** Notable fixes
    - sequoia-openpgp can now be compiled to WASM.
+   - The MSRV is now 1.56.1.
 * Changes in 1.6.0
 ** Notable fixes
    - Decryption of encrypted messages and verification of

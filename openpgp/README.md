@@ -124,4 +124,4 @@ sequoia-openpgp = { version = "*", default-features = false, features = ["crypto
 
 # Minimum Supported Rust Version (MSRV)
 
-`sequoia-openpgp` requires Rust 1.48.
+`sequoia-openpgp` requires Rust 1.56.

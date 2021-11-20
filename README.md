@@ -195,7 +195,7 @@ $ docker run --rm -i sq packet dump < cert.asc
 
 ## Requirements
 
-To build Sequoia, you need at least Rust 1.48 and a few libraries,
+To build Sequoia, you need at least Rust 1.56 and a few libraries,
 notably the Nettle cryptographic library version 3.4.1 or up.  Please
 see below for OS-specific commands to install the needed libraries:
 
@@ -207,9 +207,9 @@ $ sudo apt install git rustc cargo clang libclang-dev make pkg-config nettle-dev
 
 Notes:
 
-  - You need at least `rustc` version 1.48.  The version in Debian 10
-    (Buster) is too old, but you can use [rustup].  The version from
-    Debian 11 (Bullseye) works fine.
+  - You need at least `rustc` version 1.56.  This is the version included in
+    Debian 12 (bookworm) at the time of writing.  You can use [rustup] if your
+    distribution only includes an older Rust version.
   - You need at least Nettle 3.4.1.  Both the versions in Debian 10 (Buster)
     and Debian 11 (Bullseye) are fine.
 
