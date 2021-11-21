@@ -1,6 +1,6 @@
 # Disabled until we use at least Rust 1.49.0, which is the first
 # version that supports the msrv field.
-#msrv = "1.48.0"
+msrv = "1.56.1"
 
 enum-variant-size-threshold = 512
 too-many-arguments-threshold = 10
