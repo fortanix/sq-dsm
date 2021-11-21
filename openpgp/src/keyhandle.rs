@@ -300,7 +300,7 @@ impl KeyHandle {
     /// Returns whether the KeyHandle is invalid.
     ///
     /// A KeyHandle is invalid if the `Fingerprint` or `KeyID` that it
-    /// contains is valid.
+    /// contains is invalid.
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
