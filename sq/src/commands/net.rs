@@ -6,8 +6,6 @@ use sequoia_openpgp as openpgp;
 use openpgp::{
     Result,
     KeyHandle,
-    KeyID,
-    Fingerprint,
     cert::{
         Cert,
         CertParser,
@@ -58,19 +56,9 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("get",  Some(m)) => {
             let query = m.value_of("query").unwrap();
 
-            let handle: Option<KeyHandle> = {
-                let q_fp = query.parse::<Fingerprint>();
-                let q_id = query.parse::<KeyID>();
-                if let Ok(Fingerprint::V4(_)) = q_fp {
-                    q_fp.ok().map(Into::into)
-                } else if let Ok(KeyID::V4(_)) = q_id {
-                    q_fp.ok().map(Into::into)
-                } else {
-                    None
-                }
-            };
+            let handle = query.parse::<KeyHandle>();
 
-            if let Some(handle) = handle {
+            if let Ok(handle) = handle {
                 let cert = rt.block_on(ks.get(handle))
                     .context("Failed to retrieve cert")?;
 
