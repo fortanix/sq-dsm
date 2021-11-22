@@ -1728,7 +1728,7 @@ mod tests {
         fn comp_parse(comp: CompressionAlgorithm) -> bool {
             match comp {
                 CompressionAlgorithm::Unknown(u) => u > 110 || (u > 3 && u < 100),
-                CompressionAlgorithm::Private(u) => u >= 100 && u <= 110,
+                CompressionAlgorithm::Private(u) => (100..=110).contains(&u),
                 _ => true
             }
         }
@@ -1755,7 +1755,7 @@ mod tests {
                 SymmetricAlgorithm::Unknown(u) =>
                     u == 5 || u == 6 || u > 110 || (u > 10 && u < 100),
                 SymmetricAlgorithm::Private(u) =>
-                    u >= 100 && u <= 110,
+                    (100..=110).contains(&u),
                 _ => true
             }
         }
@@ -1782,7 +1782,7 @@ mod tests {
                 AEADAlgorithm::Unknown(u) =>
                     u == 0 || u > 110 || (u > 2 && u < 100),
                 AEADAlgorithm::Private(u) =>
-                    u >= 100 && u <= 110,
+                    (100..=110).contains(&u),
                 _ => true
             }
         }
@@ -1807,9 +1807,9 @@ mod tests {
         fn pk_parse(pk: PublicKeyAlgorithm) -> bool {
             match pk {
                 PublicKeyAlgorithm::Unknown(u) =>
-                    u == 0 || u > 110 || (u >= 4 && u <= 15)
-                    || (u >= 18 && u < 100),
-                PublicKeyAlgorithm::Private(u) => u >= 100 && u <= 110,
+                    u == 0 || u > 110 || (4..=15).contains(&u)
+                    || (18..100).contains(&u),
+                PublicKeyAlgorithm::Private(u) => (100..=110).contains(&u),
                 _ => true
             }
         }
@@ -1880,8 +1880,8 @@ mod tests {
         fn hash_parse(hash: HashAlgorithm) -> bool {
             match hash {
                 HashAlgorithm::Unknown(u) => u == 0 || (u > 11 && u < 100) ||
-                    u > 110 || (u >= 4 && u <= 7) || u == 0,
-                HashAlgorithm::Private(u) => u >= 100 && u <= 110,
+                    u > 110 || (4..=7).contains(&u) || u == 0,
+                HashAlgorithm::Private(u) => (100..=110).contains(&u),
                 _ => true
             }
         }
@@ -1909,7 +1909,7 @@ mod tests {
                     || (u > 32 && u < 100)
                     || u > 110,
                 ReasonForRevocation::Private(u) =>
-                    u >= 100 && u <= 110,
+                    (100..=110).contains(&u),
                 _ => true
             }
         }

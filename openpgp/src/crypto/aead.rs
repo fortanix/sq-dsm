@@ -150,7 +150,7 @@ impl<'a> Decryptor<'a> {
                             source: Box<dyn 'a + BufferedReader<Cookie>>)
         -> Result<Self>
     {
-        if chunk_size < MIN_CHUNK_SIZE || chunk_size > MAX_CHUNK_SIZE {
+        if !(MIN_CHUNK_SIZE..=MAX_CHUNK_SIZE).contains(&chunk_size) {
             return Err(Error::InvalidArgument(
                 format!("Invalid AEAD chunk size: {}", chunk_size)).into());
         }
@@ -567,7 +567,7 @@ impl<W: io::Write> Encryptor<W> {
     pub fn new(version: u8, sym_algo: SymmetricAlgorithm, aead: AEADAlgorithm,
                chunk_size: usize, iv: &[u8], key: &SessionKey, sink: W)
                -> Result<Self> {
-        if chunk_size < MIN_CHUNK_SIZE || chunk_size > MAX_CHUNK_SIZE {
+        if !(MIN_CHUNK_SIZE..=MAX_CHUNK_SIZE).contains(&chunk_size) {
             return Err(Error::InvalidArgument(
                 format!("Invalid AEAD chunk size: {}", chunk_size)).into());
         }

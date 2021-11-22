@@ -170,7 +170,7 @@ fn sq_config_lib(cfg: *mut Config, lib: *const c_char) {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_config_ipc_policy(cfg: *mut Config, policy: c_int) {
     let cfg = ffi_param_ref_mut!(cfg);
-    if policy < 0 || policy > 2 {
+    if !(0..=2).contains(&policy) {
         panic!("Bad ipc policy: {}", policy);
     }
     cfg.set_ipc_policy((policy as u8).into());

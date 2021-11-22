@@ -1823,7 +1823,7 @@ impl SubpacketLength {
                 octet1 as u32,
                 // Unambiguous.
                 None))
-        } else if 192 <= octet1 && octet1 < 255 {
+        } else if (192..255).contains(&octet1) {
             // Two octets length.
             let octet2 = bio.data_consume_hard(1)?[0];
             let len = ((octet1 as u32 - 192) << 8) + octet2 as u32 + 192;

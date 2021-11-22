@@ -283,7 +283,7 @@ mod tests {
         fn unknown_private(tag: Tag) -> bool {
             match tag {
                 Tag::Unknown(u) => u > 19 || u == 15 || u == 16,
-                Tag::Private(u) => u >= 60 && u <= 63,
+                Tag::Private(u) => (60..=63).contains(&u),
                 _ => true
             }
         }

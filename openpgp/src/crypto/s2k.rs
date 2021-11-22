@@ -552,7 +552,7 @@ mod tests {
                 S2K::Unknown { tag, .. } =>
                     (tag > 3 && tag < 100) || tag == 2 || tag > 110,
                 S2K::Private { tag, .. } =>
-                    tag >= 100 && tag <= 110,
+                    (100..=110).contains(&tag),
                 _ => true
             }
         }

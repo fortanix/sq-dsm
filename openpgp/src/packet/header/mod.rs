@@ -168,16 +168,15 @@ impl Header {
                             // A V3 signature is 19 bytes plus the
                             // MPIs.  A V4 is 10 bytes plus the hash
                             // areas and the MPIs.
-                            10 <= l
-                            && l < (10  // Header, fixed sized fields.
+                            (10..(10  // Header, fixed sized fields.
                                     + 2 * 64 * 1024 // Hashed & Unhashed areas.
                                     + 64 * 1024 // MPIs.
-                                   ),
+                                   )).contains(&l),
                         Tag::SKESK =>
                             // 2 bytes of fixed header.  An s2k
                             // specification (at least 1 byte), an
                             // optional encryption session key.
-                            3 <= l && l < 10 * 1024,
+                            (3..10 * 1024).contains(&l),
                         Tag::PKESK =>
                             // 10 bytes of fixed header, plus the
                             // encrypted session key.
