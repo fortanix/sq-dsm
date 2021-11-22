@@ -1712,7 +1712,7 @@ mod tests {
 
     quickcheck! {
         fn comp_roundtrip(comp: CompressionAlgorithm) -> bool {
-            let val: u8 = comp.clone().into();
+            let val: u8 = comp.into();
             comp == CompressionAlgorithm::from(val)
         }
     }
@@ -1737,7 +1737,7 @@ mod tests {
 
     quickcheck! {
         fn sym_roundtrip(sym: SymmetricAlgorithm) -> bool {
-            let val: u8 = sym.clone().into();
+            let val: u8 = sym.into();
             sym == SymmetricAlgorithm::from(val)
         }
     }
@@ -1764,7 +1764,7 @@ mod tests {
 
     quickcheck! {
         fn aead_roundtrip(aead: AEADAlgorithm) -> bool {
-            let val: u8 = aead.clone().into();
+            let val: u8 = aead.into();
             aead == AEADAlgorithm::from(val)
         }
     }
@@ -1791,7 +1791,7 @@ mod tests {
 
     quickcheck! {
         fn pk_roundtrip(pk: PublicKeyAlgorithm) -> bool {
-            let val: u8 = pk.clone().into();
+            let val: u8 = pk.into();
             pk == PublicKeyAlgorithm::from(val)
         }
     }
@@ -1825,7 +1825,7 @@ mod tests {
 
     quickcheck! {
         fn signature_type_roundtrip(t: SignatureType) -> bool {
-            let val: u8 = t.clone().into();
+            let val: u8 = t.into();
             t == SignatureType::from(val)
         }
     }
@@ -1840,7 +1840,7 @@ mod tests {
 
     quickcheck! {
         fn hash_roundtrip(hash: HashAlgorithm) -> bool {
-            let val: u8 = hash.clone().into();
+            let val: u8 = hash.into();
             hash == HashAlgorithm::from(val)
         }
     }
@@ -1889,7 +1889,7 @@ mod tests {
 
     quickcheck! {
         fn rfr_roundtrip(rfr: ReasonForRevocation) -> bool {
-            let val: u8 = rfr.clone().into();
+            let val: u8 = rfr.into();
             rfr == ReasonForRevocation::from(val)
         }
     }
@@ -1917,7 +1917,7 @@ mod tests {
 
     quickcheck! {
         fn df_roundtrip(df: DataFormat) -> bool {
-            let val: u8 = df.clone().into();
+            let val: u8 = df.into();
             df == DataFormat::from(val)
         }
     }

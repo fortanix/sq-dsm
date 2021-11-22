@@ -1395,9 +1395,9 @@ impl Marshal for SubpacketValue {
         use self::SubpacketValue::*;
         match self {
             SignatureCreationTime(t) =>
-                write_be_u32(o, t.clone().into())?,
+                write_be_u32(o, (*t).into())?,
             SignatureExpirationTime(t) =>
-                write_be_u32(o, t.clone().into())?,
+                write_be_u32(o, (*t).into())?,
             ExportableCertification(e) =>
                 o.write_all(&[if *e { 1 } else { 0 }])?,
             TrustSignature { ref level, ref trust } =>
@@ -1409,7 +1409,7 @@ impl Marshal for SubpacketValue {
             Revocable(r) =>
                 o.write_all(&[if *r { 1 } else { 0 }])?,
             KeyExpirationTime(t) =>
-                write_be_u32(o, t.clone().into())?,
+                write_be_u32(o, (*t).into())?,
             PreferredSymmetricAlgorithms(ref p) =>
                 for a in p {
                     o.write_all(&[(*a).into()])?;

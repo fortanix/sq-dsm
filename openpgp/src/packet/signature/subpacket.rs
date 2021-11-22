@@ -430,7 +430,7 @@ mod tests {
     use super::*;
     quickcheck! {
         fn roundtrip(tag: SubpacketTag) -> bool {
-            let val: u8 = tag.clone().into();
+            let val: u8 = tag.into();
             tag == SubpacketTag::from(val)
         }
     }
