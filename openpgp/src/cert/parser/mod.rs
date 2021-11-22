@@ -662,9 +662,10 @@ impl<'a> CertParser<'a> {
               J: 'a + Into<Result<Packet>>,
               <I as IntoIterator>::IntoIter: Send + Sync,
     {
-        let mut parser : Self = Default::default();
-        parser.source = Some(Box::new(iter.into_iter().map(Into::into)));
-        parser
+        Self {
+            source: Some(Box::new(iter.into_iter().map(Into::into))),
+            ..Default::default()
+        }
     }
 
     /// Filters the Certs prior to validation.

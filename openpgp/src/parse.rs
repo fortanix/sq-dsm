@@ -445,8 +445,10 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
     {
         assert!(!path.is_empty());
 
-        let mut cookie = Cookie::default();
-        cookie.level = inner.cookie_ref().level;
+        let cookie = Cookie {
+            level: inner.cookie_ref().level,
+            ..Default::default()
+        };
         let map = if state.settings.map {
             Some(map::Map::new(header_bytes.clone()))
         } else {
