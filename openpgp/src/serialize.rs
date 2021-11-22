@@ -3038,7 +3038,7 @@ mod test {
             let data = crate::tests::message(filename);
 
             // 2. Parse the message.
-            let pile = PacketPile::from_bytes(&data[..]).unwrap();
+            let pile = PacketPile::from_bytes(data).unwrap();
 
             // The following test only works if the message has a
             // single top-level packet.
@@ -3059,7 +3059,7 @@ mod test {
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
-            packets_bitwise_compare(filename, p, &data[..], &buffer[..]);
+            packets_bitwise_compare(filename, p, data, &buffer[..]);
         }
     }
 
@@ -3080,14 +3080,14 @@ mod test {
             let data = crate::tests::message(filename);
 
             // 2. Parse the message.
-            let u = Packet::Unknown(to_unknown_packet(&data[..]).unwrap());
+            let u = Packet::Unknown(to_unknown_packet(data).unwrap());
 
             // 3. Serialize the packet it into a local buffer.
             let data2 = (&u as &dyn MarshalInto).to_vec().unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
-            packets_bitwise_compare(filename, &u, &data[..], &data2[..]);
+            packets_bitwise_compare(filename, &u, data, &data2[..]);
         }
 
     }
@@ -3125,7 +3125,7 @@ mod test {
             // never recurse so that the resulting message only
             // contains the top-level packets.  Any containers will
             // have their raw content stored in packet.content.
-            let pile = PacketParserBuilder::from_bytes(&data[..]).unwrap()
+            let pile = PacketParserBuilder::from_bytes(data).unwrap()
                 .max_recursion_depth(0)
                 .buffer_unread_content()
                 //.trace()

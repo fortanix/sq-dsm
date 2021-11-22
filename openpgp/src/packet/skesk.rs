@@ -259,7 +259,7 @@ impl SKESK4 {
             let iv = vec![0u8; blk_sz];
             let mut dec  = self.sym_algo.make_decrypt_cfb(&key[..], iv)?;
             let mut plain: SessionKey = vec![0u8; esk.len()].into();
-            let cipher = &esk[..];
+            let cipher = esk;
 
             for (pl, ct)
                 in plain[..].chunks_mut(blk_sz).zip(cipher.chunks(blk_sz))

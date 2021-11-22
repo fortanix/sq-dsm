@@ -3167,48 +3167,48 @@ mod test {
 
         let tests = [
             Test {
-                key: &"neal.pgp"[..],
-                data: &"signed-1.gpg"[..],
+                key: "neal.pgp",
+                data: "signed-1.gpg",
                 good: 1,
             },
             Test {
-                key: &"neal.pgp"[..],
-                data: &"signed-1-sha1-neal.gpg"[..],
+                key: "neal.pgp",
+                data: "signed-1-sha1-neal.gpg",
                 good: 1,
             },
             Test {
-                key: &"testy.pgp"[..],
-                data: &"signed-1-sha256-testy.gpg"[..],
+                key: "testy.pgp",
+                data: "signed-1-sha256-testy.gpg",
                 good: 1,
             },
             Test {
-                key: &"dennis-simon-anton.pgp"[..],
-                data: &"signed-1-dsa.pgp"[..],
+                key: "dennis-simon-anton.pgp",
+                data: "signed-1-dsa.pgp",
                 good: 1,
             },
             Test {
-                key: &"erika-corinna-daniela-simone-antonia-nistp256.pgp"[..],
-                data: &"signed-1-ecdsa-nistp256.pgp"[..],
+                key: "erika-corinna-daniela-simone-antonia-nistp256.pgp",
+                data: "signed-1-ecdsa-nistp256.pgp",
                 good: 1,
             },
             Test {
-                key: &"erika-corinna-daniela-simone-antonia-nistp384.pgp"[..],
-                data: &"signed-1-ecdsa-nistp384.pgp"[..],
+                key: "erika-corinna-daniela-simone-antonia-nistp384.pgp",
+                data: "signed-1-ecdsa-nistp384.pgp",
                 good: 1,
             },
             Test {
-                key: &"erika-corinna-daniela-simone-antonia-nistp521.pgp"[..],
-                data: &"signed-1-ecdsa-nistp521.pgp"[..],
+                key: "erika-corinna-daniela-simone-antonia-nistp521.pgp",
+                data: "signed-1-ecdsa-nistp521.pgp",
                 good: 1,
             },
             Test {
-                key: &"emmelie-dorothea-dina-samantha-awina-ed25519.pgp"[..],
-                data: &"signed-1-eddsa-ed25519.pgp"[..],
+                key: "emmelie-dorothea-dina-samantha-awina-ed25519.pgp",
+                data: "signed-1-eddsa-ed25519.pgp",
                 good: 1,
             },
             Test {
-                key: &"emmelie-dorothea-dina-samantha-awina-ed25519.pgp"[..],
-                data: &"signed-twice-by-ed25519.pgp"[..],
+                key: "emmelie-dorothea-dina-samantha-awina-ed25519.pgp",
+                data: "signed-twice-by-ed25519.pgp",
                 good: 2,
             },
             Test {
@@ -3223,13 +3223,13 @@ mod test {
             },
             // Check with the wrong key.
             Test {
-                key: &"neal.pgp"[..],
-                data: &"signed-1-sha256-testy.gpg"[..],
+                key: "neal.pgp",
+                data: "signed-1-sha256-testy.gpg",
                 good: 0,
             },
             Test {
-                key: &"neal.pgp"[..],
-                data: &"signed-2-partial-body.gpg"[..],
+                key: "neal.pgp",
+                data: "signed-2-partial-body.gpg",
                 good: 1,
             },
         ];
@@ -3394,7 +3394,7 @@ mod test {
             panic!("Expected a Signature, got: {:?}", p);
         };
 
-        sig.verify_message(cert.primary_key().key(), &msg[..]).unwrap();
+        sig.verify_message(cert.primary_key().key(), msg).unwrap();
     }
 
     #[test]

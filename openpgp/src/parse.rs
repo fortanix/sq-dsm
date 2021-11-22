@@ -2512,7 +2512,7 @@ fn literal_parser_test () {
 
             let expected = crate::tests::manifesto();
 
-            assert_eq!(&content[..], &expected[..]);
+            assert_eq!(&content[..], expected);
         } else {
             panic!("Wrong packet!");
         }
@@ -2762,7 +2762,7 @@ fn skesk_parser_test() {
             match skesk.decrypt(&test.password) {
                 Ok((_sym_algo, key)) => {
                     let key = crate::fmt::to_hex(&key[..], false);
-                    assert_eq!(&key[..], &test.key_hex[..]);
+                    assert_eq!(&key[..], test.key_hex);
                 }
                 Err(e) => {
                     panic!("No session key, got: {:?}", e);
@@ -5862,7 +5862,7 @@ mod test {
         // that we don't try to recover.
         let mut msg2 = Vec::new();
         msg2.push(0);
-        msg2.extend_from_slice(&msg[..]);
+        msg2.extend_from_slice(msg);
 
         let ppr = PacketParserBuilder::from_bytes(&msg2[..]).unwrap()
             .dearmor(packet_parser_builder::Dearmor::Disabled)
@@ -5873,8 +5873,8 @@ mod test {
     /// Issue #141.
     #[test]
     fn truncated_packet() {
-        for msg in &[&crate::tests::message("literal-mode-b.gpg")[..],
-                     &crate::tests::message("literal-mode-t-partial-body.gpg")[..],
+        for msg in &[crate::tests::message("literal-mode-b.gpg"),
+                     crate::tests::message("literal-mode-t-partial-body.gpg"),
         ] {
             // Make sure we can read the first packet.
             let ppr = PacketParserBuilder::from_bytes(msg).unwrap()

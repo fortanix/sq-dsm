@@ -1085,7 +1085,7 @@ impl<'a> Reader<'a> {
             // it couldn't is if we encountered EOF.  We need to strip
             // it.  But, if it ends with \r\n, then we also want to
             // strip the \r too.
-            let line = if let Some(rest) = line.strip_suffix(&"\r\n"[..]) {
+            let line = if let Some(rest) = line.strip_suffix("\r\n") {
                 // \r\n.
                 rest
             } else if let Some(rest) = line.strip_suffix('\n') {
@@ -2059,12 +2059,12 @@ mod test {
     #[test]
     fn dearmor_yuge() {
         let yuge_key = crate::tests::key("yuge-key-so-yuge-the-yugest.asc");
-        let mut r = Reader::new(Cursor::new(&yuge_key[..]),
+        let mut r = Reader::new(Cursor::new(yuge_key),
                                 ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         r.read_to_end(&mut dearmored).unwrap();
 
-        let r = Reader::new(Cursor::new(&yuge_key[..]),
+        let r = Reader::new(Cursor::new(yuge_key),
                             ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         for c in r.bytes() {

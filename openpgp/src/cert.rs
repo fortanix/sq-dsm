@@ -4097,8 +4097,8 @@ mod test {
 
         // Keyring with two good keys
         let mut combined = vec![];
-        combined.extend_from_slice(&dkg[..]);
-        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(dkg);
+        combined.extend_from_slice(dkg);
         let certs = CertParser::from_bytes(&combined[..]).unwrap()
             .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
@@ -4106,8 +4106,8 @@ mod test {
 
         // Keyring with a good key, and a bad key.
         let mut combined = vec![];
-        combined.extend_from_slice(&dkg[..]);
-        combined.extend_from_slice(&lutz[..]);
+        combined.extend_from_slice(dkg);
+        combined.extend_from_slice(lutz);
         let certs = CertParser::from_bytes(&combined[..]).unwrap()
             .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
@@ -4115,8 +4115,8 @@ mod test {
 
         // Keyring with a bad key, and a good key.
         let mut combined = vec![];
-        combined.extend_from_slice(&lutz[..]);
-        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(lutz);
+        combined.extend_from_slice(dkg);
         let certs = CertParser::from_bytes(&combined[..]).unwrap()
             .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
@@ -4124,9 +4124,9 @@ mod test {
 
         // Keyring with a good key, a bad key, and a good key.
         let mut combined = vec![];
-        combined.extend_from_slice(&dkg[..]);
-        combined.extend_from_slice(&lutz[..]);
-        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(dkg);
+        combined.extend_from_slice(lutz);
+        combined.extend_from_slice(dkg);
         let certs = CertParser::from_bytes(&combined[..]).unwrap()
             .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
@@ -4134,9 +4134,9 @@ mod test {
 
         // Keyring with a good key, a bad key, and a bad key.
         let mut combined = vec![];
-        combined.extend_from_slice(&dkg[..]);
-        combined.extend_from_slice(&lutz[..]);
-        combined.extend_from_slice(&lutz[..]);
+        combined.extend_from_slice(dkg);
+        combined.extend_from_slice(lutz);
+        combined.extend_from_slice(lutz);
         let certs = CertParser::from_bytes(&combined[..]).unwrap()
             .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
@@ -4144,10 +4144,10 @@ mod test {
 
         // Keyring with a good key, a bad key, a bad key, and a good key.
         let mut combined = vec![];
-        combined.extend_from_slice(&dkg[..]);
-        combined.extend_from_slice(&lutz[..]);
-        combined.extend_from_slice(&lutz[..]);
-        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(dkg);
+        combined.extend_from_slice(lutz);
+        combined.extend_from_slice(lutz);
+        combined.extend_from_slice(dkg);
         let certs = CertParser::from_bytes(&combined[..]).unwrap()
             .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
@@ -4208,7 +4208,7 @@ mod test {
         let cert = Cert::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
 
         let rev = crate::tests::key("already-revoked.rev");
-        let rev = PacketPile::from_reader(armor::Reader::new(&rev[..], None))
+        let rev = PacketPile::from_reader(armor::Reader::new(rev, None))
             .unwrap();
 
         let rev : Vec<Packet> = rev.into_children().collect();

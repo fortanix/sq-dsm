@@ -565,7 +565,7 @@ mod tests {
                 decryptor.read_to_end(&mut plaintext).unwrap();
             }
 
-            assert_eq!(&plaintext[..], &crate::tests::manifesto()[..]);
+            assert_eq!(&plaintext[..], crate::tests::manifesto());
         }
     }
 }
