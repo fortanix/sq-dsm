@@ -342,7 +342,7 @@ fn generate_class(caret: bool, chars: impl Iterator<Item=char>) -> Hir
                           }
                       }
                   })
-            .filter_map(|r| r);
+            .flatten();
         let mut class = hir::Class::Unicode(hir::ClassUnicode::new(r));
         if caret {
             class.negate();
@@ -728,7 +728,7 @@ impl RegexSet {
                               Some(None)
                           }
                       })
-                .filter_map(|re| re));
+                .flatten());
 
         if !have_valid_utf8 && have_invalid_utf8 {
             // None of the strings were valid UTF-8.  Reject
