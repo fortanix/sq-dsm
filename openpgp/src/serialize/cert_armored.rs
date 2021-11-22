@@ -121,6 +121,7 @@ impl<'a> TSK<'a> {
 }
 
 /// A `Cert` or `TSK` to be armored and serialized.
+#[allow(clippy::upper_case_acronyms)]
 enum Encoder<'a> {
     Cert(&'a Cert),
     TSK(TSK<'a>),

@@ -23,6 +23,7 @@ pub(crate) type LexerItem<Token, Loc, LexicalError>
 
 /// The components of an OpenPGP Message.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Token {
     PIPE,
 

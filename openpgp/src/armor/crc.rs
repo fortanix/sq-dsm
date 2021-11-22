@@ -6,16 +6,16 @@ const CRC24_INIT: u32 = 0xB704CE;
 const CRC24_POLY: u32 = 0x864CFB;
 
 #[derive(Debug)]
-pub struct CRC {
+pub struct Crc {
     n: u32,
 }
 
 /// Computes the CRC-24, (see [RFC 4880, section 6.1]).
 ///
 /// [RFC 4880, section 6.1]: https://tools.ietf.org/html/rfc4880#section-6.1
-impl CRC {
+impl Crc {
     pub fn new() -> Self {
-        CRC { n: CRC24_INIT }
+        Self { n: CRC24_INIT }
     }
 
     /// Updates the CRC sum using the given data.
@@ -84,7 +84,7 @@ mod tests {
         ];
 
         for len in 0..b.len() + 1 {
-            assert_eq!(CRC::new().update(&b[..len]).finalize(), crcs[len]);
+            assert_eq!(Crc::new().update(&b[..len]).finalize(), crcs[len]);
         }
     }
 
@@ -105,7 +105,7 @@ mod tests {
 
     quickcheck! {
         fn compare(b: Vec<u8>) -> bool {
-            let mut c = CRC::new();
+            let mut c = Crc::new();
             c.update(&b);
             assert_eq!(c.finalize(), iterative(&b));
             true

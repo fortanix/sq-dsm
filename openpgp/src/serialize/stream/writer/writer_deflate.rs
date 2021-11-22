@@ -7,6 +7,7 @@ use crate::types::CompressionLevel;
 use super::{Generic, Message, BoxStack, Stackable, Cookie};
 
 /// ZIP compressing writer.
+#[allow(clippy::upper_case_acronyms)]
 pub struct ZIP<'a, C: 'a> {
     inner: Generic<DeflateEncoder<BoxStack<'a, C>>, C>,
 }
@@ -77,6 +78,7 @@ impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
 }
 
 /// ZLIB compressing writer.
+#[allow(clippy::upper_case_acronyms)]
 pub struct ZLIB<'a, C: 'a> {
     inner: Generic<ZlibEncoder<BoxStack<'a, C>>, C>,
 }

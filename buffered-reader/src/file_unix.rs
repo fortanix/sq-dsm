@@ -48,7 +48,7 @@ impl<'a, C: fmt::Debug + Sync + Send> fmt::Debug for File<'a, C> {
 /// The implementation.
 enum Imp<'a, C: fmt::Debug + Sync + Send> {
     Generic(Generic<fs::File, C>),
-    MMAP {
+    Mmap {
         reader: Memory<'a, C>,
     }
 }
@@ -57,7 +57,7 @@ impl<'a, C: fmt::Debug + Sync + Send> Drop for Imp<'a, C> {
     fn drop(&mut self) {
         match self {
             Imp::Generic(_) => (),
-            Imp::MMAP { reader, } => {
+            Imp::Mmap { reader, } => {
                 let buf = reader.source_buffer();
                 unsafe {
                     munmap(buf.as_ptr() as *mut _, buf.len());
@@ -72,7 +72,7 @@ impl<'a, C: fmt::Debug + Sync + Send> fmt::Display for Imp<'a, C> {
         write!(f, "File(")?;
         match self {
             Imp::Generic(_) => write!(f, "Generic")?,
-            Imp::MMAP { .. } => write!(f, "Memory")?,
+            Imp::Mmap { .. } => write!(f, "Memory")?,
         };
         write!(f, ")")
     }
@@ -85,8 +85,8 @@ impl<'a, C: fmt::Debug + Sync + Send> fmt::Debug for Imp<'a, C> {
                 f.debug_tuple("Generic")
                 .field(&g)
                 .finish(),
-            Imp::MMAP { reader, } =>
-                f.debug_struct("MMAP")
+            Imp::Mmap { reader, } =>
+                f.debug_struct("Mmap")
                 .field("addr", &reader.source_buffer().as_ptr())
                 .field("length", &reader.source_buffer().len())
                 .field("reader", reader)
@@ -152,7 +152,7 @@ impl<'a, C: fmt::Debug + Sync + Send> File<'a, C> {
         };
 
         Ok(File(
-            Imp::MMAP {
+            Imp::Mmap {
                 reader: Memory::with_cookie(slice, cookie),
             },
             path.into(),
@@ -164,7 +164,7 @@ impl<'a, C: fmt::Debug + Sync + Send> io::Read for File<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self.0 {
             Imp::Generic(ref mut reader) => reader.read(buf),
-            Imp::MMAP { ref mut reader, .. } => reader.read(buf),
+            Imp::Mmap { ref mut reader, .. } => reader.read(buf),
         }.map_err(|e| FileError::new(&self.1, e))
     }
 }
@@ -173,7 +173,7 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for File<'a, C> {
     fn buffer(&self) -> &[u8] {
         match self.0 {
             Imp::Generic(ref reader) => reader.buffer(),
-            Imp::MMAP { ref reader, .. } => reader.buffer(),
+            Imp::Mmap { ref reader, .. } => reader.buffer(),
         }
     }
 
@@ -181,7 +181,7 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for File<'a, C> {
         let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data(amount),
-            Imp::MMAP { ref mut reader, .. } => reader.data(amount),
+            Imp::Mmap { ref mut reader, .. } => reader.data(amount),
         }.map_err(|e| FileError::new(path, e))
     }
 
@@ -189,14 +189,14 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for File<'a, C> {
         let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data_hard(amount),
-            Imp::MMAP { ref mut reader, .. } => reader.data_hard(amount),
+            Imp::Mmap { ref mut reader, .. } => reader.data_hard(amount),
         }.map_err(|e| FileError::new(path, e))
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
         match self.0 {
             Imp::Generic(ref mut reader) => reader.consume(amount),
-            Imp::MMAP { ref mut reader, .. } => reader.consume(amount),
+            Imp::Mmap { ref mut reader, .. } => reader.consume(amount),
         }
     }
 
@@ -204,7 +204,7 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for File<'a, C> {
         let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data_consume(amount),
-            Imp::MMAP { ref mut reader, .. } => reader.data_consume(amount),
+            Imp::Mmap { ref mut reader, .. } => reader.data_consume(amount),
         }.map_err(|e| FileError::new(path, e))
     }
 
@@ -212,7 +212,7 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for File<'a, C> {
         let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data_consume_hard(amount),
-            Imp::MMAP { ref mut reader, .. } => reader.data_consume_hard(amount),
+            Imp::Mmap { ref mut reader, .. } => reader.data_consume_hard(amount),
         }.map_err(|e| FileError::new(path, e))
     }
 
@@ -232,21 +232,21 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for File<'a, C> {
     fn cookie_set(&mut self, cookie: C) -> C {
         match self.0 {
             Imp::Generic(ref mut reader) => reader.cookie_set(cookie),
-            Imp::MMAP { ref mut reader, .. } => reader.cookie_set(cookie),
+            Imp::Mmap { ref mut reader, .. } => reader.cookie_set(cookie),
         }
     }
 
     fn cookie_ref(&self) -> &C {
         match self.0 {
             Imp::Generic(ref reader) => reader.cookie_ref(),
-            Imp::MMAP { ref reader, .. } => reader.cookie_ref(),
+            Imp::Mmap { ref reader, .. } => reader.cookie_ref(),
         }
     }
 
     fn cookie_mut(&mut self) -> &mut C {
         match self.0 {
             Imp::Generic(ref mut reader) => reader.cookie_mut(),
-            Imp::MMAP { ref mut reader, .. } => reader.cookie_mut(),
+            Imp::Mmap { ref mut reader, .. } => reader.cookie_mut(),
         }
     }
 }

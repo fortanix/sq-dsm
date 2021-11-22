@@ -51,7 +51,7 @@ use crate::{vec_resize, vec_truncate};
 mod base64_utils;
 use base64_utils::*;
 mod crc;
-use crc::CRC;
+use crc::Crc;
 
 /// The encoded output stream must be represented in lines of no more
 /// than 76 characters each (see (see [RFC 4880, section
@@ -236,7 +236,7 @@ pub struct Writer<W: Write> {
     kind: Kind,
     stash: Vec<u8>,
     column: usize,
-    crc: CRC,
+    crc: Crc,
     header: Vec<u8>,
     dirty: bool,
     scratch: Vec<u8>,
@@ -309,7 +309,7 @@ impl<W: Write> Writer<W> {
             kind,
             stash: Vec::<u8>::with_capacity(2),
             column: 0,
-            crc: CRC::new(),
+            crc: Crc::new(),
             header: Vec::with_capacity(128),
             dirty: false,
             scratch: vec![0; 4096],
@@ -558,7 +558,7 @@ pub struct Reader<'a> {
     kind: Option<Kind>,
     mode: ReaderMode,
     decode_buffer: Vec<u8>,
-    crc: CRC,
+    crc: Crc,
     expect_crc: Option<u32>,
     initialized: bool,
     headers: Vec<(String, String)>,
@@ -593,6 +593,7 @@ impl Default for ReaderMode {
 /// State for transforming a message using the Cleartext Signature
 /// Framework into an inline signed message.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
 enum CSFTransformer {
     OPS,
     Literal,
@@ -747,7 +748,7 @@ impl<'a> Reader<'a> {
             kind: None,
             mode,
             decode_buffer: Vec::<u8>::with_capacity(1024),
-            crc: CRC::new(),
+            crc: Crc::new(),
             expect_crc: None,
             headers: Vec::new(),
             initialized: false,

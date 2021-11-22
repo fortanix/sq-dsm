@@ -24,6 +24,7 @@ pub(crate) type LexerItem<Token, Loc, LexicalError>
     = Spanned<Token, Loc, LexicalError>;
 
 #[derive(Debug, Clone, Copy)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Token {
     SPACE,
     HASH,
