@@ -427,8 +427,7 @@ mod test {
 
             let cookie = reader.cookie_mut();
 
-            let mut hashes = mem::replace(&mut cookie.sig_group_mut().hashes,
-                                          Default::default());
+            let mut hashes = std::mem::take(&mut cookie.sig_group_mut().hashes);
             for mode in hashes.iter_mut() {
                 let hash = mode.as_mut();
                 let algo = hash.algo();

@@ -8,7 +8,6 @@ use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
-use std::mem::replace;
 
 /// Hooks into Rust's test system to extract, compile and run c tests.
 #[test]
@@ -162,7 +161,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
 
             if let Some(name) = exported_function_name(&line) {
                 if !test.is_empty() {
-                    fun(path, test_starts_at, name, replace(&mut test, vec![]),
+                    fun(path, test_starts_at, name, std::mem::take(&mut test),
                         run)?;
                     test.clear();
                 }
@@ -178,7 +177,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
                                    path.file_stem().unwrap().to_string_lossy(),
                                    lineno); // XXX: nicer to point to the top
 
-                fun(path, test_starts_at, &name, replace(&mut test, Vec::new()),
+                fun(path, test_starts_at, &name, std::mem::take(&mut test),
                     run)?;
                 test.clear();
                 in_test = false;

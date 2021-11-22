@@ -46,7 +46,7 @@ pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::W
                         type_called = true;
                     }
                     let pp = openpgp::PacketPile::from(
-                        ::std::mem::replace(&mut packets, Vec::new()));
+                        std::mem::take(&mut packets));
                     let cert = openpgp::Cert::try_from(pp)?;
                     inspect_cert(policy, output, &cert,
                                  print_certifications)?;

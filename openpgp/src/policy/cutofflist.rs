@@ -1,5 +1,5 @@
 use std::fmt;
-use std::mem;
+
 use std::ops::{Index, IndexMut};
 
 use crate::{
@@ -51,7 +51,7 @@ impl<'a, T> VecOrSlice<'a, T> {
         where T: Clone
     {
         let mut v : Vec<T> = match self {
-            VecOrSlice::Vec(ref mut v) => mem::replace(v, Vec::new()),
+            VecOrSlice::Vec(ref mut v) => std::mem::take(v),
             VecOrSlice::Slice(s) => s.to_vec(),
             VecOrSlice::Empty() => Vec::with_capacity(size),
         };

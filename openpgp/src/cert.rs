@@ -1527,9 +1527,7 @@ impl Cert {
                 t!("check!({}, {}, {:?}, {}, ...)",
                    $desc, stringify!($binding), $binding.$sigs,
                    stringify!($verify_method));
-                for mut sig in mem::replace(&mut $binding.$sigs, Vec::new())
-                    .into_iter()
-                 {
+                for mut sig in mem::take(&mut $binding.$sigs).into_iter() {
                      match sig.$verify_method(self.primary.key(),
                                               self.primary.key(),
                                               $($verify_args),*) {
@@ -1567,9 +1565,7 @@ impl Cert {
                 t!("check_3rd_party!({}, {}, {:?}, {}, {}, ...)",
                    $desc, stringify!($binding), $binding.$sigs,
                    stringify!($verify_method), stringify!($hash_method));
-                for mut sig in mem::replace(&mut $binding.$sigs, Vec::new())
-                    .into_iter()
-                {
+                for mut sig in mem::take(&mut $binding.$sigs) {
                     // Use hash prefix as heuristic.
                     let key = self.primary.key();
                     match sig.hash_algo().context().and_then(|mut ctx| {
@@ -1709,7 +1705,7 @@ impl Cert {
         // See if the signatures that didn't validate are just out of
         // place.
         let mut bad_sigs: Vec<(Option<usize>, Signature)> =
-            mem::replace(&mut self.bad, Vec::new()).into_iter()
+            std::mem::take(&mut self.bad).into_iter()
             .map(|sig| {
                 t!("We're going to reconsider bad signature {:?}", sig);
                 (None, sig)
@@ -1720,15 +1716,15 @@ impl Cert {
         // remember where we took them from.
         for (i, c) in self.unknowns.iter_mut().enumerate() {
             for sig in
-                mem::replace(&mut c.self_signatures, Vec::new()).into_iter()
+                std::mem::take(&mut c.self_signatures).into_iter()
                 .chain(
-                    mem::replace(&mut c.certifications, Vec::new()).into_iter())
+                    std::mem::take(&mut c.certifications).into_iter())
                 .chain(
-                    mem::replace(&mut c.attestations, Vec::new()).into_iter())
+                    std::mem::take(&mut c.attestations).into_iter())
                 .chain(
-                    mem::replace(&mut c.self_revocations, Vec::new()).into_iter())
+                    std::mem::take(&mut c.self_revocations).into_iter())
                 .chain(
-                    mem::replace(&mut c.other_revocations, Vec::new()).into_iter())
+                    std::mem::take(&mut c.other_revocations).into_iter())
             {
                 t!("We're going to reconsider {:?} on unknown component #{}",
                    sig, i);
