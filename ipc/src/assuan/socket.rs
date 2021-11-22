@@ -131,7 +131,7 @@ fn read_port_and_nonce_from_string(contents: &[u8]) -> Result<Rendezvous> {
         // libassuan's Cygwin compatible socket emulation.
         // Format: "!<socket >%u %c %08x-%08x-%08x-%08x\x00" (scanf-like)
         Some(buf) => {
-            let opt_skip_nul = buf.strip_suffix("\x00").unwrap_or(buf);
+            let opt_skip_nul = buf.strip_suffix('\x00').unwrap_or(buf);
             // Split into parts: port, kind of socket and nonce
             let mut iter = opt_skip_nul.split_terminator(' ');
             match (iter.next(), iter.next(), iter.next()) {
