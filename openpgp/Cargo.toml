@@ -20,6 +20,7 @@ keywords = ["cryptography", "openpgp", "pgp", "encryption", "signing"]
 categories = ["cryptography", "authentication", "email"]
 license = "LGPL-2.0-or-later"
 edition = "2018"
+rust-version = "1.56"
 
 [badges]
 gitlab = { repository = "sequoia-pgp/sequoia" }
