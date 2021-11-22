@@ -1750,12 +1750,13 @@ impl fmt::Debug for Signature4 {
             .field("additional_issuers", &self.additional_issuers)
             .field("digest_prefix",
                    &crate::fmt::to_hex(&self.digest_prefix, false))
-            .field("computed_digest",
-                   &if let Some(ref hash) = self.computed_digest {
-                       Some(crate::fmt::to_hex(&hash[..], false))
-                   } else {
-                       None
-                   })
+            .field(
+                "computed_digest",
+                &self
+                    .computed_digest
+                    .as_ref()
+                    .map(|hash| crate::fmt::to_hex(&hash[..], false)),
+            )
             .field("level", &self.level)
             .field("mpis", &self.mpis)
             .finish()

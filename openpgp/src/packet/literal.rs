@@ -51,11 +51,10 @@ assert_send_and_sync!(Literal);
 
 impl fmt::Debug for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let filename = if let Some(ref filename) = self.filename {
-            Some(String::from_utf8_lossy(filename))
-        } else {
-            None
-        };
+        let filename = self
+            .filename
+            .as_ref()
+            .map(|filename| String::from_utf8_lossy(filename));
 
         let threshold = 36;
         let body = self.body();

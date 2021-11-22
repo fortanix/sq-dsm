@@ -59,11 +59,7 @@ impl<T: BufferedReader<Cookie>> std::fmt::Debug
             .field("last", &self.last)
             .field("hash headers", &self.hash_headers)
             .field("buffer (bytes left)",
-                   &if let Some(ref buffer) = self.buffer {
-                       Some(buffer.len())
-                   } else {
-                       None
-                   })
+                   &self.buffer.as_ref().map(|buffer| buffer.len()))
             .field("reader", &self.reader)
             .finish()
     }
