@@ -163,7 +163,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
 
             if let Some(name) = exported_function_name(&line) {
                 if !test.is_empty() {
-                    fun(path, test_starts_at, &name, replace(&mut test, vec![]),
+                    fun(path, test_starts_at, name, replace(&mut test, vec![]),
                         run)?;
                     test.clear();
                 }

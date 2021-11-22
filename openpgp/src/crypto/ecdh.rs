@@ -97,7 +97,7 @@ pub fn decrypt_unwrap<R>(recipient: &Key<key::PublicParts, R>,
             // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
             // Compute Z = KDF( S, Z_len, Param );
             #[allow(non_snake_case)]
-            let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
+            let Z = kdf(S, sym.key_size()?, *hash, &param)?;
 
             // Compute m = AESKeyUnwrap( Z, C ) as per [RFC3394]
             let m = aes_key_unwrap(*sym, &Z, key)?;

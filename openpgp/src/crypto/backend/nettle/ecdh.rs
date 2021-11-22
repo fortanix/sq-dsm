@@ -162,7 +162,7 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                     let (V, r, field_sz) = match curve {
                         Curve::NistP256 => {
                             let V =
-                                ecc::Point::new::<ecc::Secp256r1>(&Vx, &Vy)?;
+                                ecc::Point::new::<ecc::Secp256r1>(Vx, Vy)?;
                             let r =
                                 ecc::Scalar::new::<ecc::Secp256r1>(scalar.value())?;
 
@@ -170,7 +170,7 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                         }
                         Curve::NistP384 => {
                             let V =
-                                ecc::Point::new::<ecc::Secp384r1>(&Vx, &Vy)?;
+                                ecc::Point::new::<ecc::Secp384r1>(Vx, Vy)?;
                             let r =
                                 ecc::Scalar::new::<ecc::Secp384r1>(scalar.value())?;
 
@@ -178,7 +178,7 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                         }
                         Curve::NistP521 => {
                             let V =
-                                ecc::Point::new::<ecc::Secp521r1>(&Vx, &Vy)?;
+                                ecc::Point::new::<ecc::Secp521r1>(Vx, Vy)?;
                             let r =
                                 ecc::Scalar::new::<ecc::Secp521r1>(scalar.value())?;
 

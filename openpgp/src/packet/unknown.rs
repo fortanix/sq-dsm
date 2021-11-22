@@ -135,7 +135,7 @@ impl Unknown {
     /// case.
     pub(crate) // For cert/mod.rs
     fn best_effort_cmp(&self, other: &Unknown) -> Ordering {
-        self.tag.cmp(&other.tag).then_with(|| self.body().cmp(&other.body()))
+        self.tag.cmp(&other.tag).then_with(|| self.body().cmp(other.body()))
     }
 }
 

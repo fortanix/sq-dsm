@@ -256,7 +256,7 @@ where
                     .flatten()
                     .map(|value| value.parse::<Uri>());
                 if let Some(Ok(url)) = url {
-                    return get_following_redirects(&client, url, depth - 1).await;
+                    return get_following_redirects(client, url, depth - 1).await;
                 }
             }
         }

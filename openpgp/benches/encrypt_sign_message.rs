@@ -34,7 +34,7 @@ fn bench_encrypt_sign(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("encrypt and sign", message.len()),
             &message,
-            |b, m| b.iter(|| encrypt_to_donald_sign_by_ivanka(&m)),
+            |b, m| b.iter(|| encrypt_to_donald_sign_by_ivanka(m)),
         );
     }
     group.finish();

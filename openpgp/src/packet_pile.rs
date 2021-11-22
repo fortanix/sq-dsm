@@ -267,7 +267,7 @@ impl PacketPile {
 
         let mut cont = Some(&self.top_level);
         for i in pathspec {
-            if let Some(ref c) = cont.take() {
+            if let Some(c) = cont.take() {
                 if let Some(children) = c.children_ref() {
                     if *i < children.len() {
                         let p = &children[*i];

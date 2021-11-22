@@ -934,7 +934,7 @@ impl<'a> Reader<'a> {
                 }
 
                 // Possible ASCII-armor header.
-                if let Some((label, len)) = Label::detect_header(&input) {
+                if let Some((label, len)) = Label::detect_header(input) {
                     if label == Label::CleartextSignature && ! self.enable_csft
                     {
                         // We found a message using the Cleartext
@@ -1422,7 +1422,7 @@ impl<'a> Reader<'a> {
                                             armored data"));
                         }
 
-                        let (dashes, rest) = dash_prefix(&line);
+                        let (dashes, rest) = dash_prefix(line);
                         if dashes.len() > 2 // XXX: heuristic...
                             && rest.starts_with(b"BEGIN PGP SIGNATURE")
                         {

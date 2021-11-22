@@ -2106,7 +2106,7 @@ fn one_pass_sig_test () {
                           crate::fmt::to_hex(&test.digest_prefix[sigs][..], false),
                           crate::fmt::to_hex(sig.digest_prefix(), false));
                 eprintln!("  computed hash: {}",
-                          crate::fmt::to_hex(&sig.computed_digest().unwrap(),
+                          crate::fmt::to_hex(sig.computed_digest().unwrap(),
                                              false));
 
                 assert_eq!(&test.digest_prefix[sigs], sig.digest_prefix());
@@ -4149,13 +4149,13 @@ impl <'a> PacketParser<'a> {
             | Tag::Unknown(_) | Tag::Private(_) =>
                 Err(Error::MalformedPacket("Looks like garbage".into()).into()),
 
-            Tag::Marker => Marker::plausible(bio, &header),
-            Tag::Signature => Signature::plausible(bio, &header),
+            Tag::Marker => Marker::plausible(bio, header),
+            Tag::Signature => Signature::plausible(bio, header),
 
-            Tag::SecretKey => Key::plausible(bio, &header),
-            Tag::PublicKey => Key::plausible(bio, &header),
-            Tag::SecretSubkey => Key::plausible(bio, &header),
-            Tag::PublicSubkey => Key::plausible(bio, &header),
+            Tag::SecretKey => Key::plausible(bio, header),
+            Tag::PublicKey => Key::plausible(bio, header),
+            Tag::SecretSubkey => Key::plausible(bio, header),
+            Tag::PublicSubkey => Key::plausible(bio, header),
 
             Tag::UserID => bad,
             Tag::UserAttribute => bad,

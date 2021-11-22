@@ -3749,7 +3749,7 @@ mod test {
         assert_eq!(sig.subpackets(SubpacketTag::Issuer).count(), 0);
         // But normalization after verification adds the missing
         // information.
-        sig.verify_subkey_binding(&primary_key, &primary_key, &subkey)?;
+        sig.verify_subkey_binding(primary_key, primary_key, subkey)?;
         let normalized_sig = sig.normalize();
         assert_eq!(normalized_sig.subpackets(SubpacketTag::Issuer).count(), 1);
         Ok(())

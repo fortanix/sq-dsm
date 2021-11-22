@@ -198,7 +198,7 @@ impl S2K {
                             // Independent of what the hash count is, we
                             // always hash the whole salt and password once.
                             hash.update(&salt[..]);
-                            hash.update(&string);
+                            hash.update(string);
                         },
                         &S2K::Iterated { ref salt, hash_bytes, .. } => {
                             // Unroll the processing loop N times.

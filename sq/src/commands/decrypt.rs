@@ -57,7 +57,7 @@ impl PrivateKey for LocalPrivateKey {
 
     fn unlock(&mut self, p: &Password) -> Result<Box<dyn Decryptor>> {
         let algo = self.key.pk_algo();
-        self.key.secret_mut().decrypt_in_place(algo, &p)?;
+        self.key.secret_mut().decrypt_in_place(algo, p)?;
         let keypair = self.key.clone().into_keypair()?;
         Ok(Box::new(keypair))
     }
@@ -84,7 +84,7 @@ impl PrivateKey for RemotePrivateKey {
     }
 
     fn unlock(&mut self, p: &Password) -> Result<Box<dyn Decryptor>> {
-        Ok(pks::unlock_decryptor(&self.store, self.key.clone(), &p)?)
+        Ok(pks::unlock_decryptor(&self.store, self.key.clone(), p)?)
     }
 }
 
@@ -208,7 +208,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         // for a password.
         for pkesk in pkesks {
             let keyid = pkesk.recipient();
-            if let Some(key) = self.secret_keys.get_mut(&keyid) {
+            if let Some(key) = self.secret_keys.get_mut(keyid) {
                 if let Some(fp) = key.get_unlocked()
                     .and_then(|k|
                               self.try_decrypt(pkesk, sym_algo, k, &mut decrypt))
@@ -227,7 +227,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             }
 
             let keyid = pkesk.recipient();
-            if let Some(key) = self.secret_keys.get_mut(&keyid) {
+            if let Some(key) = self.secret_keys.get_mut(keyid) {
                 let keypair = loop {
                     if let Some(keypair) = key.get_unlocked() {
                         break keypair;
@@ -236,7 +236,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     let p = rpassword::read_password_from_tty(Some(
                         &format!(
                             "Enter password to decrypt key {}: ",
-                            self.key_hints.get(&keyid).unwrap())))?.into();
+                            self.key_hints.get(keyid).unwrap())))?.into();
 
                     match key.unlock(&p) {
                         Ok(decryptor) => break decryptor,

@@ -532,7 +532,7 @@ impl<'a> TSK<'a> {
                 continue;
             }
 
-            PacketRef::Unknown(&u.unknown()).serialize(o)?;
+            PacketRef::Unknown(u.unknown()).serialize(o)?;
 
             for s in u.signatures() {
                 serialize_sig(o, s)?;

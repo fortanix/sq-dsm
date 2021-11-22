@@ -825,7 +825,7 @@ fn packet_path_iter() {
             v.push(i);
             lpaths.push(v);
 
-            if let Some(ref container) = packet.container_ref() {
+            if let Some(container) = packet.container_ref() {
                 if let Some(c) = container.children() {
                     for mut path in paths(c).into_iter()
                     {

@@ -2780,7 +2780,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     Ok(()) => {
                                         if let Err(error)
                                             = self.policy.signature(
-                                                &sig, Default::default())
+                                                sig, Default::default())
                                         {
                                             t!("{:02X}{:02X}: signature rejected by policy: {}",
                                                sigid[0], sigid[1], error);

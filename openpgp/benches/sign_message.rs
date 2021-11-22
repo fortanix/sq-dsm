@@ -32,7 +32,7 @@ fn bench_sign(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("cert", message.len()),
             &message,
-            |b, m| b.iter(|| sign_by_testy(&m)),
+            |b, m| b.iter(|| sign_by_testy(m)),
         );
     }
     group.finish();

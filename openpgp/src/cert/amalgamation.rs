@@ -764,7 +764,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// # Ok(()) }
     /// ```
     pub fn cert(&self) -> &'a Cert {
-        &self.cert
+        self.cert
     }
 
     /// Selects a binding signature.
@@ -820,7 +820,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// # Ok(()) }
     /// ```
     pub fn bundle(&self) -> &'a ComponentBundle<C> {
-        &self.bundle
+        self.bundle
     }
 
     /// Returns this amalgamation's component.
@@ -1665,7 +1665,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                     (false, true) => return Ordering::Less,
                     _ => (),
                 }
-                match a_signature_creation_time.cmp(&b_signature_creation_time)
+                match a_signature_creation_time.cmp(b_signature_creation_time)
                 {
                     Ordering::Less => return Ordering::Less,
                     Ordering::Greater => return Ordering::Greater,
@@ -1674,7 +1674,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
 
                 // Fallback to a lexographical comparison.  Prefer
                 // the "smaller" one.
-                match a.0.component().cmp(&b.0.component()) {
+                match a.0.component().cmp(b.0.component()) {
                     Ordering::Less => Ordering::Greater,
                     Ordering::Greater => Ordering::Less,
                     Ordering::Equal =>

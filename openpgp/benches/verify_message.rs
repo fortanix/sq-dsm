@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
 
 fn verify(bytes: &[u8], sender: &Cert) {
     let mut sink = Vec::new();
-    decrypt::verify(&mut sink, &bytes, sender).unwrap();
+    decrypt::verify(&mut sink, bytes, sender).unwrap();
 }
 
 fn bench_verify(c: &mut Criterion) {
@@ -34,7 +34,7 @@ fn bench_verify(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new("verify", m.len()),
                 &signed,
-                |b, s| b.iter(|| verify(&s, &SENDER)),
+                |b, s| b.iter(|| verify(s, &SENDER)),
             );
         });
 

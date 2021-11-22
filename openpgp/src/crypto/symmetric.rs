@@ -425,7 +425,7 @@ mod tests {
 
         // Ensure we use CFB128 by default
         let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
-        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
+        let mut cfb = algo.make_encrypt_cfb(key, iv).unwrap();
         let msg = hex::decode("6bc1bee22e409f96e93d7e117393172a").unwrap();
         let mut dst = vec![0; msg.len()];
         cfb.encrypt(&mut dst, &*msg).unwrap();
@@ -433,7 +433,7 @@ mod tests {
 
         // 32-byte long message
         let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
-        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
+        let mut cfb = algo.make_encrypt_cfb(key, iv).unwrap();
         let msg = b"This is a very important message";
         let mut dst = vec![0; msg.len()];
         cfb.encrypt(&mut dst, &*msg).unwrap();
@@ -443,7 +443,7 @@ mod tests {
 
         // 33-byte (uneven) long message
         let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
-        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
+        let mut cfb = algo.make_encrypt_cfb(key, iv).unwrap();
         let msg = b"This is a very important message!";
         let mut dst = vec![0; msg.len()];
         cfb.encrypt(&mut dst, &*msg).unwrap();
@@ -453,7 +453,7 @@ mod tests {
 
         // 33-byte (uneven) long message, chunked
         let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
-        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
+        let mut cfb = algo.make_encrypt_cfb(key, iv).unwrap();
         let mut dst = vec![0; msg.len()];
         for (mut dst, msg) in dst.chunks_mut(16).zip(msg.chunks(16)) {
             cfb.encrypt(&mut dst, msg).unwrap();

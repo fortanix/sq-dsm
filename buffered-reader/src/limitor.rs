@@ -74,7 +74,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
         let amount = cmp::min(amount as u64, self.limit) as usize;
         let result = self.reader.data(amount);
         match result {
-            Ok(ref buffer) =>
+            Ok(buffer) =>
                 if buffer.len() as u64 > self.limit {
                     Ok(&buffer[0..self.limit as usize])
                 } else {
@@ -94,7 +94,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
     fn data_consume(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         let amount = cmp::min(amount as u64, self.limit) as usize;
         let result = self.reader.data_consume(amount);
-        if let Ok(ref buffer) = result {
+        if let Ok(buffer) = result {
             let amount = cmp::min(amount, buffer.len());
             self.limit -= amount as u64;
             return Ok(&buffer[
@@ -108,7 +108,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
             return Err(Error::new(ErrorKind::UnexpectedEof, "EOF"));
         }
         let result = self.reader.data_consume_hard(amount);
-        if let Ok(ref buffer) = result {
+        if let Ok(buffer) = result {
             let amount = cmp::min(amount, buffer.len());
             self.limit -= amount as u64;
             return Ok(&buffer[

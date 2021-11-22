@@ -42,7 +42,7 @@ fn parse_network_policy(m: &clap::ArgMatches) -> net::Policy {
 pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
     let network_policy = parse_network_policy(m);
     let mut ks = if let Some(uri) = m.value_of("server") {
-        KeyServer::new(network_policy, &uri)
+        KeyServer::new(network_policy, uri)
     } else {
         KeyServer::keys_openpgp_org(network_policy)
     }.context("Malformed keyserver URI")?;

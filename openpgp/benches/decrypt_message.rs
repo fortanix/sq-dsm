@@ -20,12 +20,12 @@ lazy_static::lazy_static! {
 
 fn decrypt_cert(bytes: &[u8], cert: &Cert) {
     let mut sink = Vec::new();
-    decrypt::decrypt_with_cert(&mut sink, &bytes, cert).unwrap();
+    decrypt::decrypt_with_cert(&mut sink, bytes, cert).unwrap();
 }
 
 fn decrypt_password(bytes: &[u8]) {
     let mut sink = Vec::new();
-    decrypt::decrypt_with_password(&mut sink, &bytes, PASSWORD).unwrap();
+    decrypt::decrypt_with_password(&mut sink, bytes, PASSWORD).unwrap();
 }
 
 fn bench_decrypt(c: &mut Criterion) {
@@ -42,7 +42,7 @@ fn bench_decrypt(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("password", m.len()),
             &encrypted,
-            |b, e| b.iter(|| decrypt_password(&e)),
+            |b, e| b.iter(|| decrypt_password(e)),
         );
     });
 
@@ -53,7 +53,7 @@ fn bench_decrypt(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("cert", m.len()),
             &encrypted,
-            |b, e| b.iter(|| decrypt_cert(&e, &TESTY)),
+            |b, e| b.iter(|| decrypt_cert(e, &TESTY)),
         );
     });
 

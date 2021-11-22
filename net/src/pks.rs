@@ -35,7 +35,7 @@ use url::Url;
 /// URL that can be used for signing or decryption.
 fn create_uri(store_uri: &str, key: &Key<PublicParts, UnspecifiedRole>,
                       p: &Password, capability: &str) -> Result<Uri> {
-    let mut url = Url::parse(&store_uri)?;
+    let mut url = Url::parse(store_uri)?;
     let auth = if !url.username().is_empty() {
         let credentials = format!("{}:{}", url.username(), url.password().unwrap_or_default());
         Some(format!("Basic {}", base64::encode(credentials)))

@@ -238,7 +238,7 @@ impl PacketDumper {
 
     pub fn flush(&self, output: &mut dyn io::Write) -> Result<()> {
         if let Some(root) = self.root.as_ref() {
-            self.dump_tree(output, "", &root)?;
+            self.dump_tree(output, "", root)?;
         }
         Ok(())
     }

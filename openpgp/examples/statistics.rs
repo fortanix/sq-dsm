@@ -176,7 +176,7 @@ fn main() -> openpgp::Result<()> {
                                 SubpacketValue::Unknown { .. } =>
                                     unreachable!(),
                                 SubpacketValue::KeyFlags(k) =>
-                                    if let Some(count) = key_flags.get_mut(&k) {
+                                    if let Some(count) = key_flags.get_mut(k) {
                                         *count += 1;
                                     } else {
                                         key_flags.insert(k.clone(), 1);
@@ -437,7 +437,7 @@ fn main() -> openpgp::Result<()> {
         // Sort by the number of occurrences.
         let mut kf = key_flags.iter().map(|(f, n)| (format!("{:?}", f), n))
             .collect::<Vec<_>>();
-        kf.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        kf.sort_unstable_by(|a, b| b.1.cmp(a.1));
         for (f, n) in kf.iter() {
             println!("{:>22} {:>9}", f, n);
         }
@@ -456,7 +456,7 @@ fn main() -> openpgp::Result<()> {
             let a = format!("{:?}", a);
             (a[1..a.len()-1].to_string(), n)
         }).collect::<Vec<_>>();
-        preferences.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        preferences.sort_unstable_by(|a, b| b.1.cmp(a.1));
         for (a, n) in preferences {
             println!("{:>70} {:>9}", a, n);
         }
@@ -475,7 +475,7 @@ fn main() -> openpgp::Result<()> {
             let a = format!("{:?}", a);
             (a[1..a.len()-1].to_string(), n)
         }).collect::<Vec<_>>();
-        preferences.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        preferences.sort_unstable_by(|a, b| b.1.cmp(a.1));
         for (a, n) in preferences {
             let a = format!("{:?}", a);
             println!("{:>70} {:>9}", &a[1..a.len()-1], n);
@@ -495,7 +495,7 @@ fn main() -> openpgp::Result<()> {
             let a = format!("{:?}", a);
             (a[1..a.len()-1].to_string(), n)
         }).collect::<Vec<_>>();
-        preferences.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        preferences.sort_unstable_by(|a, b| b.1.cmp(a.1));
         for (a, n) in preferences {
             let a = format!("{:?}", a);
             println!("{:>70} {:>9}", &a[1..a.len()-1], n);

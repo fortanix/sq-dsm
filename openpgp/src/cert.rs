@@ -814,7 +814,7 @@ impl Cert {
     /// ```
     pub fn primary_key(&self) -> PrimaryKeyAmalgamation<key::PublicParts>
     {
-        PrimaryKeyAmalgamation::new(&self)
+        PrimaryKeyAmalgamation::new(self)
     }
 
     /// Returns the certificate's revocation status.
@@ -961,7 +961,7 @@ impl Cert {
     {
         CertRevocationBuilder::new()
             .set_reason_for_revocation(code, reason)?
-            .build(primary_signer, &self, None)
+            .build(primary_signer, self, None)
     }
 
     /// Sets the key to expire in delta seconds.
@@ -2477,29 +2477,29 @@ impl Cert {
                         // they match, then we keep whatever is in the
                         // new key.
                         (Packet::PublicKey(a), Packet::PublicKey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              a == b),
                         (Packet::SecretKey(a), Packet::SecretKey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              a == b),
                         (Packet::PublicKey(a), Packet::SecretKey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              false),
                         (Packet::SecretKey(a), Packet::PublicKey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              false),
 
                         (Packet::PublicSubkey(a), Packet::PublicSubkey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              a == b),
                         (Packet::SecretSubkey(a), Packet::SecretSubkey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              a == b),
                         (Packet::PublicSubkey(a), Packet::SecretSubkey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              false),
                         (Packet::SecretSubkey(a), Packet::PublicSubkey(b)) =>
-                            (a.public_cmp(&b) == Ordering::Equal,
+                            (a.public_cmp(b) == Ordering::Equal,
                              false),
 
                         // For signatures, don't compare the unhashed

@@ -455,7 +455,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
         // must return a slice shorter than std::usize::MAX.
         loop {
             match self.data(s) {
-                Ok(ref buffer) => {
+                Ok(buffer) => {
                     if buffer.len() < s {
                         // We really want to do
                         //

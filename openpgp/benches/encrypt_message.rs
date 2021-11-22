@@ -34,12 +34,12 @@ fn bench_encrypt(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("password", message.len()),
             &message,
-            |b, m| b.iter(|| encrypt_with_password(&m)),
+            |b, m| b.iter(|| encrypt_with_password(m)),
         );
         group.bench_with_input(
             BenchmarkId::new("cert", message.len()),
             &message,
-            |b, m| b.iter(|| encrypt_to_testy(&m)),
+            |b, m| b.iter(|| encrypt_to_testy(m)),
         );
     }
     group.finish();

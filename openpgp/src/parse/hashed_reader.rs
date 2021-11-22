@@ -146,8 +146,8 @@ impl Cookie {
                 t!("{:?}: group {} {:?} hashing {} bytes.",
                    hashes_for, i, mode.map(|ctx| ctx.algo()), data.len());
                 match mode {
-                    HashingMode::Binary(h) => h.update(&data),
-                    HashingMode::Text(h) => hash_update_text(h, &data),
+                    HashingMode::Binary(h) => h.update(data),
+                    HashingMode::Text(h) => hash_update_text(h, data),
                 }
             }
         }

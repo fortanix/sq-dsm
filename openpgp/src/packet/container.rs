@@ -340,7 +340,7 @@ impl Container {
         for (i, p) in self.children_ref().iter().enumerate() {
             eprintln!("{}{}: {:?}",
                       Self::indent(indent), i + 1, p);
-            if let Some(ref children) = self.children_ref()
+            if let Some(children) = self.children_ref()
                 .and_then(|c| c.get(i)).and_then(|p| p.container_ref())
             {
                 children.pretty_print(indent + 1);
