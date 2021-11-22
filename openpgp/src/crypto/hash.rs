@@ -490,11 +490,12 @@ impl Signature4 {
 
         // This code assumes that the signature has been verified
         // prior to being confirmed, so it is well-formed.
-        let mut body = Vec::new();
-        body.push(self.version());
-        body.push(self.typ().into());
-        body.push(self.pk_algo().into());
-        body.push(self.hash_algo().into());
+        let mut body = vec![
+            self.version(),
+            self.typ().into(),
+            self.pk_algo().into(),
+            self.hash_algo().into(),
+        ];
 
         // The hashed area.
         let l = self.hashed_area().serialized_len()

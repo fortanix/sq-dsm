@@ -310,8 +310,7 @@ fn ident2c(ident: &syn::Ident) -> String {
         }
     }
 
-    let mut previous_is_uppercase = Vec::new();
-    previous_is_uppercase.push(true);
+    let mut previous_is_uppercase = vec![true];
     previous_is_uppercase.extend(ident.iter().map(|c| c.is_uppercase()));
 
     for (c, previous_is_upper) in ident.iter().zip(previous_is_uppercase)

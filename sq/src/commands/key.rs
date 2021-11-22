@@ -216,10 +216,11 @@ fn password(config: Config, m: &ArgMatches) -> Result<()> {
 
     // First, decrypt all secrets.
     let passwords = &mut Vec::new();
-    let mut decrypted: Vec<Packet> = Vec::new();
-    decrypted.push(decrypt_key(
+    let mut decrypted: Vec<Packet> = vec![decrypt_key(
         key.primary_key().key().clone().parts_into_secret()?,
-        passwords)?.into());
+        passwords,
+    )?
+    .into()];
     for ka in key.keys().subkeys().secret() {
         decrypted.push(decrypt_key(
             ka.key().clone().parts_into_secret()?,
@@ -252,10 +253,10 @@ fn password(config: Config, m: &ArgMatches) -> Result<()> {
     };
 
     if let Some(new) = new_password {
-        let mut encrypted: Vec<Packet> = Vec::new();
-        encrypted.push(
+        let mut encrypted: Vec<Packet> = vec![
             key.primary_key().key().clone().parts_into_secret()?
-                .encrypt_secret(&new)?.into());
+                .encrypt_secret(&new)?.into()
+        ];
         for ka in key.keys().subkeys().unencrypted_secret() {
             encrypted.push(
                 ka.key().clone().parts_into_secret()?

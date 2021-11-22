@@ -799,6 +799,7 @@ mod tests {
         assert!(message.is_ok(), "{:?}", message);
     }
 
+    #[allow(clippy::vec_init_then_push)]
     #[test]
     fn compressed_part() {
         let mut lit = Literal::new(Text);
@@ -861,6 +862,7 @@ mod tests {
         assert!(message.is_ok(), "{:?}", message);
     }
 
+    #[allow(clippy::vec_init_then_push)]
     #[test]
     fn one_pass_sig_part() {
         let mut lit = Literal::new(Text);
@@ -973,6 +975,7 @@ mod tests {
         assert!(message.is_ok(), "{:?}", message);
     }
 
+    #[allow(clippy::vec_init_then_push)]
     #[test]
     fn signature_part() {
         let mut lit = Literal::new(Text);
