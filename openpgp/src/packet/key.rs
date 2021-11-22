@@ -284,9 +284,9 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// [`key::PublicParts`]: PublicParts
     /// [`key::UnspecifiedParts`]: UnspecifiedParts
     /// [`key::SecretParts`]: SecretParts
-    fn convert_key_amalgamation<'a, R: KeyRole>(
-        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
-        -> Result<ComponentAmalgamation<'a, Key<Self, R>>>
+    fn convert_key_amalgamation<R: KeyRole>(
+        ka: ComponentAmalgamation<Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<Key<Self, R>>>
         where Self: Sized;
 
     /// Converts a key amalgamation reference with unspecified parts
@@ -464,9 +464,9 @@ impl KeyParts for PublicParts {
         Ok(bundle.into())
     }
 
-    fn convert_key_amalgamation<'a, R: KeyRole>(
-        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
-        -> Result<ComponentAmalgamation<'a, Key<Self, R>>> {
+    fn convert_key_amalgamation<R: KeyRole>(
+        ka: ComponentAmalgamation<Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<Key<Self, R>>> {
         Ok(ka.into())
     }
 
@@ -520,9 +520,9 @@ impl KeyParts for SecretParts {
         bundle.try_into()
     }
 
-    fn convert_key_amalgamation<'a, R: KeyRole>(
-        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
-        -> Result<ComponentAmalgamation<'a, Key<Self, R>>> {
+    fn convert_key_amalgamation<R: KeyRole>(
+        ka: ComponentAmalgamation<Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<Key<Self, R>>> {
         ka.try_into()
     }
 
@@ -584,9 +584,9 @@ impl KeyParts for UnspecifiedParts {
         Ok(bundle)
     }
 
-    fn convert_key_amalgamation<'a, R: KeyRole>(
-        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
-        -> Result<ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>> {
+    fn convert_key_amalgamation<R: KeyRole>(
+        ka: ComponentAmalgamation<Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<Key<UnspecifiedParts, R>>> {
         Ok(ka)
     }
 

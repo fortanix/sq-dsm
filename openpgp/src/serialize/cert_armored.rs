@@ -81,8 +81,8 @@ impl Cert {
     /// assert!(armored.contains("Mr. Pink ☮☮☮"));
     /// # Ok(()) }
     /// ```
-    pub fn armored<'a>(&'a self)
-        -> impl crate::serialize::Serialize + crate::serialize::SerializeInto + 'a
+    pub fn armored(&self)
+        -> impl crate::serialize::Serialize + crate::serialize::SerializeInto + '_
     {
         Encoder::new(self)
     }

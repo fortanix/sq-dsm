@@ -11,7 +11,7 @@ impl From<Vec<u8>> for Bitfield {
 }
 
 impl Bitfield {
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = usize> + Send + Sync + 'a
+    pub fn iter(&self) -> impl Iterator<Item = usize> + Send + Sync + '_
     {
         self.raw.iter()
             .flat_map(|b| {

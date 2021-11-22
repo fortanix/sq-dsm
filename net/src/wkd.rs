@@ -234,11 +234,11 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
     }
 }
 
-fn get_following_redirects<'a, T>(
-    client: &'a hyper::client::Client<T>,
+fn get_following_redirects<T>(
+    client: &hyper::client::Client<T>,
     url: Uri,
     depth: i32,
-) -> BoxFuture<'a, Result<Response<Body>>>
+) -> BoxFuture<Result<Response<Body>>>
 where
     T: hyper::client::connect::Connect + Clone + Send + Sync + 'static,
 {

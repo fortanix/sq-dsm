@@ -4807,7 +4807,7 @@ impl <'a> PacketParser<'a> {
     /// }
     /// # Ok(()) }
     // Note: this function is public and may be called multiple times!
-    pub fn finish<'b>(&'b mut self) -> Result<&'b Packet> {
+    pub fn finish(&mut self) -> Result<&Packet> {
         let indent = self.recursion_depth();
         tracer!(TRACE, "PacketParser::finish", indent);
 

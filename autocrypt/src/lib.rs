@@ -542,8 +542,8 @@ impl AutocryptSetupMessage {
     /// Parses the autocrypt setup message in `r`.
     ///
     /// `passcode` is the passcode used to protect the message.
-    pub fn from_bytes<'a>(bytes: &'a [u8])
-        -> Result<AutocryptSetupMessageParser<'a>>
+    pub fn from_bytes(bytes: &[u8])
+        -> Result<AutocryptSetupMessageParser>
     {
         Self::from_reader(bytes)
     }
