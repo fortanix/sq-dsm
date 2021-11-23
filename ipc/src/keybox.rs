@@ -277,7 +277,7 @@ impl OpenPGPRecordV1 {
         };
 
         // Check checksum
-        if &record.checksum_field()[..] != record.compute_checksum()? {
+        if record.checksum_field()[..] != record.compute_checksum()? {
             return Err(Error::InvalidData("wrong checksum".to_string()).into());
         }
 
