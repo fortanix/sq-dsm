@@ -304,7 +304,7 @@ impl S2K {
                             hash_bytes)).into());
             }
             11..=32 => {
-                let m = 0b1111_000000 << (msb - 11);
+                let m = 0b11_1100_0000 << (msb - 11);
                 let t = 1 << (msb - 11);
 
                 (m, t - 1)
