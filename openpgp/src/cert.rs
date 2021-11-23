@@ -273,11 +273,11 @@ impl<C> DerefMut for ComponentBundles<C>
     }
 }
 
-impl<C> Into<Vec<ComponentBundle<C>>> for ComponentBundles<C>
+impl<C> From<ComponentBundles<C>> for Vec<ComponentBundle<C>>
     where ComponentBundle<C>: cmp::PartialEq
 {
-    fn into(self) -> Vec<ComponentBundle<C>> {
-        self.bundles
+    fn from(cb: ComponentBundles<C>) -> Vec<ComponentBundle<C>> {
+        cb.bundles
     }
 }
 
