@@ -2195,7 +2195,7 @@ FwPoSAbbsLkNS/iNN2MDGAVYvezYn2QZ
             Err(_) => true, // Packet failed to parse.
         };
         if ! ok {
-            eprintln!("{} for ({:?}, {})", "mutate_eq_discriminates_key", p, i);
+            eprintln!("mutate_eq_discriminates_key for ({:?}, {})", p, i);
         }
         ok
     }
