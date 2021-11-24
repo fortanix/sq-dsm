@@ -10,7 +10,6 @@ members = [
     "openpgp",
     "openpgp-ffi",
     "sq",
-    "store",
 ]
 
 [profile.release]

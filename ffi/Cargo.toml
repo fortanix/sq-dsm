@@ -24,7 +24,6 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 sequoia-ffi-macros = { path = "../ffi-macros", version = "0.22" }
 sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
-sequoia-store = { path = "../store", version = "0.22", default-features = false }
 sequoia-net = { path = "../net", version = "0.23", default-features = false }
 sequoia-ipc = { path = "../ipc", version = "0.26", default-features = false }
 anyhow = "1.0.18"
@@ -42,10 +41,9 @@ crate-type = ["cdylib", "staticlib"]
 bench = false
 
 [features]
-default = ["sequoia-openpgp/default", "sequoia-store/default"]
+default = ["sequoia-openpgp/default"]
 crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
 crypto-cng = ["sequoia-openpgp/crypto-cng"]
 compression = ["sequoia-openpgp/compression"]
 compression-deflate = ["sequoia-openpgp/compression-deflate"]
 compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
-background-services = ["sequoia-store/background-services"]

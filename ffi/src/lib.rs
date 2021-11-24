@@ -130,7 +130,6 @@ pub(crate) use crate::openpgp::{
     MoveResultIntoRaw,
     Maybe,
     maybe_time,
-    to_time_t,
 };
 
 /* Error handling with implicit context.  */
@@ -146,5 +145,4 @@ macro_rules! ffi_make_fry_from_ctx {
 pub mod core;
 pub mod error;
 pub mod net;
-pub mod store;
 

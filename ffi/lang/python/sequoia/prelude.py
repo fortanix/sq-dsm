@@ -3,4 +3,3 @@ from .error import *
 from .openpgp import *
 from .core import *
 from .net import *
-from .store import *

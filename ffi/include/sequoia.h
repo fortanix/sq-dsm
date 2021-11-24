@@ -5,6 +5,5 @@
 #include <sequoia/core.h>
 #include <sequoia/openpgp.h>
 #include <sequoia/net.h>
-#include <sequoia/store.h>
 
 #endif

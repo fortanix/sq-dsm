@@ -4,5 +4,4 @@ from . import (
     openpgp,
     core,
     net,
-    store,
 )

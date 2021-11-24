@@ -14,8 +14,7 @@ defs = "".join(l
                               open(join(pgp_inc, "openpgp/serialize.h")).readlines(),
                               open(join(pgp_inc, "openpgp.h")).readlines(),
                               open(join(sq_inc, "core.h")).readlines(),
-                              open(join(sq_inc, "net.h")).readlines(),
-                              open(join(sq_inc, "store.h")).readlines())
+                              open(join(sq_inc, "net.h")).readlines())
                if not l.startswith('#'))
 
 defs = defs.replace("INT_MAX", "{}".format(1<<31))
