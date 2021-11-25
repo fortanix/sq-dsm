@@ -151,7 +151,7 @@ impl Signer for KeyPair {
                         .copy_from_slice(
                             &scalar.value_padded(SECRET_KEY_LENGTH));
                     keypair.as_mut()[SECRET_KEY_LENGTH..]
-                        .copy_from_slice(&public);
+                        .copy_from_slice(public);
                     let pair = Keypair::from_bytes(&keypair)?;
 
                     let sig = pair.sign(digest).to_bytes();
@@ -404,7 +404,7 @@ impl<R> Key4<SecretParts, R>
                 q: mpi::MPI::new(&public)
             },
             mpi::SecretKeyMaterial::EdDSA {
-                scalar: mpi::MPI::new(&private_key).into(),
+                scalar: mpi::MPI::new(private_key).into(),
             }.into()
         )
     }
