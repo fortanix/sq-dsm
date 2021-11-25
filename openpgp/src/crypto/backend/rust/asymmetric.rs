@@ -166,10 +166,15 @@ impl Signer for KeyPair {
                 _ => Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
             },
 
-            (pk_algo, _, _) => Err(Error::InvalidOperation(format!(
-                "unsupported combination of algorithm {:?}, key {:?}, \
-                 and secret key {:?}",
-                pk_algo, self.public(), self.secret())))?,
+            (pk_algo, _, _) => {
+                Err(Error::InvalidOperation(format!(
+                    "unsupported combination of algorithm {:?}, key {:?}, \
+                        and secret key {:?}",
+                    pk_algo,
+                    self.public(),
+                    self.secret()
+                )).into())
+            }
         })
     }
 }
