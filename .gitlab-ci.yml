@@ -15,11 +15,11 @@ after_script:
   - if [ -d $CARGO_TARGET_DIR ]; then du -sh $CARGO_TARGET_DIR; fi
   - if [ -d $CARGO_HOME ]; then du -sh $CARGO_HOME; fi
 
-build-bullseye:
+build-bookworm:
   tags:
     - linux
   stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bookworm-prebuild:latest
   needs:
     - codespell
   script:
@@ -34,11 +34,11 @@ build-bullseye:
     RUSTFLAGS: -D warnings -A unused-parens
   after_script: []
 
-build-bullseye:arm64:
+build-bookworm:arm64:
   tags:
     - docker-arm64
   stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bookworm-prebuild-arm64:latest
   needs:
     - codespell
   when: manual
@@ -57,11 +57,11 @@ build-bullseye:arm64:
     RUSTFLAGS: -D warnings -A unused-parens
   after_script: []
 
-bullseye:
+bookworm:
   tags:
     - linux
   stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bookworm-prebuild:latest
   needs:
     - codespell
   script:
@@ -72,11 +72,11 @@ bullseye:
     RUSTFLAGS: -D warnings -A unused-parens
   after_script: []
 
-bullseye-crypto-rust:
+bookworm-crypto-rust:
   tags:
     - linux
   stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bookworm-prebuild:latest
   dependencies:
     - codespell
   script:
@@ -88,7 +88,7 @@ bullseye-crypto-rust:
     RUSTFLAGS: -D warnings -A unused-parens
   after_script: []
 
-bullseye:arm64:
+bookworm:arm64:
   tags:
     - docker-arm64
   # This job takes ~50 minutes to run, let's only execute it manually or for
@@ -104,7 +104,7 @@ bullseye:arm64:
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
   when: manual
   stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bookworm-prebuild-arm64:latest
   needs:
     - codespell
   script:
@@ -118,7 +118,7 @@ bullseye:arm64:
 
 benchmarks:
   stage: test
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bookworm:latest
   needs: ["rust-stable"]
   only:
     refs:
@@ -192,7 +192,7 @@ codespell:
   tags:
     - linux
   stage: pre-check
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bookworm:latest
 
   before_script:
     - codespell --version
