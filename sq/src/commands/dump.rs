@@ -723,8 +723,9 @@ impl PacketDumper {
             }
         }
 
+        writeln!(output, "{}", i)?;
+
         if let Some(map) = map {
-            writeln!(output, "{}", i)?;
             let mut hd = hex::Dumper::new(output, self.indentation_for_hexdump(
                 i, map.iter()
                     .map(|f| if f.name() == "body" { 16 } else { f.name().len() })
@@ -740,8 +741,6 @@ impl PacketDumper {
             }
 
             let output = hd.into_inner();
-            writeln!(output, "{}", i)?;
-        } else {
             writeln!(output, "{}", i)?;
         }
 
