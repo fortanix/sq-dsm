@@ -4264,7 +4264,7 @@ mod test {
         // Insert sig_a and sig_b.  Make sure sig_b (and it alone)
         // appears.
         let cert2 = cert.clone().insert_packets(
-            vec![ sig_a.clone().into(), sig_b.clone() ])?;
+            vec![ sig_a.clone(), sig_b.clone() ])?;
         let mut sigs = cert2.primary_key().self_signatures();
         assert_eq!(sigs.next(), Some(&sig_b));
         assert!(sigs.next().is_none());
@@ -4273,7 +4273,7 @@ mod test {
         // Insert sig_b and sig_a.  Make sure sig_a (and it alone)
         // appears.
         let cert2 = cert.clone().insert_packets(
-            vec![ sig_b.clone().into(), sig_a.clone() ])?;
+            vec![ sig_b.clone(), sig_a.clone() ])?;
         let mut sigs = cert2.primary_key().self_signatures();
         assert_eq!(sigs.next(), Some(&sig_a));
         assert!(sigs.next().is_none());

@@ -528,7 +528,7 @@ impl<R> Key4<SecretParts, R>
                     scalar: private_key.into(),
                 };
 
-                (PublicKeyAlgorithm::ECDH, public_mpis, private_mpis.into())
+                (PublicKeyAlgorithm::ECDH, public_mpis, private_mpis)
             }
 
             (Curve::NistP256, true) => {
@@ -546,7 +546,7 @@ impl<R> Key4<SecretParts, R>
                     scalar: Vec::from(secret.to_bytes().as_slice()).into(),
                 };
 
-                (PublicKeyAlgorithm::ECDSA, public_mpis, private_mpis.into())
+                (PublicKeyAlgorithm::ECDSA, public_mpis, private_mpis)
             },
 
             (Curve::NistP256, false) => {
@@ -566,7 +566,7 @@ impl<R> Key4<SecretParts, R>
                     scalar: Vec::from(secret.to_bytes().as_slice()).into(),
                 };
 
-                (PublicKeyAlgorithm::ECDH, public_mpis, private_mpis.into())
+                (PublicKeyAlgorithm::ECDH, public_mpis, private_mpis)
             },
 
             _ => {
