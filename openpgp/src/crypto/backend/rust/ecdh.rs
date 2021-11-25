@@ -43,7 +43,7 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
             // octet in front of the key.
             let mut VB = [0; 1 + CURVE25519_SIZE];
             VB[0] = 0x40;
-            &mut VB[1..].copy_from_slice(public.as_bytes());
+            VB[1..].copy_from_slice(public.as_bytes());
             let VB = MPI::new(&VB);
 
             // Encode the shared secret.

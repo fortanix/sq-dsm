@@ -393,7 +393,7 @@ impl<R> Key4<SecretParts, R>
         // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
         let mut public = [0u8; 1 + CURVE25519_SIZE];
         public[0] = 0x40;
-        &mut public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
+        public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
 
         Self::with_secret(
             ctime.into().unwrap_or_else(crate::now),
@@ -500,7 +500,7 @@ impl<R> Key4<SecretParts, R>
                 // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
                 let mut compressed_public = [0u8; 1 + CURVE25519_SIZE];
                 compressed_public[0] = 0x40;
-                &mut compressed_public[1..].copy_from_slice(public.as_bytes());
+                compressed_public[1..].copy_from_slice(public.as_bytes());
 
                 (
                     PublicKeyAlgorithm::EdDSA,
