@@ -8,7 +8,7 @@ use openpgp::parse::Parse;
 
 use crate::common::{decrypt, encrypt};
 
-static PASSWORD: &'static str = "password";
+static PASSWORD: &str = "password";
 
 lazy_static::lazy_static! {
     static ref TESTY: Cert =
