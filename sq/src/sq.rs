@@ -223,22 +223,22 @@ fn detect_armor_kind(input: Box<dyn BufferedReader<()>>)
                      -> (Box<dyn BufferedReader<()>>, armor::Kind) {
     let mut dup = Limitor::new(Dup::new(input), ARMOR_DETECTION_LIMIT).as_boxed();
     let kind = 'detection: loop {
-        if let Ok(ppr) = PacketParser::from_reader(&mut dup) {
-            if let PacketParserResult::Some(pp) = ppr {
-                let (packet, _) = match pp.next() {
-                    Ok(v) => v,
-                    Err(_) => break 'detection armor::Kind::File,
-                };
+        if let Ok(PacketParserResult::Some(pp)) =
+            PacketParser::from_reader(&mut dup)
+        {
+            let (packet, _) = match pp.next() {
+                Ok(v) => v,
+                Err(_) => break 'detection armor::Kind::File,
+            };
 
-                break 'detection match packet {
-                    Packet::Signature(_) => armor::Kind::Signature,
-                    Packet::SecretKey(_) => armor::Kind::SecretKey,
-                    Packet::PublicKey(_) => armor::Kind::PublicKey,
-                    Packet::PKESK(_) | Packet::SKESK(_) =>
-                        armor::Kind::Message,
-                    _ => armor::Kind::File,
-                };
-            }
+            break 'detection match packet {
+                Packet::Signature(_) => armor::Kind::Signature,
+                Packet::SecretKey(_) => armor::Kind::SecretKey,
+                Packet::PublicKey(_) => armor::Kind::PublicKey,
+                Packet::PKESK(_) | Packet::SKESK(_) =>
+                    armor::Kind::Message,
+                _ => armor::Kind::File,
+            };
         }
         break 'detection armor::Kind::File;
     };
