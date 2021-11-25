@@ -48,7 +48,7 @@ fn generate_flooded_cert(
         .generate()?;
 
     let floodme_cloned = floodme.clone();
-    let userid = floodme_cloned.userids().nth(0).unwrap();
+    let userid = floodme_cloned.userids().next().unwrap();
 
     let certifications = (0..key_count).flat_map(|_| {
         generate_certifications(&userid, &floodme_cloned, sigs_per_key)
