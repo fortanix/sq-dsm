@@ -35,7 +35,7 @@ tempfile = "3.1"
 thiserror = "1.0.2"
 url = "2.1"
 zbase32 = "0.1.2"
-tokio = { version = "1", features = [ "macros" ] }
+tokio = { version = "1.13.1", features = [ "macros" ] }
 base64 = ">=0.12"
 
 [dev-dependencies]
