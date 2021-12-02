@@ -90,7 +90,7 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
 
                 // Get the X coordinate, safely dispose of Y.
                 let (Sx, Sy) = S.as_bytes();
-                Protected::from(Sy); // Just a precaution.
+                let _ = Protected::from(Sy); // Just a precaution.
 
                 // Zero-pad to the size of the underlying field,
                 // rounded to the next byte.
@@ -190,7 +190,7 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
 
                     // Get the X coordinate, safely dispose of Y.
                     let (Sx, Sy) = S.as_bytes();
-                    Protected::from(Sy); // Just a precaution.
+                    let _ = Protected::from(Sy); // Just a precaution.
 
                     // Zero-pad to the size of the underlying field,
                     // rounded to the next byte.
