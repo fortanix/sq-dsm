@@ -2,7 +2,7 @@
 
 use std::convert::TryInto;
 
-use rand::rngs::OsRng;
+use rand07::rngs::OsRng;
 
 use crate::{Error, Result};
 use crate::crypto::SessionKey;

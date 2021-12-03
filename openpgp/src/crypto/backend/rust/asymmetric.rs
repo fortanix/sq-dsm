@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 use std::time::SystemTime;
 
 use num_bigint_dig::{traits::ModInverse, BigUint};
-use rand::rngs::OsRng;
+use rand07::rngs::OsRng;
 use rsa::{PaddingScheme, RSAPublicKey, RSAPrivateKey, PublicKey, PublicKeyParts, Hash};
 
 use crate::{Error, Result};

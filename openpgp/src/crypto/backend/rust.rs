@@ -16,8 +16,8 @@ pub mod symmetric;
 /// The output may be used as session keys or to derive long-term
 /// cryptographic keys from.
 pub fn random<B: AsMut<[u8]>>(mut buf: B) {
-    use rand::rngs::OsRng;
-    use rand::RngCore;
+    use rand07::rngs::OsRng;
+    use rand07::RngCore;
 
     OsRng.fill_bytes(buf.as_mut())
 }
