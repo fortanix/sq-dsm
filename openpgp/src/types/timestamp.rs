@@ -655,7 +655,9 @@ mod tests {
         fn duration_round_up(d: Duration) -> bool {
             let u = d.round_up(None, None).unwrap();
             assert!(d <= u);
-            assert_eq!(u32::from(u) & 0b1_1111_1111_1111_1111_1111, 0);
+            assert!(u32::from(u) & 0b1_1111_1111_1111_1111_1111 == 0
+                || u32::from(u) == u32::MAX
+            );
             assert!(u32::from(u) - u32::from(d) < 2_u32.pow(21));
             true
         }
