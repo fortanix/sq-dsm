@@ -291,8 +291,8 @@ mod tests {
 
     #[test]
     fn parse() {
-        for i in 0..0x100usize {
-            Tag::from(i as u8);
+        for i in 0..u8::MAX {
+            let _ = Tag::from(i);
         }
     }
 }
