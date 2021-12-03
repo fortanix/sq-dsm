@@ -11,7 +11,7 @@ use crate::Packet;
 ///   [Section 5.8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.8
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Marker {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -20,14 +20,6 @@ assert_send_and_sync!(Marker);
 
 impl Marker {
     pub(crate) const BODY: &'static [u8] = &[0x50, 0x47, 0x50];
-}
-
-impl Default for Marker {
-    fn default() -> Self {
-        Self {
-            common: Default::default(),
-        }
-    }
 }
 
 impl From<Marker> for Packet {

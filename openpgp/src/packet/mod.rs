@@ -553,7 +553,7 @@ impl Arbitrary for Packet {
 }
 
 /// Fields used by multiple packet types.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Common {
     // In the future, this structure will hold the parsed CTB, packet
     // length, and lengths of chunks of partial body encoded packets.
@@ -576,14 +576,6 @@ impl Arbitrary for Common {
     fn arbitrary<G: Gen>(_: &mut G) -> Self {
         // XXX: Change if this gets interesting fields.
         Common::default()
-    }
-}
-
-impl Default for Common {
-    fn default() -> Common {
-        Common {
-            dummy: Default::default(),
-        }
     }
 }
 

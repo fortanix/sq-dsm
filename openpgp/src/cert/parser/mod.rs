@@ -480,6 +480,7 @@ impl CertValidator {
 /// # }
 /// ```
 
+#[derive(Default)]
 pub struct CertParser<'a> {
     source: Option<Box<dyn Iterator<Item=Result<Packet>> + 'a + Send + Sync>>,
     packets: Vec<Packet>,
@@ -488,18 +489,6 @@ pub struct CertParser<'a> {
     filter: Vec<Box<dyn Send + Sync + Fn(&Cert, bool) -> bool + 'a>>,
 }
 assert_send_and_sync!(CertParser<'_>);
-
-impl<'a> Default for CertParser<'a> {
-    fn default() -> Self {
-        CertParser {
-            source: None,
-            packets: vec![],
-            queued_error: None,
-            saw_error: false,
-            filter: vec![],
-        }
-    }
-}
 
 // When using a `PacketParser`, we never use the `Iter` variant.
 // Nevertheless, we need to provide a concrete type.

@@ -728,6 +728,7 @@ assert_send_and_sync!(Cookie);
 
 /// Contains hashes for consecutive one pass signature packets ending
 /// in one with the last flag set.
+#[derive(Default)]
 pub(crate) struct SignatureGroup {
     /// Counts the number of one pass signature packets this group is
     /// for.  Once this drops to zero, we pop the group from the
@@ -830,15 +831,6 @@ impl fmt::Debug for SignatureGroup {
             .field("ops_count", &self.ops_count)
             .field("hashes", &algos)
             .finish()
-    }
-}
-
-impl Default for SignatureGroup {
-    fn default() -> Self {
-        SignatureGroup {
-            ops_count: 0,
-            hashes: Default::default(),
-        }
     }
 }
 
