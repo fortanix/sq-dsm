@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-ipc"
 description = "Interprocess communication infrastructure for Sequoia"
-version = "0.26.0"
+version = "0.27.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
