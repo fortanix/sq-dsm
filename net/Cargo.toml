@@ -26,7 +26,7 @@ sequoia-openpgp = { path = "../openpgp", version = "1", default-features = false
 anyhow = "1.0.18"
 futures-util = "0.3.5"
 http = "0.2"
-hyper = { version = "0.14.10", features = [ "http1", "http2", "server" ] }
+hyper = { version = "0.14.10", features = [ "http1", "http2" ] }
 hyper-tls = "0.5"
 libc = "0.2.66"
 native-tls = "0.2.0"
@@ -40,6 +40,7 @@ base64 = ">=0.12"
 
 [dev-dependencies]
 rand = { version = "0.7", default-features = false, features = [ "getrandom" ] }
+hyper = { features = [ "server" ] }
 
 [lib]
 bench = false
