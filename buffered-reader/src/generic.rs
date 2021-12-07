@@ -5,6 +5,9 @@ use std::io::{Error, ErrorKind};
 
 use super::*;
 
+/// Controls tracing.
+const TRACE: bool = false;
+
 /// Wraps a `Read`er.
 ///
 /// This is useful when reading from a generic `std::io::Read`er.  To
@@ -107,16 +110,15 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
     // sequoia_openpgp::armor::Reader::data_helper is also affected.
     fn data_helper(&mut self, amount: usize, hard: bool, and_consume: bool)
                    -> Result<&[u8], io::Error> {
-        // println!("Generic.data_helper(\
-        //           amount: {}, hard: {}, and_consume: {} (cursor: {}, buffer: {:?})",
-        //          amount, hard, and_consume,
-        //          self.cursor,
-        //          if let Some(ref buffer) = self.buffer { Some(buffer.len()) }
-        //          else { None });
-
+        tracer!(TRACE, "Generic::data_helper");
+        t!("amount: {}, hard: {}, and_consume: {} (cursor: {}, buffer: {:?})",
+           amount, hard, and_consume,
+           self.cursor,
+           self.buffer.as_ref().map(|buffer| buffer.len()));
 
         // See if there is an error from the last invocation.
         if let Some(e) = self.error.take() {
+            t!("Returning stashed error: {}", e);
             return Err(e);
         }
 
@@ -147,9 +149,12 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
 
             let mut amount_read = 0;
             while amount_buffered + amount_read < amount {
+                t!("Have {} bytes, need {} bytes",
+                   amount_buffered + amount_read, amount);
                 match self.reader.read(&mut buffer_new
                                        [amount_buffered + amount_read..]) {
                     Ok(read) => {
+                        t!("Read {} bytes", read);
                         if read == 0 {
                             break;
                         } else {
@@ -189,19 +194,24 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
             = self.buffer.as_ref().map(|b| b.len() - self.cursor).unwrap_or(0);
 
         if self.error.is_some() {
+            t!("Encountered an error: {}", self.error.as_ref().unwrap());
             // An error occurred.  If we have enough data to fulfill
             // the caller's request, then don't return the error.
             if hard && amount > amount_buffered {
+                t!("Not enough data to fulfill request, returning error");
                 return Err(self.error.take().unwrap());
             }
             if !hard && amount_buffered == 0 {
+                t!("No data data buffered, returning error");
                 return Err(self.error.take().unwrap());
             }
         }
 
         if hard && amount_buffered < amount {
+            t!("Unexpected EOF");
             Err(Error::new(ErrorKind::UnexpectedEof, "EOF"))
         } else if amount == 0 || amount_buffered == 0 {
+            t!("Returning zero-length slice");
             Ok(&b""[..])
         } else {
             let buffer = self.buffer.as_ref().unwrap();
@@ -209,8 +219,13 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
                 let amount_consumed = cmp::min(amount_buffered, amount);
                 self.cursor += amount_consumed;
                 assert!(self.cursor <= buffer.len());
+                t!("Consuming {} bytes, returning {} bytes",
+                   amount_consumed,
+                   buffer[self.cursor-amount_consumed..].len());
                 Ok(&buffer[self.cursor-amount_consumed..])
             } else {
+                t!("Returning {} bytes",
+                   buffer[self.cursor..].len());
                 Ok(&buffer[self.cursor..])
             }
         }
