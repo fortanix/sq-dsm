@@ -2,6 +2,11 @@
 #+TITLE: buffered-reader NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.1.2
+** Notable changes
+   - The generic buffered reader now correctly handles end-of-file
+     situations.
+
 * Changes in 1.1.1
 ** Notable changes
    - The generic buffered reader now recycles buffers reducing

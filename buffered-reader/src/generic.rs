@@ -26,6 +26,8 @@ pub struct Generic<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> {
     reader: T,
     // Stashed error, if any.
     error: Option<Error>,
+    /// Whether we hit EOF on the underlying reader.
+    eof: bool,
 
     // The user settable cookie.
     cookie: C,
@@ -82,6 +84,7 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
                 else { DEFAULT_BUF_SIZE },
             reader,
             error: None,
+            eof: false,
             cookie,
         }
     }
@@ -151,11 +154,18 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
             while amount_buffered + amount_read < amount {
                 t!("Have {} bytes, need {} bytes",
                    amount_buffered + amount_read, amount);
+
+                if self.eof {
+                    t!("Hit EOF on the underlying reader, don't poll again.");
+                    break;
+                }
+
                 match self.reader.read(&mut buffer_new
                                        [amount_buffered + amount_read..]) {
                     Ok(read) => {
                         t!("Read {} bytes", read);
                         if read == 0 {
+                            self.eof = true;
                             break;
                         } else {
                             amount_read += read;
