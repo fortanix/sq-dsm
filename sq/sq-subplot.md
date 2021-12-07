@@ -156,7 +156,7 @@ then file output.txt contains "hello, world"
 ~~~
 
 However, if the signed file is modified, verification must fail. We
-check this by removing lines from the signed file, which is a crude
+check this by removing a line from the signed file, which is a crude
 way of making sure the signature doesn't match.
 
 Further, the output must not contain the input if the verification
@@ -165,11 +165,12 @@ text, and possibly a warning that it's not to be trusted, but they
 make use of the text anyway.
 
 ~~~scenario
-when I run sed -i '/^[A-Za-z]/d' s.pgp
+when I run sed -i 3d s.pgp
 when I try to run sq verify --signer-cert tomjon.pgp s.pgp
-then exit code is 1
+then exit code is not 0
 then stdout doesn't contain "hello, world"
 ~~~
+
 
 ## Cleartext signature
 
