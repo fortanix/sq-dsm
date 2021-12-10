@@ -347,23 +347,6 @@ impl Server {
     /// On Linux expects 'stdin' to be a listening TCP socket.
     /// On Windows this expects `SOCKET` env var to be set to a listening socket
     /// of the Windows Sockets API `SOCKET` value.
-    ///
-    /// # Examples
-    ///
-    /// ```compile_fail
-    /// // We cannot run this because sequoia-store is not built yet.
-    /// use sequoia_core;
-    /// use sequoia_net;
-    /// use sequoia_store;
-    ///
-    /// use sequoia_ipc::Server;
-    ///
-    /// let ctx = Server::context().expect("Failed to create context");
-    /// Server::new(sequoia_store::descriptor(&ctx))
-    ///     .expect("Failed to create server")
-    ///     .serve()
-    ///     .expect("Failed to start server");
-    /// ```
     pub fn serve(&mut self) -> Result<()> {
         let listener = platform! {
             unix => { unsafe { TcpListener::from_raw_fd(0) } },
