@@ -2,13 +2,10 @@
 members = [
     "autocrypt",
     "buffered-reader",
-    "ffi",
-    "ffi-macros",
     "guide",
     "ipc",
     "net",
     "openpgp",
-    "openpgp-ffi",
     "sq",
 ]
 

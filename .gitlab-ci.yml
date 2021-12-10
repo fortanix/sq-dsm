@@ -308,7 +308,7 @@ windows-gnu:
     - rustc --version --verbose
     - cargo --version
   script:
-    - cargo test --workspace --exclude sequoia-openpgp-ffi
+    - cargo test --workspace
     # https://github.com/rust-lang/cargo/issues/5015
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
   after_script: []
@@ -332,8 +332,6 @@ windows-msvc:
   script:
     # https://github.com/rust-lang/cargo/issues/5015
     - cargo run --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression --example supported-algorithms
-    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression
-    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
   after_script: []
   variables:
@@ -366,8 +364,6 @@ windows-msvc-32:
     - cargo --version
   script:
     # https://github.com/rust-lang/cargo/issues/5015
-    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
-    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
   after_script: []
   variables:

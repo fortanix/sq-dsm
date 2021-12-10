@@ -59,8 +59,6 @@ all: build examples
 .PHONY: build
 build:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) build $(CARGO_FLAGS) $(CARGO_PACKAGES)
-	$(MAKE) -Copenpgp-ffi build
-	$(MAKE) -Cffi build
 
 # Testing and examples.
 #
@@ -79,8 +77,6 @@ test check:
 	then \
 		echo 'WARNING: Not running other tests, because $$CARGO_PACKAGES specifies a package.'; \
 	else \
-		$(MAKE) -Copenpgp-ffi test && \
-		$(MAKE) -Cffi test && \
 		$(MAKE) --file=.Makefile examples; \
 	fi
 
@@ -88,8 +84,6 @@ test check:
 examples:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
 	    $(CARGO) build $(CARGO_FLAGS) --examples
-	$(MAKE) -Copenpgp-ffi examples
-	$(MAKE) -Cffi examples
 
 # Documentation.
 .PHONY: doc
@@ -103,16 +97,12 @@ doc:
 # Installation.
 .PHONY: build-release
 build-release:
-	$(MAKE) -Copenpgp-ffi build-release
-	$(MAKE) -Cffi build-release
 	$(MAKE) -Csq build-release
 
 # "install" needs "build-release" as it builds the project
 # with optimizations enabled.
 .PHONY: install
 install: build-release
-	$(MAKE) -Copenpgp-ffi install
-	$(MAKE) -Cffi install
 	$(MAKE) -Csq install
 
 # Infrastructure for creating source distributions.
@@ -155,8 +145,6 @@ dist-test dist-check: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.pgp.gz
 .PHONY: clean
 clean:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) $(CARGO_FLAGS) clean
-	$(MAKE) -Copenpgp-ffi clean
-	$(MAKE) -Cffi clean
 
 .PHONY: codespell
 codespell:

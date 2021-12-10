@@ -870,7 +870,7 @@ dependencies = [
  "curve25519-dalek",
  "ed25519",
  "rand 0.7.3",
- "sha2 0.9.8",
+ "sha2",
  "zeroize",
 ]
 
@@ -1929,7 +1929,7 @@ checksum = "2f05f5287453297c4c16af5e2b04df8fd2a3008d70f252729650bc6d7ace5844"
 dependencies = [
  "ecdsa",
  "elliptic-curve",
- "sha2 0.9.8",
+ "sha2",
 ]
 
 [[package]]
@@ -2498,7 +2498,7 @@ dependencies = [
  "num-traits",
  "pem",
  "rand 0.7.3",
- "sha2 0.9.8",
+ "sha2",
  "simple_asn1",
  "subtle",
  "thiserror",
@@ -2607,34 +2607,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sequoia-ffi"
-version = "0.22.0"
-dependencies = [
- "anyhow",
- "filetime",
- "lazy_static",
- "libc",
- "memsec",
- "native-tls",
- "sequoia-ffi-macros",
- "sequoia-ipc",
- "sequoia-net",
- "sequoia-openpgp",
- "tokio",
-]
-
-[[package]]
-name = "sequoia-ffi-macros"
-version = "0.22.0"
-dependencies = [
- "lazy_static",
- "proc-macro2",
- "quote",
- "sha2 0.8.2",
- "syn",
-]
-
-[[package]]
 name = "sequoia-guide"
 version = "0.22.0"
 dependencies = [
@@ -2739,7 +2711,7 @@ dependencies = [
  "rsa",
  "sha-1 0.9.8",
  "sha1collisiondetection",
- "sha2 0.9.8",
+ "sha2",
  "thiserror",
  "twofish",
  "typenum",
@@ -2747,19 +2719,6 @@ dependencies = [
  "winapi",
  "x25519-dalek",
  "xxhash-rust",
-]
-
-[[package]]
-name = "sequoia-openpgp-ffi"
-version = "0.22.0"
-dependencies = [
- "anyhow",
- "filetime",
- "lazy_static",
- "libc",
- "memsec",
- "sequoia-ffi-macros",
- "sequoia-openpgp",
 ]
 
 [[package]]
@@ -2881,18 +2840,6 @@ checksum = "bc164aaaccb1cdd48663ff54a6ffc3026522e6ce5c4fa24608ea061259b16e8f"
 dependencies = [
  "digest 0.9.0",
  "generic-array 0.14.4",
-]
-
-[[package]]
-name = "sha2"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a256f46ea78a0c0d9ff00077504903ac881a1dafdc20da66545699e7776b3e69"
-dependencies = [
- "block-buffer 0.7.3",
- "digest 0.8.1",
- "fake-simd",
- "opaque-debug 0.2.3",
 ]
 
 [[package]]

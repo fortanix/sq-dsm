@@ -1,8 +1,0 @@
-/build
-/dist
-/sequoia.egg-info
-/.eggs
-__pycache__
-*.pyc
-.stamp*
-_sequoia.*.so
