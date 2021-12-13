@@ -155,23 +155,16 @@ impl PksClient {
         Ok(Self { location, public, client, rt })
     }
 
-    fn make_request<T>(&mut self, body: Vec<u8>, hash: T) -> Result<Vec<u8>>
-    where T: Into<Option<String>> {
-        let hash = hash.into();
-        let location = if let Some(hash) = hash {
-            format!("{}?hash={}", self.location, hash).parse::<Uri>()?
-        } else {
-            self.location.clone()
-        };
-
+    fn make_request(&mut self, body: Vec<u8>, content_type: &str) -> Result<Vec<u8>> {
         let request = Request::builder()
             .method("POST")
-            .uri(location)
+            .uri(&self.location)
+            .header("Content-Type", content_type)
             .body(Body::from(body))?;
         let response = self.rt.block_on(self.client.request(request))?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("PKS Decryption failed."));
+            return Err(anyhow::anyhow!("PKS operation failed: {}", response.status()));
         }
 
         let response = self.rt.block_on(hyper::body::to_bytes(response))?.to_vec();
@@ -191,11 +184,11 @@ impl Decryptor for PksClient {
     ) -> openpgp::Result<SessionKey> {
         match (ciphertext, self.public.mpis()) {
             (mpi::Ciphertext::RSA { c }, mpi::PublicKey::RSA { .. }) =>
-                Ok(self.make_request(c.value().to_vec(), None)?.into())
+                Ok(self.make_request(c.value().to_vec(), "application/vnd.pks.rsa.ciphertext")?.into())
             ,
             (mpi::Ciphertext::ECDH { e, .. }, mpi::PublicKey::ECDH { .. }) => {
                 #[allow(non_snake_case)]
-                let S = self.make_request(e.value().to_vec(), None)?.into();
+                let S = self.make_request(e.value().to_vec(), "application/vnd.pks.ecdh.point")?.into();
                 Ok(ecdh::decrypt_unwrap(&self.public, &S, ciphertext)?)
             },
             (ciphertext, public) => Err(anyhow::anyhow!(
@@ -219,8 +212,16 @@ impl Signer for PksClient {
         digest: &[u8],
     ) -> openpgp::Result<openpgp::crypto::mpi::Signature> {
         use openpgp::types::PublicKeyAlgorithm;
+        use openpgp::types::HashAlgorithm;
 
-        let sig = self.make_request(digest.into(), hash_algo.to_string())?;
+        let content_type = match hash_algo {
+            HashAlgorithm::SHA1 => "application/vnd.pks.digest.sha1",
+            HashAlgorithm::SHA256 => "application/vnd.pks.digest.sha256",
+            HashAlgorithm::SHA512 => "application/vnd.pks.digest.sha512",
+            _ => "application/octet-stream",
+        };
+
+        let sig = self.make_request(digest.into(), content_type)?;
 
         match (self.public.pk_algo(), self.public.mpis()) {
             #[allow(deprecated)]
