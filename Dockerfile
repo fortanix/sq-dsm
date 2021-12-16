@@ -1,6 +1,6 @@
 # See https://gitlab.com/sequoia-pgp/sequoia/-/blob/main/README.md#debian
 # for system requirements
-FROM debian:bullseye AS build
+FROM debian:bookworm AS build
 
 # create a sandbox user for the build (in ~builder) and install (in /opt)
 # give it permissions to the build dir and home
@@ -42,9 +42,9 @@ USER builder
 RUN cd /home/builder/sequoia && \
     CARGO_TARGET_DIR=target cargo build -p sequoia-sq --release && \
     install --strip -D --target-directory /opt/usr/local/bin \
-                  target/release/sq \
+                  target/release/sq
 
-FROM debian:bullseye-slim AS sq-base
+FROM debian:bookworm-slim AS sq-base
 
 RUN groupadd user && \
     useradd --no-log-init -g user user && \
