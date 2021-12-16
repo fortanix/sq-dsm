@@ -277,7 +277,7 @@ pkgs.mkShell {
   hardeningDisable = [ "fortify" ];
 
   # compilation of -sys packages requires manually setting LIBCLANG_PATH
-  LIBCLANG_PATH = "${pkgs.llvmPackages.libclang}/lib";
+  LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
 }
 ```
 
