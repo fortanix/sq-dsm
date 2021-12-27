@@ -384,7 +384,7 @@ impl<R> Key4<SecretParts, R>
     /// Creates a new OpenPGP public key packet for an existing RSA key.
     ///
     /// The RSA key will use public exponent `e` and modulo `n`. The key will
-    /// have it's creation date set to `ctime` or the current time if `None`
+    /// have its creation date set to `ctime` or the current time if `None`
     /// is given.
     #[allow(clippy::many_single_char_names)]
     pub fn import_secret_rsa<T>(d: &[u8], p: &[u8], q: &[u8], ctime: T)
@@ -409,7 +409,38 @@ impl<R> Key4<SecretParts, R>
             }.into())
     }
 
-    /// Generates a new RSA key with a public modulos of size `bits`.
+    /// Creates a new OpenPGP public key packet for an existing RSA key.
+    ///
+    /// Like import_secret_rsa but uses the given public exponent `e`.
+    ///
+    /// Note that import_secret_rsa computes e such that ed == 1 mod phi(n), but
+    /// most standards (e.g. RFC3447, referenced by RFC4880 as ultimate
+    /// authority for PKCS#1) dictate ed == 1 mod lambda(n).
+    #[allow(clippy::many_single_char_names)]
+    pub fn import_secret_rsa_unchecked_e<T>(
+        e: &[u8], d: &[u8], p: &[u8], q: &[u8], ctime: T
+    ) -> Result<Self> where T: Into<Option<SystemTime>>
+    {
+        let sec = rsa::PrivateKey::new(d, p, q, None)?;
+        let key = sec.public_key()?;
+        let (a, b, c) = sec.as_rfc4880();
+
+        Self::with_secret(
+            ctime.into().unwrap_or_else(crate::now),
+            PublicKeyAlgorithm::RSAEncryptSign,
+            mpi::PublicKey::RSA {
+                e: mpi::MPI::new(e),
+                n: mpi::MPI::new(&key.n()[..]),
+            },
+            mpi::SecretKeyMaterial::RSA {
+                d: mpi::MPI::new(d).into(),
+                p: mpi::MPI::new(&a[..]).into(),
+                q: mpi::MPI::new(&b[..]).into(),
+                u: mpi::MPI::new(&c[..]).into(),
+            }.into())
+    }
+
+    /// Generates a new RSA key with a public modulus of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
         let mut rng = Yarrow::default();
 

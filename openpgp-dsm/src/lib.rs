@@ -47,8 +47,8 @@ use sequoia_openpgp::packet::signature::SignatureBuilder;
 use sequoia_openpgp::packet::{Key, UserID};
 use sequoia_openpgp::serialize::SerializeInto;
 use sequoia_openpgp::types::{
-    Curve as SequoiaCurve, HashAlgorithm, KeyFlags, PublicKeyAlgorithm,
-    SignatureType, SymmetricAlgorithm,
+    Curve as SequoiaCurve, Features, HashAlgorithm, KeyFlags,
+    PublicKeyAlgorithm, SignatureType, SymmetricAlgorithm,
 };
 use sequoia_openpgp::{Cert, Packet};
 use serde_derive::{Deserialize, Serialize};
@@ -317,7 +317,8 @@ pub fn generate_key(
         .set_preferred_symmetric_algorithms(vec![
             SymmetricAlgorithm::AES256,
             SymmetricAlgorithm::AES128,
-        ])?;
+        ])?
+        .set_features(Features::sequoia()).unwrap();
     let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
     cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
@@ -543,7 +544,7 @@ impl PublicKey {
 
     fn from_sobject(sob: Sobject, role: KeyRole) -> Result<Self> {
         let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid")?);
-        let time = sob.created_at.to_datetime();
+        let time: SystemTime = sob.created_at.to_datetime().into();
         let raw_pk = sob.pub_key.context("public bits of sobject missing")?;
 
         match sob.obj_type {
@@ -641,10 +642,14 @@ impl PublicKey {
             },
             ObjectType::Rsa => {
                 let pk = der::parse::rsa_n_e(&raw_pk)?;
-
+                let pk_material = mpi::PublicKey::RSA {
+                    e: pk.e.into(),
+                    n: pk.n.into()
+                };
+                let pk_algo = PublicKeyAlgorithm::RSAEncryptSign;
                 let key = Key::V4(
-                    Key4::import_public_rsa(&pk.e, &pk.n, Some(time.into()))
-                        .context("cannot import RSA key into Sequoia")?,
+                    Key4::new(time, pk_algo, pk_material)
+                    .context("cannot import RSA key into Sequoia")?,
                 );
 
                 Ok(PublicKey {
@@ -872,8 +877,7 @@ fn secret_packet_from_sobject(
     let time: SystemTime = sobject.created_at.to_datetime().into();
     let raw_secret = sobject.value.as_ref()
         .context("secret bits missing in Sobject")?;
-    let raw_public =
-        sobject.pub_key.as_ref()
+    let raw_public = sobject.pub_key.as_ref()
         .context("public bits missing in Sobject")?;
     let is_signer =
         (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
@@ -968,39 +972,28 @@ fn secret_packet_from_sobject(
             _ => unimplemented!(),
         },
         ObjectType::Rsa => {
-            let sk = der::parse::rsa_private_nedpqu(&raw_secret)?;
-            let public = mpi::PublicKey::RSA {
-                e: sk.public.e.into(),
-                n: sk.public.n.into(),
-            };
-            let secret: SecretKeyMaterial = mpi::SecretKeyMaterial::RSA {
-                d: sk.d.into(),
-                p: sk.p.into(),
-                q: sk.q.into(),
-                u: sk.u.into(),
-            }
-            .into();
+            let sk = der::parse::rsa_private_edpq(&raw_secret)?;
             match role {
-                KeyRole::Primary => {
-                    Ok(Key::V4(Key4::<_, PrimaryRole>::with_secret(
-                        time,
-                        PublicKeyAlgorithm::RSAEncryptSign,
-                        public,
-                        secret,
-                    )?)
-                    .into())
-                }
-                KeyRole::Subkey => {
-                    Ok(Key::V4(Key4::<_, SubordinateRole>::with_secret(
-                        time,
-                        PublicKeyAlgorithm::RSAEncryptSign,
-                        public,
-                        secret,
-                    )?)
-                    .into())
-                }
+                KeyRole::Primary => Ok(Key::V4(
+                        Key4::<_, PrimaryRole>::import_secret_rsa_unchecked_e(
+                            &sk.e,
+                            &sk.d,
+                            &sk.p,
+                            &sk.q,
+                            time
+                        )?
+                ).into()),
+                KeyRole::Subkey => Ok(Key::V4(
+                        Key4::<_, SubordinateRole>::import_secret_rsa_unchecked_e(
+                            &sk.e,
+                            &sk.d,
+                            &sk.p,
+                            &sk.q,
+                            time
+                        )?
+                ).into()),
             }
-        }
+        },
         _ => unimplemented!(),
     }
 }
