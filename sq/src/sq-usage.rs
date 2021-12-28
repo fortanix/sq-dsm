@@ -427,7 +427,7 @@
 //!             universal]
 //!     -c, --cipher-suite <CIPHER-SUITE>
 //!             Selects the cryptographic algorithms for the key [default: cv25519]
-//!             [possible values: rsa3k, rsa4k, cv25519, nistp256, nistp384,
+//!             [possible values: rsa2k, rsa3k, rsa4k, cv25519, nistp256, nistp384,
 //!             nistp521]
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Generate secrets inside Fortanix DSM with the given name

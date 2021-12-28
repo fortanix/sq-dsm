@@ -4,7 +4,7 @@ sq="cargo run --"
 
 # Parse input flags
 if (( $# != 3 )); then
-    echo "Usage: sq_roundtrips.sh [--rsa3k, --p256, -p384, --p521, --cv25519] -v <int verbosity [0, 1, 2]>"
+    echo "Usage: sq_roundtrips.sh [--rsa[2k, 3k, 4k], --p[256, 384, 521], --cv25519] -v <int verbosity [0, 1, 2]>"
     exit 1
 fi
 
@@ -13,6 +13,7 @@ case "$1" in
     --p384) cipher_suite="nistp384";;
     --p521) cipher_suite="nistp521";;
     --cv25519) cipher_suite="cv25519";;
+    --rsa2k) cipher_suite="rsa2k";;
     --rsa3k) cipher_suite="rsa3k";;
     --rsa4k) cipher_suite="rsa4k";;
     *) echo "unknown option: $1" >&2; exit 1;;
