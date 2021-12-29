@@ -223,6 +223,10 @@ fn password(config: Config, m: &ArgMatches) -> Result<()> {
     let input = open_or_stdin(m.value_of("certificate"))?;
     let key = Cert::from_reader(input)?;
 
+    _password(config, m, key)
+}
+
+fn _password(config: Config, m: &ArgMatches, key: Cert) -> Result<()> {
     if ! key.is_tsk() {
         return Err(anyhow::anyhow!("Certificate has no secrets"));
     }
@@ -309,19 +313,12 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
 }
 
 fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
-    let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
-
     let key = match m.value_of("dsm-key") {
         Some(key_name) => dsm::extract_tsk_from_dsm(key_name)?,
         None => unreachable!("name is compulsory")
     };
 
-    if m.is_present("binary") {
-        key.as_tsk().serialize(&mut output)?;
-    } else {
-        key.as_tsk().armored().serialize(&mut output)?;
-    }
-    Ok(())
+    _password(config, m, key)
 }
 
 fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
