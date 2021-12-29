@@ -53,7 +53,7 @@ create_tmp_dir data
 gpg_homedir=""
 create_tmp_dir gpg_homedir
 
-gpg="gpg --homedir=$gpg_homedir --trust-model always"
+gpg="gpg --homedir=$gpg_homedir --trust-model always --pinentry-mode loopback"
 
 trap 'erase_tmp_dirs' EXIT
 
@@ -73,6 +73,9 @@ signed_gpg=$data/message.signed_gpg.gpg
 random=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "10" | head -n 1)
 alice_key_name="test-gpg-import-alice-$random"
 bob_key_name="test-gpg-import-bob-$random"
+
+echo "Enter test passphrase"
+read -r test_passphrase
 
 comm "sq --version"
 $sq --version
@@ -95,7 +98,7 @@ my_cat "$bob_public"
 
 comm "import keys into gpg"
 $gpg --import "$alice_public"
-$gpg --import "$alice_local_priv"
+$gpg --import --passphrase="$test_passphrase" "$alice_local_priv"
 $gpg --import "$bob_public"
 
 comm "gpg --list keys; gpg --list-secret-keys"
@@ -109,7 +112,7 @@ $sq sign --signer-key="$alice_local_priv" "$message" > "$signed_local"
 my_cat "$signed_local"
 $sq sign --dsm-key="$alice_key_name" "$message" > "$signed_remote"
 my_cat "$signed_remote"
-$gpg --output=$signed_gpg --sign "$message"
+$gpg --sign --passphrase="$test_passphrase" --output="$signed_gpg" "$message"
 my_cat "$signed_gpg"
 
 comm "verify with sq and gpg"
@@ -125,9 +128,11 @@ $sq encrypt --signer-dsm-key="$bob_key_name" --recipient-cert "$alice_public" "$
 my_cat "$encrypted"
 
 comm "decrypt with (i) local key (ii) SDKMS key (iii) gpg-imported key"
-$gpg --output="$decrypted_gpg" --decrypt "$encrypted"
-diff "$message" "$decrypted_gpg"
 $sq decrypt --signer-cert="$bob_public" --recipient-key="$alice_local_priv" "$encrypted" --output "$decrypted_local"
 diff "$message" "$decrypted_local"
 $sq decrypt --signer-cert="$bob_public" --dsm-key="$alice_key_name" "$encrypted" --output "$decrypted_remote"
 diff "$message" "$decrypted_remote"
+$gpg --passphrase="test_passphrase" --output="$decrypted_gpg" --decrypt "$encrypted"
+diff "$message" "$decrypted_gpg"
+
+echo "SUCCESS"
