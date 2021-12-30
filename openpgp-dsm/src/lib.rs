@@ -18,7 +18,7 @@ use std::env;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use anyhow::{Context, Error, Result};
 use http::uri::Uri;
@@ -233,14 +233,18 @@ impl KeyMetadata {
 /// an additional custom metadata field on the primary key, and returned.
 pub fn generate_key(
     key_name: &str,
+    validity_period: Option<Duration>,
     user_id: Option<&str>,
     algo: Option<&str>,
     exportable: bool,
 ) -> Result<()> {
+    // User ID
     let uid: UserID = match user_id {
         Some(id) => id.into(),
         None => return Err(Error::msg("no User ID")),
     };
+
+    // Cipher Suite
     let algorithm = match algo {
         Some("rsa2k") => SupportedPkAlgo::Rsa(2048),
         Some("rsa3k") => SupportedPkAlgo::Rsa(3072),
@@ -287,8 +291,8 @@ pub fn generate_key(
     http_client.update_sobject(&subkey.uid()?, &link_update_req)?;
 
     info!("generate certificate");
-    // Primary, UserID + sig, subkey + sig
-    let mut packets = Vec::<Packet>::with_capacity(5);
+    // Primary + sig, UserID + sig, subkey + sig
+    let mut packets = Vec::<Packet>::with_capacity(6);
 
     // Self-sign primary key
     let prim: Key<PublicParts, PrimaryRole> = primary
@@ -298,28 +302,48 @@ pub fn generate_key(
         .into();
     let prim_creation_time = prim.creation_time();
 
-    packets.push(prim.into());
-
     let mut prim_signer = DsmAgent::new_signer(&key_name)?;
 
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
+
+    let prim_sig_builder = SignatureBuilder::new(SignatureType::DirectKey)
+        .set_features(Features::sequoia())?
+        .set_key_flags(primary_flags.clone())?
+        .set_key_validity_period(validity_period)?
+        .set_signature_creation_time(prim_creation_time)?
+        .set_preferred_symmetric_algorithms(vec![
+            SymmetricAlgorithm::AES256,
+            SymmetricAlgorithm::AES128,
+        ])?
+        .set_preferred_hash_algorithms(vec![
+            HashAlgorithm::SHA512,
+            HashAlgorithm::SHA256,
+        ])?
+        .set_hash_algo(HashAlgorithm::SHA512);
+
+    // A direct key signature is always over the primary key.
+    let prim_sig = prim_sig_builder.sign_direct_key(&mut prim_signer, None)?;
+
+    packets.push(prim.into());
+    packets.push(prim_sig.into());
 
     let mut cert = Cert::try_from(packets)?;
 
     // User ID + signature
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
+        .set_features(Features::sequoia())?
         .set_key_flags(primary_flags)?
+        .set_key_validity_period(validity_period)?
         .set_signature_creation_time(prim_creation_time)?
-        .set_preferred_hash_algorithms(vec![
-            HashAlgorithm::SHA512,
-            HashAlgorithm::SHA256,
-        ])?
         .set_preferred_symmetric_algorithms(vec![
             SymmetricAlgorithm::AES256,
             SymmetricAlgorithm::AES128,
         ])?
-        .set_features(Features::sequoia()).unwrap();
+        .set_preferred_hash_algorithms(vec![
+            HashAlgorithm::SHA512,
+            HashAlgorithm::SHA256,
+        ])?;
     let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
     cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
@@ -338,6 +362,7 @@ pub fn generate_key(
         .set_transport_encryption();
 
     let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
+        .set_key_validity_period(validity_period)?
         .set_hash_algo(HashAlgorithm::SHA512)
         .set_signature_creation_time(subkey_creation_time)?
         .set_key_flags(subkey_flags)?;
