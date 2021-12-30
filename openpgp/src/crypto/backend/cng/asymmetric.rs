@@ -771,6 +771,47 @@ where
 
     /// Creates a new OpenPGP public key packet for an existing RSA key.
     ///
+    /// Like import_secret_rsa but uses the given public exponent `e`.
+    ///
+    /// Note that import_secret_rsa computes e such that ed == 1 mod phi(n), but
+    /// most standards (e.g. RFC3447, referenced by RFC4880 as ultimate
+    /// authority for PKCS#1) dictate ed == 1 mod lambda(n).
+    pub fn import_secret_rsa_unchecked_e<T>(
+        e: &[u8], d: &[u8], p: &[u8], q: &[u8], ctime: T
+    ) -> Result<Self>
+    where
+        T: Into<Option<SystemTime>>,
+    {
+        // RFC 4880: `p < q`
+        let (p, q) = if p < q { (p, q) } else { (q, p) };
+
+        // CNG can't compute the public key from the private one, so do it ourselves
+        let big_p = BigUint::from_bytes_be(p);
+        let big_q = BigUint::from_bytes_be(q);
+        let n = big_p.clone() * big_q.clone();
+
+        let u: BigUint = big_p.mod_inverse(big_q) // RFC 4880: u ≡ p⁻¹ (mod q)
+            .and_then(|x: BigInt| x.to_biguint())
+            .ok_or_else(|| Error::MalformedMPI("RSA: `p` and `q` aren't coprime".into()))?;
+
+        Self::with_secret(
+            ctime.into().unwrap_or_else(crate::now),
+            PublicKeyAlgorithm::RSAEncryptSign,
+            mpi::PublicKey::RSA {
+                e: mpi::MPI::new(e),
+                n: mpi::MPI::new(&n.to_bytes_be()),
+            },
+            mpi::SecretKeyMaterial::RSA {
+                d: mpi::MPI::new(d).into(),
+                p: mpi::MPI::new(p).into(),
+                q: mpi::MPI::new(q).into(),
+                u: mpi::MPI::new(&u.to_bytes_be()).into(),
+            }.into()
+        )
+    }
+
+    /// Creates a new OpenPGP public key packet for an existing RSA key.
+    ///
     /// The RSA key will use public exponent `e` and modulo `n`. The key will
     /// have it's creation date set to `ctime` or the current time if `None`
     /// is given.

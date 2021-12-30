@@ -14,6 +14,7 @@ case "$1" in
     --p521) cipher_suite="nistp521";;
     --cv25519) cipher_suite="cv25519";;
     --rsa3k) cipher_suite="rsa3k";;
+    --rsa4k) cipher_suite="rsa4k";;
     -*) echo "unknown option: $1" >&2; exit 1;;
 esac
 
@@ -123,9 +124,9 @@ $sq encrypt --signer-dsm-key="$bob_key_name" --recipient-cert "$alice_public" "$
 my_cat "$encrypted"
 
 comm "decrypt with (i) local key (ii) SDKMS key (iii) gpg-imported key"
+$gpg --output="$decrypted_gpg" --decrypt "$encrypted"
+diff "$message" "$decrypted_gpg"
 $sq decrypt --signer-cert="$bob_public" --recipient-key="$alice_local_priv" "$encrypted" --output "$decrypted_local"
 diff "$message" "$decrypted_local"
 $sq decrypt --signer-cert="$bob_public" --dsm-key="$alice_key_name" "$encrypted" --output "$decrypted_remote"
 diff "$message" "$decrypted_remote"
-$gpg --output="$decrypted_gpg" --decrypt "$encrypted"
-diff "$message" "$decrypted_local"

@@ -36,13 +36,15 @@ install: build-release
 	$(MAKE) -C../store install
 
 test-dsm:
+	./tests/dsm/extract_dsm_import_gpg.sh --rsa3k -v 0
+	./tests/dsm/extract_dsm_import_gpg.sh --rsa4k -v 0
 	./tests/dsm/extract_dsm_import_gpg.sh --p256 -v 0
 	./tests/dsm/extract_dsm_import_gpg.sh --p384 -v 0
 	./tests/dsm/extract_dsm_import_gpg.sh --p521 -v 0
-	# GPG RSA3k issue: ./tests/dsm/extract_dsm_import_gpg.sh -v 0
 	./tests/dsm/extract_dsm_import_gpg.sh --cv25519 -v 0
+	./tests/dsm/sq_roundtrips.sh --rsa3k -v 0
+	./tests/dsm/sq_roundtrips.sh --rsa4k -v 0
 	./tests/dsm/sq_roundtrips.sh --p256 -v 0
 	./tests/dsm/sq_roundtrips.sh --p384 -v 0
 	./tests/dsm/sq_roundtrips.sh --p521 -v 0
-	./tests/dsm/sq_roundtrips.sh --rsa3k -v 0
 	./tests/dsm/sq_roundtrips.sh --cv25519 -v 0

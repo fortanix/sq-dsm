@@ -22,11 +22,10 @@ pub mod parse {
     }
 
     pub struct RsaPriv {
-        pub public: RsaPub,
-        pub d:      Vec<u8>,
-        pub p:      Vec<u8>,
-        pub q:      Vec<u8>,
-        pub u:      Vec<u8>,
+        pub e: Vec<u8>,
+        pub d: Vec<u8>,
+        pub p: Vec<u8>,
+        pub q: Vec<u8>,
     }
 
     pub fn rsa_n_e(buf: &[u8]) -> super::Result<RsaPub> {
@@ -51,22 +50,34 @@ pub mod parse {
         .map_err(|e| e.into())
     }
 
-    pub fn rsa_private_nedpqu(buf: &[u8]) -> super::Result<RsaPriv> {
+    pub fn rsa_private_edpq(buf: &[u8]) -> super::Result<RsaPriv> {
+        // RFC2437 Sec. 11.1.2
+        //
+        // RSAPrivateKey ::= SEQUENCE {
+        //   version Version,
+        //   modulus INTEGER, -- n
+        //   publicExponent INTEGER, -- e
+        //   privateExponent INTEGER, -- d
+        //   prime1 INTEGER, -- p
+        //   prime2 INTEGER, -- q
+        //   exponent1 INTEGER, -- d mod (p-1)
+        //   exponent2 INTEGER, -- d mod (q-1)
+        //   coefficient INTEGER -- (inverse of q) mod p
+        // }
+        //
         Ok(yasna::parse_der(&buf, |reader| {
             reader.read_sequence(|reader| {
                 let _version = reader.next().read_u32()?;
-                let n = reader.next().read_biguint()?.to_bytes_be();
+                let _n = reader.next().read_biguint()?;
                 let e = reader.next().read_biguint()?.to_bytes_be();
                 let d = reader.next().read_biguint()?.to_bytes_be();
                 let p = reader.next().read_biguint()?.to_bytes_be();
                 let q = reader.next().read_biguint()?.to_bytes_be();
                 let _exp1 = reader.next().read_biguint()?;
                 let _exp2 = reader.next().read_biguint()?;
-                let u = reader.next().read_biguint()?.to_bytes_be();
+                let _u = reader.next().read_biguint()?;
 
-                let public = RsaPub { n, e };
-
-                Ok(RsaPriv { public, d, p, q, u })
+                Ok(RsaPriv { e, d, p, q })
             })
         })?)
     }
