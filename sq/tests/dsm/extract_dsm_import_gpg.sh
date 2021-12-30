@@ -2,12 +2,6 @@
 
 sq="cargo run --"
 
-# Parse input flags
-if (( $# != 3 )); then
-    echo "Usage: sq_roundtrips.sh [--rsa3k, --p256, -p384, --p521, --cv25519] -v <int verbosity [0, 1, 2]>"
-    exit 1
-fi
-
 case "$1" in
     --p256) cipher_suite="nistp256";;
     --p384) cipher_suite="nistp384";;
@@ -20,8 +14,8 @@ case "$1" in
 esac
 
 case "$3" in
-    0|1|2) verbosity=$3;;
-    *) echo "Select verbosity 0, 1, or 2" >&2; exit 1;;
+    1|2) verbosity=$1;;
+    *) verbosity=0
 esac
 
 # tmp directory, erased on exit
@@ -38,12 +32,12 @@ comm() {
 }
 
 my_cat() {
-    if (( $verbosity == 1 )); then
-        head -n4 $1
+    if [[ "$verbosity" -eq 1 ]]; then
+        head -n4 "$1"
         echo "    [TRUNCATED OUTPUT]"
     fi
-    if (( $verbosity == 2 )); then
-        cat $1
+    if [[ "$verbosity" -eq 2 ]]; then
+        cat "$1"
     fi
 }
 
