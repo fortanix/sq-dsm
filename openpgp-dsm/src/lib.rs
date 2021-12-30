@@ -547,7 +547,7 @@ impl PublicKey {
         let time: SystemTime = sob.created_at.to_datetime().into();
         let raw_pk = sob.pub_key.context("public bits of sobject missing")?;
 
-        match sob.obj_type {
+        let (pk_algo, pk_material, role) = match sob.obj_type {
             ObjectType::Ec => match sob.elliptic_curve {
                 Some(ApiCurve::Ed25519) => {
                     if role == KeyRole::Subkey {
@@ -560,16 +560,7 @@ impl PublicKey {
                     let point = mpi::MPI::new_compressed_point(&raw_pk[12..]);
 
                     let ec_pk = mpi::PublicKey::EdDSA { curve, q: point };
-                    let key = Key::V4(
-                        Key4::new(time, pk_algo, ec_pk)
-                            .context("cannot import EC key into Sequoia")?,
-                    );
-
-                    Ok(PublicKey {
-                        descriptor,
-                        role: KeyRole::Primary,
-                        sequoia_key: Some(key),
-                    })
+                    (pk_algo, ec_pk, KeyRole::Primary)
                 }
                 Some(ApiCurve::X25519) => {
                     let pk_algo = PublicKeyAlgorithm::ECDH;
@@ -585,16 +576,7 @@ impl PublicKey {
                         sym: SymmetricAlgorithm::AES256,
                     };
 
-                    let key = Key::V4(
-                        Key4::new(time, pk_algo, ec_pk)
-                            .context("cannot import EC key into Sequoia")?,
-                    );
-
-                    Ok(PublicKey {
-                        descriptor,
-                        role: KeyRole::Subkey,
-                        sequoia_key: Some(key),
-                    })
+                    (pk_algo, ec_pk, KeyRole::Subkey)
                 }
                 Some(curve @ ApiCurve::NistP256)
                 | Some(curve @ ApiCurve::NistP384)
@@ -620,15 +602,7 @@ impl PublicKey {
                             },
                         ),
                     };
-                    let key = Key::V4(
-                        Key4::new(time, pk_algo, ec_pk)
-                            .context("cannot import EC key into Sequoia")?,
-                    );
-                    Ok(PublicKey {
-                        descriptor,
-                        role,
-                        sequoia_key: Some(key),
-                    })
+                    (pk_algo, ec_pk, role)
                 }
                 Some(curve) => {
                     return Err(Error::msg(format!(
@@ -647,21 +621,24 @@ impl PublicKey {
                     n: pk.n.into()
                 };
                 let pk_algo = PublicKeyAlgorithm::RSAEncryptSign;
-                let key = Key::V4(
-                    Key4::new(time, pk_algo, pk_material)
-                    .context("cannot import RSA key into Sequoia")?,
-                );
 
-                Ok(PublicKey {
-                    descriptor,
-                    role,
-                    sequoia_key: Some(key),
-                })
+                (pk_algo, pk_material, role)
             }
             t @ _ => {
                 return Err(Error::msg(format!("unknown object : {:?}", t)));
             }
-        }
+        };
+
+        let key = Key::V4(
+            Key4::new(time, pk_algo, pk_material)
+            .context("cannot import RSA key into Sequoia")?,
+        );
+
+        Ok(PublicKey {
+            descriptor,
+            role,
+            sequoia_key: Some(key),
+        })
     }
 
     fn uid(&self) -> Result<Uuid> {

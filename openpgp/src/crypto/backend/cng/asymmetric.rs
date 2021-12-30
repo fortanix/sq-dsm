@@ -777,7 +777,7 @@ where
     /// most standards (e.g. RFC3447, referenced by RFC4880 as ultimate
     /// authority for PKCS#1) dictate ed == 1 mod lambda(n).
     pub fn import_secret_rsa_unchecked_e<T>(
-        d: &[u8], p: &[u8], q: &[u8], ctime: T
+        e: &[u8], d: &[u8], p: &[u8], q: &[u8], ctime: T
     ) -> Result<Self>
     where
         T: Into<Option<SystemTime>>,
