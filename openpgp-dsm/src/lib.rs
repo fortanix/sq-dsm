@@ -242,6 +242,7 @@ pub fn generate_key(
         None => return Err(Error::msg("no User ID")),
     };
     let algorithm = match algo {
+        Some("rsa2k") => SupportedPkAlgo::Rsa(2048),
         Some("rsa3k") => SupportedPkAlgo::Rsa(3072),
         Some("rsa4k") => SupportedPkAlgo::Rsa(4096),
         Some("cv25519") => SupportedPkAlgo::Curve25519,

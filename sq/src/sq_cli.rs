@@ -542,6 +542,7 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                         .arg(Arg::with_name("cipher-suite")
                              .short("c").long("cipher-suite").value_name("CIPHER-SUITE")
                              .possible_values(&[
+                                 "rsa2k",
                                  "rsa3k",
                                  "rsa4k",
                                  "cv25519",

@@ -13,6 +13,7 @@ case "$1" in
     --p384) cipher_suite="nistp384";;
     --p521) cipher_suite="nistp521";;
     --cv25519) cipher_suite="cv25519";;
+    --rsa2k) cipher_suite="rsa2k";;
     --rsa3k) cipher_suite="rsa3k";;
     --rsa4k) cipher_suite="rsa4k";;
     -*) echo "unknown option: $1" >&2; exit 1;;
