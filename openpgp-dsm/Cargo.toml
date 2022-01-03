@@ -14,6 +14,7 @@ hyper-native-tls = "0.3.0"
 ipnetwork = "0.17"
 http = "0.2.4"
 log = "0.4.14"
+rpassword = "5.0"
 spki = "0.4.0"
 sequoia-openpgp = { path = "../openpgp", default-features = false }
 sdkms = { git = "https://github.com/zugzwang/sdkms-client-rust.git", branch = "keylinks" }

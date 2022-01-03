@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-sq="cargo run --"
+sq="../target/debug/sq"
 
 case "$1" in
     --p256) cipher_suite="nistp256";;
@@ -14,7 +14,7 @@ case "$1" in
 esac
 
 case "$3" in
-    1|2) verbosity=$1;;
+    1|2) verbosity=$3;;
     *) verbosity=0
 esac
 
@@ -61,9 +61,6 @@ signed=$data/message.signed.asc
 random=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "10" | head -n 1)
 alice_key_name="test-sq-roundtrip-alice-$random"
 bob_key_name="test-sq-roundtrip-bob-$random"
-
-comm "version"
-$sq --version
 
 comm "generate-keys (Alice with $cipher_suite, Bob with default)"
 $sq key generate --dsm-key="$alice_key_name" --userid="Alice Павловна Вишневская <alice@openpgp.example>" --cipher-suite="$cipher_suite"

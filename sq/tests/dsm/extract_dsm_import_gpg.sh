@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-sq="cargo run --"
+sq="../target/debug/sq"
 
 case "$1" in
     --p256) cipher_suite="nistp256";;
@@ -14,7 +14,7 @@ case "$1" in
 esac
 
 case "$3" in
-    1|2) verbosity=$1;;
+    1|2) verbosity=$3;;
     *) verbosity=0
 esac
 
