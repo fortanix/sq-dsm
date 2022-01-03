@@ -42,15 +42,6 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
 }
 
 fn generate(config: Config, m: &ArgMatches) -> Result<()> {
-    if let Some(dsm_key_name) = m.value_of("dsm-key") {
-        return dsm::generate_key(
-            dsm_key_name,
-            m.value_of("userid"),
-            m.value_of("cipher-suite"),
-            m.is_present("dsm-exportable"),
-        );
-    }
-
     let mut builder = CertBuilder::new();
 
     // User ID
@@ -64,28 +55,33 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
     }
 
     // Expiration.
-    match (m.value_of("expires"), m.value_of("expires-in")) {
+    let d = match (m.value_of("expires"), m.value_of("expires-in")) {
         (None, None) => // Default expiration.
-            builder = builder.set_validity_period(
-                Some(Duration::new(3 * SECONDS_IN_YEAR, 0))),
-        (Some(t), None) if t == "never" =>
-            builder = builder.set_validity_period(None),
+            Some(Duration::new(3 * SECONDS_IN_YEAR, 0)),
+        (Some(t), None) if t == "never" => None ,
         (Some(t), None) => {
             let now = builder.creation_time()
                 .unwrap_or_else(std::time::SystemTime::now);
             let expiration = SystemTime::from(
                 crate::parse_iso8601(t, chrono::NaiveTime::from_hms(0, 0, 0))?);
             let validity = expiration.duration_since(now)?;
-            builder = builder.set_creation_time(now)
-                .set_validity_period(validity);
+            builder = builder.set_creation_time(now);
+            Some(validity)
         },
-        (None, Some(d)) if d == "never" =>
-            builder = builder.set_validity_period(None),
-        (None, Some(d)) => {
-            let d = parse_duration(d)?;
-            builder = builder.set_validity_period(Some(d));
-        },
+        (None, Some(d)) if d == "never" => None,
+        (None, Some(d)) =>  Some(parse_duration(d)?),
         (Some(_), Some(_)) => unreachable!("conflicting args"),
+    };
+    builder = builder.set_validity_period(d);
+
+    if let Some(dsm_key_name) = m.value_of("dsm-key") {
+        return dsm::generate_key(
+            dsm_key_name,
+            d,
+            m.value_of("userid"),
+            m.value_of("cipher-suite"),
+            m.is_present("dsm-exportable"),
+        );
     }
 
     // Cipher Suite

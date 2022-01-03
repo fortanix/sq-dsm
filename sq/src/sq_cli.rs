@@ -569,8 +569,6 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                                  "can-sign",
                                  "cannot-sign",
                                  "with-password",
-                                 "expires",
-                                 "expires-in",
                                  "rev-cert",
                              ])
                              .requires("userid"))

@@ -36,17 +36,24 @@ install: build-release
 	$(MAKE) -C../store install
 
 test-dsm:
-	./tests/dsm/extract_dsm_import_gpg_auto.tcl --rsa2k -v 0
-	./tests/dsm/extract_dsm_import_gpg_auto.tcl --rsa3k -v 0
-	./tests/dsm/extract_dsm_import_gpg_auto.tcl --rsa4k -v 0
-	./tests/dsm/extract_dsm_import_gpg_auto.tcl --p256 -v 0
-	./tests/dsm/extract_dsm_import_gpg_auto.tcl --p384 -v 0
-	./tests/dsm/extract_dsm_import_gpg_auto.tcl --p521 -v 0
-	./tests/dsm/extract_dsm_import_gpg_auto.tcl --cv25519 -v 0
-	./tests/dsm/sq_roundtrips.sh --rsa2k -v 0
-	./tests/dsm/sq_roundtrips.sh --rsa3k -v 0
-	./tests/dsm/sq_roundtrips.sh --rsa4k -v 0
-	./tests/dsm/sq_roundtrips.sh --p256 -v 0
-	./tests/dsm/sq_roundtrips.sh --p384 -v 0
-	./tests/dsm/sq_roundtrips.sh --p521 -v 0
-	./tests/dsm/sq_roundtrips.sh --cv25519 -v 0
+	./tests/dsm/key_expiration.sh --rsa2k
+	./tests/dsm/key_expiration.sh --rsa3k
+	./tests/dsm/key_expiration.sh --rsa4k
+	./tests/dsm/key_expiration.sh --p256
+	./tests/dsm/key_expiration.sh --p384
+	./tests/dsm/key_expiration.sh --p521
+	./tests/dsm/key_expiration.sh --cv25519
+	./tests/dsm/extract_dsm_import_gpg_auto.tcl --rsa2k
+	./tests/dsm/extract_dsm_import_gpg_auto.tcl --rsa3k
+	./tests/dsm/extract_dsm_import_gpg_auto.tcl --rsa4k
+	./tests/dsm/extract_dsm_import_gpg_auto.tcl --p256
+	./tests/dsm/extract_dsm_import_gpg_auto.tcl --p384
+	./tests/dsm/extract_dsm_import_gpg_auto.tcl --p521
+	./tests/dsm/extract_dsm_import_gpg_auto.tcl --cv25519
+	./tests/dsm/sq_roundtrips.sh --rsa2k
+	./tests/dsm/sq_roundtrips.sh --rsa3k
+	./tests/dsm/sq_roundtrips.sh --rsa4k
+	./tests/dsm/sq_roundtrips.sh --p256
+	./tests/dsm/sq_roundtrips.sh --p384
+	./tests/dsm/sq_roundtrips.sh --p521
+	./tests/dsm/sq_roundtrips.sh --cv25519
