@@ -8,6 +8,7 @@ use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
 use sequoia_openpgp::packet::Key;
 use sequoia_openpgp::types::HashAlgorithm;
 
+pub use openpgp_dsm::Credentials;
 use openpgp_dsm::DsmAgent;
 
 /// A Secret can be a private key loaded from memory, or stored externally. It
@@ -57,5 +58,5 @@ impl Decryptor for Secret {
 
 pub enum PreSecret {
     InMemory(sequoia_openpgp::Cert),
-    Dsm(String),
+    Dsm(Credentials, String),
 }

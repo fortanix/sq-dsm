@@ -86,20 +86,21 @@ const ENV_NO_PROXY:     &str = "no_proxy";
 const ENV_P12:          &str = "FORTANIX_PKCS12_ID";
 const MIN_DSM_VERSION:  &str = "4.2.0";
 
+#[derive(Clone)]
 enum Auth {
     ApiKey(String),
-    // (DSM app UUID, PKCS12 pfx file), e.g. generated with
-    // openssl pkcs12 -export -out identity.pfx -inkey priv.key -in cert.crt
-    Cert(Uuid, String),
+    // App UUID and PKCS12 identity
+    Cert(Uuid, Identity),
 }
 
-struct Credentials {
+#[derive(Clone)]
+pub struct Credentials {
     api_endpoint: String,
     auth:         Auth,
 }
 
 impl Credentials {
-    fn new_from_env() -> Result<Self> {
+    pub fn new_from_env() -> Result<Self> {
         let api_endpoint = env::var(ENV_API_ENDPOINT)
             .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
 
@@ -115,8 +116,44 @@ impl Credentials {
                 Auth::ApiKey(api_key)
             },
             (None, Some(cert_file)) => {
-                let app_uuid = env::var(ENV_APP_UUID)?;
-                Auth::Cert(Uuid::parse_str(&app_uuid)?, cert_file)
+                let app_uuid = Uuid::parse_str(
+                    &env::var(ENV_APP_UUID).context(
+                        format!("Need {} for cert-based auth", ENV_APP_UUID))?
+                ).context("bad app UUID")?;
+                let mut cert_stream = File::open(cert_file.clone())
+                    .context(format!("opening {}", cert_file))?;
+                let mut cert = Vec::new();
+                cert_stream.read_to_end(&mut cert)
+                    .context(format!("reading {}", cert_file))?;
+                // Try to unlock certificate without password
+                let mut first = true;
+                let id = if let Ok(id) = Identity::from_pkcs12(&cert, "") {
+                    id
+                } else {
+                    loop {
+                        // Prompt the user for PKCS12 password
+                        match rpassword::read_password_from_tty(
+                            Some(
+                                &format!(
+                                    "{}Enter password to unlock {}: ",
+                                    if first { "" } else { "Invalid password. " },
+                                    cert_file))
+                        ) {
+                            Ok(p) => {
+                                first = false;
+                                if let Ok(id) = Identity::from_pkcs12(&cert, &p) {
+                                    break id;
+                                }
+                            },
+                            Err(err) => {
+                                return Err(Error::msg(format!(
+                                            "While reading password: {}", err)
+                                ));
+                            }
+                        }
+                    }
+                };
+                Auth::Cert(app_uuid, id)
             }
             (None, None) => return Err(Error::msg(format!(
                         "at least one of {}, {} env var is needed",
@@ -142,45 +179,9 @@ impl Credentials {
                     .context("could not initiate a DSM client")?;
                 cli.authenticate_with_api_key(&api_key)?
             },
-            Auth::Cert(app_uuid, cert_file) => {
-                let cert = {
-                    let mut cert_stream = File::open(cert_file)
-                        .context(format!("opening {}", cert_file))?;
-                    let mut cert_raw = Vec::new();
-                    cert_stream.read_to_end(&mut cert_raw)
-                        .context(format!("reading {}", cert_file))?;
-                    // Try to unlock certificate without password
-                    let mut first = true;
-                    if let Ok(id) = Identity::from_pkcs12(&cert_raw, "") {
-                        id
-                    } else {
-                        loop {
-                            // Prompt the user for PKCS12 password
-                            match rpassword::read_password_from_tty(
-                                Some(
-                                    &format!(
-                                        "{}Enter password to unlock {}: ",
-                                        if first { "" } else { "Invalid password. " },
-                                        cert_file))
-                            ) {
-                                Ok(p) => {
-                                    first = false;
-                                    if let Ok(id) = Identity::from_pkcs12(&cert_raw, &p) {
-                                        break id;
-                                    }
-                                },
-                                Err(err) => {
-                                    return Err(Error::msg(format!(
-                                                "While reading password: {}", err)
-                                    ));
-                                }
-                            }
-                        }
-                    }
-                };
-
+            Auth::Cert(app_uuid, identity) => {
                 let tls_conn = TlsConnector::builder()
-                    .identity(cert)
+                    .identity(identity.clone())
                     .build()?;
                 let ssl = NativeTlsClient::from(tls_conn);
                 let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
@@ -215,8 +216,7 @@ enum Role {
 impl DsmAgent {
     /// Returns a DsmAgent with signing capabilities, corresponding to the given
     /// key name.
-    pub fn new_signer(key_name: &str) -> Result<Self> {
-        let credentials = Credentials::new_from_env()?;
+    pub fn new_signer(credentials: Credentials, key_name: &str) -> Result<Self> {
         let http_client = credentials.http_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
@@ -235,8 +235,7 @@ impl DsmAgent {
 
     /// Returns a DsmAgent with decryption capabilities, corresponding to the
     /// given key name.
-    pub fn new_decryptor(key_name: &str) -> Result<Self> {
-        let credentials = Credentials::new_from_env()?;
+    pub fn new_decryptor(credentials: Credentials, key_name: &str) -> Result<Self> {
         let http_client = credentials.http_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
@@ -389,7 +388,7 @@ pub fn generate_key(
         .into();
     let prim_creation_time = prim.creation_time();
 
-    let mut prim_signer = DsmAgent::new_signer(&key_name)?;
+    let mut prim_signer = DsmAgent::new_signer(credentials, &key_name)?;
 
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
@@ -1062,22 +1061,22 @@ fn secret_packet_from_sobject(
             let sk = der::parse::rsa_private_edpq(&raw_secret)?;
             match role {
                 KeyRole::Primary => Ok(Key::V4(
-                        Key4::<_, PrimaryRole>::import_secret_rsa_unchecked_e(
-                            &sk.e,
-                            &sk.d,
-                            &sk.p,
-                            &sk.q,
-                            time
-                        )?
+                    Key4::<_, PrimaryRole>::import_secret_rsa_unchecked_e(
+                        &sk.e,
+                        &sk.d,
+                        &sk.p,
+                        &sk.q,
+                        time
+                    )?
                 ).into()),
                 KeyRole::Subkey => Ok(Key::V4(
-                        Key4::<_, SubordinateRole>::import_secret_rsa_unchecked_e(
-                            &sk.e,
-                            &sk.d,
-                            &sk.p,
-                            &sk.q,
-                            time
-                        )?
+                    Key4::<_, SubordinateRole>::import_secret_rsa_unchecked_e(
+                        &sk.e,
+                        &sk.d,
+                        &sk.p,
+                        &sk.q,
+                        time
+                    )?
                 ).into()),
             }
         },
@@ -1184,7 +1183,8 @@ fn maybe_proxied(endpoint: &str, ssl: NativeTlsClient) -> Result<HyperClient> {
             let proxy_port = uri.port().map_or(80, |p| p.as_u16());
 
             //  If host is in no_proxy, then don't use the proxy
-            let no_proxy = env::var(ENV_NO_PROXY).map(|list| NoProxy::parse(&list));
+            let no_proxy = env::var(ENV_NO_PROXY)
+                .map(|list| NoProxy::parse(&list));
             if let Ok(s) = no_proxy {
                 if s.is_no_proxy(endpoint_host, endpoint_port) {
                     return None
