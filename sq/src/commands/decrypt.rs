@@ -19,7 +19,7 @@ use crate::openpgp::parse::{
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
-use openpgp_dsm::DsmAgent;
+use openpgp_dsm::{Credentials, DsmAgent};
 
 use crate::{
     Config,
@@ -98,7 +98,7 @@ struct Helper<'a> {
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
     dumper: Option<PacketDumper>,
-    dsm_keys_names: Vec<String>,
+    dsm_keys_presecrets: Vec<(Credentials, String)>
 }
 
 impl<'a> Helper<'a> {
@@ -110,11 +110,11 @@ impl<'a> Helper<'a> {
         let mut keys: HashMap<KeyID, Box<dyn PrivateKey>> = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
-        let mut dsm_keys_names = Vec::new();
+        let mut dsm_keys_presecrets = Vec::new();
         for presecret in presecrets {
             match presecret {
-                PreSecret::Dsm(name) => {
-                    dsm_keys_names.push(name);
+                PreSecret::Dsm(credentials, name) => {
+                    dsm_keys_presecrets.push((credentials, name));
                 }
                 PreSecret::InMemory(tsk) => {
                     let hint = match tsk.with_policy(&config.policy, None)
@@ -161,7 +161,7 @@ impl<'a> Helper<'a> {
             } else {
                 None
             },
-            dsm_keys_names,
+            dsm_keys_presecrets,
         }
     }
 
@@ -217,9 +217,9 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
-        for dsm_key in &self.dsm_keys_names {
+        for dsm_key in &self.dsm_keys_presecrets {
             for pkesk in pkesks {
-                let decryptor = DsmAgent::new_decryptor(&dsm_key)?;
+                let decryptor = DsmAgent::new_decryptor(dsm_key.0.clone(), &dsm_key.1)?;
                 if let Some(fp) = self.try_decrypt(pkesk, sym_algo, Box::new(decryptor),
                     &mut decrypt) {
                     return Ok(fp);

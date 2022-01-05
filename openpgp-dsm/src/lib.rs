@@ -2,8 +2,14 @@
 //!
 //! This module implements the necessary logic to use secrets stored inside
 //! Fortanix DSM for low-level signing and decryption operations, given proper
-//! credentials (namely, the `FORTANIX_API_KEY` and `FORTANIX_API_ENDPOINT`
-//! environment variables).
+//! credentials.
+//!
+//! # Env variables for authentication with DSM
+//!
+//! - `FORTANIX_API_ENDPOINT`
+//! - `FORTANIX_API_KEY`
+//! - `FORTANIX_PKCS12_ID`, absolute path for a PKCS12 file (.pfx or .p12)
+//! - `FORTANIX_APP_UUID`, required for certificate-based authentication
 //!
 //! # Proxy configuration
 //!
@@ -15,6 +21,8 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
+use std::io::Read;
+use std::fs::File;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -25,6 +33,7 @@ use http::uri::Uri;
 use hyper::client::{Client as HyperClient, ProxyConfig};
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
+use hyper_native_tls::native_tls::{TlsConnector, Identity};
 use ipnetwork::IpNetwork;
 use log::info;
 use sdkms::api_model::Algorithm::Rsa;
@@ -68,43 +77,122 @@ pub struct DsmAgent {
     role:        Role,
 }
 
-const ENV_API_KEY: &str = "FORTANIX_API_KEY";
+const DSM_LABEL_PGP:    &str = "sq_dsm";
+const ENV_API_KEY:      &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
-const ENV_HTTP_PROXY: &str = "http_proxy";
-const ENV_NO_PROXY: &str = "no_proxy";
-const DSM_LABEL_PGP: &str = "sq_dsm";
-const MIN_DSM_VERSION: &str = "4.2.0";
+const ENV_APP_UUID:     &str = "FORTANIX_APP_UUID";
+const ENV_HTTP_PROXY:   &str = "http_proxy";
+const ENV_NO_PROXY:     &str = "no_proxy";
+const ENV_P12:          &str = "FORTANIX_PKCS12_ID";
+const MIN_DSM_VERSION:  &str = "4.2.0";
 
-struct Credentials {
+#[derive(Clone)]
+enum Auth {
+    ApiKey(String),
+    // App UUID and PKCS12 identity
+    Cert(Uuid, Identity),
+}
+
+#[derive(Clone)]
+pub struct Credentials {
     api_endpoint: String,
-    api_key:      String,
-    proxy:        Option<Arc<HyperClient>>,
+    auth:         Auth,
 }
 
 impl Credentials {
-    fn new_from_env() -> Result<Self> {
+    pub fn new_from_env() -> Result<Self> {
         let api_endpoint = env::var(ENV_API_ENDPOINT)
             .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
-        let api_key = env::var(ENV_API_KEY)
-            .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-        let proxy = decide_proxy_from_env(&api_endpoint);
 
-        Ok(Self {
-            api_endpoint,
-            api_key,
-            proxy,
-        })
+        let auth = match (
+            env::var(ENV_API_KEY).ok(),
+            env::var(ENV_P12).ok(),
+        ) {
+            (Some(api_key), other) => {
+                if other.is_some() {
+                    println!("Both {}, {} are set, using API key auth",
+                        ENV_API_KEY, ENV_P12);
+                }
+                Auth::ApiKey(api_key)
+            },
+            (None, Some(cert_file)) => {
+                let app_uuid = Uuid::parse_str(
+                    &env::var(ENV_APP_UUID).context(
+                        format!("Need {} for cert-based auth", ENV_APP_UUID))?
+                ).context("bad app UUID")?;
+                let mut cert_stream = File::open(cert_file.clone())
+                    .context(format!("opening {}", cert_file))?;
+                let mut cert = Vec::new();
+                cert_stream.read_to_end(&mut cert)
+                    .context(format!("reading {}", cert_file))?;
+                // Try to unlock certificate without password
+                let mut first = true;
+                let id = if let Ok(id) = Identity::from_pkcs12(&cert, "") {
+                    id
+                } else {
+                    loop {
+                        // Prompt the user for PKCS12 password
+                        match rpassword::read_password_from_tty(
+                            Some(
+                                &format!(
+                                    "{}Enter password to unlock {}: ",
+                                    if first { "" } else { "Invalid password. " },
+                                    cert_file))
+                        ) {
+                            Ok(p) => {
+                                first = false;
+                                if let Ok(id) = Identity::from_pkcs12(&cert, &p) {
+                                    break id;
+                                }
+                            },
+                            Err(err) => {
+                                return Err(Error::msg(format!(
+                                            "While reading password: {}", err)
+                                ));
+                            }
+                        }
+                    }
+                };
+                Auth::Cert(app_uuid, id)
+            }
+            (None, None) => return Err(Error::msg(format!(
+                        "at least one of {}, {} env var is needed",
+                        ENV_API_KEY, ENV_P12))),
+        };
+
+        Ok(Self { api_endpoint, auth })
     }
 
     fn http_client(&self) -> Result<DsmClient> {
-        let mut builder = DsmClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key);
-        if let Some(proxy) = &self.proxy {
-            builder = builder.with_hyper_client(proxy.clone());
-        }
-        let cli = builder.build()
-            .context("could not initiate a DSM client")?;
+        let builder = DsmClient::builder()
+            .with_api_endpoint(&self.api_endpoint);
+
+        let cli = match &self.auth {
+            Auth::ApiKey(api_key) => {
+                let tls_conn = TlsConnector::builder()
+                    .build()?;
+                let ssl = NativeTlsClient::from(tls_conn);
+                let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
+                let cli = builder
+                    .with_hyper_client(Arc::new(hyper_client))
+                    .build()
+                    .context("could not initiate a DSM client")?;
+                cli.authenticate_with_api_key(&api_key)?
+            },
+            Auth::Cert(app_uuid, identity) => {
+                let tls_conn = TlsConnector::builder()
+                    .identity(identity.clone())
+                    .build()?;
+                let ssl = NativeTlsClient::from(tls_conn);
+                let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
+                let cli = builder
+                    .with_hyper_client(Arc::new(hyper_client))
+                    .build()
+                    .context("could not initiate a DSM client")?;
+                cli.authenticate_with_cert(Some(&app_uuid))?
+            }
+        };
+
         let min = VersionReq::parse(&(">=".to_string() + MIN_DSM_VERSION))?;
         let ver = Version::parse(&cli.version()?.version)?;
         if min.matches(&ver) {
@@ -128,8 +216,7 @@ enum Role {
 impl DsmAgent {
     /// Returns a DsmAgent with signing capabilities, corresponding to the given
     /// key name.
-    pub fn new_signer(key_name: &str) -> Result<Self> {
-        let credentials = Credentials::new_from_env()?;
+    pub fn new_signer(credentials: Credentials, key_name: &str) -> Result<Self> {
         let http_client = credentials.http_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
@@ -148,8 +235,7 @@ impl DsmAgent {
 
     /// Returns a DsmAgent with decryption capabilities, corresponding to the
     /// given key name.
-    pub fn new_decryptor(key_name: &str) -> Result<Self> {
-        let credentials = Credentials::new_from_env()?;
+    pub fn new_decryptor(credentials: Credentials, key_name: &str) -> Result<Self> {
         let http_client = credentials.http_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
@@ -168,10 +254,10 @@ impl DsmAgent {
                 .context("could not get subkey".to_string())?;
             let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
             Ok(DsmAgent {
+                credentials,
                 descriptor,
                 public: key.sequoia_key.expect("key is not loaded"),
                 role: Role::Decryptor,
-                credentials,
             })
         } else {
             Err(Error::msg("was not able to get decryption subkey"))
@@ -302,7 +388,7 @@ pub fn generate_key(
         .into();
     let prim_creation_time = prim.creation_time();
 
-    let mut prim_signer = DsmAgent::new_signer(&key_name)?;
+    let mut prim_signer = DsmAgent::new_signer(credentials, &key_name)?;
 
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
@@ -772,7 +858,7 @@ impl Decryptor for DsmAgent {
             return Err(Error::msg("bad role for DSM agent"));
         }
 
-        let mut cli = self.credentials.http_client()
+        let cli = self.credentials.http_client()
             .expect("could not initialize the http client");
 
         match ciphertext {
@@ -798,9 +884,6 @@ impl Decryptor for DsmAgent {
                     mpi::PublicKey::ECDH { curve, .. } => curve,
                     _ => panic!("inconsistent pk algo"),
                 };
-
-                cli = cli.authenticate_with_api_key(&self.credentials.api_key)
-                    .expect("bad authentication");
 
                 let ephemeral_der = der::serialize::spki_ecdh(curve, e);
 
@@ -978,22 +1061,22 @@ fn secret_packet_from_sobject(
             let sk = der::parse::rsa_private_edpq(&raw_secret)?;
             match role {
                 KeyRole::Primary => Ok(Key::V4(
-                        Key4::<_, PrimaryRole>::import_secret_rsa_unchecked_e(
-                            &sk.e,
-                            &sk.d,
-                            &sk.p,
-                            &sk.q,
-                            time
-                        )?
+                    Key4::<_, PrimaryRole>::import_secret_rsa_unchecked_e(
+                        &sk.e,
+                        &sk.d,
+                        &sk.p,
+                        &sk.q,
+                        time
+                    )?
                 ).into()),
                 KeyRole::Subkey => Ok(Key::V4(
-                        Key4::<_, SubordinateRole>::import_secret_rsa_unchecked_e(
-                            &sk.e,
-                            &sk.d,
-                            &sk.p,
-                            &sk.q,
-                            time
-                        )?
+                    Key4::<_, SubordinateRole>::import_secret_rsa_unchecked_e(
+                        &sk.e,
+                        &sk.d,
+                        &sk.p,
+                        &sk.q,
+                        time
+                    )?
                 ).into()),
             }
         },
@@ -1089,35 +1172,43 @@ impl FromStr for NoProxyEntry {
     }
 }
 
-fn decide_proxy_from_env(endpoint: &str) -> Option<Arc<HyperClient>> {
-    let uri = endpoint.parse::<Uri>().ok()?;
-    let endpoint_host = uri.host()?;
-    let endpoint_port = uri.port().map_or(80, |p| p.as_u16());
-    if let Ok(proxy) = env::var(ENV_HTTP_PROXY) {
-        let uri = proxy.parse::<Uri>().ok()?;
-        let proxy_host = uri.host()?;
-        let proxy_port = uri.port().map_or(80, |p| p.as_u16());
+fn maybe_proxied(endpoint: &str, ssl: NativeTlsClient) -> Result<HyperClient> {
+    fn decide_proxy_from_env(endpoint: &str) -> Option<(String, u16)> {
+        let uri = endpoint.parse::<Uri>().ok()?;
+        let endpoint_host = uri.host()?;
+        let endpoint_port = uri.port().map_or(80, |p| p.as_u16());
+        if let Ok(proxy) = env::var(ENV_HTTP_PROXY) {
+            let uri = proxy.parse::<Uri>().ok()?;
+            let proxy_host = uri.host()?;
+            let proxy_port = uri.port().map_or(80, |p| p.as_u16());
 
-        //  If host is in no_proxy, then don't use the proxy
-        let no_proxy = env::var(ENV_NO_PROXY).map(|list| NoProxy::parse(&list));
-        if let Ok(s) = no_proxy {
-            if s.is_no_proxy(endpoint_host, endpoint_port) {
-                return None;
+            //  If host is in no_proxy, then don't use the proxy
+            let no_proxy = env::var(ENV_NO_PROXY)
+                .map(|list| NoProxy::parse(&list));
+            if let Ok(s) = no_proxy {
+                if s.is_no_proxy(endpoint_host, endpoint_port) {
+                    return None
+                }
             }
+
+            Some((proxy_host.to_string(), proxy_port))
+        } else {
+            None
         }
-
-        let hyper_client = HyperClient::with_proxy_config(ProxyConfig::new(
-            "http",
-            proxy_host.to_string(),
-            proxy_port,
-            HttpsConnector::new(NativeTlsClient::new().ok()?),
-            NativeTlsClient::new().ok()?,
-        ));
-
-        return Some(Arc::new(hyper_client));
     }
 
-    None
+    let https_conn = HttpsConnector::new(ssl);
+    if let Some((proxy_host, proxy_port)) = decide_proxy_from_env(&endpoint) {
+        Ok(HyperClient::with_proxy_config(ProxyConfig::new(
+                    "http",
+                    proxy_host.to_string(),
+                    proxy_port,
+                    https_conn,
+                    NativeTlsClient::new()?,
+        )))
+    } else {
+        Ok(HyperClient::with_connector(https_conn))
+    }
 }
 
 fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {

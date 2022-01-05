@@ -36,6 +36,7 @@ install: build-release
 	$(MAKE) -C../store install
 
 test-dsm:
+	cargo run -- --version
 	./tests/dsm/key_expiration.sh --rsa2k
 	./tests/dsm/key_expiration.sh --rsa3k
 	./tests/dsm/key_expiration.sh --rsa4k
