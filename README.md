@@ -31,6 +31,9 @@ variables need to be set in order to communicate with DSM.
   ```
   If a password is set for the PKCS12 file, then `sq-dsm` will ask for it on
   each key usage (which can happen several times on one PGP operation).
+- `FORTANIX_APP_UUID`, the UUID of your DSM app, for certificate-based
+  authentication (e.g., this environment variable is used together with
+  `FORTANIX_PKCS12_ID`).
 
 ### Example usage of added options
 
