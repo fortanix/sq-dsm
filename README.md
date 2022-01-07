@@ -21,8 +21,19 @@ Install requirements for [rust-mbedtls][rust-mbedtls]. The following
 variables need to be set in order to communicate with DSM.
 
 - `FORTANIX_API_ENDPOINT`, your DSM API endpoint,
-- `FORTANIX_API_KEY`, your app's API key.
-
+- `FORTANIX_API_KEY`, your app's API key. It overrides `FORTANIX_PKCS12_ID`.
+- `FORTANIX_PKCS12_ID`, the absolute path of a PKCS12 identity file, for
+  certificate-based authentication. Given a PKCS8 pair `private.key` and
+  `public.crt`, the public certificate needs to be configured in DSM for your
+  app, and the PKCS12 file can be generated with e.g.
+  ```
+  openssl pkcs12 -export -out identity.pfx -inkey private.key -in public.crt
+  ```
+  If a password is set for the PKCS12 file, then `sq-dsm` will ask for it on
+  each key usage (which can happen several times on one PGP operation).
+- `FORTANIX_APP_UUID`, the UUID of your DSM app, for certificate-based
+  authentication (e.g., this environment variable is used together with
+  `FORTANIX_PKCS12_ID`).
 
 ### Example usage of added options
 
