@@ -80,16 +80,18 @@ pub struct DsmAgent {
     role:        Role,
 }
 
-const DSM_LABEL_PGP:       &str = "sq_dsm";
-const ENV_API_KEY:         &str = "FORTANIX_API_KEY";
-const ENV_API_ENDPOINT:    &str = "FORTANIX_API_ENDPOINT";
-const ENV_APP_UUID:        &str = "FORTANIX_APP_UUID";
-const ENV_HTTP_PROXY:      &str = "http_proxy";
-const ENV_NO_PROXY:        &str = "no_proxy";
-const ENV_P12:             &str = "FORTANIX_PKCS12_ID";
-const MIN_DSM_VERSION:     &str = "4.2.0";
+/// The version of this crate.
+pub const SQ_DSM_VERSION: &str = env!("CARGO_PKG_VERSION");
+const DSM_LABEL_PGP:      &str = "sq_dsm";
+const ENV_API_KEY:        &str = "FORTANIX_API_KEY";
+const ENV_API_ENDPOINT:   &str = "FORTANIX_API_ENDPOINT";
+const ENV_APP_UUID:       &str = "FORTANIX_APP_UUID";
+const ENV_HTTP_PROXY:     &str = "http_proxy";
+const ENV_NO_PROXY:       &str = "no_proxy";
+const ENV_P12:            &str = "FORTANIX_PKCS12_ID";
+const MIN_DSM_VERSION:    &str = "4.2.0";
 // As seen on sdkms-client-rust/blob/master/examples/approval_request.rs
-const OP_APPROVAL_MSG:     &str = "This operation requires approval";
+const OP_APPROVAL_MSG:    &str = "This operation requires approval";
 
 #[derive(Clone)]
 pub enum Auth {
@@ -99,51 +101,73 @@ pub enum Auth {
 }
 
 impl Auth {
-    // Endpoint AND (API key OR (app UUID, p12 file))
-    pub fn maybe_from_options(
-        maybe_api_key: Option<&str>,
-        maybe_client_cert: (Option<&str>, Option<&str>),
+    pub fn from_options_or_env(
+        cli_api_key: Option<&str>,
+        cli_client_cert: Option<&str>,
+        cli_app_uuid: Option<&str>,
     ) -> Result<Self> {
-        match (maybe_api_key, maybe_client_cert) {
-            (Some(api_key), _) => Ok(Auth::ApiKey(api_key.to_string())),
-            (None, (Some(app_uuid), Some(cert_file))) => {
-                let app_uuid = Uuid::parse_str(app_uuid)
-                    .context("bad app UUID")?;
-                let id = try_unlock_p12(cert_file.to_string())?;
-
-                Ok(Auth::Cert(app_uuid, id))
+        // Try API key
+        let api_key = match (cli_api_key, env::var(ENV_API_KEY).ok()) {
+            (Some(api_key), None) => Some(api_key.to_string()),
+            (None, Some(api_key)) => Some(api_key),
+            (Some(api_key), Some(_)) => {
+                println!(
+                    "API key both in parameters and env; ignoring env"
+                );
+                Some(api_key.to_string())
             },
-            (None, (Some(_), None)) | (None, (None, Some(_))) => {
-                return Err(Error::msg(format!(
-                            "both --app-uuid and --client-cert are needed")
-                ))
-            },
-            (None, (None, None)) => {
-                match ( // If auth not given, then get it from env
-                    env::var(ENV_API_KEY).ok(),
-                    env::var(ENV_P12).ok(),
-                ) {
-                    (Some(api_key), other) => {
-                        if other.is_some() {
-                            println!("Both {}, {} are set, using API key auth",
-                                ENV_API_KEY, ENV_P12);
-                        }
-                        Ok(Auth::ApiKey(api_key))
-                    },
-                    (None, Some(cert_file)) => {
-                        let app_uuid = Uuid::parse_str(
-                            &env::var(ENV_APP_UUID).context(
-                                format!("Need {} for cert-based auth", ENV_APP_UUID))?
-                        ).context("bad app UUID")?;
-                        let id = try_unlock_p12(cert_file)?;
+            (None, None) => None,
+        };
 
-                        Ok(Auth::Cert(app_uuid, id))
-                    },
-                    (None, None) => return Err(Error::msg(format!(
-                                "at least one of {}, {} env var is needed",
-                                ENV_API_KEY, ENV_P12))),
-                }
+        // Try client cert
+        let cert_based = {
+            let client_cert = match (cli_client_cert, env::var(ENV_P12).ok()) {
+                (Some(cert), None) => Some(cert.to_string()),
+                (None, Some(cert)) => Some(cert),
+                (Some(cert), Some(_)) => {
+                    println!(
+                        "P12 cert both in parameters and env; ignoring env"
+                    );
+                    Some(cert.to_string())
+                },
+                (None, None) => None,
+            };
+
+            let app_uuid = match (cli_app_uuid, env::var(ENV_APP_UUID).ok()) {
+                (Some(id), None) => Some(id.to_string()),
+                (None, Some(id)) => Some(id),
+                (Some(id), Some(_)) => {
+                    println!(
+                        "APP UUID both in parameters and env; ignoring env"
+                    );
+                    Some(id.to_string())
+                },
+                (None, None) => None,
+            };
+
+            match (client_cert, app_uuid) {
+                (Some(cert), Some(uuid)) => Some((cert, uuid)),
+                _ => None,
             }
+        };
+
+        match (api_key, cert_based) {
+            (Some(api_key), None) => Ok(Auth::ApiKey(api_key)),
+            (Some(api_key), Some(_)) => {
+                println!(
+                    "Multiple auth methods found. Using API key"
+                );
+
+                Ok(Auth::ApiKey(api_key))
+            },
+            (None, Some((client_cert, app_uuid))) => {
+                let p12_id = try_unlock_p12(client_cert)?;
+
+                let uuid = Uuid::parse_str(&app_uuid)
+                    .context("bad app UUID")?;
+                Ok(Auth::Cert(uuid, p12_id))
+            }
+            (None, None) => return Err(Error::msg("no auth credentials found")),
         }
     }
 }

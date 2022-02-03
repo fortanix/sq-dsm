@@ -84,7 +84,13 @@
 //!
 //! OPTIONS:
 //!         --api-key <API-KEY>
-//!             Authenticates to DSM using the given API key
+//!             Authenticates to Fortanix DSM using the given API key
+//!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App  (cert-based
+//!             authentication)
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
 //!
 //!         --compression <KIND>
 //!             Selects compression scheme to use [default: pad]  [possible values:
@@ -173,7 +179,13 @@
 //!
 //! OPTIONS:
 //!         --api-key <API-KEY>
-//!             Authenticates to DSM using the given API key
+//!             Authenticates to Fortanix DSM using the given API key
+//!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App  (cert-based
+//!             authentication)
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
 //!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Decrypts with secrets stored inside the Fortanix Self-Defending Key-
@@ -247,7 +259,13 @@
 //!
 //! OPTIONS:
 //!         --api-key <API-KEY>
-//!             Authenticates to DSM using the given API key
+//!             Authenticates to Fortanix DSM using the given API key
+//!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App  (cert-based
+//!             authentication)
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
 //!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Signs the message with the Fortanix DSM key
@@ -430,8 +448,11 @@
 //!
 //! OPTIONS:
 //!         --api-key <API-KEY>
-//!             Authenticates to DSM using the given API key
+//!             Authenticates to Fortanix DSM using the given API key
 //!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App  (cert-based
+//!             authentication)
 //!         --can-encrypt <PURPOSE>
 //!             Adds an encryption-capable subkey. Encryption-capable subkeys can be
 //!             marked as suitable for transport encryption, storage encryption, or
@@ -441,6 +462,9 @@
 //!             Selects the cryptographic algorithms for the key [default: cv25519]
 //!             [possible values: rsa2k, rsa3k, rsa4k, cv25519, nistp256, nistp384,
 //!             nistp521]
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
+//!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Generate secrets inside Fortanix DSM with the given name
 //!
@@ -551,11 +575,17 @@
 //!
 //! OPTIONS:
 //!         --api-key <API-KEY>
-//!             Authenticates to DSM using the given API key
+//!             Authenticates to Fortanix DSM using the given API key
+//!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App (cert-based
+//!             authentication)
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
 //!
 //!         --dsm-key <DSM-KEY-NAME>
-//!             Extracts the certificate from the Fortanix Self-Defending Key-
-//!             Management System
+//!             Extracts the certificate from Fortanix DSM
+//!
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
@@ -598,7 +628,13 @@
 //!
 //! OPTIONS:
 //!         --api-key <API-KEY>
-//!             Authenticates to DSM using the given API key
+//!             Authenticates to Fortanix DSM using the given API key
+//!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App  (cert-based
+//!             authentication)
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
 //!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Name of the DSM key

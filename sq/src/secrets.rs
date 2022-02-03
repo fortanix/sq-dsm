@@ -9,6 +9,7 @@ use sequoia_openpgp::packet::Key;
 use sequoia_openpgp::types::HashAlgorithm;
 
 pub use openpgp_dsm::Credentials;
+pub use openpgp_dsm::Auth;
 use openpgp_dsm::DsmAgent;
 
 /// A Secret can be a private key loaded from memory, or stored externally. It

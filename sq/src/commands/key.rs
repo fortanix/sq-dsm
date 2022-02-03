@@ -76,9 +76,10 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
 
     if let Some(dsm_key_name) = m.value_of("dsm-key") {
         // Fortanix DSM
-        let dsm_secret = dsm::Auth::maybe_from_options(
+        let dsm_secret = dsm::Auth::from_options_or_env(
             m.value_of("api-key"),
-            (m.value_of("app-uuid"), m.value_of("client-cert")),
+            m.value_of("client-cert"),
+            m.value_of("app-uuid"),
         )?;
         return dsm::generate_key(
             dsm_key_name,
@@ -299,9 +300,10 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     let cert = match m.value_of("dsm-key") {
         Some(key_name) => {
             // Fortanix DSM
-            let dsm_secret = dsm::Auth::maybe_from_options(
+            let dsm_secret = dsm::Auth::from_options_or_env(
                 m.value_of("api-key"),
-                (m.value_of("app-uuid"), m.value_of("client-cert")),
+                m.value_of("client-cert"),
+                m.value_of("app-uuid"),
             )?;
             let dsm_auth = dsm::Credentials::new(dsm_secret)?;
             dsm::extract_cert(key_name, dsm_auth)?
@@ -321,9 +323,10 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
 }
 
 fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
-    let dsm_secret = dsm::Auth::maybe_from_options(
+    let dsm_secret = dsm::Auth::from_options_or_env(
         m.value_of("api-key"),
-        (m.value_of("app-uuid"), m.value_of("client-cert")),
+        m.value_of("client-cert"),
+        m.value_of("app-uuid"),
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let key = match m.value_of("dsm-key") {
