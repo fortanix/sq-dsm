@@ -23,6 +23,7 @@ use crate::openpgp::packet::signature::subpacket::NotationDataFlags;
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
+use openpgp_dsm::Auth;
 
 mod sq_cli;
 mod commands;
@@ -411,6 +412,7 @@ fn main() -> Result<()> {
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
+
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output =
                 config.create_or_stdout_safe(m.value_of("output"))?;
@@ -436,8 +438,13 @@ fn main() -> Result<()> {
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
             if let Some(name) = m.value_of("dsm-key") {
-                let auth = Credentials::new_from_env()?;
-                secrets.push(PreSecret::Dsm(auth, name.to_string()));
+                // Fortanix DSM
+                let dsm_secret = Auth::maybe_from_options(
+                    m.value_of("api-key"),
+                    (m.value_of("app-uuid"), m.value_of("client-cert")),
+                )?;
+                let dsm_auth = Credentials::new(dsm_secret)?;
+                secrets.push(PreSecret::Dsm(dsm_auth, name.to_string()));
             }
             let private_key_store = m.value_of("private-key-store");
             commands::decrypt(config, private_key_store,
@@ -477,9 +484,14 @@ fn main() -> Result<()> {
             };
             let private_key_store = m.value_of("private-key-store");
             if let Some(name) = m.value_of("signer-dsm-key") {
-                let auth = Credentials::new_from_env()?;
+                // Fortanix DSM
+                let dsm_secret = Auth::maybe_from_options(
+                    m.value_of("api-key"),
+                    (m.value_of("app-uuid"), m.value_of("client-cert")),
+                )?;
+                let dsm_auth = Credentials::new(dsm_secret)?;
                 additional_secrets
-                    .push(secrets::PreSecret::Dsm(auth, name.to_string()));
+                    .push(secrets::PreSecret::Dsm(dsm_auth, name.to_string()));
             }
             commands::encrypt(commands::EncryptOpts {
                 policy,
@@ -537,8 +549,13 @@ fn main() -> Result<()> {
             }
 
             if let Some(name) = m.value_of("dsm-key") {
-                let auth = Credentials::new_from_env()?;
-                secrets.push(secrets::PreSecret::Dsm(auth, name.to_string()));
+                // Fortanix DSM
+                let dsm_secret = Auth::maybe_from_options(
+                    m.value_of("api-key"),
+                    (m.value_of("app-uuid"), m.value_of("client-cert"))
+                )?;
+                let dsm_auth = Credentials::new(dsm_secret)?;
+                secrets.push(secrets::PreSecret::Dsm(dsm_auth, name.to_string()));
             }
             if let Some(merge) = m.value_of("merge") {
                 let output = config.create_or_stdout_pgp(output, binary,
@@ -679,8 +696,13 @@ fn main() -> Result<()> {
                     .map(load_keys)
                     .unwrap_or_else(|| Ok(vec![]))?;
                 if let Some(name) = m.value_of("dsm-key") {
-                    let auth = Credentials::new_from_env()?;
-                    secrets.push(PreSecret::Dsm(auth, name.to_string()));
+                    // Fortanix DSM
+                    let dsm_secret = Auth::maybe_from_options(
+                        matches.value_of("api-key"),
+                        (m.value_of("app-uuid"), m.value_of("client-cert")),
+                    )?;
+                    let dsm_auth = Credentials::new(dsm_secret)?;
+                    secrets.push(PreSecret::Dsm(dsm_auth, name.to_string()));
                 }
                 commands::decrypt::decrypt_unwrap(
                     config,

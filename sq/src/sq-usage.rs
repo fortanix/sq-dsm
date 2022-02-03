@@ -83,6 +83,9 @@
 //!             back to using the one that expired last
 //!
 //! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to DSM using the given API key
+//!
 //!         --compression <KIND>
 //!             Selects compression scheme to use [default: pad]  [possible values:
 //!             none, pad, zip, zlib, bzip2]
@@ -169,6 +172,9 @@
 //!
 //!
 //! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to DSM using the given API key
+//!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Decrypts with secrets stored inside the Fortanix Self-Defending Key-
 //!             Management System
@@ -240,6 +246,9 @@
 //!
 //!
 //! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to DSM using the given API key
+//!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Signs the message with the Fortanix DSM key
 //!
@@ -420,6 +429,9 @@
 //!
 //!
 //! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to DSM using the given API key
+//!
 //!         --can-encrypt <PURPOSE>
 //!             Adds an encryption-capable subkey. Encryption-capable subkeys can be
 //!             marked as suitable for transport encryption, storage encryption, or
@@ -538,6 +550,9 @@
 //!
 //!
 //! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to DSM using the given API key
+//!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Extracts the certificate from the Fortanix Self-Defending Key-
 //!             Management System
@@ -582,6 +597,9 @@
 //!
 //!
 //! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to DSM using the given API key
+//!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Name of the DSM key
 //!

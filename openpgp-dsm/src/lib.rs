@@ -92,10 +92,60 @@ const MIN_DSM_VERSION:     &str = "4.2.0";
 const OP_APPROVAL_MSG:     &str = "This operation requires approval";
 
 #[derive(Clone)]
-enum Auth {
+pub enum Auth {
     ApiKey(String),
     // App UUID and PKCS12 identity
     Cert(Uuid, Identity),
+}
+
+impl Auth {
+    // Endpoint AND (API key OR (app UUID, p12 file))
+    pub fn maybe_from_options(
+        maybe_api_key: Option<&str>,
+        maybe_client_cert: (Option<&str>, Option<&str>),
+    ) -> Result<Self> {
+        match (maybe_api_key, maybe_client_cert) {
+            (Some(api_key), _) => Ok(Auth::ApiKey(api_key.to_string())),
+            (None, (Some(app_uuid), Some(cert_file))) => {
+                let app_uuid = Uuid::parse_str(app_uuid)
+                    .context("bad app UUID")?;
+                let id = try_unlock_p12(cert_file.to_string())?;
+
+                Ok(Auth::Cert(app_uuid, id))
+            },
+            (None, (Some(_), None)) | (None, (None, Some(_))) => {
+                return Err(Error::msg(format!(
+                            "both --app-uuid and --client-cert are needed")
+                ))
+            },
+            (None, (None, None)) => {
+                match ( // If auth not given, then get it from env
+                    env::var(ENV_API_KEY).ok(),
+                    env::var(ENV_P12).ok(),
+                ) {
+                    (Some(api_key), other) => {
+                        if other.is_some() {
+                            println!("Both {}, {} are set, using API key auth",
+                                ENV_API_KEY, ENV_P12);
+                        }
+                        Ok(Auth::ApiKey(api_key))
+                    },
+                    (None, Some(cert_file)) => {
+                        let app_uuid = Uuid::parse_str(
+                            &env::var(ENV_APP_UUID).context(
+                                format!("Need {} for cert-based auth", ENV_APP_UUID))?
+                        ).context("bad app UUID")?;
+                        let id = try_unlock_p12(cert_file)?;
+
+                        Ok(Auth::Cert(app_uuid, id))
+                    },
+                    (None, None) => return Err(Error::msg(format!(
+                                "at least one of {}, {} env var is needed",
+                                ENV_API_KEY, ENV_P12))),
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -225,65 +275,9 @@ impl <S: Into<Cow<'static, str>> + Display> OperateOrAskApproval<S> for DsmClien
 }
 
 impl Credentials {
-    pub fn new_from_env() -> Result<Self> {
+    pub fn new(auth: Auth) -> Result<Self> {
         let api_endpoint = env::var(ENV_API_ENDPOINT)
-            .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
-
-        let auth = match (
-            env::var(ENV_API_KEY).ok(),
-            env::var(ENV_P12).ok(),
-        ) {
-            (Some(api_key), other) => {
-                if other.is_some() {
-                    println!("Both {}, {} are set, using API key auth",
-                        ENV_API_KEY, ENV_P12);
-                }
-                Auth::ApiKey(api_key)
-            },
-            (None, Some(cert_file)) => {
-                let app_uuid = Uuid::parse_str(
-                    &env::var(ENV_APP_UUID).context(
-                        format!("Need {} for cert-based auth", ENV_APP_UUID))?
-                ).context("bad app UUID")?;
-                let mut cert_stream = File::open(cert_file.clone())
-                    .context(format!("opening {}", cert_file))?;
-                let mut cert = Vec::new();
-                cert_stream.read_to_end(&mut cert)
-                    .context(format!("reading {}", cert_file))?;
-                // Try to unlock certificate without password
-                let mut first = true;
-                let id = if let Ok(id) = Identity::from_pkcs12(&cert, "") {
-                    id
-                } else {
-                    loop {
-                        // Prompt the user for PKCS12 password
-                        match rpassword::read_password_from_tty(
-                            Some(
-                                &format!(
-                                    "{}Enter password to unlock {}: ",
-                                    if first { "" } else { "Invalid password. " },
-                                    cert_file))
-                        ) {
-                            Ok(p) => {
-                                first = false;
-                                if let Ok(id) = Identity::from_pkcs12(&cert, &p) {
-                                    break id;
-                                }
-                            },
-                            Err(err) => {
-                                return Err(Error::msg(format!(
-                                            "While reading password: {}", err)
-                                ));
-                            }
-                        }
-                    }
-                };
-                Auth::Cert(app_uuid, id)
-            }
-            (None, None) => return Err(Error::msg(format!(
-                        "at least one of {}, {} env var is needed",
-                        ENV_API_KEY, ENV_P12))),
-        };
+            .with_context(|| format!("{} absent", ENV_API_ENDPOINT))?;
 
         Ok(Self { api_endpoint, auth })
     }
@@ -448,6 +442,7 @@ pub fn generate_key(
     user_id: Option<&str>,
     algo: Option<&str>,
     exportable: bool,
+    credentials: Credentials,
 ) -> Result<()> {
     // User ID
     let uid: UserID = match user_id {
@@ -467,7 +462,6 @@ pub fn generate_key(
         _ => unreachable!("argument has a default value"),
     };
 
-    let credentials = Credentials::new_from_env()?;
     let dsm_client = credentials.dsm_client()?;
 
     info!("create primary key");
@@ -611,10 +605,9 @@ pub fn generate_key(
 /// Extracts the certificate of the corresponding PGP key. Note that this
 /// certificate, created at key-generation time, is stored in the custom
 /// metadata of the Security Object representing the primary key.
-pub fn extract_cert(key_name: &str) -> Result<Cert> {
+pub fn extract_cert(key_name: &str, cred: Credentials) -> Result<Cert> {
     info!("dsm extract_cert");
-    let credentials = Credentials::new_from_env()?;
-    let dsm_client = credentials.dsm_client()?;
+    let dsm_client = cred.dsm_client()?;
 
     let metadata = {
         let sobject = dsm_client
@@ -635,10 +628,9 @@ pub fn extract_cert(key_name: &str) -> Result<Cert> {
     Ok(Cert::from_str(&key_md.certificate)?)
 }
 
-pub fn extract_tsk_from_dsm(key_name: &str) -> Result<Cert> {
+pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
     // Extract all secrets as packets
-    let credentials = Credentials::new_from_env()?;
-    let dsm_client = credentials.dsm_client()?;
+    let dsm_client = cred.dsm_client()?;
 
     let mut packets = Vec::<Packet>::with_capacity(2);
 
@@ -1375,5 +1367,41 @@ fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
         SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
         SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
         curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
+    }
+}
+
+fn try_unlock_p12(cert_file: String) -> Result<Identity> {
+    let mut cert_stream = File::open(cert_file.clone())
+        .context(format!("opening {}", cert_file))?;
+    let mut cert = Vec::new();
+    cert_stream.read_to_end(&mut cert)
+        .context(format!("reading {}", cert_file))?;
+    // Try to unlock certificate without password first
+    let mut first = true;
+    if let Ok(id) = Identity::from_pkcs12(&cert, "") {
+        Ok(id)
+    } else {
+        loop {
+            // Prompt the user for PKCS12 password
+            match rpassword::read_password_from_tty(
+                Some(
+                    &format!(
+                        "{}Enter password to unlock {}: ",
+                        if first { "" } else { "Invalid password. " },
+                        cert_file))
+            ) {
+                Ok(p) => {
+                    first = false;
+                    if let Ok(id) = Identity::from_pkcs12(&cert, &p) {
+                        break Ok(id)
+                    }
+                },
+                Err(err) => {
+                    return Err(Error::msg(format!(
+                                "While reading password: {}", err)
+                    ));
+                }
+            }
+        }
     }
 }
