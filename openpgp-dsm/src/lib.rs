@@ -89,7 +89,6 @@ const ENV_P12:             &str = "FORTANIX_PKCS12_ID";
 const MIN_DSM_VERSION:     &str = "4.2.0";
 // As seen on sdkms-client-rust/blob/master/examples/approval_request.rs
 const OP_APPROVAL_MSG:     &str = "This operation requires approval";
-const APPROVAL_SECS_RETRY: u8   = 10;
 
 #[derive(Clone)]
 enum Auth {
@@ -118,6 +117,10 @@ trait OperateOrAskApproval {
     fn __decrypt(&self, req: &DecryptRequest, desc: String)
         -> Result<DecryptResponse>;
 
+    fn __export_sobject(&self, descriptor: &SobjectDescriptor, desc: String)
+        -> Result<Sobject>;
+
+    // Currently unsupported due to backend constraints.
     fn __agree(&self, req: &AgreeKeyRequest, desc: String)
         -> Result<Sobject>;
 }
@@ -129,10 +132,10 @@ impl OperateOrAskApproval for DsmClient {
         let id = pa.request_id();
         while pa.status(&self)? == ApprovalStatus::Pending {
             println!(
-                "Approval request {} ({}) pending, retrying in {} seconds...",
-                id, desc, APPROVAL_SECS_RETRY,
+                "Approval request {} ({}) pending. Press Enter to check status",
+                id, desc
             );
-            thread::sleep(Duration::from_secs(APPROVAL_SECS_RETRY.into()));
+            std::io::stdin().read_line(&mut String::new())?;
         }
         match pa.result(&self) {
             Ok(output) => {
@@ -184,6 +187,22 @@ impl OperateOrAskApproval for DsmClient {
                 info!("Creating DECRYPT approval request: {}", desc);
                 let pa = self.request_approval_to_decrypt(
                     req, Some(format!("sq-dsm: {}", desc))
+                )?;
+                self.__retry_until_resolved(&pa, desc)
+            }
+            Err(err) => Err(err.into()),
+            Ok(resp) => Ok(resp)
+        }
+    }
+
+    fn __export_sobject(
+        &self, descriptor: &SobjectDescriptor, desc: String
+    ) -> Result<Sobject> {
+        match self.export_sobject(descriptor) {
+            Err(DsmError::Forbidden(ref msg)) if msg == OP_APPROVAL_MSG => {
+                info!("Creating EXPORT approval request: {}", desc);
+                let pa = self.request_approval_to_export_sobject(
+                    descriptor, Some(format!("sq-dsm: {}", desc))
                 )?;
                 self.__retry_until_resolved(&pa, desc)
             }
@@ -626,7 +645,10 @@ pub fn extract_tsk_from_dsm(key_name: &str) -> Result<Cert> {
 
     // Primary key
     let prim_sob = dsm_client
-        .export_sobject(&SobjectDescriptor::Name(key_name.to_string()))
+        .__export_sobject(
+            &SobjectDescriptor::Name(key_name.to_string()),
+            "export primary key".into(),
+        )
         .context(format!("could not export primary secret {}", key_name))?;
     let key_md = KeyMetadata::from_primary_sobject(&prim_sob)?;
     let packet = secret_packet_from_sobject(&prim_sob, KeyRole::Primary)?;
@@ -636,7 +658,10 @@ pub fn extract_tsk_from_dsm(key_name: &str) -> Result<Cert> {
     if let Some(KeyLinks { subkeys, .. }) = prim_sob.links {
         for uid in &subkeys {
             let sob = dsm_client
-                .export_sobject(&SobjectDescriptor::Kid(*uid))
+                .__export_sobject(
+                    &SobjectDescriptor::Kid(*uid),
+                    "export subkey".into(),
+                )
                 .context(format!("could not export subkey secret {}", key_name))?;
             let packet = secret_packet_from_sobject(&sob, KeyRole::Subkey)?;
             packets.push(packet);
