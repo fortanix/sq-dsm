@@ -18,6 +18,8 @@
 //! i.e., if `http_proxy` is set and the DSM API endpoint is not in
 //! `no_proxy`, then a connection through said proxy is established.
 
+use core::fmt::Display;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
@@ -38,13 +40,14 @@ use ipnetwork::IpNetwork;
 use log::info;
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
-    AgreeKeyMechanism, AgreeKeyRequest, DecryptRequest, DigestAlgorithm,
-    EllipticCurve as ApiCurve, KeyLinks, KeyOperations, ObjectType,
-    RsaEncryptionPaddingPolicy, RsaEncryptionPolicy, RsaOptions,
-    RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest, Sobject,
-    SobjectDescriptor, SobjectRequest,
+    AgreeKeyMechanism, AgreeKeyRequest, ApprovalStatus, DecryptRequest,
+    DecryptResponse, DigestAlgorithm, EllipticCurve as ApiCurve, KeyLinks,
+    KeyOperations, ObjectType, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
+    RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest,
+    SignResponse, Sobject, SobjectDescriptor, SobjectRequest,
 };
-use sdkms::SdkmsClient as DsmClient;
+use sdkms::{SdkmsClient as DsmClient, Error as DsmError, PendingApproval};
+use sdkms::operations::Operation;
 use semver::{Version, VersionReq};
 use sequoia_openpgp::crypto::mem::Protected;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
@@ -77,14 +80,16 @@ pub struct DsmAgent {
     role:        Role,
 }
 
-const DSM_LABEL_PGP:    &str = "sq_dsm";
-const ENV_API_KEY:      &str = "FORTANIX_API_KEY";
-const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
-const ENV_APP_UUID:     &str = "FORTANIX_APP_UUID";
-const ENV_HTTP_PROXY:   &str = "http_proxy";
-const ENV_NO_PROXY:     &str = "no_proxy";
-const ENV_P12:          &str = "FORTANIX_PKCS12_ID";
-const MIN_DSM_VERSION:  &str = "4.2.0";
+const DSM_LABEL_PGP:       &str = "sq_dsm";
+const ENV_API_KEY:         &str = "FORTANIX_API_KEY";
+const ENV_API_ENDPOINT:    &str = "FORTANIX_API_ENDPOINT";
+const ENV_APP_UUID:        &str = "FORTANIX_APP_UUID";
+const ENV_HTTP_PROXY:      &str = "http_proxy";
+const ENV_NO_PROXY:        &str = "no_proxy";
+const ENV_P12:             &str = "FORTANIX_PKCS12_ID";
+const MIN_DSM_VERSION:     &str = "4.2.0";
+// As seen on sdkms-client-rust/blob/master/examples/approval_request.rs
+const OP_APPROVAL_MSG:     &str = "This operation requires approval";
 
 #[derive(Clone)]
 enum Auth {
@@ -97,6 +102,126 @@ enum Auth {
 pub struct Credentials {
     api_endpoint: String,
     auth:         Auth,
+}
+
+trait OperateOrAskApproval<S: Into<Cow<'static, str>> + Display> {
+    fn __retry_until_resolved<O: Operation>(&self, pa: &PendingApproval<O>, desc: S)
+        -> Result<O::Output>;
+
+    fn __update_sobject(&self, uuid: &Uuid, req: &SobjectRequest, desc: S)
+        -> Result<Sobject>;
+
+    fn __sign(&self, req: &SignRequest, desc: S)
+        -> Result<SignResponse>;
+
+    fn __decrypt(&self, req: &DecryptRequest, desc: S)
+        -> Result<DecryptResponse>;
+
+    fn __export_sobject(&self, descriptor: &SobjectDescriptor, desc: S)
+        -> Result<Sobject>;
+
+    // Currently unsupported due to backend constraints.
+    fn __agree(&self, req: &AgreeKeyRequest, desc: S)
+        -> Result<Sobject>;
+}
+
+impl <S: Into<Cow<'static, str>> + Display> OperateOrAskApproval<S> for DsmClient {
+    fn __retry_until_resolved<O: Operation>(
+        &self, pa: &PendingApproval<O>, desc: S
+    ) -> Result<O::Output> {
+        let id = pa.request_id();
+        while pa.status(&self)? == ApprovalStatus::Pending {
+            println!(
+                "Approval request {} ({}) pending. Press Enter to check status",
+                id, desc
+            );
+            std::io::stdin().read_line(&mut String::new())?;
+        }
+        match pa.result(&self) {
+            Ok(output) => {
+                println!("Approval request {} approved", id);
+                output.map_err(|e|e.into())
+            }
+            Err(e) => {
+                println!("Approval request {} denied", id);
+                Err(e.into())
+            }
+        }
+    }
+
+    fn __update_sobject(
+        &self, uuid: &Uuid, req: &SobjectRequest, desc: S
+    ) -> Result<Sobject> {
+        match self.update_sobject(uuid, req) {
+            Err(DsmError::Forbidden(ref msg)) if msg == OP_APPROVAL_MSG => {
+                info!("Creating UPDATE approval request: {}", desc);
+                let pa = self.request_approval_to_update_sobject(
+                    uuid, req, Some(format!("sq-dsm: {}", desc))
+                )?;
+                self.__retry_until_resolved(&pa, desc)
+            }
+            Err(err) => Err(err.into()),
+            Ok(resp) => Ok(resp)
+        }
+    }
+
+    fn __sign(&self, req: &SignRequest, desc: S) -> Result<SignResponse> {
+        match self.sign(req) {
+            Err(DsmError::Forbidden(ref msg)) if msg == OP_APPROVAL_MSG => {
+                info!("Creating SIGN approval request: {}", desc);
+                let pa = self.request_approval_to_sign(
+                    req, Some(format!("sq-dsm: {}", desc))
+                )?;
+                self.__retry_until_resolved(&pa, desc)
+            }
+            Err(err) => Err(err.into()),
+            Ok(resp) => Ok(resp)
+        }
+    }
+
+    fn __decrypt(
+        &self, req: &DecryptRequest, desc: S
+    ) -> Result<DecryptResponse> {
+        match self.decrypt(req) {
+            Err(DsmError::Forbidden(ref msg)) if msg == OP_APPROVAL_MSG => {
+                info!("Creating DECRYPT approval request: {}", desc);
+                let pa = self.request_approval_to_decrypt(
+                    req, Some(format!("sq-dsm: {}", desc))
+                )?;
+                self.__retry_until_resolved(&pa, desc)
+            }
+            Err(err) => Err(err.into()),
+            Ok(resp) => Ok(resp)
+        }
+    }
+
+    fn __export_sobject(
+        &self, descriptor: &SobjectDescriptor, desc: S
+    ) -> Result<Sobject> {
+        match self.export_sobject(descriptor) {
+            Err(DsmError::Forbidden(ref msg)) if msg == OP_APPROVAL_MSG => {
+                info!("Creating EXPORT approval request: {}", desc);
+                let pa = self.request_approval_to_export_sobject(
+                    descriptor, Some(format!("sq-dsm: {}", desc))
+                )?;
+                self.__retry_until_resolved(&pa, desc)
+            }
+            Err(err) => Err(err.into()),
+            Ok(resp) => Ok(resp)
+        }
+    }
+
+    fn __agree(&self, req: &AgreeKeyRequest, _desc: S) -> Result<Sobject> {
+        match self.agree(req) {
+            Err(DsmError::Forbidden(ref msg)) if msg == OP_APPROVAL_MSG => {
+                // FIXME: In DSM, AGREEKEY results in a transient key which
+                // cannot be retrieved with the DSM client.
+                Err(Error::msg("Quorum approval for EC decryption unsupported"))
+            }
+            Err(err) => Err(err.into()),
+            Ok(resp) => Ok(resp)
+        }
+    }
 }
 
 impl Credentials {
@@ -163,7 +288,7 @@ impl Credentials {
         Ok(Self { api_endpoint, auth })
     }
 
-    fn http_client(&self) -> Result<DsmClient> {
+    fn dsm_client(&self) -> Result<DsmClient> {
         let builder = DsmClient::builder()
             .with_api_endpoint(&self.api_endpoint);
 
@@ -217,10 +342,10 @@ impl DsmAgent {
     /// Returns a DsmAgent with signing capabilities, corresponding to the given
     /// key name.
     pub fn new_signer(credentials: Credentials, key_name: &str) -> Result<Self> {
-        let http_client = credentials.http_client()?;
+        let dsm_client = credentials.dsm_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
-        let sobject = http_client
+        let sobject = dsm_client
             .get_sobject(None, &descriptor)
             .context(format!("could not get primary key {}", key_name))?;
         let key = PublicKey::from_sobject(sobject, KeyRole::Primary)?;
@@ -228,7 +353,7 @@ impl DsmAgent {
         Ok(DsmAgent {
             credentials,
             descriptor,
-            public: key.sequoia_key.expect("key is not loaded"),
+            public: key.sequoia_key.context("key is not loaded")?,
             role: Role::Signer,
         })
     }
@@ -236,10 +361,10 @@ impl DsmAgent {
     /// Returns a DsmAgent with decryption capabilities, corresponding to the
     /// given key name.
     pub fn new_decryptor(credentials: Credentials, key_name: &str) -> Result<Self> {
-        let http_client = credentials.http_client()?;
+        let dsm_client = credentials.dsm_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
-        let sobject = http_client
+        let sobject = dsm_client
             .get_sobject(None, &descriptor)
             .context(format!("could not get primary key {}", key_name))?;
 
@@ -249,14 +374,14 @@ impl DsmAgent {
             }
             let uid = subkeys[0];
             let descriptor = SobjectDescriptor::Kid(uid);
-            let sobject = http_client
+            let sobject = dsm_client
                 .get_sobject(None, &descriptor)
                 .context("could not get subkey".to_string())?;
             let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
             Ok(DsmAgent {
                 credentials,
                 descriptor,
-                public: key.sequoia_key.expect("key is not loaded"),
+                public: key.sequoia_key.context("key is not loaded")?,
                 role: Role::Decryptor,
             })
         } else {
@@ -343,11 +468,11 @@ pub fn generate_key(
     };
 
     let credentials = Credentials::new_from_env()?;
-    let http_client = credentials.http_client()?;
+    let dsm_client = credentials.dsm_client()?;
 
     info!("create primary key");
     let primary = PublicKey::create(
-        &http_client,
+        &dsm_client,
         key_name.to_string(),
         KeyRole::Primary,
         &algorithm,
@@ -357,7 +482,7 @@ pub fn generate_key(
 
     info!("create decryption subkey");
     let subkey = PublicKey::create(
-        &http_client,
+        &dsm_client,
         key_name.to_string(),
         KeyRole::Subkey,
         &algorithm,
@@ -373,18 +498,19 @@ pub fn generate_key(
         links: Some(links),
         ..Default::default()
     };
+    dsm_client.__update_sobject(
+        &subkey.uid()?, &link_update_req, "bind subkey to primary key"
+    )?;
 
-    http_client.update_sobject(&subkey.uid()?, &link_update_req)?;
-
-    info!("generate certificate");
     // Primary + sig, UserID + sig, subkey + sig
     let mut packets = Vec::<Packet>::with_capacity(6);
 
     // Self-sign primary key
+    info!("generate certificate - self-sign primary key");
     let prim: Key<PublicParts, PrimaryRole> = primary
         .sequoia_key
         .clone()
-        .expect("unloaded primary key")
+        .context("unloaded primary key")?
         .into();
     let prim_creation_time = prim.creation_time();
 
@@ -416,6 +542,7 @@ pub fn generate_key(
     let mut cert = Cert::try_from(packets)?;
 
     // User ID + signature
+    info!("sign user ID");
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
         .set_features(Features::sequoia())?
@@ -435,10 +562,11 @@ pub fn generate_key(
     cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
 
     // Subkey + signature
+    info!("sign subkey");
     let subkey_public: Key<PublicParts, SubordinateRole> = subkey
         .sequoia_key
         .as_ref()
-        .expect("unloaded subkey")
+        .context("unloaded subkey")?
         .clone()
         .into();
     let subkey_creation_time = subkey_public.creation_time();
@@ -459,7 +587,6 @@ pub fn generate_key(
 
     info!("store certificate in DSM");
     let armored = String::from_utf8(cert.armored().to_vec()?)?;
-
     let key_md = KeyMetadata {
         certificate: armored,
     };
@@ -474,7 +601,9 @@ pub fn generate_key(
         ..Default::default()
     };
 
-    http_client.update_sobject(&primary.uid()?, &update_req)?;
+    dsm_client.__update_sobject(
+        &primary.uid()?, &update_req, "store PGP certificate as metadata"
+    )?;
 
     Ok(())
 }
@@ -485,10 +614,10 @@ pub fn generate_key(
 pub fn extract_cert(key_name: &str) -> Result<Cert> {
     info!("dsm extract_cert");
     let credentials = Credentials::new_from_env()?;
-    let http_client = credentials.http_client()?;
+    let dsm_client = credentials.dsm_client()?;
 
     let metadata = {
-        let sobject = http_client
+        let sobject = dsm_client
             .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
             .context(format!("could not get primary key {}", key_name))?;
 
@@ -509,13 +638,16 @@ pub fn extract_cert(key_name: &str) -> Result<Cert> {
 pub fn extract_tsk_from_dsm(key_name: &str) -> Result<Cert> {
     // Extract all secrets as packets
     let credentials = Credentials::new_from_env()?;
-    let http_client = credentials.http_client()?;
+    let dsm_client = credentials.dsm_client()?;
 
     let mut packets = Vec::<Packet>::with_capacity(2);
 
     // Primary key
-    let prim_sob = http_client
-        .export_sobject(&SobjectDescriptor::Name(key_name.to_string()))
+    let prim_sob = dsm_client
+        .__export_sobject(
+            &SobjectDescriptor::Name(key_name.to_string()),
+            "export primary key",
+        )
         .context(format!("could not export primary secret {}", key_name))?;
     let key_md = KeyMetadata::from_primary_sobject(&prim_sob)?;
     let packet = secret_packet_from_sobject(&prim_sob, KeyRole::Primary)?;
@@ -524,8 +656,11 @@ pub fn extract_tsk_from_dsm(key_name: &str) -> Result<Cert> {
     // Subkeys
     if let Some(KeyLinks { subkeys, .. }) = prim_sob.links {
         for uid in &subkeys {
-            let sob = http_client
-                .export_sobject(&SobjectDescriptor::Kid(*uid))
+            let sob = dsm_client
+                .__export_sobject(
+                    &SobjectDescriptor::Kid(*uid),
+                    "export subkey",
+                )
                 .context(format!("could not export subkey secret {}", key_name))?;
             let packet = secret_packet_from_sobject(&sob, KeyRole::Subkey)?;
             packets.push(packet);
@@ -772,8 +907,8 @@ impl Signer for DsmAgent {
         if self.role != Role::Signer {
             return Err(Error::msg("bad role for DSM agent"));
         }
-        let http_client = self.credentials.http_client()
-            .expect("could not initialize the http client");
+        let dsm_client = self.credentials.dsm_client()
+            .context("could not initialize the http client")?;
 
         let hash_alg = match hash_algo {
             HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
@@ -794,8 +929,8 @@ impl Signer for DsmAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)
-                    .expect("bad response for signature request");
+                let sign_resp = dsm_client.__sign(&sign_req, "signature")
+                    .context("bad response for signature request")?;
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 Ok(mpi::Signature::RSA { s: plain.into() })
@@ -809,8 +944,8 @@ impl Signer for DsmAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)
-                    .expect("bad response for signature request");
+                let sign_resp = dsm_client.__sign(&sign_req, "signature")
+                    .context("bad response for signature request")?;
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 Ok(mpi::Signature::EdDSA {
@@ -827,12 +962,12 @@ impl Signer for DsmAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)
-                    .expect("bad response for signature request");
+                let sign_resp = dsm_client.__sign(&sign_req, "signature")
+                    .context("bad response for signature request")?;
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 let (r, s) = der::parse::ecdsa_r_s(&plain)
-                    .expect("could not decode ECDSA der");
+                    .context("could not decode ECDSA der")?;
 
                 Ok(mpi::Signature::ECDSA {
                     r: r.to_vec().into(),
@@ -858,8 +993,8 @@ impl Decryptor for DsmAgent {
             return Err(Error::msg("bad role for DSM agent"));
         }
 
-        let cli = self.credentials.http_client()
-            .expect("could not initialize the http client");
+        let cli = self.credentials.dsm_client()
+            .context("could not initialize the http client")?;
 
         match ciphertext {
             mpi::Ciphertext::RSA { c } => {
@@ -874,8 +1009,8 @@ impl Decryptor for DsmAgent {
                 };
 
                 Ok(
-                    cli.decrypt(&decrypt_req)
-                    .expect("failed RSA decryption")
+                    cli.__decrypt(&decrypt_req, "decrypt session key")
+                    .context("failed RSA decryption")?
                     .plain.to_vec().into()
                 )
             }
@@ -890,7 +1025,7 @@ impl Decryptor for DsmAgent {
                 // Import ephemeral public key
                 let e_descriptor = {
                     let api_curve = api_curve_from_sequoia_curve(curve.clone())
-                        .expect("bad curve");
+                        .context("bad curve")?;
                     let req = SobjectRequest {
                         elliptic_curve: Some(api_curve),
                         key_ops: Some(KeyOperations::AGREEKEY),
@@ -901,10 +1036,10 @@ impl Decryptor for DsmAgent {
                     };
                     let e_tkey = cli
                         .import_sobject(&req)
-                        .expect("failed import ephemeral public key into DSM")
+                        .context("failed import ephemeral public key into DSM")?
                         .transient_key
-                        .expect("could not retrieve DSM transient key \
-                                 (representing ECDH ephemeral public key)");
+                        .context("could not retrieve DSM transient key \
+                                 (representing ECDH ephemeral public key)")?;
 
                     SobjectDescriptor::TransientKey(e_tkey)
                 };
@@ -921,7 +1056,7 @@ impl Decryptor for DsmAgent {
                         name:              None,
                         group_id:          None,
                         key_type:          ObjectType::Secret,
-                        key_size:          curve_key_size(&curve).expect("size"),
+                        key_size:          curve_key_size(&curve).context("size")?,
                         enabled:           true,
                         description:       None,
                         custom_metadata:   None,
@@ -931,23 +1066,23 @@ impl Decryptor for DsmAgent {
                     };
 
                     let agreed_tkey = cli
-                        .agree(&agree_req)
-                        .expect("failed ECDH agreement on DSM")
+                        .__agree(&agree_req, "ECDH exchange")
+                        .context("ECDH exchange")?
                         .transient_key
-                        .expect("could not retrieve agreed key");
+                        .context("could not retrieve agreed key")?;
 
                     let desc = SobjectDescriptor::TransientKey(agreed_tkey);
 
                     cli.export_sobject(&desc)
-                        .expect("could not export transient key")
+                        .context("could not export transient key")?
                         .value
-                        .expect("could not retrieve secret from sobject")
+                        .context("could not retrieve secret from sobject")?
                         .to_vec()
                         .into()
                 };
 
                 Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)
-                    .expect("could not unwrap the session key")
+                    .context("could not unwrap the session key")?
                     .to_vec()
                     .into())
             }

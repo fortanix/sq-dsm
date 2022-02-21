@@ -393,6 +393,7 @@ impl Config<'_> {
 fn main() -> Result<()> {
     let policy = &mut P::new();
 
+    env_logger::init();
     let matches = sq_cli::build().get_matches();
 
     let known_notations: Vec<&str> = matches.values_of("known-notation")
