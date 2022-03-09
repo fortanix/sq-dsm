@@ -25,9 +25,10 @@ pub fn configure(
     feature_autocrypt: bool,
 ) -> App<'static, 'static> {
     let version = Box::leak(
-        format!("{} (sequoia-openpgp {})",
+        format!("{} (sequoia-openpgp {}) (sq-dsm {})",
                 env!("CARGO_PKG_VERSION"),
-                sequoia_openpgp::VERSION)
+                sequoia_openpgp::VERSION,
+                openpgp_dsm::SQ_DSM_VERSION)
             .into_boxed_str()) as &str;
 
     let app = app
@@ -136,6 +137,18 @@ $ sq decrypt ciphertext.pgp
                     .arg(Arg::with_name("hex")
                          .short("x").long("hex")
                          .help("Prints a hexdump (implies --dump)"))
+                    .arg(Arg::with_name("api-key")
+                        .long("api-key").value_name("API-KEY")
+                        .help("Authenticates to Fortanix DSM using the given \
+                               API key"))
+                    .arg(Arg::with_name("client-cert")
+                        .long("client-cert").value_name("P12-FILE")
+                        .help("Authenticates to Fortanix DSM with the given client \
+                               certificate"))
+                    .arg(Arg::with_name("app-uuid")
+                        .long("app-uuid").value_name("APP-UUID")
+                        .help("Authenticates to Fortanix DSM with the given App  \
+                        (cert-based authentication)"))
                     .arg(Arg::with_name("dsm-key")
                         .long("dsm-key").value_name("DSM-KEY-NAME")
                         .help("Decrypts with secrets stored inside the \
@@ -185,6 +198,18 @@ $ sq encrypt --symmetric message.txt
                     .arg(Arg::with_name("private-key-store")
                          .long("private-key-store").value_name("KEY_STORE")
                          .help("Provides parameters for private key store"))
+                    .arg(Arg::with_name("api-key")
+                        .long("api-key").value_name("API-KEY")
+                        .help("Authenticates to Fortanix DSM using the given \
+                               API key"))
+                    .arg(Arg::with_name("client-cert")
+                        .long("client-cert").value_name("P12-FILE")
+                        .help("Authenticates to Fortanix DSM with the given client \
+                               certificate"))
+                    .arg(Arg::with_name("app-uuid")
+                        .long("app-uuid").value_name("APP-UUID")
+                        .help("Authenticates to Fortanix DSM with the given App  \
+                        (cert-based authentication)"))
                     .arg(Arg::with_name("signer-dsm-key")
                          .long("signer-dsm-key").value_name("DSM-KEY-NAME")
                          .help("Signs the message with a key stored in Fortanix \
@@ -297,6 +322,18 @@ $ sq sign --detached --signer-key juliet.pgp message.txt
                          .long("signer-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
                          .help("Signs using KEY"))
+                    .arg(Arg::with_name("api-key")
+                        .long("api-key").value_name("API-KEY")
+                        .help("Authenticates to Fortanix DSM using the given \
+                               API key"))
+                    .arg(Arg::with_name("client-cert")
+                        .long("client-cert").value_name("P12-FILE")
+                        .help("Authenticates to Fortanix DSM with the given client \
+                               certificate"))
+                    .arg(Arg::with_name("app-uuid")
+                        .long("app-uuid").value_name("APP-UUID")
+                        .help("Authenticates to Fortanix DSM with the given App  \
+                        (cert-based authentication)"))
                     .arg(Arg::with_name("dsm-key")
                         .long("dsm-key").value_name("DSM-KEY-NAME")
                         .help("Signs the message with the Fortanix DSM key"))
@@ -556,6 +593,18 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                         .arg(Arg::with_name("with-password")
                              .long("with-password")
                              .help("Protects the key with a password"))
+                        .arg(Arg::with_name("api-key")
+                            .long("api-key").value_name("API-KEY")
+                            .help("Authenticates to Fortanix DSM using the given \
+                                   API key"))
+                        .arg(Arg::with_name("client-cert")
+                            .long("client-cert").value_name("P12-FILE")
+                            .help("Authenticates to Fortanix DSM with the given client \
+                                   certificate"))
+                        .arg(Arg::with_name("app-uuid")
+                            .long("app-uuid").value_name("APP-UUID")
+                            .help("Authenticates to Fortanix DSM with the given App  \
+                                   (cert-based authentication)"))
                         .arg(Arg::with_name("dsm-exportable")
                             .long("dsm-exportable")
                             .help("(DANGER) Configure the key to be exportable from DSM"))
@@ -698,10 +747,22 @@ $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
                             .arg(Arg::with_name("binary")
                                  .short("B").long("binary")
                                  .help("Emits binary data"))
+                            .arg(Arg::with_name("api-key")
+                                .long("api-key").value_name("API-KEY")
+                                .help("Authenticates to Fortanix DSM using the \
+                                       given API key"))
+                            .arg(Arg::with_name("client-cert")
+                                .long("client-cert").value_name("P12-FILE")
+                                .help("Authenticates to Fortanix DSM with the given \
+                                       client certificate"))
+                            .arg(Arg::with_name("app-uuid")
+                                .long("app-uuid").value_name("APP-UUID")
+                                .help("Authenticates to Fortanix DSM with the given App \
+                                       (cert-based authentication)"))
                             .arg(Arg::with_name("dsm-key")
                                 .long("dsm-key").value_name("DSM-KEY-NAME")
-                                .help("Extracts the certificate from the Fortanix \
-                                 Self-Defending Key-Management System"))
+                                .help("Extracts the certificate from Fortanix \
+                                       DSM"))
                             )
                 .subcommand(SubCommand::with_name("extract-dsm-secret")
                             .display_order(111)
@@ -712,6 +773,18 @@ $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
 Is a Fortanix DSM key was generated using the `--dsm-exportable` flag, this
 command exfiltrates secrets from DSM and outputs a Key.
 ")
+                            .arg(Arg::with_name("api-key")
+                                .long("api-key").value_name("API-KEY")
+                                .help("Authenticates to Fortanix DSM using the \
+                                       given API key"))
+                            .arg(Arg::with_name("client-cert")
+                                .long("client-cert").value_name("P12-FILE")
+                                .help("Authenticates to Fortanix DSM with the given client \
+                                   certificate"))
+                            .arg(Arg::with_name("app-uuid")
+                                .long("app-uuid").value_name("APP-UUID")
+                                .help("Authenticates to Fortanix DSM with the given App  \
+                                       (cert-based authentication)"))
                             .arg(Arg::with_name("dsm-key")
                                 .long("dsm-key").value_name("DSM-KEY-NAME")
                                 .required(true)

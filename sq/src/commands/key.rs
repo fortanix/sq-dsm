@@ -75,12 +75,19 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
     builder = builder.set_validity_period(d);
 
     if let Some(dsm_key_name) = m.value_of("dsm-key") {
+        // Fortanix DSM
+        let dsm_secret = dsm::Auth::from_options_or_env(
+            m.value_of("api-key"),
+            m.value_of("client-cert"),
+            m.value_of("app-uuid"),
+        )?;
         return dsm::generate_key(
             dsm_key_name,
             d,
             m.value_of("userid"),
             m.value_of("cipher-suite"),
             m.is_present("dsm-exportable"),
+            dsm::Credentials::new(dsm_secret)?,
         );
     }
 
@@ -292,7 +299,14 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
 
     let cert = match m.value_of("dsm-key") {
         Some(key_name) => {
-            dsm::extract_cert(key_name)?
+            // Fortanix DSM
+            let dsm_secret = dsm::Auth::from_options_or_env(
+                m.value_of("api-key"),
+                m.value_of("client-cert"),
+                m.value_of("app-uuid"),
+            )?;
+            let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+            dsm::extract_cert(key_name, dsm_auth)?
         }
         None => {
             let input = open_or_stdin(m.value_of("input"))?;
@@ -309,8 +323,14 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
 }
 
 fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_secret = dsm::Auth::from_options_or_env(
+        m.value_of("api-key"),
+        m.value_of("client-cert"),
+        m.value_of("app-uuid"),
+    )?;
+    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let key = match m.value_of("dsm-key") {
-        Some(key_name) => dsm::extract_tsk_from_dsm(key_name)?,
+        Some(key_name) => dsm::extract_tsk_from_dsm(key_name, dsm_auth)?,
         None => unreachable!("name is compulsory")
     };
 

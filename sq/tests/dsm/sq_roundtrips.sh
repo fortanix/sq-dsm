@@ -1,45 +1,17 @@
 #!/bin/bash -e
 
-sq="../target/debug/sq"
+sq=""
+cipher_suite=""
+cli_auth=false # If false, api-key is passed to the CLI
+apikey=
 
-case "$1" in
-    --p256) cipher_suite="nistp256";;
-    --p384) cipher_suite="nistp384";;
-    --p521) cipher_suite="nistp521";;
-    --cv25519) cipher_suite="cv25519";;
-    --rsa2k) cipher_suite="rsa2k";;
-    --rsa3k) cipher_suite="rsa3k";;
-    --rsa4k) cipher_suite="rsa4k";;
-    *) echo "unknown option: $1" >&2; exit 1;;
-esac
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# shellcheck source=./common.sh
+source $SCRIPT_DIR/common.sh
 
-case "$3" in
-    1|2) verbosity=$3;;
-    *) verbosity=0
-esac
-
-# tmp directory, erased on exit
-create_tmp_dir() {
-    eval "$1"="$(mktemp -d)"
-}
-
-erase_tmp_dir() {
-    rm -rf "$1"
-}
-
-comm() {
-    printf "~~~ %s ~~~\n" "$1"
-}
-
-my_cat() {
-    if [[ "$verbosity" -eq 1 ]]; then
-        head -n4 "$1"
-        echo "    [TRUNCATED OUTPUT]"
-    fi
-    if [[ "$verbosity" -eq 2 ]]; then
-        cat "$1"
-    fi
-}
+if [ "$cli_auth" = true ] ; then
+    apikey="--api-key=$FORTANIX_API_KEY"
+fi
 
 data=""
 create_tmp_dir data
@@ -63,24 +35,24 @@ alice_key_name="test-sq-roundtrip-alice-$random"
 bob_key_name="test-sq-roundtrip-bob-$random"
 
 comm "generate-keys (Alice with $cipher_suite, Bob with default)"
-$sq key generate --dsm-key="$alice_key_name" --userid="Alice Павловна Вишневская <alice@openpgp.example>" --cipher-suite="$cipher_suite"
-$sq key generate --dsm-key="$bob_key_name" --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>"
-$sq key generate --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>" --export="$bob_local_priv"
+$sq key generate $apikey --dsm-key="$alice_key_name" --userid="Alice Павловна Вишневская <alice@openpgp.example>" --cipher-suite="$cipher_suite"
+$sq key generate $apikey --dsm-key="$bob_key_name" --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>"
+$sq key generate $apikey --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>" --export="$bob_local_priv"
 
 comm "certificate Alice"
-$sq key extract-cert --dsm-key="$alice_key_name" > "$alice_public"
+$sq key extract-cert $apikey --dsm-key="$alice_key_name" > "$alice_public"
 my_cat "$alice_public"
 comm "certificate Bob SDKMS"
-$sq key extract-cert --dsm-key="$bob_key_name" > "$bob_dsm"
+$sq key extract-cert $apikey --dsm-key="$bob_key_name" > "$bob_dsm"
 my_cat "$bob_dsm"
 comm "certificate Bob Local"
-$sq key extract-cert "$bob_local_priv" > "$bob_local_pub"
+$sq key extract-cert $apikey "$bob_local_priv" > "$bob_local_pub"
 my_cat "$bob_local_pub"
 
 printf "Y el verso cae al alma como al pasto el rocío.\n" > "$message"
 
 comm "sign"
-$sq sign --dsm-key="$alice_key_name" "$message" > "$signed"
+$sq sign $apikey --dsm-key="$alice_key_name" "$message" > "$signed"
 my_cat "$signed"
 
 comm "verify"
@@ -91,15 +63,15 @@ $sq encrypt --recipient-cert "$alice_public" "$message" --output "$encrypted_nos
 my_cat "$encrypted_nosign"
 
 comm "decrypt"
-$sq decrypt --dsm-key="$alice_key_name" "$encrypted_nosign" --output "$decrypted_nosign"
+$sq decrypt $apikey --dsm-key="$alice_key_name" "$encrypted_nosign" --output "$decrypted_nosign"
 
 diff "$message" "$decrypted_nosign"
 
 comm "encrypt to Alice, sign with both Bob keys"
-$sq encrypt --signer-dsm-key="$bob_key_name" --signer-key="$bob_local_priv" --recipient-cert "$alice_public" "$message" --output "$encrypted_signed"
+$sq encrypt $apikey --signer-dsm-key="$bob_key_name" --signer-key="$bob_local_priv" --recipient-cert "$alice_public" "$message" --output "$encrypted_signed"
 my_cat "$encrypted_signed"
 
 comm "decrypt"
-$sq decrypt --signer-cert="$bob_dsm" --signer-cert="$bob_local_pub" --dsm-key="$alice_key_name" "$encrypted_signed" --output "$decrypted_signed"
+$sq decrypt $apikey --signer-cert="$bob_dsm" --signer-cert="$bob_local_pub" --dsm-key="$alice_key_name" "$encrypted_signed" --output "$decrypted_signed"
 
 diff "$message" "$decrypted_signed"
