@@ -396,6 +396,9 @@
 //!     password                 Changes password protecting secrets
 //!     extract-cert             Converts a key to a cert
 //!     extract-dsm-secret       Extracts a secret key from Fortanix DSM
+//!     dsm-import
+//!             Imports a Transferable Secret Key into Fortanix DSM
+//!
 //!     attest-certifications    Attests to third-party certifications
 //!     adopt                    Binds keys from one certificate to another
 //!     help
@@ -641,6 +644,51 @@
 //!
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
+//! ```
+//!
+//! ### Subcommand key dsm-import
+//!
+//! ```text
+//! Imports a Transferable Secret Key info Fortanix DSM
+//!
+//! This command unlocks the TSK (if encrypted), and imports it into Fortanix DSM
+//! for secure storage and usage.
+//!
+//! USAGE:
+//!     sq key dsm-import [FLAGS] [OPTIONS] --dsm-key <DSM-KEY-NAME>
+//!
+//! FLAGS:
+//!         --dsm-exportable
+//!             (DANGER) Configure the key to be exportable from DSM
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to Fortanix DSM using the given API key
+//!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App  (cert-based
+//!             authentication)
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
+//!
+//!         --dsm-key <DSM-KEY-NAME>
+//!             Name of the DSM key
+//!
+//!         --input <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Import the key into DSM
+//! $ sq-dsm key dsm-import --dsm-key="Imported by sq-dsm" < my_priv_key.asc
 //! ```
 //!
 //! ### Subcommand key attest-certifications

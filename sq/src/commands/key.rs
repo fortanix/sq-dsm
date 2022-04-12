@@ -30,6 +30,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(config, m)?,
         ("export", Some(m)) => generate(config, m)?,
+        ("dsm-import", Some(m)) => dsm_import(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("extract-dsm-secret", Some(m)) => extract_dsm(config, m)?,
@@ -320,6 +321,17 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
         cert.armored().serialize(&mut output)?;
     }
     Ok(())
+}
+
+fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_secret = dsm::Auth::from_options_or_env(
+        m.value_of("api-key"),
+        m.value_of("client-cert"),
+        m.value_of("app-uuid"),
+    )?;
+    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let input = open_or_stdin(m.value_of("input"))?;
+    unimplemented!()
 }
 
 fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
