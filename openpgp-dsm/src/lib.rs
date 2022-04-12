@@ -695,6 +695,10 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
     Ok(merged)
 }
 
+pub fn import_tsk_to_dsm(tsk: Cert, key_name: &str, cred: Credentials) -> Result<()> {
+    unimplemented!()
+}
+
 impl PublicKey {
     fn create(
         client: &DsmClient,

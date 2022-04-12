@@ -30,7 +30,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(config, m)?,
         ("export", Some(m)) => generate(config, m)?,
-        ("dsm-import", Some(m)) => dsm_import(config, m)?,
+        ("dsm-import", Some(m)) => dsm_import(m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("extract-dsm-secret", Some(m)) => extract_dsm(config, m)?,
@@ -295,6 +295,31 @@ fn _password(config: Config, m: &ArgMatches, key: Cert) -> Result<()> {
     Ok(())
 }
 
+// Unlocks a cert with a passphrase
+fn _unlock(key: Cert) -> Result<Cert> {
+    if ! key.is_tsk() {
+        return Err(anyhow::anyhow!("Input is not a Transferable Secret Key"));
+    }
+
+    // Decrypt all secrets.
+    let passwords = &mut Vec::new();
+    let mut decrypted: Vec<Packet> = vec![decrypt_key(
+        key.primary_key().key().clone().parts_into_secret()?,
+        passwords,
+    )?
+    .into()];
+    for ka in key.keys().subkeys().secret() {
+        decrypted.push(decrypt_key(
+            ka.key().clone().parts_into_secret()?,
+            passwords)?.into());
+    }
+    let key = key.insert_packets(decrypted)?;
+    assert_eq!(key.keys().secret().count(),
+               key.keys().unencrypted_secret().count());
+
+    Ok(key)
+}
+
 fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
 
@@ -323,7 +348,7 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
+fn dsm_import(m: &ArgMatches) -> Result<()> {
     let dsm_secret = dsm::Auth::from_options_or_env(
         m.value_of("api-key"),
         m.value_of("client-cert"),
@@ -331,7 +356,12 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let input = open_or_stdin(m.value_of("input"))?;
-    unimplemented!()
+    let key = _unlock(Cert::from_reader(input)?)?;
+
+    match m.value_of("dsm-key") {
+        Some(key_name) => dsm::import_tsk_to_dsm(key, key_name, dsm_auth),
+        None => unreachable!("name is compulsory")
+    }
 }
 
 fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
