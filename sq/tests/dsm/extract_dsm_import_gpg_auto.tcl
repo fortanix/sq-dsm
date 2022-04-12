@@ -20,4 +20,6 @@ send "$pass\n"
 expect "Enter password"
 send "$pass\n"
 
+expect "SUCCESS"
+
 interact
