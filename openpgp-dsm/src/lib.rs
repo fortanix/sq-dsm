@@ -50,9 +50,14 @@ use sdkms::{SdkmsClient as DsmClient, Error as DsmError, PendingApproval};
 use sdkms::operations::Operation;
 use semver::{Version, VersionReq};
 use sequoia_openpgp::crypto::mem::Protected;
-use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
+use sequoia_openpgp::crypto::{ecdh, Decryptor, SessionKey, Signer};
 use sequoia_openpgp::packet::key::{
-    Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
+    Key4, KeyRole as SequoiaKeyRole, PrimaryRole, PublicParts, SecretParts,
+    SubordinateRole, UnspecifiedRole,
+};
+use sequoia_openpgp::crypto::mpi::{
+    Ciphertext as MpiCiphertext, MPI, ProtectedMPI, PublicKey as MpiPublic,
+    SecretKeyMaterial as MpiSecret, Signature as MpiSignature
 };
 use sequoia_openpgp::packet::prelude::SecretKeyMaterial;
 use sequoia_openpgp::packet::signature::SignatureBuilder;
@@ -63,6 +68,7 @@ use sequoia_openpgp::types::{
     PublicKeyAlgorithm, SignatureType, SymmetricAlgorithm,
 };
 use sequoia_openpgp::{Cert, Packet};
+use sequoia_openpgp::cert::ValidCert;
 use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -695,8 +701,170 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
     Ok(merged)
 }
 
-pub fn import_tsk_to_dsm(tsk: Cert, key_name: &str, cred: Credentials) -> Result<()> {
-    unimplemented!()
+/// Imports a given Transferable Secret Key to DSM.
+pub fn import_tsk_to_dsm(
+    tsk:        ValidCert,
+    key_name:   &str,
+    cred:       Credentials,
+    exportable: bool,
+) -> Result<()> {
+
+    fn get_hazardous_material<R: SequoiaKeyRole>(key: &Key<SecretParts, R>)
+    -> MpiSecret {
+        // HAZMAT: Decrypt MPIs from protected memory and form DER
+        if let SecretKeyMaterial::Unencrypted(mpis) = key.secret() {
+            mpis.map::<_, MpiSecret>(|crypt| {crypt.clone()})
+        } else {
+            unreachable!("mpis are encrypted")
+        }
+    }
+
+    fn get_operations(key_flags: Option<KeyFlags>, exp: bool) -> KeyOperations {
+        let mut ops = KeyOperations::APPMANAGEABLE;
+
+        if exp {
+            ops |= KeyOperations::EXPORT;
+        }
+
+        if let Some(flags) = key_flags {
+            if flags.for_signing() | flags.for_certification() {
+                ops |= KeyOperations::SIGN | KeyOperations::VERIFY;
+            }
+
+            if flags.for_transport_encryption() | flags.for_storage_encryption() {
+                ops |= KeyOperations::ENCRYPT | KeyOperations::DECRYPT;
+            }
+        }
+        ops
+    }
+
+    let metadata = {
+        let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
+        let key_md = KeyMetadata {
+            certificate: armored,
+        };
+
+        let key_json = serde_json::to_string(&key_md)?;
+
+        let mut metadata = HashMap::<String, String>::new();
+        metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
+        metadata
+    };
+
+    let primary_ops = get_operations(tsk.primary_key().key_flags(), exportable);
+    let primary = tsk.primary_key().key().clone().parts_into_secret()?;
+
+    let prim_hazmat = get_hazardous_material(&primary);
+    let prim_req = match (primary.mpis(), prim_hazmat) {
+        (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
+            let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
+            let key_size = n.bits() as u32;
+            let rsa_opts = if primary_ops.contains(KeyOperations::SIGN) {
+                let sig_policy = RsaSignaturePolicy {
+                    padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
+                };
+                Some(RsaOptions {
+                    signature_policy: vec![sig_policy],
+                    ..Default::default()
+                })
+            } else if primary_ops.contains(KeyOperations::DECRYPT) {
+                // Unreachable
+                let enc_policy = RsaEncryptionPolicy {
+                    padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
+                };
+                Some(RsaOptions {
+                    encryption_policy: vec![enc_policy],
+                    ..Default::default()
+                })
+            } else {
+                None
+            };
+
+            let desc = "PGP primary key imported with sq-dsm".to_string();
+            SobjectRequest {
+                custom_metadata: Some(metadata),
+                description: Some(desc),
+                name: Some(key_name.to_string()),
+                obj_type: Some(ObjectType::Rsa),
+                key_ops: Some(primary_ops),
+                key_size: Some(key_size),
+                rsa: rsa_opts,
+                value: Some(value.into()),
+                ..Default::default()
+            }
+        },
+        (x, _) => unimplemented!("{:?}", x)
+    };
+
+    let dsm_client = cred.dsm_client()?;
+    let primary_uuid = dsm_client
+        .import_sobject(&prim_req)
+        .context(format!("could not import primary secret {}", key_name))?
+        .kid;
+
+    for subkey in tsk.keys().subkeys().unencrypted_secret() {
+        let subkey_name = key_name.to_string() + " " + &subkey.keyid().to_hex();
+        let subkey_hazmat = get_hazardous_material(&subkey);
+        let subkey_ops = get_operations(subkey.key_flags(), exportable);
+        let subkey_req = match (subkey.mpis(), subkey_hazmat) {
+            (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
+                let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
+                let key_size = n.bits() as u32;
+                let rsa_options = if subkey_ops.contains(KeyOperations::SIGN) {
+                    let sig_policy = RsaSignaturePolicy {
+                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
+                    };
+                    Some(RsaOptions {
+                        signature_policy: vec![sig_policy],
+                        ..Default::default()
+                    })
+                } else if subkey_ops.contains(KeyOperations::DECRYPT) {
+                    let enc_policy = RsaEncryptionPolicy {
+                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
+                    };
+                    Some(RsaOptions {
+                        encryption_policy: vec![enc_policy],
+                        ..Default::default()
+                    })
+                } else {
+                    None
+                };
+
+                let desc = "PGP subkey imported with sq-dsm".to_string();
+                SobjectRequest {
+                    name: Some(subkey_name.to_string()),
+                    description: Some(desc),
+                    obj_type: Some(ObjectType::Rsa),
+                    key_ops: Some(subkey_ops),
+                    key_size: Some(key_size),
+                    rsa: rsa_options,
+                    value: Some(value.into()),
+                    ..Default::default()
+                }
+            },
+            (x, _) => unimplemented!("{:?}", x)
+        };
+
+        // Import subkey
+        let subkey_uuid = dsm_client
+            .import_sobject(&subkey_req)
+            .context(format!("could not import subkey secret {}", key_name))?
+            .kid;
+
+        info!("bind subkey to primary key in DSM");
+        let link_req = SobjectRequest {
+            links: Some(KeyLinks {
+                parent: primary_uuid,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        dsm_client.__update_sobject(
+            &subkey_uuid.expect("uuid"), &link_req, "bind subkey to primary key"
+        )?;
+    }
+
+    Ok(())
 }
 
 impl PublicKey {
@@ -824,9 +992,9 @@ impl PublicKey {
                     let curve = SequoiaCurve::Ed25519;
 
                     // Strip the leading OID
-                    let point = mpi::MPI::new_compressed_point(&raw_pk[12..]);
+                    let point = MPI::new_compressed_point(&raw_pk[12..]);
 
-                    let ec_pk = mpi::PublicKey::EdDSA { curve, q: point };
+                    let ec_pk = MpiPublic::EdDSA { curve, q: point };
                     (pk_algo, ec_pk, KeyRole::Primary)
                 }
                 Some(ApiCurve::X25519) => {
@@ -834,9 +1002,9 @@ impl PublicKey {
                     let curve = SequoiaCurve::Cv25519;
 
                     // Strip the leading OID
-                    let point = mpi::MPI::new_compressed_point(&raw_pk[12..]);
+                    let point = MPI::new_compressed_point(&raw_pk[12..]);
 
-                    let ec_pk = mpi::PublicKey::ECDH {
+                    let ec_pk = MpiPublic::ECDH {
                         curve,
                         q: point,
                         hash: HashAlgorithm::SHA512,
@@ -853,15 +1021,15 @@ impl PublicKey {
                     let bits_field = curve.bits()
                         .ok_or_else(|| Error::msg("bad curve"))?;
 
-                    let point = mpi::MPI::new_point(&x, &y, bits_field);
+                    let point = MPI::new_point(&x, &y, bits_field);
                     let (pk_algo, ec_pk) = match role {
                         KeyRole::Primary => (
                             PublicKeyAlgorithm::ECDSA,
-                            mpi::PublicKey::ECDSA { curve, q: point },
+                            MpiPublic::ECDSA { curve, q: point },
                         ),
                         KeyRole::Subkey => (
                             PublicKeyAlgorithm::ECDH,
-                            mpi::PublicKey::ECDH {
+                            MpiPublic::ECDH {
                                 curve,
                                 q: point,
                                 hash: HashAlgorithm::SHA512,
@@ -883,7 +1051,7 @@ impl PublicKey {
             },
             ObjectType::Rsa => {
                 let pk = der::parse::rsa_n_e(&raw_pk)?;
-                let pk_material = mpi::PublicKey::RSA {
+                let pk_material = MpiPublic::RSA {
                     e: pk.e.into(),
                     n: pk.n.into()
                 };
@@ -923,7 +1091,7 @@ impl Signer for DsmAgent {
         &mut self,
         hash_algo: HashAlgorithm,
         digest: &[u8],
-    ) -> Result<mpi::Signature> {
+    ) -> Result<MpiSignature> {
         if self.role != Role::Signer {
             return Err(Error::msg("bad role for DSM agent"));
         }
@@ -953,7 +1121,7 @@ impl Signer for DsmAgent {
                     .context("bad response for signature request")?;
 
                 let plain: Vec<u8> = sign_resp.signature.into();
-                Ok(mpi::Signature::RSA { s: plain.into() })
+                Ok(MpiSignature::RSA { s: plain.into() })
             }
             PublicKeyAlgorithm::EdDSA => {
                 let sign_req = SignRequest {
@@ -968,9 +1136,9 @@ impl Signer for DsmAgent {
                     .context("bad response for signature request")?;
 
                 let plain: Vec<u8> = sign_resp.signature.into();
-                Ok(mpi::Signature::EdDSA {
-                    r: mpi::MPI::new(&plain[..32]),
-                    s: mpi::MPI::new(&plain[32..]),
+                Ok(MpiSignature::EdDSA {
+                    r: MPI::new(&plain[..32]),
+                    s: MPI::new(&plain[32..]),
                 })
             }
             PublicKeyAlgorithm::ECDSA => {
@@ -989,7 +1157,7 @@ impl Signer for DsmAgent {
                 let (r, s) = der::parse::ecdsa_r_s(&plain)
                     .context("could not decode ECDSA der")?;
 
-                Ok(mpi::Signature::ECDSA {
+                Ok(MpiSignature::ECDSA {
                     r: r.to_vec().into(),
                     s: s.to_vec().into(),
                 })
@@ -1006,7 +1174,7 @@ impl Decryptor for DsmAgent {
 
     fn decrypt(
         &mut self,
-        ciphertext: &mpi::Ciphertext,
+        ciphertext: &MpiCiphertext,
         _plaintext_len: Option<usize>,
     ) -> Result<SessionKey> {
         if self.role != Role::Decryptor {
@@ -1017,7 +1185,7 @@ impl Decryptor for DsmAgent {
             .context("could not initialize the http client")?;
 
         match ciphertext {
-            mpi::Ciphertext::RSA { c } => {
+            MpiCiphertext::RSA { c } => {
                 let decrypt_req = DecryptRequest {
                     cipher: c.value().to_vec().into(),
                     alg:    Some(Rsa),
@@ -1034,9 +1202,9 @@ impl Decryptor for DsmAgent {
                     .plain.to_vec().into()
                 )
             }
-            mpi::Ciphertext::ECDH { e, .. } => {
+            MpiCiphertext::ECDH { e, .. } => {
                 let curve = match &self.public.mpis() {
-                    mpi::PublicKey::ECDH { curve, .. } => curve,
+                    MpiPublic::ECDH { curve, .. } => curve,
                     _ => panic!("inconsistent pk algo"),
                 };
 
@@ -1172,23 +1340,23 @@ fn secret_packet_from_sobject(
                 let bits_field = curve.bits()
                     .ok_or_else(|| Error::msg("bad curve"))?;
                 let (x, y) = der::parse::ec_point_x_y(&raw_public)?;
-                let point = mpi::MPI::new_point(&x, &y, bits_field);
+                let point = MPI::new_point(&x, &y, bits_field);
 
                 // Secret
-                let scalar: mpi::ProtectedMPI = der::parse::ec_priv_scalar(
+                let scalar: ProtectedMPI = der::parse::ec_priv_scalar(
                     &raw_secret
                     )?.into();
                 let algo: PublicKeyAlgorithm;
                 let secret: SecretKeyMaterial;
-                let public: mpi::PublicKey;
+                let public: MpiPublic;
                 if is_signer {
                     algo = PublicKeyAlgorithm::ECDSA;
-                    secret = mpi::SecretKeyMaterial::ECDSA { scalar }.into();
-                    public = mpi::PublicKey::ECDSA { curve, q: point };
+                    secret = MpiSecret::ECDSA { scalar }.into();
+                    public = MpiPublic::ECDSA { curve, q: point };
                 } else {
                     algo = PublicKeyAlgorithm::ECDH;
-                    secret = mpi::SecretKeyMaterial::ECDH { scalar }.into();
-                    public = mpi::PublicKey::ECDH {
+                    secret = MpiSecret::ECDH { scalar }.into();
+                    public = MpiPublic::ECDH {
                         curve,
                         q: point,
                         hash: HashAlgorithm::SHA512,

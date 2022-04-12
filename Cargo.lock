@@ -2035,6 +2035,7 @@ dependencies = [
  "ipnetwork",
  "lalrpop",
  "log 0.4.14",
+ "num-bigint",
  "rpassword",
  "sdkms",
  "semver",

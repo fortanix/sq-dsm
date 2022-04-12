@@ -30,7 +30,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(config, m)?,
         ("export", Some(m)) => generate(config, m)?,
-        ("dsm-import", Some(m)) => dsm_import(m)?,
+        ("dsm-import", Some(m)) => dsm_import(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("extract-dsm-secret", Some(m)) => extract_dsm(config, m)?,
@@ -348,7 +348,7 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn dsm_import(m: &ArgMatches) -> Result<()> {
+fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
     let dsm_secret = dsm::Auth::from_options_or_env(
         m.value_of("api-key"),
         m.value_of("client-cert"),
@@ -357,9 +357,12 @@ fn dsm_import(m: &ArgMatches) -> Result<()> {
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let input = open_or_stdin(m.value_of("input"))?;
     let key = _unlock(Cert::from_reader(input)?)?;
+    let valid_key = key.with_policy(&config.policy, None)?;
 
     match m.value_of("dsm-key") {
-        Some(key_name) => dsm::import_tsk_to_dsm(key, key_name, dsm_auth),
+        Some(key_name) => dsm::import_tsk_to_dsm(
+            valid_key, key_name, dsm_auth, m.is_present("dsm-exportable"),
+        ),
         None => unreachable!("name is compulsory")
     }
 }

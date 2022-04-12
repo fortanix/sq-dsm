@@ -145,6 +145,47 @@ pub mod serialize {
     use yasna::models::ObjectIdentifier as Oid;
 
     use sequoia_openpgp::crypto::mpi;
+    use num_bigint::BigUint;
+
+    pub fn rsa_private(
+        n: &mpi::MPI,
+        e: &mpi::MPI,
+        d: &mpi::ProtectedMPI,
+        p: &mpi::ProtectedMPI,
+        q: &mpi::ProtectedMPI,
+        u: &mpi::ProtectedMPI,
+    ) -> Vec<u8> {
+        let (n, e, d, p, q, u) = (
+            BigUint::from_bytes_be(n.value()),
+            BigUint::from_bytes_be(e.value()),
+            BigUint::from_bytes_be(d.value()),
+            BigUint::from_bytes_be(p.value()),
+            BigUint::from_bytes_be(q.value()),
+            BigUint::from_bytes_be(u.value()),
+        );
+
+        //
+        // Note that `u` is defined in RFC4880bis 5.6.1 as p⁻¹ (mod q),
+        // whereas RFC8017 A.1.2 defines the CRT coefficient as q⁻¹ (mod p).
+        // We can conciliate both views noting that we know `u` such that
+        //
+        //                      up + qk = 1
+        //                  k = - (up - 1)/q (mod p)
+        //                  k = p - ((up - 1)/q (mod p))
+        //
+        let minus_k = ((u * p.clone() - 1u32) / q.clone()) % p.clone();
+        let coeff = (p.clone() - minus_k) % p.clone();  // always well-defined
+        let e1 = d.clone() % (p.clone() - 1u32);
+        let e2 = d.clone() % (q.clone() - 1u32);
+        yasna::construct_der(|w| {
+            w.write_sequence(|w| {
+                w.next().write_u32(0);
+                for mpi in [&n, &e, &d, &p, &q, &e1, &e2, &coeff] {
+                    w.next().write_biguint(mpi);
+                }
+            })
+        })
+    }
 
     pub fn spki_ecdh(curve: &Curve, e: &mpi::MPI) -> Vec<u8> {
         match curve {
