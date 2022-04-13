@@ -40,12 +40,12 @@ pub mod parse {
         //   publicExponent  INTEGER  -- e
         // }
         //
-        yasna::parse_der(&pk.subject_public_key, |reader| {
-            Ok(reader.read_sequence(|reader| {
+        yasna::parse_der(pk.subject_public_key, |reader| {
+            reader.read_sequence(|reader| {
                 let n = reader.next().read_biguint()?.to_bytes_be();
                 let e = reader.next().read_u32()?.to_be_bytes().to_vec();
                 Ok(RsaPub { n, e })
-            })?)
+            })
         })
         .map_err(|e| e.into())
     }
@@ -65,7 +65,7 @@ pub mod parse {
         //   coefficient INTEGER -- (inverse of q) mod p
         // }
         //
-        Ok(yasna::parse_der(&buf, |reader| {
+        Ok(yasna::parse_der(buf, |reader| {
             reader.read_sequence(|reader| {
                 let _version = reader.next().read_u32()?;
                 let _n = reader.next().read_biguint()?;
@@ -116,7 +116,7 @@ pub mod parse {
     }
 
     pub fn ecdsa_r_s(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
-        Ok(yasna::parse_der(&buf, |reader| {
+        Ok(yasna::parse_der(buf, |reader| {
             reader.read_sequence(|reader| {
                 let r = reader.next().read_biguint()?.to_bytes_be();
                 let s = reader.next().read_biguint()?.to_bytes_be();
@@ -126,15 +126,16 @@ pub mod parse {
     }
 
     pub fn ec_priv_scalar(buf: &[u8]) -> super::Result<Vec<u8>> {
-        Ok(yasna::parse_der(&buf, |reader| {
-            Ok(reader.read_sequence(|reader| {
+        yasna::parse_der(buf, |reader| {
+            reader.read_sequence(|reader| {
                 let _version = reader.next().read_u32()?;
                 let priv_key = reader.next().read_bytes()?;
                 let _oid = reader.next().read_tagged_der()?;
                 let _pk = reader.next().read_tagged_der()?;
                 Ok(priv_key)
-            })?)
-        })?)
+            })
+        })
+        .map_err(|e| e.into())
     }
 }
 
@@ -191,7 +192,7 @@ pub mod serialize {
         match curve {
             Curve::Cv25519 => {
                 let x = e.value();
-                if x.len() == 0 {
+                if x.is_empty() {
                     unreachable!();
                 }
 
@@ -214,7 +215,7 @@ pub mod serialize {
                 //
                 let nist_oid = Oid::from_slice(&[1, 2, 840, 10045, 2, 1]);
 
-                let named_curve = curve_oid(&curve).expect("bad curve OID");
+                let named_curve = curve_oid(curve).expect("bad curve OID");
 
                 let alg_id = yasna::construct_der(|writer| {
                     writer.write_sequence(|writer| {
@@ -223,7 +224,7 @@ pub mod serialize {
                     });
                 });
 
-                let subj_public_key = BitVec::from_bytes(&e.value());
+                let subj_public_key = BitVec::from_bytes(e.value());
                 yasna::construct_der(|writer| {
                     writer.write_sequence(|writer| {
                         writer.next().write_der(&alg_id);
@@ -240,7 +241,7 @@ pub mod serialize {
             Curve::NistP384 => Oid::from_slice(&[1, 3, 132, 0, 34]),
             Curve::NistP521 => Oid::from_slice(&[1, 3, 132, 0, 35]),
             Curve::Cv25519 => Oid::from_slice(&[1, 3, 101, 110]),
-            curve @ _ => {
+            curve => {
                 return Err(anyhow::anyhow!("unsupported curve {}", curve));
             }
         };

@@ -45,7 +45,7 @@ $gpg --export-secret-keys --passphrase="$test_passphrase" > "$alice_local_priv"
 $gpg --export > "$alice_public"
 
 comm "Import gpg key into DSM"
-$sq key dsm-import --dsm-key="$alice_key_name" --dsm-exportable
+$sq key dsm-import --dsm-key="$alice_key_name" --dsm-exportable < "$alice_local_priv"
 
 printf "Y el verso cae al alma como al pasto el rocío.\n" > "$message"
 

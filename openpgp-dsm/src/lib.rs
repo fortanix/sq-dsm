@@ -23,8 +23,8 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -34,8 +34,8 @@ use anyhow::{Context, Error, Result};
 use http::uri::Uri;
 use hyper::client::{Client as HyperClient, ProxyConfig};
 use hyper::net::HttpsConnector;
+use hyper_native_tls::native_tls::{Identity, TlsConnector};
 use hyper_native_tls::NativeTlsClient;
-use hyper_native_tls::native_tls::{TlsConnector, Identity};
 use ipnetwork::IpNetwork;
 use log::info;
 use sdkms::api_model::Algorithm::Rsa;
@@ -46,18 +46,19 @@ use sdkms::api_model::{
     RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest,
     SignResponse, Sobject, SobjectDescriptor, SobjectRequest,
 };
-use sdkms::{SdkmsClient as DsmClient, Error as DsmError, PendingApproval};
 use sdkms::operations::Operation;
+use sdkms::{Error as DsmError, PendingApproval, SdkmsClient as DsmClient};
 use semver::{Version, VersionReq};
+use sequoia_openpgp::cert::ValidCert;
 use sequoia_openpgp::crypto::mem::Protected;
+use sequoia_openpgp::crypto::mpi::{
+    Ciphertext as MpiCiphertext, ProtectedMPI, PublicKey as MpiPublic,
+    SecretKeyMaterial as MpiSecret, Signature as MpiSignature, MPI,
+};
 use sequoia_openpgp::crypto::{ecdh, Decryptor, SessionKey, Signer};
 use sequoia_openpgp::packet::key::{
     Key4, KeyRole as SequoiaKeyRole, PrimaryRole, PublicParts, SecretParts,
     SubordinateRole, UnspecifiedRole,
-};
-use sequoia_openpgp::crypto::mpi::{
-    Ciphertext as MpiCiphertext, MPI, ProtectedMPI, PublicKey as MpiPublic,
-    SecretKeyMaterial as MpiSecret, Signature as MpiSignature
 };
 use sequoia_openpgp::packet::prelude::SecretKeyMaterial;
 use sequoia_openpgp::packet::signature::SignatureBuilder;
@@ -65,10 +66,9 @@ use sequoia_openpgp::packet::{Key, UserID};
 use sequoia_openpgp::serialize::SerializeInto;
 use sequoia_openpgp::types::{
     Curve as SequoiaCurve, Features, HashAlgorithm, KeyFlags,
-    PublicKeyAlgorithm, SignatureType, SymmetricAlgorithm,
+    PublicKeyAlgorithm, SignatureType, SymmetricAlgorithm, Timestamp,
 };
 use sequoia_openpgp::{Cert, Packet};
-use sequoia_openpgp::cert::ValidCert;
 use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -173,7 +173,7 @@ impl Auth {
                     .context("bad app UUID")?;
                 Ok(Auth::Cert(uuid, p12_id))
             }
-            (None, None) => return Err(Error::msg("no auth credentials found")),
+            (None, None) => Err(Error::msg("no auth credentials found")),
         }
     }
 }
@@ -210,14 +210,14 @@ impl <S: Into<Cow<'static, str>> + Display> OperateOrAskApproval<S> for DsmClien
         &self, pa: &PendingApproval<O>, desc: S
     ) -> Result<O::Output> {
         let id = pa.request_id();
-        while pa.status(&self)? == ApprovalStatus::Pending {
+        while pa.status(self)? == ApprovalStatus::Pending {
             println!(
                 "Approval request {} ({}) pending. Press Enter to check status",
                 id, desc
             );
             std::io::stdin().read_line(&mut String::new())?;
         }
-        match pa.result(&self) {
+        match pa.result(self) {
             Ok(output) => {
                 println!("Approval request {} approved", id);
                 output.map_err(|e|e.into())
@@ -326,7 +326,7 @@ impl Credentials {
                     .with_hyper_client(Arc::new(hyper_client))
                     .build()
                     .context("could not initiate a DSM client")?;
-                cli.authenticate_with_api_key(&api_key)?
+                cli.authenticate_with_api_key(api_key)?
             },
             Auth::Cert(app_uuid, identity) => {
                 let tls_conn = TlsConnector::builder()
@@ -338,7 +338,7 @@ impl Credentials {
                     .with_hyper_client(Arc::new(hyper_client))
                     .build()
                     .context("could not initiate a DSM client")?;
-                cli.authenticate_with_cert(Some(&app_uuid))?
+                cli.authenticate_with_cert(Some(app_uuid))?
             }
         };
 
@@ -393,7 +393,7 @@ impl DsmAgent {
             .context(format!("could not get primary key {}", key_name))?;
 
         if let Some(KeyLinks { subkeys, .. }) = sobject.links {
-            if subkeys.len() == 0 {
+            if subkeys.is_empty() {
                 return Err(Error::msg("No subkeys found in DSM"));
             }
             let uid = subkeys[0];
@@ -435,11 +435,18 @@ enum KeyRole {
 
 #[derive(Serialize, Deserialize)]
 struct KeyMetadata {
-    certificate: String,
+    sq_dsm_version:              String,
+    fingerprint:                 String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    key_flags:                   Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    certificate:                 Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    external_creation_timestamp: Option<u32>,
 }
 
 impl KeyMetadata {
-    fn from_primary_sobject(sob: &Sobject) -> Result<Self> {
+    fn from_sobject(sob: &Sobject) -> Result<Option<Self>> {
         match &sob.custom_metadata {
             Some(dict) => {
                 if !dict.contains_key(DSM_LABEL_PGP) {
@@ -447,9 +454,9 @@ impl KeyMetadata {
                 }
                 let key_md: KeyMetadata =
                     serde_json::from_str(&dict[DSM_LABEL_PGP])?;
-                Ok(key_md)
+                Ok(Some(key_md))
             }
-            None => Err(anyhow::anyhow!("no custom metadata found")),
+            None => Ok(None)
         }
     }
 }
@@ -536,9 +543,10 @@ pub fn generate_key(
         .clone()
         .context("unloaded primary key")?
         .into();
+    let primary_fingerprint = prim.fingerprint().to_hex();
     let prim_creation_time = prim.creation_time();
 
-    let mut prim_signer = DsmAgent::new_signer(credentials, &key_name)?;
+    let mut prim_signer = DsmAgent::new_signer(credentials, key_name)?;
 
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
@@ -570,7 +578,7 @@ pub fn generate_key(
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
         .set_features(Features::sequoia())?
-        .set_key_flags(primary_flags)?
+        .set_key_flags(primary_flags.clone())?
         .set_key_validity_period(validity_period)?
         .set_signature_creation_time(prim_creation_time)?
         .set_preferred_symmetric_algorithms(vec![
@@ -603,31 +611,55 @@ pub fn generate_key(
         .set_key_validity_period(validity_period)?
         .set_hash_algo(HashAlgorithm::SHA512)
         .set_signature_creation_time(subkey_creation_time)?
-        .set_key_flags(subkey_flags)?;
+        .set_key_flags(subkey_flags.clone())?;
+    let subkey_fingerprint = subkey_public.fingerprint().to_hex();
 
     let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
     cert = cert
         .insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
 
-    info!("store certificate in DSM");
-    let armored = String::from_utf8(cert.armored().to_vec()?)?;
-    let key_md = KeyMetadata {
-        certificate: armored,
-    };
 
-    let key_json = serde_json::to_string(&key_md)?;
+    // Update primary metadata
+    {
+        info!("store primary metadata in DSM");
+        let key_json = serde_json::to_string(&KeyMetadata {
+            sq_dsm_version: SQ_DSM_VERSION.to_string(),
+            fingerprint: primary_fingerprint,
+            key_flags: Some(primary_flags.custom_serialize()),
+            certificate: Some(String::from_utf8(cert.armored().to_vec()?)?),
+            external_creation_timestamp: None,
+        })?;
+        let mut prim_metadata = HashMap::<String, String>::new();
+        prim_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
+        let update_req = SobjectRequest {
+            custom_metadata: Some(prim_metadata),
+            ..Default::default()
+        };
+        dsm_client.__update_sobject(
+            &primary.uid()?, &update_req, "store PGP certificate as metadata"
+        )?;
+    }
 
-    let mut metadata = HashMap::<String, String>::new();
-    metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
-
-    let update_req = SobjectRequest {
-        custom_metadata: Some(metadata),
-        ..Default::default()
-    };
-
-    dsm_client.__update_sobject(
-        &primary.uid()?, &update_req, "store PGP certificate as metadata"
-    )?;
+    // Update subkey metadata
+    {
+        info!("store subkey metadata in DSM");
+        let key_json = serde_json::to_string(&KeyMetadata {
+            sq_dsm_version: SQ_DSM_VERSION.to_string(),
+            fingerprint: subkey_fingerprint,
+            key_flags: Some(subkey_flags.custom_serialize()),
+            certificate: None,
+            external_creation_timestamp: None,
+        })?;
+        let mut sub_metadata = HashMap::<String, String>::new();
+        sub_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
+        let update_req = SobjectRequest {
+            custom_metadata: Some(sub_metadata),
+            ..Default::default()
+        };
+        dsm_client.__update_sobject(
+            &subkey.uid()?, &update_req, "store PGP certificate as metadata"
+        )?;
+    }
 
     Ok(())
 }
@@ -639,23 +671,18 @@ pub fn extract_cert(key_name: &str, cred: Credentials) -> Result<Cert> {
     info!("dsm extract_cert");
     let dsm_client = cred.dsm_client()?;
 
-    let metadata = {
-        let sobject = dsm_client
-            .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
-            .context(format!("could not get primary key {}", key_name))?;
+    let sobject = dsm_client
+        .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
+        .context(format!("could not get primary key {}", key_name))?;
 
-        match sobject.custom_metadata {
-            None => return Err(Error::msg("metadata not found".to_string())),
-            Some(dict) => dict,
-        }
-    };
-    if !metadata.contains_key(DSM_LABEL_PGP) {
-        return Err(Error::msg("malformed metadata in DSM".to_string()));
-    }
+    let metadata = KeyMetadata::from_sobject(&sobject)?.ok_or_else(
+        || Error::msg("metadata not found".to_string()),
+    )?;
 
-    let key_md: KeyMetadata = serde_json::from_str(&metadata[DSM_LABEL_PGP])?;
-
-    Ok(Cert::from_str(&key_md.certificate)?)
+    Cert::from_str(
+        &metadata.certificate
+        .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
+    )
 }
 
 pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
@@ -671,7 +698,8 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
             "export primary key",
         )
         .context(format!("could not export primary secret {}", key_name))?;
-    let key_md = KeyMetadata::from_primary_sobject(&prim_sob)?;
+    let key_md = KeyMetadata::from_sobject(&prim_sob)?
+        .ok_or_else(|| Error::msg("no metadata found in primary object"))?;
     let packet = secret_packet_from_sobject(&prim_sob, KeyRole::Primary)?;
     packets.push(packet);
 
@@ -693,7 +721,10 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
 
     // Merge with the known public certificate
     let priv_cert = Cert::try_from(packets)?;
-    let cert = Cert::from_str(&key_md.certificate)?;
+    let cert = Cert::from_str(
+        &key_md.certificate
+        .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
+    )?;
     let merged = cert
         .merge_public_and_secret(priv_cert)
         .context("Could not merge public and private certificates")?;
@@ -727,32 +758,39 @@ pub fn import_tsk_to_dsm(
         }
 
         if let Some(flags) = key_flags {
-            if flags.for_signing() | flags.for_certification() {
+            if flags.for_signing()
+                | flags.for_certification() {
                 ops |= KeyOperations::SIGN | KeyOperations::VERIFY;
             }
 
-            if flags.for_transport_encryption() | flags.for_storage_encryption() {
+            if flags.for_transport_encryption()
+                | flags.for_storage_encryption() {
                 ops |= KeyOperations::ENCRYPT | KeyOperations::DECRYPT;
             }
         }
         ops
     }
 
+    let primary_ops = get_operations(tsk.primary_key().key_flags(), exportable);
+    let primary = tsk.primary_key().key().clone().parts_into_secret()?;
+
     let metadata = {
         let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
-        let key_md = KeyMetadata {
-            certificate: armored,
-        };
-
-        let key_json = serde_json::to_string(&key_md)?;
+        let creation_time = Timestamp::try_from(primary.creation_time())?;
+        let key_flags = tsk.primary_key()
+            .key_flags().map(|f|f.custom_serialize());
+        let key_json = serde_json::to_string(&KeyMetadata {
+            sq_dsm_version:              SQ_DSM_VERSION.to_string(),
+            fingerprint:                 tsk.primary_key().fingerprint().to_hex(),
+            key_flags,
+            certificate:                 Some(armored),
+            external_creation_timestamp: Some(creation_time.into()),
+        })?;
 
         let mut metadata = HashMap::<String, String>::new();
         metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
         metadata
     };
-
-    let primary_ops = get_operations(tsk.primary_key().key_flags(), exportable);
-    let primary = tsk.primary_key().key().clone().parts_into_secret()?;
 
     let prim_hazmat = get_hazardous_material(&primary);
     let prim_req = match (primary.mpis(), prim_hazmat) {
@@ -803,6 +841,22 @@ pub fn import_tsk_to_dsm(
         .kid;
 
     for subkey in tsk.keys().subkeys().unencrypted_secret() {
+        let metadata = {
+            let creation_time = Timestamp::try_from(subkey.creation_time())?;
+            let key_flags = subkey.key_flags().map(|f|f.custom_serialize());
+            let key_md = KeyMetadata {
+                certificate:                 None,
+                sq_dsm_version:              SQ_DSM_VERSION.to_string(),
+                external_creation_timestamp: Some(creation_time.into()),
+                fingerprint:                 subkey.fingerprint().to_hex(),
+                key_flags,
+            };
+
+            let key_json = serde_json::to_string(&key_md)?;
+            let mut metadata = HashMap::<String, String>::new();
+            metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
+            metadata
+        };
         let subkey_name = key_name.to_string() + " " + &subkey.keyid().to_hex();
         let subkey_hazmat = get_hazardous_material(&subkey);
         let subkey_ops = get_operations(subkey.key_flags(), exportable);
@@ -833,6 +887,7 @@ pub fn import_tsk_to_dsm(
                 let desc = "PGP subkey imported with sq-dsm".to_string();
                 SobjectRequest {
                     name: Some(subkey_name.to_string()),
+                    custom_metadata: Some(metadata),
                     description: Some(desc),
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(subkey_ops),
@@ -979,7 +1034,15 @@ impl PublicKey {
 
     fn from_sobject(sob: Sobject, role: KeyRole) -> Result<Self> {
         let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid")?);
-        let time: SystemTime = sob.created_at.to_datetime().into();
+
+        let time: SystemTime = if let Ok(
+            Some(KeyMetadata{ external_creation_timestamp: Some(secs), .. })
+        ) = KeyMetadata::from_sobject(&sob) {
+            Timestamp::from(secs).into()
+        } else {
+            sob.created_at.to_datetime().into()
+        };
+
         let raw_pk = sob.pub_key.context("public bits of sobject missing")?;
 
         let (pk_algo, pk_material, role) = match sob.obj_type {
@@ -1058,10 +1121,8 @@ impl PublicKey {
                 let pk_algo = PublicKeyAlgorithm::RSAEncryptSign;
 
                 (pk_algo, pk_material, role)
-            }
-            t @ _ => {
-                return Err(Error::msg(format!("unknown object : {:?}", t)));
-            }
+            },
+            t => { return Err(Error::msg(format!("unknown object: {:?}", t))); }
         };
 
         let key = Key::V4(
@@ -1102,9 +1163,7 @@ impl Signer for DsmAgent {
             HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
             HashAlgorithm::SHA512 => DigestAlgorithm::Sha512,
             HashAlgorithm::SHA256 => DigestAlgorithm::Sha256,
-            hash @ _ => {
-                panic!("unimplemented: {}", hash);
-            }
+            hash => panic!("unimplemented: {}", hash),
         };
 
         match self.public.pk_algo() {
@@ -1162,9 +1221,7 @@ impl Signer for DsmAgent {
                     s: s.to_vec().into(),
                 })
             }
-            algo @ _ => {
-                return Err(Error::msg(format!("unknown algo: {}", algo)));
-            }
+            algo => Err(Error::msg(format!("unknown algo: {}", algo)))
         }
     }
 }
@@ -1244,7 +1301,7 @@ impl Decryptor for DsmAgent {
                         name:              None,
                         group_id:          None,
                         key_type:          ObjectType::Secret,
-                        key_size:          curve_key_size(&curve).context("size")?,
+                        key_size:          curve_key_size(curve).context("size")?,
                         enabled:           true,
                         description:       None,
                         custom_metadata:   None,
@@ -1283,7 +1340,13 @@ fn secret_packet_from_sobject(
     sobject: &Sobject,
     role: KeyRole,
 ) -> Result<Packet> {
-    let time: SystemTime = sobject.created_at.to_datetime().into();
+    let time: SystemTime = if let Ok(
+        Some(KeyMetadata{ external_creation_timestamp: Some(secs), .. })
+    ) = KeyMetadata::from_sobject(sobject) {
+        Timestamp::from(secs).into()
+    } else {
+        sobject.created_at.to_datetime().into()
+    };
     let raw_secret = sobject.value.as_ref()
         .context("secret bits missing in Sobject")?;
     let raw_public = sobject.pub_key.as_ref()
@@ -1339,13 +1402,13 @@ fn secret_packet_from_sobject(
                 let curve = sequoia_curve_from_api_curve(curve)?;
                 let bits_field = curve.bits()
                     .ok_or_else(|| Error::msg("bad curve"))?;
-                let (x, y) = der::parse::ec_point_x_y(&raw_public)?;
+                let (x, y) = der::parse::ec_point_x_y(raw_public)?;
                 let point = MPI::new_point(&x, &y, bits_field);
 
                 // Secret
                 let scalar: ProtectedMPI = der::parse::ec_priv_scalar(
-                    &raw_secret
-                    )?.into();
+                    raw_secret
+                )?.into();
                 let algo: PublicKeyAlgorithm;
                 let secret: SecretKeyMaterial;
                 let public: MpiPublic;
@@ -1381,7 +1444,7 @@ fn secret_packet_from_sobject(
             _ => unimplemented!(),
         },
         ObjectType::Rsa => {
-            let sk = der::parse::rsa_private_edpq(&raw_secret)?;
+            let sk = der::parse::rsa_private_edpq(raw_secret)?;
             match role {
                 KeyRole::Primary => Ok(Key::V4(
                     Key4::<_, PrimaryRole>::import_secret_rsa_unchecked_e(
@@ -1422,7 +1485,7 @@ impl NoProxy {
     pub fn parse(no_proxy: &str) -> Self {
         Self(
             no_proxy
-                .split(",")
+                .split(',')
                 .filter_map(|no_proxy| no_proxy.parse().ok())
                 .collect(),
         )
@@ -1476,8 +1539,8 @@ impl FromStr for NoProxyEntry {
     fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
         // split host and port from no_proxy
 
-        let mut no_proxy_splits = s.trim().splitn(2, ":");
-        let no_proxy_host = no_proxy_splits.next().ok_or_else(|| ())?;
+        let mut no_proxy_splits = s.trim().splitn(2, ':');
+        let no_proxy_host = no_proxy_splits.next().ok_or(())?;
         let no_proxy_port =
             no_proxy_splits.next().and_then(|port| port.parse().ok());
 
@@ -1487,7 +1550,7 @@ impl FromStr for NoProxyEntry {
         Ok(NoProxyEntry {
             ipnetwork:      IpNetwork::from_str(no_proxy_host).ok(),
             split_hostname: no_proxy_host
-                .split(".")
+                .split('.')
                 .map(String::from)
                 .collect(),
             port:           no_proxy_port,
@@ -1521,10 +1584,10 @@ fn maybe_proxied(endpoint: &str, ssl: NativeTlsClient) -> Result<HyperClient> {
     }
 
     let https_conn = HttpsConnector::new(ssl);
-    if let Some((proxy_host, proxy_port)) = decide_proxy_from_env(&endpoint) {
+    if let Some((proxy_host, proxy_port)) = decide_proxy_from_env(endpoint) {
         Ok(HyperClient::with_proxy_config(ProxyConfig::new(
                     "http",
-                    proxy_host.to_string(),
+                    proxy_host,
                     proxy_port,
                     https_conn,
                     NativeTlsClient::new()?,
@@ -1540,7 +1603,7 @@ fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {
         SequoiaCurve::NistP256 => Ok(256),
         SequoiaCurve::NistP384 => Ok(384),
         SequoiaCurve::NistP521 => Ok(521),
-        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
+        curve  => Err(Error::msg(format!("unsupported curve {}", curve))),
     }
 }
 
@@ -1562,7 +1625,7 @@ fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
         SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
         SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
         SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
-        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
+        curve => Err(Error::msg(format!("unsupported curve {}", curve))),
     }
 }
 
@@ -1599,5 +1662,46 @@ fn try_unlock_p12(cert_file: String) -> Result<Identity> {
                 }
             }
         }
+    }
+}
+
+trait CustomSerialize {
+    type Serialized;
+    fn custom_serialize(&self) -> Self::Serialized;
+    fn custom_deserialize(ser: Self::Serialized) -> Self;
+}
+
+// CS   = 3
+// EtEr = 12
+impl CustomSerialize for KeyFlags {
+    type Serialized = u8;
+
+    fn custom_serialize(&self) -> u8 {
+          (0b0000_0001 * (self.for_certification() as u8))
+        | (0b0000_0010 * (self.for_signing() as u8))
+        | (0b0000_0100 * (self.for_storage_encryption() as u8))
+        | (0b0000_1000 * (self.for_transport_encryption() as u8))
+        | (0b0001_0000 * (self.for_authentication() as u8))
+    }
+
+    fn custom_deserialize(ser: u8) -> Self {
+        let mut flags = KeyFlags::empty();
+        if ser & 0b0000_0001 != 0 {
+            flags = flags.set_certification();
+        }
+        if ser & 0b0000_0010 != 0 {
+            flags = flags.set_signing();
+        }
+        if ser & 0b0000_0100 != 0 {
+            flags = flags.set_storage_encryption();
+        }
+        if ser & 0b0000_1000 != 0 {
+            flags = flags.set_transport_encryption();
+        }
+        if ser & 0b0001_0000 != 0 {
+            flags = flags.set_authentication();
+        }
+
+        flags
     }
 }
