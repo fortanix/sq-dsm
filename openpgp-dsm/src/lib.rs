@@ -363,23 +363,51 @@ enum Role {
 }
 
 impl DsmAgent {
-    /// Returns a DsmAgent with signing capabilities, corresponding to the given
-    /// key name.
+    /// Returns a DsmAgent with signing capabilities, corresponding to the first
+    /// key with key flag "S" found in DSM.
     pub fn new_signer(credentials: Credentials, key_name: &str) -> Result<Self> {
         let dsm_client = credentials.dsm_client()?;
 
+        // Check if primary is "S"
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
-        let sobject = dsm_client
+        let prim_sob = dsm_client
             .get_sobject(None, &descriptor)
             .context(format!("could not get primary key {}", key_name))?;
-        let key = PublicKey::from_sobject(sobject, KeyRole::Primary)?;
+        if let Some(flags) = KeyMetadata::from_sobject(&prim_sob)?.key_flags {
+            if KeyFlags::custom_deserialize(flags).for_signing() {
+                // Initialize Signer with primary key
+                let key = PublicKey::from_sobject(prim_sob, KeyRole::Primary)?;
+                return Ok(DsmAgent {
+                    credentials,
+                    descriptor,
+                    public: key.sequoia_key.context("key is not loaded")?,
+                    role: Role::Signer,
+                });
+            }
+        }
 
-        Ok(DsmAgent {
-            credentials,
-            descriptor,
-            public: key.sequoia_key.context("key is not loaded")?,
-            role: Role::Signer,
-        })
+        // Loop through subkeys
+        let KeyLinks { subkeys, .. }
+        = prim_sob.links.ok_or(Error::msg("no subkeys found"))?;
+        for uid in subkeys {
+            let descriptor = SobjectDescriptor::Kid(uid);
+            let sub_sob = dsm_client
+                .get_sobject(None, &descriptor)?;
+            if let Some(flags) = KeyMetadata::from_sobject(&sub_sob)?.key_flags {
+                if KeyFlags::custom_deserialize(flags).for_signing() {
+                    // Initialize Signer with subkey
+                    let key = PublicKey::from_sobject(sub_sob, KeyRole::Subkey)?;
+                    return Ok(DsmAgent {
+                        credentials,
+                        descriptor,
+                        public: key.sequoia_key.context("key is not loaded")?,
+                        role: Role::Signer,
+                    })
+                }
+            }
+        }
+
+        Err(anyhow::anyhow!(format!("Found no suitable signing key in DSM")))
     }
 
     /// Returns a DsmAgent with decryption capabilities, corresponding to the
@@ -446,7 +474,7 @@ struct KeyMetadata {
 }
 
 impl KeyMetadata {
-    fn from_sobject(sob: &Sobject) -> Result<Option<Self>> {
+    fn from_sobject(sob: &Sobject) -> Result<Self> {
         match &sob.custom_metadata {
             Some(dict) => {
                 if !dict.contains_key(DSM_LABEL_PGP) {
@@ -454,9 +482,9 @@ impl KeyMetadata {
                 }
                 let key_md: KeyMetadata =
                     serde_json::from_str(&dict[DSM_LABEL_PGP])?;
-                Ok(Some(key_md))
+                Ok(key_md)
             }
-            None => Ok(None)
+            None => Err(anyhow::anyhow!("no metadata found on {:?}", sob.kid))
         }
     }
 }
@@ -675,12 +703,9 @@ pub fn extract_cert(key_name: &str, cred: Credentials) -> Result<Cert> {
         .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
         .context(format!("could not get primary key {}", key_name))?;
 
-    let metadata = KeyMetadata::from_sobject(&sobject)?.ok_or_else(
-        || Error::msg("metadata not found".to_string()),
-    )?;
 
     Cert::from_str(
-        &metadata.certificate
+        &KeyMetadata::from_sobject(&sobject)?.certificate
         .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
     )
 }
@@ -698,8 +723,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
             "export primary key",
         )
         .context(format!("could not export primary secret {}", key_name))?;
-    let key_md = KeyMetadata::from_sobject(&prim_sob)?
-        .ok_or_else(|| Error::msg("no metadata found in primary object"))?;
+    let key_md = KeyMetadata::from_sobject(&prim_sob)?;
     let packet = secret_packet_from_sobject(&prim_sob, KeyRole::Primary)?;
     packets.push(packet);
 
@@ -1035,9 +1059,9 @@ impl PublicKey {
     fn from_sobject(sob: Sobject, role: KeyRole) -> Result<Self> {
         let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid")?);
 
-        let time: SystemTime = if let Ok(
-            Some(KeyMetadata{ external_creation_timestamp: Some(secs), .. })
-        ) = KeyMetadata::from_sobject(&sob) {
+        let time: SystemTime = if let KeyMetadata{
+            external_creation_timestamp: Some(secs), ..
+        } = KeyMetadata::from_sobject(&sob)? {
             Timestamp::from(secs).into()
         } else {
             sob.created_at.to_datetime().into()
@@ -1340,9 +1364,9 @@ fn secret_packet_from_sobject(
     sobject: &Sobject,
     role: KeyRole,
 ) -> Result<Packet> {
-    let time: SystemTime = if let Ok(
-        Some(KeyMetadata{ external_creation_timestamp: Some(secs), .. })
-    ) = KeyMetadata::from_sobject(sobject) {
+    let time: SystemTime = if let KeyMetadata {
+        external_creation_timestamp: Some(secs), ..
+    } = KeyMetadata::from_sobject(sobject)? {
         Timestamp::from(secs).into()
     } else {
         sobject.created_at.to_datetime().into()
