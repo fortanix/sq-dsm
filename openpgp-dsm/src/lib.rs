@@ -827,7 +827,7 @@ pub fn import_tsk_to_dsm(
 
         if let Some(f) = key_flags {
             if f.for_signing() | f.for_certification() {
-                ops |= KeyOperations::SIGN | KeyOperations::VERIFY;
+                ops |= KeyOperations::SIGN;
             }
 
             if f.for_transport_encryption() | f.for_storage_encryption() {
@@ -1178,9 +1178,6 @@ impl PublicKey {
         let (pk_algo, pk_material, role) = match sob.obj_type {
             ObjectType::Ec => match sob.elliptic_curve {
                 Some(ApiCurve::Ed25519) => {
-                    if role == KeyRole::Subkey {
-                        return Err(Error::msg("signing subkeys unsupported"));
-                    }
                     let pk_algo = PublicKeyAlgorithm::EdDSA;
                     let curve = SequoiaCurve::Ed25519;
 
@@ -1188,7 +1185,7 @@ impl PublicKey {
                     let point = MPI::new_compressed_point(&raw_pk[12..]);
 
                     let ec_pk = MpiPublic::EdDSA { curve, q: point };
-                    (pk_algo, ec_pk, KeyRole::Primary)
+                    (pk_algo, ec_pk, role)
                 }
                 Some(ApiCurve::X25519) => {
                     let pk_algo = PublicKeyAlgorithm::ECDH;

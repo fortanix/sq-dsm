@@ -20,6 +20,8 @@ send "$pass\n"
 expect "Enter password"
 send "$pass\n"
 
-expect "SUCCESS"
+expect {
+    "SUCCESS" {exit 0;}
+}
 
-interact
+exit 1;

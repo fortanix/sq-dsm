@@ -36,7 +36,8 @@ install: build-release
 	$(MAKE) -C../store install
 
 test-dsm:
-	cargo run -- --version
+	cargo run -- --version # Only to create binary
+	./tests/dsm/knownkeys_import_dsm.sh
 	./tests/dsm/generate_gpg_import_dsm_auto.tcl
 	./tests/dsm/key_expiration.sh -c rsa2k
 	./tests/dsm/key_expiration.sh -c rsa3k

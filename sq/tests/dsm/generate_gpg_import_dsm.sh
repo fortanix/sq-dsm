@@ -1,7 +1,6 @@
 #!/bin/bash -e
 
 sq=""
-# TODO: cipher_suite=""
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source $SCRIPT_DIR/common.sh
@@ -20,6 +19,7 @@ trap 'erase_tmp_dir $data && erase_tmp_dir $gpg_homedir' EXIT
 
 # Test files
 message=$data/message.txt
+decrypted_with_dsm=$data/decrypted_with_dsm.asc
 alice_public=$data/alice.asc
 alice_local_priv=$data/alice_local_priv.asc
 alice_extracted_priv=$data/alice_extracted_priv.asc
@@ -67,15 +67,13 @@ $sq verify --signer-cert="$alice_public" "$signed_remote"
 $sq verify --signer-cert="$alice_public" "$signed_local"
 $sq verify --signer-cert="$alice_public" "$signed_gpg"
 
-# TODO: Encryption roundtrips
-
-comm "Extract from dsm, check fingerprints, userID, timestamps"
-$sq key extract-dsm-secret --dsm-key="$alice_key_name" > "$alice_extracted_priv"
+comm "encrypt - decrypt with sq-dsm"
 $sq key extract-cert --dsm-key="$alice_key_name" > "$alice_extracted_pub"
-# TODO: Check fingerprints, timestamps
+$sq encrypt --recipient-cert="$alice_public" < "$message" | $sq decrypt --dsm-key="$alice_key_name" > "$decrypted_with_dsm"
+diff "$message" "$decrypted_with_dsm"
 
 # Import to gpg
+$sq key extract-dsm-secret --dsm-key="$alice_key_name" > "$alice_extracted_priv"
 $gpg --import "$alice_extracted_priv"
-# TODO: Check error message
 
 echo "SUCCESS"
