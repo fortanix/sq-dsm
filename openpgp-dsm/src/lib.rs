@@ -600,16 +600,17 @@ pub fn generate_key(
         .clone()
         .context("unloaded primary key")?
         .into();
-    let primary_fingerprint = prim.fingerprint().to_hex();
+    let prim_fingerprint = prim.fingerprint().to_hex();
+    let prim_id = prim.keyid().to_hex();
     let prim_creation_time = prim.creation_time();
 
     let mut prim_signer = DsmAgent::new_certifier(credentials, key_name)?;
 
-    let primary_flags = KeyFlags::empty().set_certification().set_signing();
+    let prim_flags = KeyFlags::empty().set_certification().set_signing();
 
     let prim_sig_builder = SignatureBuilder::new(SignatureType::DirectKey)
         .set_features(Features::sequoia())?
-        .set_key_flags(primary_flags.clone())?
+        .set_key_flags(prim_flags.clone())?
         .set_key_validity_period(validity_period)?
         .set_signature_creation_time(prim_creation_time)?
         .set_preferred_symmetric_algorithms(vec![
@@ -635,7 +636,7 @@ pub fn generate_key(
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
         .set_features(Features::sequoia())?
-        .set_key_flags(primary_flags.clone())?
+        .set_key_flags(prim_flags.clone())?
         .set_key_validity_period(validity_period)?
         .set_signature_creation_time(prim_creation_time)?
         .set_preferred_symmetric_algorithms(vec![
@@ -670,6 +671,7 @@ pub fn generate_key(
         .set_signature_creation_time(subkey_creation_time)?
         .set_key_flags(subkey_flags.clone())?;
     let subkey_fingerprint = subkey_public.fingerprint().to_hex();
+    let subkey_id = subkey_public.keyid().to_hex();
 
     let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
     cert = cert
@@ -678,16 +680,20 @@ pub fn generate_key(
 
     info!("Generation: store primary metadata");
     {
+        let primary_desc = format!(
+            "PGP primary, {}, {}", prim_id, prim_flags.to_human()
+        );
         let key_json = serde_json::to_string(&KeyMetadata {
             sq_dsm_version: SQ_DSM_VERSION.to_string(),
-            fingerprint: primary_fingerprint,
-            key_flags: Some(primary_flags.custom_serialize()),
+            fingerprint: prim_fingerprint,
+            key_flags: Some(prim_flags.custom_serialize()),
             certificate: Some(String::from_utf8(cert.armored().to_vec()?)?),
             external_creation_timestamp: None,
         })?;
         let mut prim_metadata = HashMap::<String, String>::new();
         prim_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
         let update_req = SobjectRequest {
+            description: Some(primary_desc),
             custom_metadata: Some(prim_metadata),
             ..Default::default()
         };
@@ -696,8 +702,14 @@ pub fn generate_key(
         )?;
     }
 
-    info!("Generation: store subkey metadata");
+    info!("Generation: rename subkey and store metadata");
     {
+        let subkey_name = format!(
+            "{} {}/{}", key_name, prim_id, subkey_id
+        );
+        let subkey_desc = format!(
+            "PGP subkey, {}", subkey_flags.to_human()
+        );
         let key_json = serde_json::to_string(&KeyMetadata {
             sq_dsm_version: SQ_DSM_VERSION.to_string(),
             fingerprint: subkey_fingerprint,
@@ -708,6 +720,8 @@ pub fn generate_key(
         let mut sub_metadata = HashMap::<String, String>::new();
         sub_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
         let update_req = SobjectRequest {
+            name: Some(subkey_name),
+            description: Some(subkey_desc),
             custom_metadata: Some(sub_metadata),
             ..Default::default()
         };
@@ -822,18 +836,24 @@ pub fn import_tsk_to_dsm(
         ops
     }
 
-    let primary_ops = get_operations(tsk.primary_key().key_flags(), exportable);
-    let primary = tsk.primary_key().key().clone().parts_into_secret()?;
+    let prim_key = tsk.primary_key();
+    let primary_ops = get_operations(prim_key.key_flags(), exportable);
+    let primary = prim_key.key().clone().parts_into_secret()?;
+    let prim_id = prim_key.keyid().to_hex();
+    let prim_flags = tsk.primary_key()
+        .key_flags()
+        .ok_or_else(||anyhow::anyhow!("Bad input: primary has no key flags"))?;
+    let primary_desc = format!(
+        "PGP primary, {}, {}", prim_id, prim_flags.to_human()
+    );
 
     let metadata = {
         let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
         let creation_time = Timestamp::try_from(primary.creation_time())?;
-        let key_flags = tsk.primary_key()
-            .key_flags().map(|f|f.custom_serialize());
         let key_json = serde_json::to_string(&KeyMetadata {
             sq_dsm_version:              SQ_DSM_VERSION.to_string(),
-            fingerprint:                 tsk.primary_key().fingerprint().to_hex(),
-            key_flags,
+            fingerprint:                 prim_key.fingerprint().to_hex(),
+            key_flags:                   Some(prim_flags.custom_serialize()),
             certificate:                 Some(armored),
             external_creation_timestamp: Some(creation_time.into()),
         })?;
@@ -869,10 +889,9 @@ pub fn import_tsk_to_dsm(
                 None
             };
 
-            let desc = "PGP primary key imported with sq-dsm".to_string();
             SobjectRequest {
                 custom_metadata: Some(metadata),
-                description: Some(desc),
+                description: Some(primary_desc),
                 name: Some(key_name.to_string()),
                 obj_type: Some(ObjectType::Rsa),
                 key_ops: Some(primary_ops),
@@ -892,15 +911,22 @@ pub fn import_tsk_to_dsm(
         .kid;
 
     for subkey in tsk.keys().subkeys().unencrypted_secret() {
+        let subkey_flags = subkey.key_flags().unwrap_or(KeyFlags::empty());
+        let subkey_id = subkey.keyid().to_hex();
+        let subkey_name = format!(
+            "{} {}/{}", key_name, prim_id, subkey_id,
+        );
+        let subkey_desc = format!(
+            "PGP subkey, {}", subkey_flags.to_human()
+        );
         let metadata = {
             let creation_time = Timestamp::try_from(subkey.creation_time())?;
-            let key_flags = subkey.key_flags().map(|f|f.custom_serialize());
             let key_md = KeyMetadata {
                 certificate:                 None,
                 sq_dsm_version:              SQ_DSM_VERSION.to_string(),
                 external_creation_timestamp: Some(creation_time.into()),
                 fingerprint:                 subkey.fingerprint().to_hex(),
-                key_flags,
+                key_flags:                   Some(subkey_flags.custom_serialize()),
             };
 
             let key_json = serde_json::to_string(&key_md)?;
@@ -908,7 +934,6 @@ pub fn import_tsk_to_dsm(
             metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
             metadata
         };
-        let subkey_name = key_name.to_string() + " " + &subkey.keyid().to_hex();
         let subkey_hazmat = get_hazardous_material(&subkey);
         let subkey_ops = get_operations(subkey.key_flags(), exportable);
         let subkey_req = match (subkey.mpis(), subkey_hazmat) {
@@ -935,11 +960,10 @@ pub fn import_tsk_to_dsm(
                     None
                 };
 
-                let desc = "PGP subkey imported with sq-dsm".to_string();
                 SobjectRequest {
                     name: Some(subkey_name.to_string()),
                     custom_metadata: Some(metadata),
-                    description: Some(desc),
+                    description: Some(subkey_desc),
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(subkey_ops),
                     key_size: Some(key_size),
@@ -981,8 +1005,6 @@ impl PublicKey {
         algo: &SupportedPkAlgo,
         exportable: bool,
     ) -> Result<Self> {
-        let description = Some("Created with sq-dsm".to_string());
-
         let mut sobject_request = match (&role, algo) {
             (KeyRole::Primary, SupportedPkAlgo::Rsa(key_size)) => {
                 let sig_policy = RsaSignaturePolicy {
@@ -995,7 +1017,6 @@ impl PublicKey {
 
                 SobjectRequest {
                     name: Some(name),
-                    description,
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(
                         KeyOperations::SIGN | KeyOperations::APPMANAGEABLE,
@@ -1016,7 +1037,6 @@ impl PublicKey {
 
                 SobjectRequest {
                     name: Some(name + " (PGP: decryption subkey)"),
-                    description,
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(
                         KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE,
@@ -1028,7 +1048,6 @@ impl PublicKey {
             }
             (KeyRole::Primary, SupportedPkAlgo::Curve25519) => SobjectRequest {
                 name: Some(name),
-                description,
                 obj_type: Some(ObjectType::Ec),
                 key_ops: Some(
                     KeyOperations::SIGN | KeyOperations::APPMANAGEABLE,
@@ -1041,7 +1060,6 @@ impl PublicKey {
 
                 SobjectRequest {
                     name: Some(name),
-                    description,
                     obj_type: Some(ObjectType::Ec),
                     key_ops: Some(
                         KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE,
@@ -1052,7 +1070,6 @@ impl PublicKey {
             }
             (KeyRole::Primary, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
                 name: Some(name),
-                description,
                 obj_type: Some(ObjectType::Ec),
                 key_ops: Some(
                     KeyOperations::SIGN | KeyOperations::APPMANAGEABLE,
@@ -1062,7 +1079,6 @@ impl PublicKey {
             },
             (KeyRole::Subkey, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
                 name: Some(name + " (PGP: decryption subkey)"),
-                description,
                 obj_type: Some(ObjectType::Ec),
                 key_ops: Some(
                     KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE,
@@ -1720,6 +1736,7 @@ trait CustomSerialize {
     type Serialized;
     fn custom_serialize(&self) -> Self::Serialized;
     fn custom_deserialize(ser: Self::Serialized) -> Self;
+    fn to_human(&self) -> String;
 }
 
 // See sec 5.2.3.22 of RFC4880bis.
@@ -1767,5 +1784,34 @@ impl CustomSerialize for KeyFlags {
         }
 
         flags
+    }
+
+    fn to_human(&self) -> String {
+        let mut s = String::new();
+        if self.for_certification() {
+            s += "Certification, ";
+        }
+        if self.for_signing() {
+            s += "Signing, ";
+        }
+        match (self.for_transport_encryption(), self.for_storage_encryption()) {
+            (true, true) => { s += "Transport and Storage Encryption, "},
+            (true, false) => { s += "Transport Encryption, "},
+            (false, true) => { s += "Storage Encryption, "},
+            _ => {}
+        }
+        if self.is_split_key() {
+            s += "Split Key, ";
+        }
+        if self.for_authentication() {
+            s += "Authentication, ";
+        }
+        if self.is_group_key() {
+            s += "Group Key, ";
+        }
+
+        s.pop();
+        s.pop();
+        s
     }
 }
