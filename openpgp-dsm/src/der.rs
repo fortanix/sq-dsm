@@ -188,6 +188,36 @@ pub mod serialize {
         })
     }
 
+    pub fn ec_private(
+        curve: &Curve,
+        _q: &mpi::MPI,
+        scalar: &mpi::ProtectedMPI,
+    ) -> Vec<u8> {
+
+        let opaque_octet_string = yasna::construct_der(|w| {
+            w.write_bytes(scalar.value());
+        });
+
+        let oid = match curve {
+            Curve::Cv25519 => Oid::from_slice(&[1, 3, 101, 110]),
+            Curve::Ed25519 => Oid::from_slice(&[1, 3, 101, 112]),
+            c => unimplemented!("DER for {}", c)
+        };
+
+        // RFC8410
+        let der = yasna::construct_der(|w|{
+            w.write_sequence(|w| {
+                w.next().write_u32(0);
+                w.next().write_sequence(|w| {
+                    w.next().write_oid(&oid);
+                });
+                w.next().write_bytes(&opaque_octet_string);
+            });
+        });
+
+        der
+    }
+
     pub fn spki_ecdh(curve: &Curve, e: &mpi::MPI) -> Vec<u8> {
         match curve {
             Curve::Cv25519 => {

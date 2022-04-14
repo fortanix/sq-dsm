@@ -815,29 +815,40 @@ pub fn import_tsk_to_dsm(
         }
     }
 
-    fn get_operations(key_flags: Option<KeyFlags>, exp: bool) -> KeyOperations {
+    fn get_operations(
+        key_flags:  Option<KeyFlags>,
+        pk_algo:    PublicKeyAlgorithm,
+        exportable: bool,
+    ) -> KeyOperations {
         let mut ops = KeyOperations::APPMANAGEABLE;
 
-        if exp {
+        if exportable {
             ops |= KeyOperations::EXPORT;
         }
 
-        if let Some(flags) = key_flags {
-            if flags.for_signing()
-                | flags.for_certification() {
+        if let Some(f) = key_flags {
+            if f.for_signing() | f.for_certification() {
                 ops |= KeyOperations::SIGN | KeyOperations::VERIFY;
             }
 
-            if flags.for_transport_encryption()
-                | flags.for_storage_encryption() {
-                ops |= KeyOperations::ENCRYPT | KeyOperations::DECRYPT;
+            if f.for_transport_encryption() | f.for_storage_encryption() {
+                if pk_algo == PublicKeyAlgorithm::ECDH {
+                    ops |= KeyOperations::AGREEKEY;
+                } else {
+                    ops |= KeyOperations::ENCRYPT | KeyOperations::DECRYPT;
+                }
             }
         }
+
         ops
     }
 
     let prim_key = tsk.primary_key();
-    let primary_ops = get_operations(prim_key.key_flags(), exportable);
+    let primary_ops = get_operations(
+        prim_key.key_flags(),
+        prim_key.pk_algo(),
+        exportable
+    );
     let primary = prim_key.key().clone().parts_into_secret()?;
     let prim_id = prim_key.keyid().to_hex();
     let prim_flags = tsk.primary_key()
@@ -864,6 +875,7 @@ pub fn import_tsk_to_dsm(
     };
 
     let prim_hazmat = get_hazardous_material(&primary);
+    // TODO: don't double the following code
     let prim_req = match (primary.mpis(), prim_hazmat) {
         (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
             let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
@@ -891,17 +903,29 @@ pub fn import_tsk_to_dsm(
 
             SobjectRequest {
                 custom_metadata: Some(metadata),
-                description: Some(primary_desc),
-                name: Some(key_name.to_string()),
-                obj_type: Some(ObjectType::Rsa),
-                key_ops: Some(primary_ops),
-                key_size: Some(key_size),
-                rsa: rsa_opts,
-                value: Some(value.into()),
+                description:     Some(primary_desc),
+                name:            Some(key_name.to_string()),
+                obj_type:        Some(ObjectType::Rsa),
+                key_ops:         Some(primary_ops),
+                key_size:        Some(key_size),
+                rsa:             rsa_opts,
+                value:           Some(value.into()),
                 ..Default::default()
             }
         },
-        (x, _) => unimplemented!("{:?}", x)
+        (MpiPublic::EdDSA { curve, q }, MpiSecret::EdDSA { scalar }) => {
+            let value = der::serialize::ec_private(&curve, &q, &scalar);
+            SobjectRequest {
+                custom_metadata: Some(metadata),
+                description:     Some(primary_desc),
+                name:            Some(key_name.to_string()),
+                obj_type:        Some(ObjectType::Ec),
+                key_ops:         Some(primary_ops),
+                value:           Some(value.into()),
+                ..Default::default()
+            }
+        },
+        x => unimplemented!("DER of {:?}", x)
     };
 
     let dsm_client = cred.dsm_client()?;
@@ -935,7 +959,11 @@ pub fn import_tsk_to_dsm(
             metadata
         };
         let subkey_hazmat = get_hazardous_material(&subkey);
-        let subkey_ops = get_operations(subkey.key_flags(), exportable);
+        let subkey_ops = get_operations(
+            subkey.key_flags(),
+            subkey.pk_algo(),
+            exportable
+        );
         let subkey_req = match (subkey.mpis(), subkey_hazmat) {
             (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
                 let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
@@ -972,7 +1000,31 @@ pub fn import_tsk_to_dsm(
                     ..Default::default()
                 }
             },
-            (x, _) => unimplemented!("{:?}", x)
+            (MpiPublic::EdDSA { curve, q }, MpiSecret::EdDSA { scalar }) => {
+                let value = der::serialize::ec_private(&curve, &q, &scalar);
+                SobjectRequest {
+                    name:            Some(subkey_name.to_string()),
+                    custom_metadata: Some(metadata),
+                    description:     Some(subkey_desc),
+                    obj_type:        Some(ObjectType::Ec),
+                    key_ops:         Some(subkey_ops),
+                    value:           Some(value.into()),
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::ECDH { curve, q, .. }, MpiSecret::ECDH { scalar }) => {
+                let value = der::serialize::ec_private(&curve, &q, &scalar);
+                SobjectRequest {
+                    name:            Some(subkey_name.to_string()),
+                    custom_metadata: Some(metadata),
+                    description:     Some(subkey_desc),
+                    obj_type:        Some(ObjectType::Ec),
+                    key_ops:         Some(subkey_ops),
+                    value:           Some(value.into()),
+                    ..Default::default()
+                }
+            },
+            (x, y) => unimplemented!("{:?}, {:?}", x, y)
         };
 
         // Import subkey
