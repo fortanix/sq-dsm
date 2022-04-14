@@ -363,6 +363,25 @@ enum Role {
 }
 
 impl DsmAgent {
+    /// Returns a DsmAgent with certifying capabilities, corresponding to the
+    /// primary key (flag "C").
+    fn new_certifier(credentials: Credentials, key_name: &str) -> Result<Self> {
+        let dsm_client = credentials.dsm_client()?;
+
+        let descriptor = SobjectDescriptor::Name(key_name.to_string());
+        let prim_sob = dsm_client
+            .get_sobject(None, &descriptor)
+            .context(format!("could not get primary key {}", key_name))?;
+        // Initialize Signer with primary key
+        let key = PublicKey::from_sobject(prim_sob, KeyRole::Primary)?;
+        Ok(DsmAgent {
+            credentials,
+            descriptor,
+            public: key.sequoia_key.context("key is not loaded")?,
+            role: Role::Signer,
+        })
+    }
+
     /// Returns a DsmAgent with signing capabilities, corresponding to the first
     /// key with key flag "S" found in DSM.
     pub fn new_signer(credentials: Credentials, key_name: &str) -> Result<Self> {
@@ -584,7 +603,7 @@ pub fn generate_key(
     let primary_fingerprint = prim.fingerprint().to_hex();
     let prim_creation_time = prim.creation_time();
 
-    let mut prim_signer = DsmAgent::new_signer(credentials, key_name)?;
+    let mut prim_signer = DsmAgent::new_certifier(credentials, key_name)?;
 
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
@@ -657,9 +676,8 @@ pub fn generate_key(
         .insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
 
 
-    // Update primary metadata
+    info!("Generation: store primary metadata");
     {
-        info!("store primary metadata in DSM");
         let key_json = serde_json::to_string(&KeyMetadata {
             sq_dsm_version: SQ_DSM_VERSION.to_string(),
             fingerprint: primary_fingerprint,
@@ -678,9 +696,8 @@ pub fn generate_key(
         )?;
     }
 
-    // Update subkey metadata
+    info!("Generation: store subkey metadata");
     {
-        info!("store subkey metadata in DSM");
         let key_json = serde_json::to_string(&KeyMetadata {
             sq_dsm_version: SQ_DSM_VERSION.to_string(),
             fingerprint: subkey_fingerprint,
@@ -1069,9 +1086,9 @@ impl PublicKey {
     fn from_sobject(sob: Sobject, role: KeyRole) -> Result<Self> {
         let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid")?);
 
-        let time: SystemTime = if let KeyMetadata{
+        let time: SystemTime = if let Some(KeyMetadata {
             external_creation_timestamp: Some(secs), ..
-        } = KeyMetadata::from_sobject(&sob)? {
+        }) = KeyMetadata::from_sobject(&sob).ok() {
             Timestamp::from(secs).into()
         } else {
             sob.created_at.to_datetime().into()
