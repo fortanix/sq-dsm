@@ -466,7 +466,7 @@ struct KeyMetadata {
     sq_dsm_version:              String,
     fingerprint:                 String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    key_flags:                   Option<u8>,
+    key_flags:                   Option<[u8; 2]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     certificate:                 Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1695,35 +1695,48 @@ trait CustomSerialize {
     fn custom_deserialize(ser: Self::Serialized) -> Self;
 }
 
-// CS   = 3
-// EtEr = 12
+// See sec 5.2.3.22 of RFC4880bis.
+//
+// We ignore the second octet for now.
+// CS   = 0x03, 0x00 =  3, 0
+// EtEr = 0x0c, 0x00 = 12, 0
 impl CustomSerialize for KeyFlags {
-    type Serialized = u8;
+    type Serialized = [u8; 2];
 
-    fn custom_serialize(&self) -> u8 {
-          (0b0000_0001 * (self.for_certification() as u8))
-        | (0b0000_0010 * (self.for_signing() as u8))
-        | (0b0000_0100 * (self.for_storage_encryption() as u8))
-        | (0b0000_1000 * (self.for_transport_encryption() as u8))
-        | (0b0001_0000 * (self.for_authentication() as u8))
+    fn custom_serialize(&self) -> [u8; 2] {
+         [
+             (0b0000_0001 * (self.for_certification() as u8))
+           | (0b0000_0010 * (self.for_signing() as u8))
+           | (0b0000_0100 * (self.for_transport_encryption() as u8))
+           | (0b0000_1000 * (self.for_storage_encryption() as u8))
+           | (0b0001_0000 * (self.is_split_key() as u8))
+           | (0b0010_0000 * (self.for_authentication() as u8))
+           | (0b0100_0000 * (self.is_group_key() as u8)), 0
+         ]
     }
 
-    fn custom_deserialize(ser: u8) -> Self {
+    fn custom_deserialize(ser: [u8; 2]) -> Self {
         let mut flags = KeyFlags::empty();
-        if ser & 0b0000_0001 != 0 {
+        if ser[0] & 0b0000_0001 != 0 {
             flags = flags.set_certification();
         }
-        if ser & 0b0000_0010 != 0 {
+        if ser[0] & 0b0000_0010 != 0 {
             flags = flags.set_signing();
         }
-        if ser & 0b0000_0100 != 0 {
-            flags = flags.set_storage_encryption();
-        }
-        if ser & 0b0000_1000 != 0 {
+        if ser[0] & 0b0000_0100 != 0 {
             flags = flags.set_transport_encryption();
         }
-        if ser & 0b0001_0000 != 0 {
+        if ser[0] & 0b0000_1000 != 0 {
+            flags = flags.set_storage_encryption();
+        }
+        if ser[0] & 0b0001_0000 != 0 {
+            flags = flags.set_split_key();
+        }
+        if ser[0] & 0b0010_0000 != 0 {
             flags = flags.set_authentication();
+        }
+        if ser[0] & 0b0100_0000 != 0 {
+            flags = flags.set_group_key();
         }
 
         flags
