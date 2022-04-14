@@ -410,35 +410,45 @@ impl DsmAgent {
         Err(anyhow::anyhow!(format!("Found no suitable signing key in DSM")))
     }
 
-    /// Returns a DsmAgent with decryption capabilities, corresponding to the
-    /// given key name.
-    pub fn new_decryptor(credentials: Credentials, key_name: &str) -> Result<Self> {
-        let dsm_client = credentials.dsm_client()?;
+    /// Returns several DsmAgents with decryption capabilities, corresponding to
+    /// all subkeys with key flag "Et" or "Er" found in DSM.
+    /// We assume that the primary key is ONLY "C" or "CS", so it will never be
+    /// used as a decryptor.
+    ///
+    /// NOTE: From RFC4880bis "[...] it is a thorny issue to determine what is
+    /// "communications" and what is "storage". This decision is left wholly up
+    /// to the implementation".
+    pub fn new_decryptors(credentials: Credentials, key_name: &str) -> Result<Vec<Self>> {
+        let mut decryptors = Vec::<DsmAgent>::new();
 
-        let descriptor = SobjectDescriptor::Name(key_name.to_string());
-        let sobject = dsm_client
-            .get_sobject(None, &descriptor)
+        let dsm_client = credentials.dsm_client()?;
+        let prim_descriptor = SobjectDescriptor::Name(key_name.to_string());
+        let prim_sobject = dsm_client
+            .get_sobject(None, &prim_descriptor)
             .context(format!("could not get primary key {}", key_name))?;
 
-        if let Some(KeyLinks { subkeys, .. }) = sobject.links {
-            if subkeys.is_empty() {
-                return Err(Error::msg("No subkeys found in DSM"));
+        if let Some(KeyLinks { subkeys, .. }) = prim_sobject.links {
+            for uid in subkeys {
+                let descriptor = SobjectDescriptor::Kid(uid);
+                let sobject = dsm_client
+                    .get_sobject(None, &descriptor)
+                    .context("could not get subkey".to_string())?;
+                if let Some(flags) = KeyMetadata::from_sobject(&sobject)?.key_flags {
+                    let kf = KeyFlags::custom_deserialize(flags);
+                    if kf.for_storage_encryption() | kf.for_transport_encryption() {
+                        let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
+                        decryptors.push(DsmAgent {
+                            credentials: credentials.clone(),
+                            descriptor,
+                            public: key.sequoia_key.context("key is not loaded")?,
+                            role: Role::Decryptor,
+                        });
+                    }
+                }
             }
-            let uid = subkeys[0];
-            let descriptor = SobjectDescriptor::Kid(uid);
-            let sobject = dsm_client
-                .get_sobject(None, &descriptor)
-                .context("could not get subkey".to_string())?;
-            let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
-            Ok(DsmAgent {
-                credentials,
-                descriptor,
-                public: key.sequoia_key.context("key is not loaded")?,
-                role: Role::Decryptor,
-            })
-        } else {
-            Err(Error::msg("was not able to get decryption subkey"))
         }
+
+        Ok(decryptors)
     }
 }
 
