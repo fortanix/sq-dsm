@@ -188,24 +188,18 @@ pub mod serialize {
         })
     }
 
-    pub fn ec_private(
+    pub fn ec_private_25519(
         curve: &Curve,
-        _q: &mpi::MPI,
         scalar: &mpi::ProtectedMPI,
-    ) -> Vec<u8> {
-
+    ) -> Result<Vec<u8>> {
         let opaque_octet_string = yasna::construct_der(|w| {
             w.write_bytes(scalar.value());
         });
 
-        let oid = match curve {
-            Curve::Cv25519 => Oid::from_slice(&[1, 3, 101, 110]),
-            Curve::Ed25519 => Oid::from_slice(&[1, 3, 101, 112]),
-            c => unimplemented!("DER for {}", c)
-        };
+        let oid = curve_oid(curve)?;
 
         // RFC8410
-        let der = yasna::construct_der(|w|{
+        Ok(yasna::construct_der(|w|{
             w.write_sequence(|w| {
                 w.next().write_u32(0);
                 w.next().write_sequence(|w| {
@@ -213,9 +207,31 @@ pub mod serialize {
                 });
                 w.next().write_bytes(&opaque_octet_string);
             });
-        });
+        }))
+    }
 
-        der
+    pub fn ec_private(
+        curve: &Curve,
+        scalar: &mpi::ProtectedMPI,
+    ) -> Result<Vec<u8>> {
+        if (curve == &Curve::Cv25519) | (curve == &Curve::Ed25519) {
+            // RFC8410
+            return ec_private_25519(curve, scalar);
+        }
+
+        let oid = curve_oid(curve)?;
+
+        // RFC5915
+        Ok(yasna::construct_der(|w|{
+            w.write_sequence(|w| {
+                w.next().write_u32(1);
+                w.next().write_bytes(scalar.value());
+                w.next().write_tagged(yasna::Tag::context(0), |w| {
+                    w.write_oid(&oid);
+                });
+                // We ignore the public key serialization
+            });
+        }))
     }
 
     pub fn spki_ecdh(curve: &Curve, e: &mpi::MPI) -> Vec<u8> {
@@ -271,6 +287,7 @@ pub mod serialize {
             Curve::NistP384 => Oid::from_slice(&[1, 3, 132, 0, 34]),
             Curve::NistP521 => Oid::from_slice(&[1, 3, 132, 0, 35]),
             Curve::Cv25519 => Oid::from_slice(&[1, 3, 101, 110]),
+            Curve::Ed25519 => Oid::from_slice(&[1, 3, 101, 112]),
             curve => {
                 return Err(anyhow::anyhow!("unsupported curve {}", curve));
             }

@@ -744,7 +744,6 @@ pub fn extract_cert(key_name: &str, cred: Credentials) -> Result<Cert> {
         .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
         .context(format!("could not get primary key {}", key_name))?;
 
-
     Cert::from_str(
         &KeyMetadata::from_sobject(&sobject)?.certificate
         .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
@@ -835,7 +834,7 @@ pub fn import_tsk_to_dsm(
                 if pk_algo == PublicKeyAlgorithm::ECDH {
                     ops |= KeyOperations::AGREEKEY;
                 } else {
-                    ops |= KeyOperations::ENCRYPT | KeyOperations::DECRYPT;
+                    ops |= KeyOperations::DECRYPT;
                 }
             }
         }
@@ -913,8 +912,20 @@ pub fn import_tsk_to_dsm(
                 ..Default::default()
             }
         },
-        (MpiPublic::EdDSA { curve, q }, MpiSecret::EdDSA { scalar }) => {
-            let value = der::serialize::ec_private(&curve, &q, &scalar);
+        (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
+            let value = der::serialize::ec_private(&curve, &scalar)?;
+            SobjectRequest {
+                custom_metadata: Some(metadata),
+                description:     Some(primary_desc),
+                name:            Some(key_name.to_string()),
+                obj_type:        Some(ObjectType::Ec),
+                key_ops:         Some(primary_ops),
+                value:           Some(value.into()),
+                ..Default::default()
+            }
+        },
+        (MpiPublic::ECDSA { curve, .. }, MpiSecret::ECDSA { scalar }) => {
+            let value = der::serialize::ec_private(&curve, &scalar)?;
             SobjectRequest {
                 custom_metadata: Some(metadata),
                 description:     Some(primary_desc),
@@ -1000,8 +1011,8 @@ pub fn import_tsk_to_dsm(
                     ..Default::default()
                 }
             },
-            (MpiPublic::EdDSA { curve, q }, MpiSecret::EdDSA { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &q, &scalar);
+            (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
+                let value = der::serialize::ec_private(&curve, &scalar)?;
                 SobjectRequest {
                     name:            Some(subkey_name.to_string()),
                     custom_metadata: Some(metadata),
@@ -1012,8 +1023,8 @@ pub fn import_tsk_to_dsm(
                     ..Default::default()
                 }
             },
-            (MpiPublic::ECDH { curve, q, .. }, MpiSecret::ECDH { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &q, &scalar);
+            (MpiPublic::ECDH { curve, .. }, MpiSecret::ECDH { scalar }) => {
+                let value = der::serialize::ec_private(&curve, &scalar)?;
                 SobjectRequest {
                     name:            Some(subkey_name.to_string()),
                     custom_metadata: Some(metadata),
