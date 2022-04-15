@@ -530,7 +530,6 @@ impl KeyMetadata {
     }
 }
 
-
 /// Generates an OpenPGP key with secrets stored in DSM. At the OpenPGP
 /// level, this method produces a key consisting of
 ///
@@ -907,8 +906,9 @@ pub fn import_tsk_to_dsm(
             },
             _ => unimplemented!("public key algorithm")
         };
-        let dsm_client = cred.dsm_client()?;
-        Ok(dsm_client
+
+        Ok(
+            cred.dsm_client()?
             .import_sobject(&req)
             .context(format!("could not import secret {}", name))?
             .kid
