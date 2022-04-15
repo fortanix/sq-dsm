@@ -188,12 +188,9 @@ pub mod serialize {
         })
     }
 
-    pub fn ec_private_25519(
-        curve: &Curve,
-        scalar: &mpi::ProtectedMPI,
-    ) -> Result<Vec<u8>> {
+    pub fn ec_private_25519(curve: &Curve, x: Vec<u8>) -> Result<Vec<u8>> {
         let opaque_octet_string = yasna::construct_der(|w| {
-            w.write_bytes(scalar.value());
+            w.write_bytes(&x);
         });
 
         let oid = curve_oid(curve)?;
@@ -214,9 +211,14 @@ pub mod serialize {
         curve: &Curve,
         scalar: &mpi::ProtectedMPI,
     ) -> Result<Vec<u8>> {
-        if (curve == &Curve::Cv25519) | (curve == &Curve::Ed25519) {
-            // RFC8410
-            return ec_private_25519(curve, scalar);
+        let mut x = scalar.value().to_vec();
+        // For X25519, x is LITTLE ENDIAN!
+        if (curve == &Curve::Cv25519) {
+            x.reverse();
+            return ec_private_25519(curve, x);
+        }
+        if (curve == &Curve::Ed25519) {
+            return ec_private_25519(curve, x);
         }
 
         let oid = curve_oid(curve)?;
@@ -225,7 +227,7 @@ pub mod serialize {
         Ok(yasna::construct_der(|w|{
             w.write_sequence(|w| {
                 w.next().write_u32(1);
-                w.next().write_bytes(scalar.value());
+                w.next().write_bytes(&x);
                 w.next().write_tagged(yasna::Tag::context(0), |w| {
                     w.write_oid(&oid);
                 });

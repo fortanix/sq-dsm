@@ -11,7 +11,7 @@ echo "Data dir: $data"
 
 trap 'erase_tmp_dir $data' EXIT
 
-knownkeys="$SCRIPT_DIR/../data/keys"
+knownkeys="$SCRIPT_DIR/../data/knownkeys"
 
 # Test files
 message=$data/message.txt
@@ -45,4 +45,7 @@ for f in "$knownkeys"/*; do
 
     comm "Encryption roundtrip"
     $sq encrypt --recipient-cert="$alice_public_extracted" < "$message" | $sq decrypt --dsm-key="$key_name"
+
 done
+
+echo "SUCCESS"

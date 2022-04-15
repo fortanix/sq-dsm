@@ -1023,7 +1023,7 @@ pub fn import_tsk_to_dsm(
                     ..Default::default()
                 }
             },
-            (MpiPublic::ECDH { curve, .. }, MpiSecret::ECDH { scalar }) => {
+            (MpiPublic::ECDH { curve, q, hash, sym }, MpiSecret::ECDH { scalar }) => {
                 let value = der::serialize::ec_private(&curve, &scalar)?;
                 SobjectRequest {
                     name:            Some(subkey_name.to_string()),
@@ -1194,10 +1194,11 @@ impl PublicKey {
                     // Strip the leading OID
                     let point = MPI::new_compressed_point(&raw_pk[12..]);
 
+                    // TODO: NOT HARDCODE
                     let ec_pk = MpiPublic::ECDH {
                         curve,
                         q: point,
-                        hash: HashAlgorithm::SHA512,
+                        hash: HashAlgorithm::SHA256,
                         sym: SymmetricAlgorithm::AES256,
                     };
 
@@ -1508,6 +1509,7 @@ fn secret_packet_from_sobject(
                 }
                 let secret = &raw_secret[16..];
                 match role {
+                    // TODO: unreachable
                     KeyRole::Primary => Ok(Key::V4(
                         Key4::<_, PrimaryRole>::import_secret_cv25519(
                             secret, None, None, time,
