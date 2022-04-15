@@ -822,6 +822,100 @@ pub fn import_tsk_to_dsm(
     exportable: bool,
 ) -> Result<()> {
 
+    fn import_constructed_sobject(
+        cred:     &Credentials,
+        name:     String,
+        desc:     String,
+        ops:      KeyOperations,
+        metadata: &mut KeyMetadata,
+        mpis:     &MpiPublic,
+        hazmat:   &MpiSecret,
+    ) -> Result<Uuid> {
+        let req = match (mpis, hazmat) {
+            (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
+                let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
+                let key_size = n.bits() as u32;
+                let rsa_opts = if ops.contains(KeyOperations::SIGN) {
+                    let sig_policy = RsaSignaturePolicy {
+                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
+                    };
+                    Some(RsaOptions {
+                        signature_policy: vec![sig_policy],
+                        ..Default::default()
+                    })
+                } else if ops.contains(KeyOperations::DECRYPT) {
+                    let enc_policy = RsaEncryptionPolicy {
+                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
+                    };
+                    Some(RsaOptions {
+                        encryption_policy: vec![enc_policy],
+                        ..Default::default()
+                    })
+                } else {
+                    None
+                };
+
+                SobjectRequest {
+                    name:            Some(name.clone()),
+                    custom_metadata: Some(metadata.to_custom_metadata()?),
+                    description:     Some(desc),
+                    obj_type:        Some(ObjectType::Rsa),
+                    key_ops:         Some(ops),
+                    key_size:        Some(key_size),
+                    rsa:             rsa_opts,
+                    value:           Some(value.into()),
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
+                let value = der::serialize::ec_private(&curve, &scalar)?;
+                SobjectRequest {
+                    name:            Some(name.clone()),
+                    custom_metadata: Some(metadata.to_custom_metadata()?),
+                    description:     Some(desc),
+                    obj_type:        Some(ObjectType::Ec),
+                    key_ops:         Some(ops),
+                    value:           Some(value.into()),
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::ECDSA { curve, .. }, MpiSecret::ECDSA { scalar }) => {
+                let value = der::serialize::ec_private(&curve, &scalar)?;
+                SobjectRequest {
+                    name:            Some(name.clone()),
+                    custom_metadata: Some(metadata.to_custom_metadata()?),
+                    description:     Some(desc),
+                    obj_type:        Some(ObjectType::Ec),
+                    key_ops:         Some(ops),
+                    value:           Some(value.into()),
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::ECDH { curve, q: _, hash, sym }, MpiSecret::ECDH { scalar }) => {
+                let value = der::serialize::ec_private(&curve, &scalar)?;
+                metadata.hash_algo = Some(*hash);
+                metadata.symm_algo = Some(*sym);
+                SobjectRequest {
+                    name:            Some(name.clone()),
+                    custom_metadata: Some(metadata.to_custom_metadata()?),
+                    description:     Some(desc),
+                    obj_type:        Some(ObjectType::Ec),
+                    key_ops:         Some(ops),
+                    value:           Some(value.into()),
+                    ..Default::default()
+                }
+            },
+            _ => unimplemented!("public key algorithm")
+        };
+        let dsm_client = cred.dsm_client()?;
+        Ok(dsm_client
+            .import_sobject(&req)
+            .context(format!("could not import secret {}", name))?
+            .kid
+            .ok_or(anyhow::anyhow!("no UUID returned from DSM"))?
+        )
+    }
+
     fn get_hazardous_material<R: SequoiaKeyRole>(key: &Key<SecretParts, R>)
     -> MpiSecret {
         // HAZMAT: Decrypt MPIs from protected memory and form DER
@@ -861,104 +955,45 @@ pub fn import_tsk_to_dsm(
     }
 
     let prim_key = tsk.primary_key();
-    let primary_ops = get_operations(
+    let primary = prim_key.key().clone().parts_into_secret()?;
+
+    let creation_time = Timestamp::try_from(primary.creation_time())?;
+    let prim_flags = tsk.primary_key()
+        .key_flags()
+        .ok_or_else(||anyhow::anyhow!("Bad input: primary has no key flags"))?;
+    let prim_id = prim_key.keyid().to_hex();
+    let prim_name = key_name.to_string();
+    let prim_desc = format!(
+        "PGP primary, {}, {}", prim_id, prim_flags.to_human()
+    );
+
+    let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
+    let mut prim_metadata = KeyMetadata {
+        sq_dsm_version:              SQ_DSM_VERSION.to_string(),
+        fingerprint:                 prim_key.fingerprint().to_hex(),
+        key_flags:                   Some(prim_flags.custom_serialize()),
+        certificate:                 Some(armored),
+        external_creation_timestamp: Some(creation_time.into()),
+        ..Default::default()
+    };
+
+    let prim_ops = get_operations(
         prim_key.key_flags(),
         prim_key.pk_algo(),
         exportable
     );
-    let primary = prim_key.key().clone().parts_into_secret()?;
-    let prim_id = prim_key.keyid().to_hex();
-    let prim_flags = tsk.primary_key()
-        .key_flags()
-        .ok_or_else(||anyhow::anyhow!("Bad input: primary has no key flags"))?;
-    let primary_desc = format!(
-        "PGP primary, {}, {}", prim_id, prim_flags.to_human()
-    );
-
-    let metadata = {
-        let creation_time = Timestamp::try_from(primary.creation_time())?;
-        let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
-        KeyMetadata {
-            sq_dsm_version:              SQ_DSM_VERSION.to_string(),
-            fingerprint:                 prim_key.fingerprint().to_hex(),
-            key_flags:                   Some(prim_flags.custom_serialize()),
-            certificate:                 Some(armored),
-            external_creation_timestamp: Some(creation_time.into()),
-            ..Default::default()
-        }.to_custom_metadata()?
-    };
 
     let prim_hazmat = get_hazardous_material(&primary);
-    // TODO: don't double the following code
-    let prim_req = match (primary.mpis(), prim_hazmat) {
-        (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
-            let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
-            let key_size = n.bits() as u32;
-            let rsa_opts = if primary_ops.contains(KeyOperations::SIGN) {
-                let sig_policy = RsaSignaturePolicy {
-                    padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
-                };
-                Some(RsaOptions {
-                    signature_policy: vec![sig_policy],
-                    ..Default::default()
-                })
-            } else if primary_ops.contains(KeyOperations::DECRYPT) {
-                // Unreachable
-                let enc_policy = RsaEncryptionPolicy {
-                    padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
-                };
-                Some(RsaOptions {
-                    encryption_policy: vec![enc_policy],
-                    ..Default::default()
-                })
-            } else {
-                None
-            };
 
-            SobjectRequest {
-                custom_metadata: Some(metadata),
-                description:     Some(primary_desc),
-                name:            Some(key_name.to_string()),
-                obj_type:        Some(ObjectType::Rsa),
-                key_ops:         Some(primary_ops),
-                key_size:        Some(key_size),
-                rsa:             rsa_opts,
-                value:           Some(value.into()),
-                ..Default::default()
-            }
-        },
-        (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
-            let value = der::serialize::ec_private(&curve, &scalar)?;
-            SobjectRequest {
-                custom_metadata: Some(metadata),
-                description:     Some(primary_desc),
-                name:            Some(key_name.to_string()),
-                obj_type:        Some(ObjectType::Ec),
-                key_ops:         Some(primary_ops),
-                value:           Some(value.into()),
-                ..Default::default()
-            }
-        },
-        (MpiPublic::ECDSA { curve, .. }, MpiSecret::ECDSA { scalar }) => {
-            let value = der::serialize::ec_private(&curve, &scalar)?;
-            SobjectRequest {
-                custom_metadata: Some(metadata),
-                description:     Some(primary_desc),
-                name:            Some(key_name.to_string()),
-                obj_type:        Some(ObjectType::Ec),
-                key_ops:         Some(primary_ops),
-                value:           Some(value.into()),
-                ..Default::default()
-            }
-        },
-        x => unimplemented!("DER of {:?}", x)
-    };
-
-    let dsm_client = cred.dsm_client()?;
-    let primary_uuid = dsm_client
-        .import_sobject(&prim_req)
-        .context(format!("could not import primary secret {}", key_name))?
-        .kid;
+    let prim_uuid = import_constructed_sobject(
+        &cred,
+        prim_name,
+        prim_desc,
+        prim_ops,
+        &mut prim_metadata,
+        &primary.mpis(),
+        &prim_hazmat,
+    )?;
 
     for subkey in tsk.keys().subkeys().unencrypted_secret() {
         let creation_time = Timestamp::try_from(subkey.creation_time())?;
@@ -966,12 +1001,12 @@ pub fn import_tsk_to_dsm(
         let subkey_id = subkey.keyid().to_hex();
         let subkey_name = format!(
             "{} {}/{}", key_name, prim_id, subkey_id,
-        );
+        ).to_string();
         let subkey_desc = format!(
             "PGP subkey, {}", subkey_flags.to_human()
         );
 
-        let mut key_md = KeyMetadata {
+        let mut subkey_md = KeyMetadata {
             certificate:                 None,
             sq_dsm_version:              SQ_DSM_VERSION.to_string(),
             external_creation_timestamp: Some(creation_time.into()),
@@ -980,93 +1015,36 @@ pub fn import_tsk_to_dsm(
             ..Default::default()
         };
 
-        let subkey_hazmat = get_hazardous_material(&subkey);
         let subkey_ops = get_operations(
             subkey.key_flags(),
             subkey.pk_algo(),
             exportable
         );
-        let subkey_req = match (subkey.mpis(), subkey_hazmat) {
-            (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
-                let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
-                let key_size = n.bits() as u32;
-                let rsa_options = if subkey_ops.contains(KeyOperations::SIGN) {
-                    let sig_policy = RsaSignaturePolicy {
-                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
-                    };
-                    Some(RsaOptions {
-                        signature_policy: vec![sig_policy],
-                        ..Default::default()
-                    })
-                } else if subkey_ops.contains(KeyOperations::DECRYPT) {
-                    let enc_policy = RsaEncryptionPolicy {
-                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
-                    };
-                    Some(RsaOptions {
-                        encryption_policy: vec![enc_policy],
-                        ..Default::default()
-                    })
-                } else {
-                    None
-                };
 
-                SobjectRequest {
-                    name: Some(subkey_name.to_string()),
-                    custom_metadata: Some(key_md.to_custom_metadata()?),
-                    description: Some(subkey_desc),
-                    obj_type: Some(ObjectType::Rsa),
-                    key_ops: Some(subkey_ops),
-                    key_size: Some(key_size),
-                    rsa: rsa_options,
-                    value: Some(value.into()),
-                    ..Default::default()
-                }
-            },
-            (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
-                SobjectRequest {
-                    name:            Some(subkey_name.to_string()),
-                    custom_metadata: Some(key_md.to_custom_metadata()?),
-                    description:     Some(subkey_desc),
-                    obj_type:        Some(ObjectType::Ec),
-                    key_ops:         Some(subkey_ops),
-                    value:           Some(value.into()),
-                    ..Default::default()
-                }
-            },
-            (MpiPublic::ECDH { curve, q, hash, sym }, MpiSecret::ECDH { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
-                key_md.hash_algo = Some(*hash);
-                key_md.symm_algo = Some(*sym);
-                SobjectRequest {
-                    name:            Some(subkey_name.to_string()),
-                    custom_metadata: Some(key_md.to_custom_metadata()?),
-                    description:     Some(subkey_desc),
-                    obj_type:        Some(ObjectType::Ec),
-                    key_ops:         Some(subkey_ops),
-                    value:           Some(value.into()),
-                    ..Default::default()
-                }
-            },
-            (x, y) => unimplemented!("{:?}, {:?}", x, y)
-        };
+        let subkey_hazmat = get_hazardous_material(&subkey);
 
-        // Import subkey
-        let subkey_uuid = dsm_client
-            .import_sobject(&subkey_req)
-            .context(format!("could not import subkey secret {}", key_name))?
-            .kid;
+        info!("import subkey {}", subkey_name);
+        let subkey_uuid = import_constructed_sobject(
+            &cred,
+            subkey_name.clone(),
+            subkey_desc,
+            subkey_ops,
+            &mut subkey_md,
+            &subkey.mpis(),
+            &subkey_hazmat,
+        )?;
 
-        info!("bind subkey to primary key in DSM");
+        info!("bind subkey {} to primary key in DSM", subkey_name);
         let link_req = SobjectRequest {
             links: Some(KeyLinks {
-                parent: primary_uuid,
+                parent: Some(prim_uuid),
                 ..Default::default()
             }),
             ..Default::default()
         };
-        dsm_client.__update_sobject(
-            &subkey_uuid.expect("uuid"), &link_req, "bind subkey to primary key"
+
+        cred.dsm_client()?.__update_sobject(
+            &subkey_uuid, &link_req, "bind subkey to primary key"
         )?;
     }
 
