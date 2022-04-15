@@ -3020,6 +3020,8 @@ dependencies = [
  "ripemd160",
  "rpassword",
  "rsa",
+ "serde",
+ "serde_derive",
  "sha-1 0.9.8",
  "sha1collisiondetection",
  "sha2",

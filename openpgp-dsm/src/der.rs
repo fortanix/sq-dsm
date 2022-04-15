@@ -213,11 +213,11 @@ pub mod serialize {
     ) -> Result<Vec<u8>> {
         let mut x = scalar.value().to_vec();
         // For X25519, x is LITTLE ENDIAN!
-        if (curve == &Curve::Cv25519) {
+        if curve == &Curve::Cv25519 {
             x.reverse();
             return ec_private_25519(curve, x);
         }
-        if (curve == &Curve::Ed25519) {
+        if curve == &Curve::Ed25519 {
             return ec_private_25519(curve, x);
         }
 

@@ -490,7 +490,7 @@ enum KeyRole {
     Subkey,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 struct KeyMetadata {
     sq_dsm_version:              String,
     fingerprint:                 String,
@@ -500,6 +500,10 @@ struct KeyMetadata {
     certificate:                 Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     external_creation_timestamp: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hash_algo:                   Option<HashAlgorithm>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    symm_algo:                   Option<SymmetricAlgorithm>,
 }
 
 impl KeyMetadata {
@@ -516,7 +520,16 @@ impl KeyMetadata {
             None => Err(anyhow::anyhow!("no metadata found on {:?}", sob.kid))
         }
     }
+
+    fn to_custom_metadata(&self) -> Result<HashMap<String, String>> {
+        let key_json = serde_json::to_string(&self)?;
+        let mut custom_metadata = HashMap::<String, String>::new();
+        custom_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
+
+        Ok(custom_metadata)
+    }
 }
+
 
 /// Generates an OpenPGP key with secrets stored in DSM. At the OpenPGP
 /// level, this method produces a key consisting of
@@ -538,6 +551,11 @@ pub fn generate_key(
     exportable: bool,
     credentials: Credentials,
 ) -> Result<()> {
+
+    // Hash and symmetric algorithms for signatures/encryption
+    let hash_algo = HashAlgorithm::SHA512;
+    let symm_algo = SymmetricAlgorithm::AES256;
+
     // User ID
     let uid: UserID = match user_id {
         Some(id) => id.into(),
@@ -621,7 +639,7 @@ pub fn generate_key(
             HashAlgorithm::SHA512,
             HashAlgorithm::SHA256,
         ])?
-        .set_hash_algo(HashAlgorithm::SHA512);
+        .set_hash_algo(hash_algo);
 
     // A direct key signature is always over the primary key.
     let prim_sig = prim_sig_builder.sign_direct_key(&mut prim_signer, None)?;
@@ -667,7 +685,7 @@ pub fn generate_key(
 
     let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
         .set_key_validity_period(validity_period)?
-        .set_hash_algo(HashAlgorithm::SHA512)
+        .set_hash_algo(hash_algo)
         .set_signature_creation_time(subkey_creation_time)?
         .set_key_flags(subkey_flags.clone())?;
     let subkey_fingerprint = subkey_public.fingerprint().to_hex();
@@ -683,17 +701,15 @@ pub fn generate_key(
         let primary_desc = format!(
             "PGP primary, {}, {}", prim_id, prim_flags.to_human()
         );
-        let key_json = serde_json::to_string(&KeyMetadata {
+        let prim_metadata = KeyMetadata {
             sq_dsm_version: SQ_DSM_VERSION.to_string(),
-            fingerprint: prim_fingerprint,
-            key_flags: Some(prim_flags.custom_serialize()),
-            certificate: Some(String::from_utf8(cert.armored().to_vec()?)?),
-            external_creation_timestamp: None,
-        })?;
-        let mut prim_metadata = HashMap::<String, String>::new();
-        prim_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
+            fingerprint:    prim_fingerprint,
+            key_flags:      Some(prim_flags.custom_serialize()),
+            certificate:    Some(String::from_utf8(cert.armored().to_vec()?)?),
+            ..Default::default()
+        }.to_custom_metadata()?;
         let update_req = SobjectRequest {
-            description: Some(primary_desc),
+            description:     Some(primary_desc),
             custom_metadata: Some(prim_metadata),
             ..Default::default()
         };
@@ -705,23 +721,25 @@ pub fn generate_key(
     info!("Generation: rename subkey and store metadata");
     {
         let subkey_name = format!(
-            "{} {}/{}", key_name, prim_id, subkey_id
+            "{} {}", key_name, subkey_id
         );
         let subkey_desc = format!(
-            "PGP subkey, {}", subkey_flags.to_human()
+            "PGP subkey of {}, {}", prim_id, subkey_flags.to_human()
         );
         let key_json = serde_json::to_string(&KeyMetadata {
-            sq_dsm_version: SQ_DSM_VERSION.to_string(),
-            fingerprint: subkey_fingerprint,
-            key_flags: Some(subkey_flags.custom_serialize()),
-            certificate: None,
+            sq_dsm_version:              SQ_DSM_VERSION.to_string(),
+            fingerprint:                 subkey_fingerprint,
+            key_flags:                   Some(subkey_flags.custom_serialize()),
+            certificate:                 None,
             external_creation_timestamp: None,
+            hash_algo:                   Some(hash_algo),
+            symm_algo:                   Some(symm_algo),
         })?;
         let mut sub_metadata = HashMap::<String, String>::new();
         sub_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
         let update_req = SobjectRequest {
-            name: Some(subkey_name),
-            description: Some(subkey_desc),
+            name:            Some(subkey_name),
+            description:     Some(subkey_desc),
             custom_metadata: Some(sub_metadata),
             ..Default::default()
         };
@@ -858,19 +876,16 @@ pub fn import_tsk_to_dsm(
     );
 
     let metadata = {
-        let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
         let creation_time = Timestamp::try_from(primary.creation_time())?;
-        let key_json = serde_json::to_string(&KeyMetadata {
+        let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
+        KeyMetadata {
             sq_dsm_version:              SQ_DSM_VERSION.to_string(),
             fingerprint:                 prim_key.fingerprint().to_hex(),
             key_flags:                   Some(prim_flags.custom_serialize()),
             certificate:                 Some(armored),
             external_creation_timestamp: Some(creation_time.into()),
-        })?;
-
-        let mut metadata = HashMap::<String, String>::new();
-        metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
-        metadata
+            ..Default::default()
+        }.to_custom_metadata()?
     };
 
     let prim_hazmat = get_hazardous_material(&primary);
@@ -946,6 +961,7 @@ pub fn import_tsk_to_dsm(
         .kid;
 
     for subkey in tsk.keys().subkeys().unencrypted_secret() {
+        let creation_time = Timestamp::try_from(subkey.creation_time())?;
         let subkey_flags = subkey.key_flags().unwrap_or(KeyFlags::empty());
         let subkey_id = subkey.keyid().to_hex();
         let subkey_name = format!(
@@ -954,21 +970,16 @@ pub fn import_tsk_to_dsm(
         let subkey_desc = format!(
             "PGP subkey, {}", subkey_flags.to_human()
         );
-        let metadata = {
-            let creation_time = Timestamp::try_from(subkey.creation_time())?;
-            let key_md = KeyMetadata {
-                certificate:                 None,
-                sq_dsm_version:              SQ_DSM_VERSION.to_string(),
-                external_creation_timestamp: Some(creation_time.into()),
-                fingerprint:                 subkey.fingerprint().to_hex(),
-                key_flags:                   Some(subkey_flags.custom_serialize()),
-            };
 
-            let key_json = serde_json::to_string(&key_md)?;
-            let mut metadata = HashMap::<String, String>::new();
-            metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
-            metadata
+        let mut key_md = KeyMetadata {
+            certificate:                 None,
+            sq_dsm_version:              SQ_DSM_VERSION.to_string(),
+            external_creation_timestamp: Some(creation_time.into()),
+            fingerprint:                 subkey.fingerprint().to_hex(),
+            key_flags:                   Some(subkey_flags.custom_serialize()),
+            ..Default::default()
         };
+
         let subkey_hazmat = get_hazardous_material(&subkey);
         let subkey_ops = get_operations(
             subkey.key_flags(),
@@ -1001,7 +1012,7 @@ pub fn import_tsk_to_dsm(
 
                 SobjectRequest {
                     name: Some(subkey_name.to_string()),
-                    custom_metadata: Some(metadata),
+                    custom_metadata: Some(key_md.to_custom_metadata()?),
                     description: Some(subkey_desc),
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(subkey_ops),
@@ -1015,7 +1026,7 @@ pub fn import_tsk_to_dsm(
                 let value = der::serialize::ec_private(&curve, &scalar)?;
                 SobjectRequest {
                     name:            Some(subkey_name.to_string()),
-                    custom_metadata: Some(metadata),
+                    custom_metadata: Some(key_md.to_custom_metadata()?),
                     description:     Some(subkey_desc),
                     obj_type:        Some(ObjectType::Ec),
                     key_ops:         Some(subkey_ops),
@@ -1025,9 +1036,11 @@ pub fn import_tsk_to_dsm(
             },
             (MpiPublic::ECDH { curve, q, hash, sym }, MpiSecret::ECDH { scalar }) => {
                 let value = der::serialize::ec_private(&curve, &scalar)?;
+                key_md.hash_algo = Some(*hash);
+                key_md.symm_algo = Some(*sym);
                 SobjectRequest {
                     name:            Some(subkey_name.to_string()),
-                    custom_metadata: Some(metadata),
+                    custom_metadata: Some(key_md.to_custom_metadata()?),
                     description:     Some(subkey_desc),
                     obj_type:        Some(ObjectType::Ec),
                     key_ops:         Some(subkey_ops),
@@ -1163,11 +1176,14 @@ impl PublicKey {
     }
 
     fn from_sobject(sob: Sobject, role: KeyRole) -> Result<Self> {
+        let default_hash = HashAlgorithm::SHA512;
+        let default_symm = SymmetricAlgorithm::AES256;
         let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid")?);
 
-        let time: SystemTime = if let Some(KeyMetadata {
-            external_creation_timestamp: Some(secs), ..
-        }) = KeyMetadata::from_sobject(&sob).ok() {
+        // Newly created Sobjects don't have metadata yet
+        let md = KeyMetadata::from_sobject(&sob)
+            .unwrap_or(KeyMetadata::default());
+        let time: SystemTime = if let Some(secs) = md.external_creation_timestamp {
             Timestamp::from(secs).into()
         } else {
             sob.created_at.to_datetime().into()
@@ -1194,12 +1210,11 @@ impl PublicKey {
                     // Strip the leading OID
                     let point = MPI::new_compressed_point(&raw_pk[12..]);
 
-                    // TODO: NOT HARDCODE
                     let ec_pk = MpiPublic::ECDH {
                         curve,
                         q: point,
-                        hash: HashAlgorithm::SHA256,
-                        sym: SymmetricAlgorithm::AES256,
+                        hash: md.hash_algo.unwrap_or(default_hash),
+                        sym: md.symm_algo.unwrap_or(default_symm),
                     };
 
                     (pk_algo, ec_pk, KeyRole::Subkey)
@@ -1223,8 +1238,8 @@ impl PublicKey {
                             MpiPublic::ECDH {
                                 curve,
                                 q: point,
-                                hash: HashAlgorithm::SHA512,
-                                sym: SymmetricAlgorithm::AES256,
+                                hash: md.hash_algo.unwrap_or(default_hash),
+                                sym: md.symm_algo.unwrap_or(default_symm),
                             },
                         ),
                     };
@@ -1468,13 +1483,14 @@ fn secret_packet_from_sobject(
     sobject: &Sobject,
     role: KeyRole,
 ) -> Result<Packet> {
-    let time: SystemTime = if let KeyMetadata {
-        external_creation_timestamp: Some(secs), ..
-    } = KeyMetadata::from_sobject(sobject)? {
+    let md = KeyMetadata::from_sobject(sobject)?;
+
+    let time: SystemTime = if let Some(secs) = md.external_creation_timestamp {
         Timestamp::from(secs).into()
     } else {
         sobject.created_at.to_datetime().into()
     };
+
     let raw_secret = sobject.value.as_ref()
         .context("secret bits missing in Sobject")?;
     let raw_public = sobject.pub_key.as_ref()
@@ -1509,16 +1525,12 @@ fn secret_packet_from_sobject(
                 }
                 let secret = &raw_secret[16..];
                 match role {
-                    // TODO: unreachable
-                    KeyRole::Primary => Ok(Key::V4(
-                        Key4::<_, PrimaryRole>::import_secret_cv25519(
-                            secret, None, None, time,
-                        )?,
-                    )
-                    .into()),
+                    KeyRole::Primary => {
+                        Err(anyhow::anyhow!("primary keys can't decrypt"))
+                    },
                     KeyRole::Subkey => Ok(Key::V4(
                         Key4::<_, SubordinateRole>::import_secret_cv25519(
-                            secret, None, None, time,
+                            secret, md.hash_algo, md.symm_algo, time,
                         )?,
                     )
                     .into()),
@@ -1550,9 +1562,9 @@ fn secret_packet_from_sobject(
                     secret = MpiSecret::ECDH { scalar }.into();
                     public = MpiPublic::ECDH {
                         curve,
+                        hash: md.hash_algo.unwrap_or(HashAlgorithm::SHA512),
+                        sym: md.symm_algo.unwrap_or(SymmetricAlgorithm::AES256),
                         q: point,
-                        hash: HashAlgorithm::SHA512,
-                        sym: SymmetricAlgorithm::AES256,
                     };
                 };
                 match role {
