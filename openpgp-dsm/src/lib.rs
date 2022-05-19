@@ -1789,31 +1789,29 @@ trait HumanReadable {
 
 impl HumanReadable for KeyFlags {
     fn human_readable(&self) -> String {
-        let mut s = String::new();
+        let mut s = Vec::new();
         if self.for_certification() {
-            s.push_str("Certification, ");
+            s.push("Certification");
         }
         if self.for_signing() {
-            s.push_str("Signing, ");
+            s.push("Signing");
         }
         match (self.for_transport_encryption(), self.for_storage_encryption()) {
-            (true, true) => s.push_str("Transport and Storage Encryption, "),
-            (true, false) => s.push_str("Transport Encryption, "),
-            (false, true) => s.push_str("Storage Encryption, "),
+            (true, true) => s.push("Transport and Storage Encryption"),
+            (true, false) => s.push("Transport Encryption"),
+            (false, true) => s.push("Storage Encryption"),
             _ => {}
         }
         if self.is_split_key() {
-            s.push_str("Split Key, ");
+            s.push("Split Key");
         }
         if self.for_authentication() {
-            s.push_str("Authentication, ");
+            s.push("Authentication");
         }
         if self.is_group_key() {
-            s.push_str("Group Key, ");
+            s.push("Group Key");
         }
 
-        s.pop();
-        s.pop();
-        s
+        s.join(", ")
     }
 }
