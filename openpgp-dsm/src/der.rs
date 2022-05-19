@@ -47,7 +47,7 @@ pub mod parse {
                 Ok(RsaPub { n, e })
             })
         })
-        .map_err(|e| e.into())
+        .map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 
     pub fn rsa_private_edpq(buf: &[u8]) -> super::Result<RsaPriv> {
@@ -65,7 +65,7 @@ pub mod parse {
         //   coefficient INTEGER -- (inverse of q) mod p
         // }
         //
-        Ok(yasna::parse_der(buf, |reader| {
+        yasna::parse_der(buf, |reader| {
             reader.read_sequence(|reader| {
                 let _version = reader.next().read_u32()?;
                 let _n = reader.next().read_biguint()?;
@@ -79,7 +79,7 @@ pub mod parse {
 
                 Ok(RsaPriv { e, d, p, q })
             })
-        })?)
+        }).map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 
     pub fn ec_point_x_y(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
@@ -116,13 +116,13 @@ pub mod parse {
     }
 
     pub fn ecdsa_r_s(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
-        Ok(yasna::parse_der(buf, |reader| {
+        yasna::parse_der(buf, |reader| {
             reader.read_sequence(|reader| {
                 let r = reader.next().read_biguint()?.to_bytes_be();
                 let s = reader.next().read_biguint()?.to_bytes_be();
                 Ok((r, s))
             })
-        })?)
+        }).map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 
     pub fn ec_priv_scalar(buf: &[u8]) -> super::Result<Vec<u8>> {
@@ -134,8 +134,7 @@ pub mod parse {
                 let _pk = reader.next().read_tagged_der()?;
                 Ok(priv_key)
             })
-        })
-        .map_err(|e| e.into())
+        }).map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 }
 
@@ -146,7 +145,7 @@ pub mod serialize {
     use yasna::models::ObjectIdentifier as Oid;
 
     use sequoia_openpgp::crypto::mpi;
-    use num_bigint::BigUint;
+    use num::bigint::BigUint;
 
     pub fn rsa_private(
         n: &mpi::MPI,
