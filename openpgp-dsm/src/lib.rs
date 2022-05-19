@@ -69,7 +69,7 @@ use sequoia_openpgp::types::{
     PublicKeyAlgorithm, SignatureType, SymmetricAlgorithm, Timestamp,
 };
 use sequoia_openpgp::{Cert, Packet};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 mod der;
@@ -393,7 +393,7 @@ impl DsmAgent {
             .get_sobject(None, &descriptor)
             .context(format!("could not get primary key {}", key_name))?;
         if let Some(flags) = KeyMetadata::from_sobject(&prim_sob)?.key_flags {
-            if KeyFlags::custom_deserialize(flags).for_signing() {
+            if flags.for_signing() {
                 // Initialize Signer with primary key
                 let key = PublicKey::from_sobject(prim_sob, KeyRole::Primary)?;
                 return Ok(DsmAgent {
@@ -413,7 +413,7 @@ impl DsmAgent {
             let sub_sob = dsm_client
                 .get_sobject(None, &descriptor)?;
             if let Some(flags) = KeyMetadata::from_sobject(&sub_sob)?.key_flags {
-                if KeyFlags::custom_deserialize(flags).for_signing() {
+                if flags.for_signing() {
                     // Initialize Signer with subkey
                     let key = PublicKey::from_sobject(sub_sob, KeyRole::Subkey)?;
                     return Ok(DsmAgent {
@@ -452,8 +452,7 @@ impl DsmAgent {
                 let sobject = dsm_client
                     .get_sobject(None, &descriptor)
                     .context("could not get subkey".to_string())?;
-                if let Some(flags) = KeyMetadata::from_sobject(&sobject)?.key_flags {
-                    let kf = KeyFlags::custom_deserialize(flags);
+                if let Some(kf) = KeyMetadata::from_sobject(&sobject)?.key_flags {
                     if kf.for_storage_encryption() | kf.for_transport_encryption() {
                         let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
                         decryptors.push(DsmAgent {
@@ -495,7 +494,7 @@ struct KeyMetadata {
     sq_dsm_version:              String,
     fingerprint:                 String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    key_flags:                   Option<[u8; 2]>,
+    key_flags:                   Option<KeyFlags>,
     #[serde(skip_serializing_if = "Option::is_none")]
     certificate:                 Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -698,12 +697,12 @@ pub fn generate_key(
     info!("Generation: store primary metadata");
     {
         let primary_desc = format!(
-            "PGP primary, {}, {}", prim_id, prim_flags.to_human()
+            "PGP primary, {}, {}", prim_id, prim_flags.human_readable()
         );
         let prim_metadata = KeyMetadata {
             sq_dsm_version: SQ_DSM_VERSION.to_string(),
             fingerprint:    prim_fingerprint,
-            key_flags:      Some(prim_flags.custom_serialize()),
+            key_flags:      Some(prim_flags),
             certificate:    Some(String::from_utf8(cert.armored().to_vec()?)?),
             ..Default::default()
         }.to_custom_metadata()?;
@@ -723,12 +722,12 @@ pub fn generate_key(
             "{} {}", key_name, subkey_id
         );
         let subkey_desc = format!(
-            "PGP subkey of {}, {}", prim_id, subkey_flags.to_human()
+            "PGP subkey of {}, {}", prim_id, subkey_flags.human_readable()
         );
         let key_json = serde_json::to_string(&KeyMetadata {
             sq_dsm_version:              SQ_DSM_VERSION.to_string(),
             fingerprint:                 subkey_fingerprint,
-            key_flags:                   Some(subkey_flags.custom_serialize()),
+            key_flags:                   Some(subkey_flags),
             certificate:                 None,
             external_creation_timestamp: None,
             hash_algo:                   Some(hash_algo),
@@ -964,14 +963,14 @@ pub fn import_tsk_to_dsm(
     let prim_id = prim_key.keyid().to_hex();
     let prim_name = key_name.to_string();
     let prim_desc = format!(
-        "PGP primary, {}, {}", prim_id, prim_flags.to_human()
+        "PGP primary, {}, {}", prim_id, prim_flags.human_readable()
     );
 
     let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
     let mut prim_metadata = KeyMetadata {
         sq_dsm_version:              SQ_DSM_VERSION.to_string(),
         fingerprint:                 prim_key.fingerprint().to_hex(),
-        key_flags:                   Some(prim_flags.custom_serialize()),
+        key_flags:                   Some(prim_flags),
         certificate:                 Some(armored),
         external_creation_timestamp: Some(creation_time.into()),
         ..Default::default()
@@ -1003,7 +1002,7 @@ pub fn import_tsk_to_dsm(
             "{} {}/{}", key_name, prim_id, subkey_id,
         ).to_string();
         let subkey_desc = format!(
-            "PGP subkey, {}", subkey_flags.to_human()
+            "PGP subkey, {}", subkey_flags.human_readable()
         );
 
         let mut subkey_md = KeyMetadata {
@@ -1011,7 +1010,7 @@ pub fn import_tsk_to_dsm(
             sq_dsm_version:              SQ_DSM_VERSION.to_string(),
             external_creation_timestamp: Some(creation_time.into()),
             fingerprint:                 subkey.fingerprint().to_hex(),
-            key_flags:                   Some(subkey_flags.custom_serialize()),
+            key_flags:                   Some(subkey_flags),
             ..Default::default()
         };
 
@@ -1784,82 +1783,33 @@ fn try_unlock_p12(cert_file: String) -> Result<Identity> {
     }
 }
 
-trait CustomSerialize {
-    type Serialized;
-    fn custom_serialize(&self) -> Self::Serialized;
-    fn custom_deserialize(ser: Self::Serialized) -> Self;
-    fn to_human(&self) -> String;
+trait HumanReadable {
+    fn human_readable(&self) -> String;
 }
 
-// See sec 5.2.3.22 of RFC4880bis.
-//
-// We ignore the second octet for now.
-// CS   = 0x03, 0x00 =  3, 0
-// EtEr = 0x0c, 0x00 = 12, 0
-impl CustomSerialize for KeyFlags {
-    type Serialized = [u8; 2];
-
-    fn custom_serialize(&self) -> [u8; 2] {
-         [
-             (0b0000_0001 * (self.for_certification() as u8))
-           | (0b0000_0010 * (self.for_signing() as u8))
-           | (0b0000_0100 * (self.for_transport_encryption() as u8))
-           | (0b0000_1000 * (self.for_storage_encryption() as u8))
-           | (0b0001_0000 * (self.is_split_key() as u8))
-           | (0b0010_0000 * (self.for_authentication() as u8))
-           | (0b0100_0000 * (self.is_group_key() as u8)), 0
-         ]
-    }
-
-    fn custom_deserialize(ser: [u8; 2]) -> Self {
-        let mut flags = KeyFlags::empty();
-        if ser[0] & 0b0000_0001 != 0 {
-            flags = flags.set_certification();
-        }
-        if ser[0] & 0b0000_0010 != 0 {
-            flags = flags.set_signing();
-        }
-        if ser[0] & 0b0000_0100 != 0 {
-            flags = flags.set_transport_encryption();
-        }
-        if ser[0] & 0b0000_1000 != 0 {
-            flags = flags.set_storage_encryption();
-        }
-        if ser[0] & 0b0001_0000 != 0 {
-            flags = flags.set_split_key();
-        }
-        if ser[0] & 0b0010_0000 != 0 {
-            flags = flags.set_authentication();
-        }
-        if ser[0] & 0b0100_0000 != 0 {
-            flags = flags.set_group_key();
-        }
-
-        flags
-    }
-
-    fn to_human(&self) -> String {
+impl HumanReadable for KeyFlags {
+    fn human_readable(&self) -> String {
         let mut s = String::new();
         if self.for_certification() {
-            s += "Certification, ";
+            s.push_str("Certification, ");
         }
         if self.for_signing() {
-            s += "Signing, ";
+            s.push_str("Signing, ");
         }
         match (self.for_transport_encryption(), self.for_storage_encryption()) {
-            (true, true) => { s += "Transport and Storage Encryption, "},
-            (true, false) => { s += "Transport Encryption, "},
-            (false, true) => { s += "Storage Encryption, "},
+            (true, true) => s.push_str("Transport and Storage Encryption, "),
+            (true, false) => s.push_str("Transport Encryption, "),
+            (false, true) => s.push_str("Storage Encryption, "),
             _ => {}
         }
         if self.is_split_key() {
-            s += "Split Key, ";
+            s.push_str("Split Key, ");
         }
         if self.for_authentication() {
-            s += "Authentication, ";
+            s.push_str("Authentication, ");
         }
         if self.is_group_key() {
-            s += "Group Key, ";
+            s.push_str("Group Key, ");
         }
 
         s.pop();

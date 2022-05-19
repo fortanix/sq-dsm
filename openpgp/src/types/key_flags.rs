@@ -1,6 +1,8 @@
 use std::fmt;
 use std::ops::{BitAnd, BitOr};
 
+use serde::{Deserialize, Serialize};
+
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
@@ -47,7 +49,7 @@ use crate::types::Bitfield;
 /// }
 /// # Ok(()) }
 /// ```
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct KeyFlags(Bitfield);
 assert_send_and_sync!(KeyFlags);
 
