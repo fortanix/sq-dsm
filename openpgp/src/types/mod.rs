@@ -46,7 +46,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::result;
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
