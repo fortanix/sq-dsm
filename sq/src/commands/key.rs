@@ -82,14 +82,18 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             m.value_of("client-cert"),
             m.value_of("app-uuid"),
         )?;
-        return dsm::generate_key(
+        println!("Generating keys inside inside Fortanix DSM. This might take a while...");
+        dsm::generate_key(
             dsm_key_name,
             d,
             m.value_of("userid"),
             m.value_of("cipher-suite"),
             m.is_present("dsm-exportable"),
             dsm::Credentials::new(dsm_secret)?,
-        );
+        )?;
+        println!("OK");
+
+        return Ok(())
     }
 
     // Cipher Suite
