@@ -210,14 +210,14 @@ pub mod serialize {
         curve: &Curve,
         scalar: &mpi::ProtectedMPI,
     ) -> Result<Vec<u8>> {
-        let mut x = scalar.value().to_vec();
+        let mut d = scalar.value().to_vec();
         // For X25519, x is LITTLE ENDIAN!
         if curve == &Curve::Cv25519 {
-            x.reverse();
-            return ec_private_25519(curve, x);
+            d.reverse();
+            return ec_private_25519(curve, d);
         }
         if curve == &Curve::Ed25519 {
-            return ec_private_25519(curve, x);
+            return ec_private_25519(curve, d);
         }
 
         let oid = curve_oid(curve)?;
@@ -226,7 +226,7 @@ pub mod serialize {
         Ok(yasna::construct_der(|w|{
             w.write_sequence(|w| {
                 w.next().write_u32(1);
-                w.next().write_bytes(&x);
+                w.next().write_bytes(&d);
                 w.next().write_tagged(yasna::Tag::context(0), |w| {
                     w.write_oid(&oid);
                 });
@@ -239,9 +239,7 @@ pub mod serialize {
         match curve {
             Curve::Cv25519 => {
                 let x = e.value();
-                if x.is_empty() {
-                    unreachable!();
-                }
+                assert!(!x.is_empty());
 
                 let x = x[1..].to_vec();
 

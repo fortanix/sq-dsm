@@ -453,7 +453,7 @@ impl DsmAgent {
                     .get_sobject(None, &descriptor)
                     .context("could not get subkey".to_string())?;
                 if let Some(kf) = KeyMetadata::from_sobject(&sobject)?.key_flags {
-                    if kf.for_storage_encryption() | kf.for_transport_encryption() {
+                    if kf.for_storage_encryption() || kf.for_transport_encryption() {
                         let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
                         decryptors.push(DsmAgent {
                             credentials: credentials.clone(),
@@ -959,7 +959,7 @@ pub fn import_tsk_to_dsm(
     let creation_time = Timestamp::try_from(primary.creation_time())?;
     let prim_flags = tsk.primary_key()
         .key_flags()
-        .ok_or_else(||anyhow::anyhow!("Bad input: primary has no key flags"))?;
+        .ok_or_else(|| anyhow::anyhow!("Bad input: primary has no key flags"))?;
     let prim_id = prim_key.keyid().to_hex();
     let prim_name = key_name.to_string();
     let prim_desc = format!(
