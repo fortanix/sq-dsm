@@ -219,10 +219,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
     {
         for dsm_key in &self.dsm_keys_presecrets {
             for pkesk in pkesks {
-                let decryptor = DsmAgent::new_decryptor(dsm_key.0.clone(), &dsm_key.1)?;
-                if let Some(fp) = self.try_decrypt(pkesk, sym_algo, Box::new(decryptor),
+                for decryptor in DsmAgent::new_decryptors(dsm_key.0.clone(), &dsm_key.1)? {
+                    // TODO: This could be parallelized
+                    if let Some(fp) = self.try_decrypt(pkesk, sym_algo, Box::new(decryptor),
                     &mut decrypt) {
-                    return Ok(fp);
+                        return Ok(fp);
+                    }
                 }
             }
         }

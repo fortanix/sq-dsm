@@ -40,14 +40,14 @@ pub mod parse {
         //   publicExponent  INTEGER  -- e
         // }
         //
-        yasna::parse_der(&pk.subject_public_key, |reader| {
-            Ok(reader.read_sequence(|reader| {
+        yasna::parse_der(pk.subject_public_key, |reader| {
+            reader.read_sequence(|reader| {
                 let n = reader.next().read_biguint()?.to_bytes_be();
                 let e = reader.next().read_u32()?.to_be_bytes().to_vec();
                 Ok(RsaPub { n, e })
-            })?)
+            })
         })
-        .map_err(|e| e.into())
+        .map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 
     pub fn rsa_private_edpq(buf: &[u8]) -> super::Result<RsaPriv> {
@@ -65,7 +65,7 @@ pub mod parse {
         //   coefficient INTEGER -- (inverse of q) mod p
         // }
         //
-        Ok(yasna::parse_der(&buf, |reader| {
+        yasna::parse_der(buf, |reader| {
             reader.read_sequence(|reader| {
                 let _version = reader.next().read_u32()?;
                 let _n = reader.next().read_biguint()?;
@@ -79,7 +79,7 @@ pub mod parse {
 
                 Ok(RsaPriv { e, d, p, q })
             })
-        })?)
+        }).map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 
     pub fn ec_point_x_y(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
@@ -116,25 +116,25 @@ pub mod parse {
     }
 
     pub fn ecdsa_r_s(buf: &[u8]) -> super::Result<(Vec<u8>, Vec<u8>)> {
-        Ok(yasna::parse_der(&buf, |reader| {
+        yasna::parse_der(buf, |reader| {
             reader.read_sequence(|reader| {
                 let r = reader.next().read_biguint()?.to_bytes_be();
                 let s = reader.next().read_biguint()?.to_bytes_be();
                 Ok((r, s))
             })
-        })?)
+        }).map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 
     pub fn ec_priv_scalar(buf: &[u8]) -> super::Result<Vec<u8>> {
-        Ok(yasna::parse_der(&buf, |reader| {
-            Ok(reader.read_sequence(|reader| {
+        yasna::parse_der(buf, |reader| {
+            reader.read_sequence(|reader| {
                 let _version = reader.next().read_u32()?;
                 let priv_key = reader.next().read_bytes()?;
                 let _oid = reader.next().read_tagged_der()?;
                 let _pk = reader.next().read_tagged_der()?;
                 Ok(priv_key)
-            })?)
-        })?)
+            })
+        }).map_err(|e| anyhow::anyhow!("ASN1 error: {:?}", e))
     }
 }
 
@@ -145,14 +145,101 @@ pub mod serialize {
     use yasna::models::ObjectIdentifier as Oid;
 
     use sequoia_openpgp::crypto::mpi;
+    use num::bigint::BigUint;
+
+    pub fn rsa_private(
+        n: &mpi::MPI,
+        e: &mpi::MPI,
+        d: &mpi::ProtectedMPI,
+        p: &mpi::ProtectedMPI,
+        q: &mpi::ProtectedMPI,
+        u: &mpi::ProtectedMPI,
+    ) -> Vec<u8> {
+        let (n, e, d, p, q, u) = (
+            BigUint::from_bytes_be(n.value()),
+            BigUint::from_bytes_be(e.value()),
+            BigUint::from_bytes_be(d.value()),
+            BigUint::from_bytes_be(p.value()),
+            BigUint::from_bytes_be(q.value()),
+            BigUint::from_bytes_be(u.value()),
+        );
+
+        //
+        // Note that `u` is defined in RFC4880bis 5.6.1 as p⁻¹ (mod q),
+        // whereas RFC8017 A.1.2 defines the CRT coefficient as q⁻¹ (mod p).
+        // We can conciliate both views noting that we know `u` such that
+        //
+        //                      up + qk = 1
+        //                  k = - (up - 1)/q (mod p)
+        //                  k = p - ((up - 1)/q (mod p))
+        //
+        let minus_k = ((u * p.clone() - 1u32) / q.clone()) % p.clone();
+        let coeff = (p.clone() - minus_k) % p.clone();  // always well-defined
+        let e1 = d.clone() % (p.clone() - 1u32);
+        let e2 = d.clone() % (q.clone() - 1u32);
+        yasna::construct_der(|w| {
+            w.write_sequence(|w| {
+                w.next().write_u32(0);
+                for mpi in [&n, &e, &d, &p, &q, &e1, &e2, &coeff] {
+                    w.next().write_biguint(mpi);
+                }
+            })
+        })
+    }
+
+    pub fn ec_private_25519(curve: &Curve, x: Vec<u8>) -> Result<Vec<u8>> {
+        let opaque_octet_string = yasna::construct_der(|w| {
+            w.write_bytes(&x);
+        });
+
+        let oid = curve_oid(curve)?;
+
+        // RFC8410
+        Ok(yasna::construct_der(|w|{
+            w.write_sequence(|w| {
+                w.next().write_u32(0);
+                w.next().write_sequence(|w| {
+                    w.next().write_oid(&oid);
+                });
+                w.next().write_bytes(&opaque_octet_string);
+            });
+        }))
+    }
+
+    pub fn ec_private(
+        curve: &Curve,
+        scalar: &mpi::ProtectedMPI,
+    ) -> Result<Vec<u8>> {
+        let mut d = scalar.value().to_vec();
+        // For X25519, x is LITTLE ENDIAN!
+        if curve == &Curve::Cv25519 {
+            d.reverse();
+            return ec_private_25519(curve, d);
+        }
+        if curve == &Curve::Ed25519 {
+            return ec_private_25519(curve, d);
+        }
+
+        let oid = curve_oid(curve)?;
+
+        // RFC5915
+        Ok(yasna::construct_der(|w|{
+            w.write_sequence(|w| {
+                w.next().write_u32(1);
+                w.next().write_bytes(&d);
+                w.next().write_tagged(yasna::Tag::context(0), |w| {
+                    w.write_oid(&oid);
+                });
+                // We ignore the public key serialization
+            });
+        }))
+    }
 
     pub fn spki_ecdh(curve: &Curve, e: &mpi::MPI) -> Vec<u8> {
         match curve {
             Curve::Cv25519 => {
                 let x = e.value();
-                if x.len() == 0 {
-                    unreachable!();
-                }
+                assert!(!x.is_empty());
 
                 let x = x[1..].to_vec();
 
@@ -173,7 +260,7 @@ pub mod serialize {
                 //
                 let nist_oid = Oid::from_slice(&[1, 2, 840, 10045, 2, 1]);
 
-                let named_curve = curve_oid(&curve).expect("bad curve OID");
+                let named_curve = curve_oid(curve).expect("bad curve OID");
 
                 let alg_id = yasna::construct_der(|writer| {
                     writer.write_sequence(|writer| {
@@ -182,7 +269,7 @@ pub mod serialize {
                     });
                 });
 
-                let subj_public_key = BitVec::from_bytes(&e.value());
+                let subj_public_key = BitVec::from_bytes(e.value());
                 yasna::construct_der(|writer| {
                     writer.write_sequence(|writer| {
                         writer.next().write_der(&alg_id);
@@ -199,7 +286,8 @@ pub mod serialize {
             Curve::NistP384 => Oid::from_slice(&[1, 3, 132, 0, 34]),
             Curve::NistP521 => Oid::from_slice(&[1, 3, 132, 0, 35]),
             Curve::Cv25519 => Oid::from_slice(&[1, 3, 101, 110]),
-            curve @ _ => {
+            Curve::Ed25519 => Oid::from_slice(&[1, 3, 101, 112]),
+            curve => {
                 return Err(anyhow::anyhow!("unsupported curve {}", curve));
             }
         };

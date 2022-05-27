@@ -30,6 +30,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(config, m)?,
         ("export", Some(m)) => generate(config, m)?,
+        ("dsm-import", Some(m)) => dsm_import(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("extract-dsm-secret", Some(m)) => extract_dsm(config, m)?,
@@ -81,14 +82,18 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             m.value_of("client-cert"),
             m.value_of("app-uuid"),
         )?;
-        return dsm::generate_key(
+        println!("Generating keys inside inside Fortanix DSM. This might take a while...");
+        dsm::generate_key(
             dsm_key_name,
             d,
             m.value_of("userid"),
             m.value_of("cipher-suite"),
             m.is_present("dsm-exportable"),
             dsm::Credentials::new(dsm_secret)?,
-        );
+        )?;
+        println!("OK");
+
+        return Ok(())
     }
 
     // Cipher Suite
@@ -294,6 +299,31 @@ fn _password(config: Config, m: &ArgMatches, key: Cert) -> Result<()> {
     Ok(())
 }
 
+// Unlocks a cert with a passphrase
+fn _unlock(key: Cert) -> Result<Cert> {
+    if ! key.is_tsk() {
+        return Err(anyhow::anyhow!("Input is not a Transferable Secret Key"));
+    }
+
+    // Decrypt all secrets.
+    let passwords = &mut Vec::new();
+    let mut decrypted: Vec<Packet> = vec![decrypt_key(
+        key.primary_key().key().clone().parts_into_secret()?,
+        passwords,
+    )?
+    .into()];
+    for ka in key.keys().subkeys().secret() {
+        decrypted.push(decrypt_key(
+            ka.key().clone().parts_into_secret()?,
+            passwords)?.into());
+    }
+    let key = key.insert_packets(decrypted)?;
+    assert_eq!(key.keys().secret().count(),
+               key.keys().unencrypted_secret().count());
+
+    Ok(key)
+}
+
 fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
 
@@ -320,6 +350,25 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
         cert.armored().serialize(&mut output)?;
     }
     Ok(())
+}
+
+fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_secret = dsm::Auth::from_options_or_env(
+        m.value_of("api-key"),
+        m.value_of("client-cert"),
+        m.value_of("app-uuid"),
+    )?;
+    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let input = open_or_stdin(m.value_of("input"))?;
+    let key = _unlock(Cert::from_reader(input)?)?;
+    let valid_key = key.with_policy(&config.policy, None)?;
+
+    match m.value_of("dsm-key") {
+        Some(key_name) => dsm::import_tsk_to_dsm(
+            valid_key, key_name, dsm_auth, m.is_present("dsm-exportable"),
+        ),
+        None => unreachable!("name is compulsory")
+    }
 }
 
 fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {

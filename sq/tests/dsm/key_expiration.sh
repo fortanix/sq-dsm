@@ -55,3 +55,5 @@ check_time "$alice_one_day" "Expiration time.* UTC (creation time + P1D)"
 comm "generate a key that expires in 2039, and check certificate"
 $sq key generate --dsm-key="$alice_2039" --userid="Alice 2039 <x@x.x>" --cipher-suite="$cipher_suite" --expires="$future_2039"
 check_time "$alice_2039" "Expiration time: 2039"
+
+echo "SUCCESS"

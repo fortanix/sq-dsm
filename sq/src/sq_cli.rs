@@ -796,6 +796,43 @@ command exfiltrates secrets from DSM and outputs a Key.
                                  .short("B").long("binary")
                                  .help("Emits binary data"))
                             )
+                .subcommand(SubCommand::with_name("dsm-import")
+                            .display_order(112)
+                            .about("Imports a Transferable Secret Key into Fortanix DSM")
+                            .long_about(
+"Imports a Transferable Secret Key info Fortanix DSM
+
+This command unlocks the TSK (if encrypted), and imports it into Fortanix DSM for secure storage and usage.
+")
+                            .after_help(
+                                "EXAMPLES:
+
+# Import the key into DSM
+$ sq-dsm key dsm-import --dsm-key=\"Imported by sq-dsm\" < my_priv_key.asc
+")
+                            .arg(Arg::with_name("api-key")
+                                .long("api-key").value_name("API-KEY")
+                                .help("Authenticates to Fortanix DSM using the \
+                                       given API key"))
+                            .arg(Arg::with_name("client-cert")
+                                .long("client-cert").value_name("P12-FILE")
+                                .help("Authenticates to Fortanix DSM with the given client \
+                                   certificate"))
+                            .arg(Arg::with_name("app-uuid")
+                                .long("app-uuid").value_name("APP-UUID")
+                                .help("Authenticates to Fortanix DSM with the given App  \
+                                       (cert-based authentication)"))
+                            .arg(Arg::with_name("dsm-key")
+                                .long("dsm-key").value_name("DSM-KEY-NAME")
+                                .required(true)
+                                .help("Name of the DSM key"))
+                            .arg(Arg::with_name("dsm-exportable")
+                                .long("dsm-exportable")
+                                .help("(DANGER) Configure the key to be exportable from DSM"))
+                            .arg(Arg::with_name("input")
+                                 .long("input").value_name("FILE")
+                                 .help("Reads from FILE or stdin if omitted"))
+                            )
                 .subcommand(
                     SubCommand::with_name("adopt")
                         .display_order(800)

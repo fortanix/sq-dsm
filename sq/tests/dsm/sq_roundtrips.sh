@@ -75,3 +75,5 @@ comm "decrypt"
 $sq decrypt $apikey --signer-cert="$bob_dsm" --signer-cert="$bob_local_pub" --dsm-key="$alice_key_name" "$encrypted_signed" --output "$decrypted_signed"
 
 diff "$message" "$decrypted_signed"
+
+echo "SUCCESS"

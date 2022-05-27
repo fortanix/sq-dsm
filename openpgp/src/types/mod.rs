@@ -46,6 +46,8 @@ use std::fmt;
 use std::str::FromStr;
 use std::result;
 
+use serde::{Deserialize, Serialize};
+
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
@@ -533,7 +535,7 @@ impl Arbitrary for Curve {
 /// # Ok(()) }
 /// ```
 #[non_exhaustive]
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum SymmetricAlgorithm {
     /// Null encryption.
     Unencrypted,
@@ -929,7 +931,7 @@ impl Arbitrary for CompressionAlgorithm {
 ///
 /// [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
 #[non_exhaustive]
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum HashAlgorithm {
     /// Rivest et.al. message digest 5.
     MD5,

@@ -15,7 +15,7 @@ create_tmp_dir gpg_homedir
 
 gpg="gpg --homedir=$gpg_homedir --trust-model always --pinentry-mode loopback"
 
-trap 'erase_tmp_dirs' EXIT
+trap 'erase_tmp_dir $data && erase_tmp_dir $gpg_homedir' EXIT
 
 # Test files
 message=$data/message.txt
