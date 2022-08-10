@@ -49,7 +49,7 @@ use sdkms::api_model::{
 use sdkms::operations::Operation;
 use sdkms::{Error as DsmError, PendingApproval, SdkmsClient as DsmClient};
 use semver::{Version, VersionReq};
-use sequoia_openpgp::cert::ValidCert;
+use sequoia_openpgp::cert::{ValidCert, Preferences};
 use sequoia_openpgp::crypto::mem::Protected;
 use sequoia_openpgp::crypto::mpi::{
     Ciphertext as MpiCiphertext, ProtectedMPI, PublicKey as MpiPublic,
@@ -63,6 +63,7 @@ use sequoia_openpgp::packet::key::{
 use sequoia_openpgp::packet::prelude::SecretKeyMaterial;
 use sequoia_openpgp::packet::signature::SignatureBuilder;
 use sequoia_openpgp::packet::{Key, UserID};
+use sequoia_openpgp::policy::StandardPolicy;
 use sequoia_openpgp::serialize::SerializeInto;
 use sequoia_openpgp::types::{
     Curve as SequoiaCurve, Features, HashAlgorithm, KeyFlags,
@@ -489,7 +490,7 @@ enum KeyRole {
     Subkey,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct KeyMetadata {
     sq_dsm_version:              String,
     fingerprint:                 String,
@@ -512,9 +513,14 @@ impl KeyMetadata {
                 if !dict.contains_key(DSM_LABEL_PGP) {
                     return Err(anyhow::anyhow!("malformed metadata"));
                 }
-                let key_md: KeyMetadata =
-                    serde_json::from_str(&dict[DSM_LABEL_PGP])?;
-                Ok(key_md)
+                match serde_json::from_str(&dict[DSM_LABEL_PGP]) {
+                    Ok(key_md) => Ok(key_md),
+                    Err(e) => {
+                        KeyMetadata::print_metadata_for_pre_0_3_0(&dict[DSM_LABEL_PGP]).unwrap();
+                        Err(anyhow::anyhow!("failed to read metadata: {:?}", e))
+
+                    }
+                }
             }
             None => Err(anyhow::anyhow!("no metadata found on {:?}", sob.kid))
         }
@@ -526,6 +532,65 @@ impl KeyMetadata {
         custom_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
 
         Ok(custom_metadata)
+    }
+
+    fn print_metadata_for_pre_0_3_0(md: &String) -> Result<()> {
+        // It should at least be a dict
+        let dict: HashMap::<String, String> = serde_json::from_str(md)?;
+
+        let version = dict.get("sq_dsm_version")
+            .unwrap_or(&"<0.3.0-beta".to_string()).to_string();
+
+        let cert = dict.get("certificate")
+            .ok_or(anyhow::anyhow!("cannot read metadata"))?;
+
+        let cert_obj = Cert::from_str(cert)?;
+        let p = &StandardPolicy::new();
+        let cert_obj = cert_obj.with_policy(p, None)?;
+        let primary = cert_obj.primary_key();
+        let subkeys = cert_obj.keys().subkeys();
+        let hash_algo = cert_obj.preferred_hash_algorithms().map(|h| h[0]);
+        let symm_algo = cert_obj.preferred_symmetric_algorithms().map(|c| c[0]);
+
+        println!(r#"
+        It appears that this PGP key was generated with an older version of
+        sq-dsm. Please
+          1. Make a backup of the following public PGP key:
+
+          ### BACKUP THE FOLLOWING KEY ###
+          {}
+
+          2. Update the custom metadata as follows:
+        "#, cert);
+
+        // Primary
+        let prim_metadata = KeyMetadata {
+            sq_dsm_version: version.clone(),
+            fingerprint:    primary.fingerprint().to_hex(),
+            key_flags:      primary.key_flags(),
+            certificate:    Some(cert.to_string()),
+            hash_algo,
+            symm_algo,
+            // Pre 0.3.0, private key import is not supported
+            external_creation_timestamp: None,
+        }.to_custom_metadata()?;
+
+        println!("For primary key:\nkey=sq_dsm\nvalue={}\n", prim_metadata[DSM_LABEL_PGP]);
+
+        for key in subkeys {
+            let subkey_metadata = KeyMetadata {
+                sq_dsm_version: version.clone(),
+                fingerprint:    key.fingerprint().to_hex(),
+                key_flags:      key.key_flags(),
+                certificate:    None,
+                hash_algo,
+                symm_algo,
+                external_creation_timestamp: None,
+            }.to_custom_metadata()?;
+            println!("For subkey:\nkey=sq_dsm\nvalue={}\n", subkey_metadata[DSM_LABEL_PGP]);
+        }
+
+        Ok(())
     }
 }
 
