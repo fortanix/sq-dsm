@@ -70,9 +70,7 @@ use sequoia_openpgp::types::{
     PublicKeyAlgorithm, SignatureType, SymmetricAlgorithm, Timestamp,
 };
 use sequoia_openpgp::{Cert, Packet};
-// use serde::{Deserializer, Deserialize, Serialize};
 use serde::{Deserialize, Serialize};
-// use serde::de::Error as DeserializeError;
 use uuid::Uuid;
 
 mod der;
