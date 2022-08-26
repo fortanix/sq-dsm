@@ -28,7 +28,7 @@ use std::io::Read;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Error, Result};
 use http::uri::Uri;
@@ -44,7 +44,7 @@ use sdkms::api_model::{
     DecryptResponse, DigestAlgorithm, EllipticCurve as ApiCurve, KeyLinks,
     KeyOperations, ObjectType, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
     RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest,
-    SignResponse, Sobject, SobjectDescriptor, SobjectRequest,
+    SignResponse, Sobject, SobjectDescriptor, SobjectRequest, Time as SdkmsTime
 };
 use sdkms::operations::Operation;
 use sdkms::{Error as DsmError, PendingApproval, SdkmsClient as DsmClient};
@@ -646,6 +646,7 @@ pub fn generate_key(
         KeyRole::Primary,
         &algorithm,
         exportable,
+        validity_period
     )
     .context("could not create primary key")?;
 
@@ -656,6 +657,7 @@ pub fn generate_key(
         KeyRole::Subkey,
         &algorithm,
         exportable,
+        validity_period
     )?;
 
     info!("bind subkey to primary key in DSM");
@@ -893,6 +895,7 @@ pub fn import_tsk_to_dsm(
         metadata: &mut KeyMetadata,
         mpis:     &MpiPublic,
         hazmat:   &MpiSecret,
+        deact:    Option<SdkmsTime>,
     ) -> Result<Uuid> {
         let req = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
@@ -919,38 +922,41 @@ pub fn import_tsk_to_dsm(
                 };
 
                 SobjectRequest {
-                    name:            Some(name.clone()),
-                    custom_metadata: Some(metadata.to_custom_metadata()?),
-                    description:     Some(desc),
-                    obj_type:        Some(ObjectType::Rsa),
-                    key_ops:         Some(ops),
-                    key_size:        Some(key_size),
-                    rsa:             rsa_opts,
-                    value:           Some(value.into()),
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Rsa),
+                    key_ops:           Some(ops),
+                    key_size:          Some(key_size),
+                    rsa:               rsa_opts,
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
                     ..Default::default()
                 }
             },
             (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
                 let value = der::serialize::ec_private(&curve, &scalar)?;
                 SobjectRequest {
-                    name:            Some(name.clone()),
-                    custom_metadata: Some(metadata.to_custom_metadata()?),
-                    description:     Some(desc),
-                    obj_type:        Some(ObjectType::Ec),
-                    key_ops:         Some(ops),
-                    value:           Some(value.into()),
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Ec),
+                    key_ops:           Some(ops),
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
                     ..Default::default()
                 }
             },
             (MpiPublic::ECDSA { curve, .. }, MpiSecret::ECDSA { scalar }) => {
                 let value = der::serialize::ec_private(&curve, &scalar)?;
                 SobjectRequest {
-                    name:            Some(name.clone()),
-                    custom_metadata: Some(metadata.to_custom_metadata()?),
-                    description:     Some(desc),
-                    obj_type:        Some(ObjectType::Ec),
-                    key_ops:         Some(ops),
-                    value:           Some(value.into()),
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Ec),
+                    key_ops:           Some(ops),
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
                     ..Default::default()
                 }
             },
@@ -959,12 +965,13 @@ pub fn import_tsk_to_dsm(
                 metadata.hash_algo = Some(*hash);
                 metadata.symm_algo = Some(*sym);
                 SobjectRequest {
-                    name:            Some(name.clone()),
-                    custom_metadata: Some(metadata.to_custom_metadata()?),
-                    description:     Some(desc),
-                    obj_type:        Some(ObjectType::Ec),
-                    key_ops:         Some(ops),
-                    value:           Some(value.into()),
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Ec),
+                    key_ops:           Some(ops),
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
                     ..Default::default()
                 }
             },
@@ -1030,6 +1037,14 @@ pub fn import_tsk_to_dsm(
     let prim_desc = format!(
         "PGP primary, {}, {}", prim_id, prim_flags.human_readable()
     );
+    let prim_deactivation = if let Some(d) = prim_key.key_validity_period() {
+        let creation_secs = primary
+            .creation_time()
+            .duration_since(UNIX_EPOCH)?.as_secs();
+        Some(SdkmsTime(creation_secs + d.as_secs()))
+    } else {
+        None
+    };
 
     let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
     let mut prim_metadata = KeyMetadata {
@@ -1057,6 +1072,7 @@ pub fn import_tsk_to_dsm(
         &mut prim_metadata,
         &primary.mpis(),
         &prim_hazmat,
+        prim_deactivation
     )?;
 
     for subkey in tsk.keys().subkeys().unencrypted_secret() {
@@ -1069,6 +1085,14 @@ pub fn import_tsk_to_dsm(
         let subkey_desc = format!(
             "PGP subkey, {}", subkey_flags.human_readable()
         );
+        let subkey_deactivation = if let Some(d) = subkey.key_validity_period() {
+            let creation_secs = subkey
+                .creation_time()
+                .duration_since(UNIX_EPOCH)?.as_secs();
+            Some(SdkmsTime(creation_secs + d.as_secs()))
+        } else {
+            None
+        };
 
         let mut subkey_md = KeyMetadata {
             certificate:                 None,
@@ -1096,6 +1120,7 @@ pub fn import_tsk_to_dsm(
             &mut subkey_md,
             &subkey.mpis(),
             &subkey_hazmat,
+            subkey_deactivation,
         )?;
 
         info!("bind subkey {} to primary key in DSM", subkey_name);
@@ -1116,12 +1141,14 @@ pub fn import_tsk_to_dsm(
 }
 
 impl PublicKey {
+    // Creates the private key inside DSM and returns the associated PublicKey
     fn create(
         client: &DsmClient,
         name: String,
         role: KeyRole,
         algo: &SupportedPkAlgo,
         exportable: bool,
+        validity_period: Option<Duration>
     ) -> Result<Self> {
         let mut sobject_request = match (&role, algo) {
             (KeyRole::Primary, SupportedPkAlgo::Rsa(key_size)) => {
@@ -1210,6 +1237,13 @@ impl PublicKey {
             sobject_request.key_ops =
                 Some(sobject_request.key_ops.unwrap() | KeyOperations::EXPORT)
         }
+
+        sobject_request.deactivation_date = if let Some(d) = validity_period {
+            let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+            Some(SdkmsTime(now + d.as_secs()))
+        } else {
+            None
+        };
 
         let sobject = client.create_sobject(&sobject_request)
             .context("dsm client could not create sobject")?;
