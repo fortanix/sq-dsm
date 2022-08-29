@@ -1,6 +1,6 @@
 [package]
 name = "openpgp-dsm"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["zugzwang <francisco.vialprado@fortanix.com>"]
 edition = "2018"
 
