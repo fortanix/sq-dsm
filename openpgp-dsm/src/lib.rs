@@ -37,7 +37,7 @@ use hyper::net::HttpsConnector;
 use hyper_native_tls::native_tls::{Identity, TlsConnector};
 use hyper_native_tls::NativeTlsClient;
 use ipnetwork::IpNetwork;
-use log::info;
+use log::{info, warn};
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
     AgreeKeyMechanism, AgreeKeyRequest, ApprovalStatus, DecryptRequest,
@@ -96,6 +96,7 @@ const ENV_APP_UUID:       &str = "FORTANIX_APP_UUID";
 const ENV_HTTP_PROXY:     &str = "http_proxy";
 const ENV_NO_PROXY:       &str = "no_proxy";
 const ENV_P12:            &str = "FORTANIX_PKCS12_ID";
+const ENV_P12_PASS:       &str = "FORTANIX_PKCS12_PASSPHRASE";
 const MIN_DSM_VERSION:    &str = "4.2.0";
 // As seen on sdkms-client-rust/blob/master/examples/approval_request.rs
 const OP_APPROVAL_MSG:    &str = "This operation requires approval";
@@ -1855,8 +1856,16 @@ fn try_unlock_p12(cert_file: String) -> Result<Identity> {
     // Try to unlock certificate without password first
     let mut first = true;
     if let Ok(id) = Identity::from_pkcs12(&cert, "") {
-        Ok(id)
+        return Ok(id)
     } else {
+        // Try to unlock with env var passphrase
+        if let Ok(pass) = env::var(ENV_P12_PASS) {
+            if let Ok(id) = Identity::from_pkcs12(&cert, &pass) {
+                return Ok(id)
+            } else {
+                warn!("could not unlock PKCS12 identity with {:?}", ENV_P12_PASS);
+            }
+        }
         loop {
             // Prompt the user for PKCS12 password
             match rpassword::read_password_from_tty(
@@ -1869,7 +1878,7 @@ fn try_unlock_p12(cert_file: String) -> Result<Identity> {
                 Ok(p) => {
                     first = false;
                     if let Ok(id) = Identity::from_pkcs12(&cert, &p) {
-                        break Ok(id)
+                        return Ok(id)
                     }
                 },
                 Err(err) => {

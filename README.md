@@ -1,5 +1,5 @@
 sq-dsm
-========
+======
 
 This fork of [Sequoia-PGP][Sequoia] leverages
 [sdkms-client-rust][sdkms-client-rust] to perform OpenPGP operations with keys
@@ -30,7 +30,11 @@ variables need to be set in order to communicate with DSM.
   openssl pkcs12 -export -out identity.pfx -inkey private.key -in public.crt
   ```
   If a password is set for the PKCS12 file, then `sq-dsm` will ask for it on
-  each key usage (which can happen several times on one PGP operation).
+  each key usage (which can happen several times on one PGP operation), unless
+  the `FORTANIX_PKCS12_PASSPHRASE` environment variable is set (see below).
+- `FORTANIX_PKCS12_PASSPHRASE`, the passphrase to unlock the identity file
+  generated above. If the password is incorrect, `sq-dsm` will ask for it on
+  each operation.
 - `FORTANIX_APP_UUID`, the UUID of your DSM app, for certificate-based
   authentication (e.g., this environment variable is used together with
   `FORTANIX_PKCS12_ID`).
