@@ -37,7 +37,7 @@ use hyper::net::HttpsConnector;
 use hyper_native_tls::native_tls::{Identity, TlsConnector};
 use hyper_native_tls::NativeTlsClient;
 use ipnetwork::IpNetwork;
-use log::info;
+use log::{info, warn};
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
     AgreeKeyMechanism, AgreeKeyRequest, ApprovalStatus, DecryptRequest,
@@ -1861,10 +1861,9 @@ fn try_unlock_p12(cert_file: String) -> Result<Identity> {
         // Try to unlock with env var passphrase
         if let Ok(pass) = env::var(ENV_P12_PASS) {
             if let Ok(id) = Identity::from_pkcs12(&cert, &pass) {
-                info!("unlocked PKCS12 identity with {:?}", ENV_P12_PASS);
                 return Ok(id)
             } else {
-                info!("could not unlock PKCS12 with {:?}", ENV_P12_PASS);
+                warn!("could not unlock PKCS12 identity with {:?}", ENV_P12_PASS);
             }
         }
         loop {
