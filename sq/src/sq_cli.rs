@@ -149,6 +149,10 @@ $ sq decrypt ciphertext.pgp
                         .long("app-uuid").value_name("APP-UUID")
                         .help("Authenticates to Fortanix DSM with the given App  \
                         (cert-based authentication)"))
+                    .arg(Arg::with_name("pkcs12-passphrase")
+                        .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                        .help("Passphrase for unlocking the PKCS12 identity file \
+                        (cert-based authentication)"))
                     .arg(Arg::with_name("dsm-key")
                         .long("dsm-key").value_name("DSM-KEY-NAME")
                         .help("Decrypts with secrets stored inside the \
@@ -209,6 +213,10 @@ $ sq encrypt --symmetric message.txt
                     .arg(Arg::with_name("app-uuid")
                         .long("app-uuid").value_name("APP-UUID")
                         .help("Authenticates to Fortanix DSM with the given App  \
+                        (cert-based authentication)"))
+                    .arg(Arg::with_name("pkcs12-passphrase")
+                        .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                        .help("Passphrase for unlocking the PKCS12 identity file \
                         (cert-based authentication)"))
                     .arg(Arg::with_name("signer-dsm-key")
                          .long("signer-dsm-key").value_name("DSM-KEY-NAME")
@@ -333,6 +341,10 @@ $ sq sign --detached --signer-key juliet.pgp message.txt
                     .arg(Arg::with_name("app-uuid")
                         .long("app-uuid").value_name("APP-UUID")
                         .help("Authenticates to Fortanix DSM with the given App  \
+                        (cert-based authentication)"))
+                    .arg(Arg::with_name("pkcs12-passphrase")
+                        .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                        .help("Passphrase for unlocking the PKCS12 identity file \
                         (cert-based authentication)"))
                     .arg(Arg::with_name("dsm-key")
                         .long("dsm-key").value_name("DSM-KEY-NAME")
@@ -605,6 +617,10 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                             .long("app-uuid").value_name("APP-UUID")
                             .help("Authenticates to Fortanix DSM with the given App  \
                                    (cert-based authentication)"))
+                        .arg(Arg::with_name("pkcs12-passphrase")
+                            .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                            .help("Passphrase for unlocking the PKCS12 identity file \
+                                   (cert-based authentication)"))
                         .arg(Arg::with_name("dsm-exportable")
                             .long("dsm-exportable")
                             .help("(DANGER) Configure the key to be exportable from DSM"))
@@ -759,6 +775,10 @@ $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
                                 .long("app-uuid").value_name("APP-UUID")
                                 .help("Authenticates to Fortanix DSM with the given App \
                                        (cert-based authentication)"))
+                            .arg(Arg::with_name("pkcs12-passphrase")
+                                .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                                .help("Passphrase for unlocking the PKCS12 identity file \
+                                       (cert-based authentication)"))
                             .arg(Arg::with_name("dsm-key")
                                 .long("dsm-key").value_name("DSM-KEY-NAME")
                                 .help("Extracts the certificate from Fortanix \
@@ -784,6 +804,10 @@ command exfiltrates secrets from DSM and outputs a Key.
                             .arg(Arg::with_name("app-uuid")
                                 .long("app-uuid").value_name("APP-UUID")
                                 .help("Authenticates to Fortanix DSM with the given App  \
+                                       (cert-based authentication)"))
+                            .arg(Arg::with_name("pkcs12-passphrase")
+                                .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                                .help("Passphrase for unlocking the PKCS12 identity file \
                                        (cert-based authentication)"))
                             .arg(Arg::with_name("dsm-key")
                                 .long("dsm-key").value_name("DSM-KEY-NAME")
@@ -821,6 +845,10 @@ $ sq-dsm key dsm-import --dsm-key=\"Imported by sq-dsm\" < my_priv_key.asc
                             .arg(Arg::with_name("app-uuid")
                                 .long("app-uuid").value_name("APP-UUID")
                                 .help("Authenticates to Fortanix DSM with the given App  \
+                                       (cert-based authentication)"))
+                            .arg(Arg::with_name("pkcs12-passphrase")
+                                .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                                .help("Passphrase for unlocking the PKCS12 identity file \
                                        (cert-based authentication)"))
                             .arg(Arg::with_name("dsm-key")
                                 .long("dsm-key").value_name("DSM-KEY-NAME")

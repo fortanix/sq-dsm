@@ -104,6 +104,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
 //!         --private-key-store <KEY_STORE>
 //!             Provides parameters for private key store
 //!
@@ -193,6 +196,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
 //!         --private-key-store <KEY_STORE>
 //!             Provides parameters for private key store
 //!
@@ -283,6 +289,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
 //!         --private-key-store <KEY_STORE>
 //!             Provides parameters for private key store
 //!
@@ -480,6 +489,9 @@
 //!     -e, --export <OUTFILE>
 //!             Writes the key to OUTFILE
 //!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
 //!         --rev-cert <FILE or ->
 //!             Writes the revocation certificate to FILE. mandatory if OUTFILE is
 //!             "-". [default: <OUTFILE>.rev]
@@ -592,6 +604,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
 //!
 //! ARGS:
 //!     <FILE>
@@ -644,6 +659,10 @@
 //!
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
+//!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
 //! ```
 //!
 //! ### Subcommand key dsm-import
@@ -684,6 +703,9 @@
 //!         --input <FILE>
 //!             Reads from FILE or stdin if omitted
 //!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
 //!
 //! EXAMPLES:
 //!
