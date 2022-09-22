@@ -1854,7 +1854,7 @@ fn try_unlock_p12(cert_file: String, passphrase: Option<&str>) -> Result<Identit
     let mut cert = Vec::new();
     cert_stream.read_to_end(&mut cert)
         .context(format!("reading {}", cert_file))?;
-    // Try to parse certificate with passed or empty password first
+    // Try to unlock certificate with passed password, if any
     let mut first = true;
     if let Ok(id) = Identity::from_pkcs12(&cert, passphrase.unwrap_or("")) {
         return Ok(id)
