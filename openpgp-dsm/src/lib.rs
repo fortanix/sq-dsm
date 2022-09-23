@@ -110,9 +110,10 @@ pub enum Auth {
 
 impl Auth {
     pub fn from_options_or_env(
-        cli_api_key: Option<&str>,
+        cli_api_key:     Option<&str>,
         cli_client_cert: Option<&str>,
-        cli_app_uuid: Option<&str>,
+        cli_app_uuid:    Option<&str>,
+        cli_p12_pass:    Option<&str>,
     ) -> Result<Self> {
         // Try API key
         let api_key = match (cli_api_key, env::var(ENV_API_KEY).ok()) {
@@ -169,7 +170,7 @@ impl Auth {
                 Ok(Auth::ApiKey(api_key))
             },
             (None, Some((client_cert, app_uuid))) => {
-                let p12_id = try_unlock_p12(client_cert)?;
+                let p12_id = try_unlock_p12(client_cert, cli_p12_pass)?;
 
                 let uuid = Uuid::parse_str(&app_uuid)
                     .context("bad app UUID")?;
@@ -1847,15 +1848,15 @@ fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
     }
 }
 
-fn try_unlock_p12(cert_file: String) -> Result<Identity> {
+fn try_unlock_p12(cert_file: String, passphrase: Option<&str>) -> Result<Identity> {
     let mut cert_stream = File::open(cert_file.clone())
         .context(format!("opening {}", cert_file))?;
     let mut cert = Vec::new();
     cert_stream.read_to_end(&mut cert)
         .context(format!("reading {}", cert_file))?;
-    // Try to unlock certificate without password first
+    // Try to unlock certificate with passed password, if any
     let mut first = true;
-    if let Ok(id) = Identity::from_pkcs12(&cert, "") {
+    if let Ok(id) = Identity::from_pkcs12(&cert, passphrase.unwrap_or("")) {
         return Ok(id)
     } else {
         // Try to unlock with env var passphrase

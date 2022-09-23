@@ -441,6 +441,7 @@ fn main() -> Result<()> {
                     m.value_of("api-key"),
                     m.value_of("client-cert"),
                     m.value_of("app-uuid"),
+                    m.value_of("pkcs12-passphrase"),
                 )?;
                 let dsm_auth = Credentials::new(dsm_secret)?;
                 secrets.push(PreSecret::Dsm(dsm_auth, name.to_string()));
@@ -488,6 +489,7 @@ fn main() -> Result<()> {
                     m.value_of("api-key"),
                     m.value_of("client-cert"),
                     m.value_of("app-uuid"),
+                    m.value_of("pkcs12-passphrase"),
                 )?;
                 let dsm_auth = Credentials::new(dsm_secret)?;
                 additional_secrets
@@ -554,6 +556,7 @@ fn main() -> Result<()> {
                     m.value_of("api-key"),
                     m.value_of("client-cert"),
                     m.value_of("app-uuid"),
+                    m.value_of("pkcs12-passphrase"),
                 )?;
                 let dsm_auth = Credentials::new(dsm_secret)?;
                 secrets.push(secrets::PreSecret::Dsm(dsm_auth, name.to_string()));
@@ -702,6 +705,7 @@ fn main() -> Result<()> {
                         m.value_of("api-key"),
                         m.value_of("client-cert"),
                         m.value_of("app-uuid"),
+                        m.value_of("pkcs12-passphrase"),
                     )?;
                     let dsm_auth = Credentials::new(dsm_secret)?;
                     secrets.push(PreSecret::Dsm(dsm_auth, name.to_string()));

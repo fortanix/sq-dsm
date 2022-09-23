@@ -81,6 +81,7 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             m.value_of("api-key"),
             m.value_of("client-cert"),
             m.value_of("app-uuid"),
+            m.value_of("pkcs12-passphrase"),
         )?;
         println!("Generating keys inside inside Fortanix DSM. This might take a while...");
         dsm::generate_key(
@@ -334,6 +335,7 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
                 m.value_of("api-key"),
                 m.value_of("client-cert"),
                 m.value_of("app-uuid"),
+                m.value_of("pkcs12-passphrase"),
             )?;
             let dsm_auth = dsm::Credentials::new(dsm_secret)?;
             dsm::extract_cert(key_name, dsm_auth)?
@@ -357,6 +359,7 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
         m.value_of("api-key"),
         m.value_of("client-cert"),
         m.value_of("app-uuid"),
+        m.value_of("pkcs12-passphrase"),
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let input = open_or_stdin(m.value_of("input"))?;
@@ -376,6 +379,7 @@ fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
         m.value_of("api-key"),
         m.value_of("client-cert"),
         m.value_of("app-uuid"),
+        m.value_of("pkcs12-passphrase"),
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let key = match m.value_of("dsm-key") {
