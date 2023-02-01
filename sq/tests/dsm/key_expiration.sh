@@ -35,25 +35,28 @@ fi
 check_time() {
     key_name="$1"
     expiry_re="$2"
+    key_count="$3"
     inspection=$($sq key extract-cert --dsm-key="$key_name" | $sq inspect)
     count=$(echo "$inspection" | grep -c "$expiry_re" || true)
-    if [[ "$count" -ne 2 ]]; then
-        echo "Expected $expiry_re everywhere, got:"
+    if [[ "$count" -ne "$key_count" ]]; then
+        echo "Expected $expiry_re $key_count times, got:"
         echo "$inspection"
+        $sq key extract-cert --dsm-key="$key_name"
+        $sq key extract-cert --dsm-key="$key_name" | $sq packet dump
         exit 1
     fi
 }
 
 comm "generate a key with default expiry, and check certificate"
 $sq key generate --dsm-key="$alice_default" --userid="Default expiry <x@x.x>" --cipher-suite="$cipher_suite"
-check_time "$alice_default" "Expiration time.* UTC (creation time + P1095DT62781S)"
+check_time "$alice_default" "Expiration time.* UTC (creation time + P1095DT62781S)" 3
 
 comm "generate a key that expires tomorrow, and check certificate"
 $sq key generate --dsm-key="$alice_one_day" --userid="One day <x@x.x>" --cipher-suite="$cipher_suite" --expires-in="1d"
-check_time "$alice_one_day" "Expiration time.* UTC (creation time + P1D)"
+check_time "$alice_one_day" "Expiration time.* UTC (creation time + P1D)" 3
 
 comm "generate a key that expires in 2039, and check certificate"
 $sq key generate --dsm-key="$alice_2039" --userid="Alice 2039 <x@x.x>" --cipher-suite="$cipher_suite" --expires="$future_2039"
-check_time "$alice_2039" "Expiration time: 2039"
+check_time "$alice_2039" "Expiration time: 2039" 3
 
 echo "SUCCESS"
