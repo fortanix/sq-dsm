@@ -57,7 +57,7 @@ pub mod certify;
 
 /// Returns suitable signing keys from a given list of Certs.
 #[allow(clippy::never_loop)]
-fn get_signing_keys(presecrets: &Vec<PreSecret>, p: &dyn Policy,
+fn get_signing_keys(presecrets: &[PreSecret], p: &dyn Policy,
                     private_key_store: Option<&str>,
                     timestamp: Option<SystemTime>)
     -> Result<Vec<Box<dyn crypto::Signer + Send + Sync>>>

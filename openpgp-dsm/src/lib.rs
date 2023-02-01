@@ -401,7 +401,7 @@ impl DsmAgent {
                 let key = PublicKey::from_sobject(prim_sob, KeyRole::Primary)?;
                 return Ok(DsmAgent {
                     credentials,
-                    descriptor: descriptor.clone(),
+                    descriptor,
                     public: key.sequoia_key.context("key is not loaded")?,
                     role: Role::Signer,
                 });
@@ -410,7 +410,7 @@ impl DsmAgent {
 
         // Loop through subkeys
         let KeyLinks { subkeys, .. } = prim_sob.links
-            .ok_or(Error::msg("no subkeys found"))?;
+            .ok_or_else(|| Error::msg("no subkeys found"))?;
         for uid in subkeys {
             let descriptor = SobjectDescriptor::Kid(uid);
             let sub_sob = dsm_client
@@ -429,14 +429,14 @@ impl DsmAgent {
             }
         }
 
-        Err(anyhow::anyhow!(format!("Found no suitable signing key in DSM")))
+        Err(anyhow::anyhow!("Found no suitable signing key in DSM".to_string()))
     }
 
     fn new_signer_from_descriptor(credentials: Credentials, desc: &SobjectDescriptor) -> Result<Self> {
         let dsm_client = credentials.dsm_client()?;
 
         let sob = dsm_client
-            .get_sobject(None, &desc)
+            .get_sobject(None, desc)
             .context(format!("could not get signer key {:?}", &desc))?;
         let key = PublicKey::from_sobject(sob, KeyRole::SigningSubkey)?;
         Ok(DsmAgent {
@@ -552,7 +552,7 @@ impl KeyMetadata {
         Ok(custom_metadata)
     }
 
-    fn print_metadata_for_pre_0_3_0(md: &String) -> Result<()> {
+    fn print_metadata_for_pre_0_3_0(md: &str) -> Result<()> {
         // It should at least be a dict
         let dict: HashMap::<String, String> = serde_json::from_str(md)?;
 
@@ -723,7 +723,7 @@ pub fn generate_key(
     let prim_creation_time = prim.creation_time();
 
     // To sign other keys and packets
-    let mut prim_signer = DsmAgent::new_certifier(credentials.clone(), &key_name)?;
+    let mut prim_signer = DsmAgent::new_certifier(credentials.clone(), key_name)?;
     // To sign primary key
     let mut subkey_signer = DsmAgent::new_signer_from_descriptor(
         credentials, &signing_subkey.descriptor)?;
@@ -965,7 +965,7 @@ pub fn import_tsk_to_dsm(
     ) -> Result<Uuid> {
         let req = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
-                let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
+                let value = der::serialize::rsa_private(n, e, d, p, q, u);
                 let key_size = n.bits() as u32;
                 let rsa_opts = if ops.contains(KeyOperations::SIGN) {
                     let sig_policy = RsaSignaturePolicy {
@@ -1001,7 +1001,7 @@ pub fn import_tsk_to_dsm(
                 }
             },
             (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
+                let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
                     custom_metadata:   Some(metadata.to_custom_metadata()?),
@@ -1014,7 +1014,7 @@ pub fn import_tsk_to_dsm(
                 }
             },
             (MpiPublic::ECDSA { curve, .. }, MpiSecret::ECDSA { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
+                let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
                     custom_metadata:   Some(metadata.to_custom_metadata()?),
@@ -1027,7 +1027,7 @@ pub fn import_tsk_to_dsm(
                 }
             },
             (MpiPublic::ECDH { curve, q: _, hash, sym }, MpiSecret::ECDH { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
+                let value = der::serialize::ec_private(curve, scalar)?;
                 metadata.hash_algo = Some(*hash);
                 metadata.symm_algo = Some(*sym);
                 SobjectRequest {
@@ -1136,14 +1136,14 @@ pub fn import_tsk_to_dsm(
         prim_desc,
         prim_ops,
         &mut prim_metadata,
-        &primary.mpis(),
+        primary.mpis(),
         &prim_hazmat,
         prim_deactivation
     )?;
 
     for subkey in tsk.keys().subkeys().unencrypted_secret() {
         let creation_time = Timestamp::try_from(subkey.creation_time())?;
-        let subkey_flags = subkey.key_flags().unwrap_or(KeyFlags::empty());
+        let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
         let subkey_id = subkey.keyid().to_hex();
         let subkey_name = format!(
             "{} {}/{}", key_name, prim_id, subkey_id,
@@ -1184,7 +1184,7 @@ pub fn import_tsk_to_dsm(
             subkey_desc,
             subkey_ops,
             &mut subkey_md,
-            &subkey.mpis(),
+            subkey.mpis(),
             &subkey_hazmat,
             subkey_deactivation,
         )?;
@@ -1327,8 +1327,7 @@ impl PublicKey {
         let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid")?);
 
         // Newly created Sobjects don't have metadata yet
-        let md = KeyMetadata::from_sobject(&sob)
-            .unwrap_or(KeyMetadata::default());
+        let md = KeyMetadata::from_sobject(&sob).unwrap_or_default();
         let time: SystemTime = if let Some(secs) = md.external_creation_timestamp {
             Timestamp::from(secs).into()
         } else {
@@ -1938,7 +1937,7 @@ fn try_unlock_p12(cert_file: String, passphrase: Option<&str>) -> Result<Identit
     // Try to unlock certificate with passed password, if any
     let mut first = true;
     if let Ok(id) = Identity::from_pkcs12(&cert, passphrase.unwrap_or("")) {
-        return Ok(id)
+        Ok(id)
     } else {
         // Try to unlock with env var passphrase
         if let Ok(pass) = env::var(ENV_P12_PASS) {
