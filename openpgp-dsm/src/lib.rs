@@ -432,7 +432,9 @@ impl DsmAgent {
         Err(anyhow::anyhow!("Found no suitable signing key in DSM".to_string()))
     }
 
-    fn new_signer_from_descriptor(credentials: Credentials, desc: &SobjectDescriptor) -> Result<Self> {
+    fn new_signing_subkey_from_descriptor(
+        credentials: Credentials, desc: &SobjectDescriptor
+    ) -> Result<Self> {
         let dsm_client = credentials.dsm_client()?;
 
         let sob = dsm_client
@@ -725,7 +727,7 @@ pub fn generate_key(
     // To sign other keys and packets
     let mut prim_signer = DsmAgent::new_certifier(credentials.clone(), key_name)?;
     // To sign primary key
-    let mut subkey_signer = DsmAgent::new_signer_from_descriptor(
+    let mut subkey_signer = DsmAgent::new_signing_subkey_from_descriptor(
         credentials, &signing_subkey.descriptor)?;
 
     let prim_sig_builder = SignatureBuilder::new(SignatureType::DirectKey)

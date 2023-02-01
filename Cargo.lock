@@ -2070,7 +2070,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openpgp-dsm"
-version = "1.0.3"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "bindgen",
