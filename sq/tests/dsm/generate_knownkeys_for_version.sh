@@ -24,7 +24,7 @@ random=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "10" | head -n 1)
 array=( rsa2k rsa3k rsa4k nistp256 nistp384 nistp521 cv25519 )
 for alg in "${array[@]}"
 do
-    dsm_name="generate-knownkeys-test-$random-$alg$"
+    dsm_name="generate-knownkeys-test-$random-$alg"
     keyfile="$versionkeys-$alg.pgp"
     user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
     echo "Generating $keyfile..."

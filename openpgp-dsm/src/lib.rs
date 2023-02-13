@@ -429,7 +429,7 @@ impl DsmAgent {
             }
         }
 
-        Err(anyhow::anyhow!("Found no suitable signing key in DSM".to_string()))
+        Err(anyhow::anyhow!("Found no suitable signing key in DSM"))
     }
 
     fn new_signing_subkey_from_descriptor(
@@ -877,7 +877,7 @@ pub fn generate_key(
             ..Default::default()
         };
         dsm_client.__update_sobject(
-            &subkey.uid()?, &update_req, "store encryption subkey metadata"
+            &subkey.uid()?, &update_req, "store subkey metadata"
         )?;
     }
 
