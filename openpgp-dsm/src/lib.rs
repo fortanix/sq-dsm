@@ -44,7 +44,8 @@ use sdkms::api_model::{
     DecryptResponse, DigestAlgorithm, EllipticCurve as ApiCurve, KeyLinks,
     KeyOperations, ObjectType, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
     RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest,
-    SignResponse, Sobject, SobjectDescriptor, SobjectRequest, Time as SdkmsTime
+    SignResponse, Sobject, SobjectDescriptor, SobjectRequest, Time as SdkmsTime,
+    ListSobjectsParams
 };
 use sdkms::operations::Operation;
 use sdkms::{Error as DsmError, PendingApproval, SdkmsClient as DsmClient};
@@ -882,6 +883,116 @@ pub fn generate_key(
     }
 
     Ok(())
+}
+
+/// Gets info on a key and prints revelant PGP details for it.
+/// Returns `Err` if key is not present.
+pub fn dsm_key_info(cred: Credentials, key_name: &str) -> Result<Vec<String>> {
+    info!("dsm list_keys");
+    let dsm_client = cred.dsm_client()?;
+    let mut key_info_store: Vec<String> = Vec::new();
+
+    let params = ListSobjectsParams {
+        name: Some(key_name.to_string()),
+        ..Default::default()
+    };
+
+    let keys = dsm_client.list_sobjects(Some(&params))?;
+
+    // If multiple keys with same name exists, iterate and print them all
+    for key in keys.iter() {
+        key_info_store.push(sobject_long_details_formatter(&key));
+    }
+
+    let footer = format!("\nTOTAL OBJECTS: {}\n", key_info_store.len());
+    key_info_store.push(footer);
+
+    Ok(key_info_store)
+}
+/// Iterates through accessible groups and fetches all keys available to app.
+/// Returns an sorted list of keys grouped by group ID.
+/// Note that this funtion has linear time complexity over the number of groups
+/// the app has access over.
+pub fn list_keys(cred: Credentials, verbose: bool) -> Result<Vec<String>> {
+    info!("dsm list_keys");
+    let dsm_client = cred.dsm_client()?;
+    let mut key_info_store: Vec<String> = Vec::new();
+
+    let groups = dsm_client.list_groups()?;
+
+    let header = format!("{}{}Name",
+                         format!("{:width$}", "UUID", width = 38),
+                         format!("{:width$}", "Date Created", width = 25));
+    key_info_store.push(header);
+
+    for group in groups {
+        let params = ListSobjectsParams {
+            group_id: Some(group.group_id),
+            ..Default::default()
+        };
+
+
+        for key_details in dsm_client.list_sobjects(Some(&params))?
+            .iter()
+            .filter(|key| filter_pgp_keys(key))
+            .map(|key|
+                 if verbose {
+                     sobject_long_details_formatter(&key)
+                 } else {
+                     sobject_short_details_formatter(&key)
+                 }) {
+            key_info_store.push(key_details);
+        }
+    }
+
+    let footer = format!("\nTOTAL OBJECTS: {}\n", key_info_store.len() - 1);
+    key_info_store.push(footer);
+
+    Ok(key_info_store)
+}
+
+/// Filter keys which do not have PGP signature/metadata
+fn filter_pgp_keys(key: &Sobject) -> bool {
+    match &key.custom_metadata {
+        Some(metadata) => metadata.contains_key(&DSM_LABEL_PGP.to_string()),
+        None => false,
+    }
+}
+
+/// Prints key details in concise format, includes name, uuid, created_at
+fn sobject_short_details_formatter(key: &Sobject) -> String {
+    format!(
+        "{}  {}  {name:<20.*}",
+        key.kid.unwrap_or(Uuid::nil()),
+        key.created_at.to_datetime(),
+        20,
+        name = key.name.as_ref().unwrap_or(&"nil".to_owned()),
+    )
+}
+
+/// Prints key details in verbose format, includes all fields.
+/// Expects `DSM_LABEL_PGP` key to be present in metadata.
+/// !!! PANICS if metadata is corrupted or KeyID not present
+fn sobject_long_details_formatter(key: &Sobject) -> String {
+    let key_md = KeyMetadata::from_sobject(key).unwrap();
+
+    format!(
+        "{}:\n
+    UUID: {}
+    Hashing algorithm: {:?}
+    Created at: {}
+    Last used at: {}
+    PGP fingerprint: {}",
+        key.name.as_ref().unwrap_or(&"unknown".to_string()),
+        key.kid.unwrap(),
+        match key_md.hash_algo {
+            Some(hash_algo) => hash_algo.to_string(),
+            None => "None".to_owned(),
+        },
+        key.created_at.to_datetime(),
+        key.lastused_at.to_datetime(),
+        key_md.fingerprint
+    )
 }
 
 /// Extracts the certificate of the corresponding PGP key. Note that this

@@ -409,6 +409,8 @@
 //!             Imports a Transferable Secret Key into Fortanix DSM
 //!
 //!     attest-certifications    Attests to third-party certifications
+//!     info                     List details on DSM key
+//!     list-dsm-keys            List all accessible keys for the App
 //!     adopt                    Binds keys from one certificate to another
 //!     help
 //!             Prints this message or the help of the given subcommand(s)
@@ -766,6 +768,67 @@
 //!
 //! # Retract prior attestations on the key
 //! $ sq key attest-certifications --none juliet.pgp
+//! ```
+//!
+//! ### Subcommand key info
+//!
+//! ```text
+//!
+//! This command will print data on the given DSM key name if the key is present.
+//!
+//! USAGE:
+//!     sq key info --dsm-key <DSM-KEY-NAME>
+//!
+//! FLAGS:
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --dsm-key <DSM-KEY-NAME>
+//!             Name of the DSM key
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Prints details on given key
+//! $ sq key info --dsm-key 0123456789A
+//! ```
+//!
+//! ### Subcommand key list-dsm-keys
+//!
+//! ```text
+//!
+//! This command prints details about all the keys accessible to the app.
+//! Command will query DSM list keys API for each group, and club the outputs
+//! to print on STDOUT. Note that this command might cause delays after execution
+//! as it depends on multiple API calls depending on the distribution of keys
+//! in the account.
+//!
+//! USAGE:
+//!     sq key list-dsm-keys [FLAGS]
+//!
+//! FLAGS:
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -l, --long
+//!             prints long details of key
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Print list of keys which app can access
+//! $ sq key list-dsm-keys
+//!
+//! # Print detailed list of keys which app can access
+//! $ sq key list-dsm-keys -l
 //! ```
 //!
 //! ### Subcommand key adopt
