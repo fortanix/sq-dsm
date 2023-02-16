@@ -374,7 +374,7 @@ impl DsmAgent {
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
         let prim_sob = dsm_client
             .get_sobject(None, &descriptor)
-            .context(format!("could not get primary key {}", key_name))?;
+            .context(format!("could not get primary key {:?}", descriptor))?;
         // Initialize Signer with primary key
         let key = PublicKey::from_sobject(prim_sob, KeyRole::Primary)?;
         Ok(DsmAgent {
@@ -394,7 +394,7 @@ impl DsmAgent {
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
         let prim_sob = dsm_client
             .get_sobject(None, &descriptor)
-            .context(format!("could not get primary key {}", key_name))?;
+            .context(format!("could not get signer key {:?}", descriptor))?;
         if let Some(flags) = KeyMetadata::from_sobject(&prim_sob)?.key_flags {
             if flags.for_signing() {
                 // Initialize Signer with primary key
@@ -409,8 +409,8 @@ impl DsmAgent {
         }
 
         // Loop through subkeys
-        let KeyLinks { subkeys, .. }
-        = prim_sob.links.ok_or(Error::msg("no subkeys found"))?;
+        let KeyLinks { subkeys, .. } = prim_sob.links
+            .ok_or_else(|| Error::msg("no subkeys found"))?;
         for uid in subkeys {
             let descriptor = SobjectDescriptor::Kid(uid);
             let sub_sob = dsm_client
@@ -418,7 +418,7 @@ impl DsmAgent {
             if let Some(flags) = KeyMetadata::from_sobject(&sub_sob)?.key_flags {
                 if flags.for_signing() {
                     // Initialize Signer with subkey
-                    let key = PublicKey::from_sobject(sub_sob, KeyRole::Subkey)?;
+                    let key = PublicKey::from_sobject(sub_sob, KeyRole::SigningSubkey)?;
                     return Ok(DsmAgent {
                         credentials,
                         descriptor,
@@ -429,7 +429,24 @@ impl DsmAgent {
             }
         }
 
-        Err(anyhow::anyhow!(format!("Found no suitable signing key in DSM")))
+        Err(anyhow::anyhow!("Found no suitable signing key in DSM"))
+    }
+
+    fn new_signing_subkey_from_descriptor(
+        credentials: Credentials, desc: &SobjectDescriptor
+    ) -> Result<Self> {
+        let dsm_client = credentials.dsm_client()?;
+
+        let sob = dsm_client
+            .get_sobject(None, desc)
+            .context(format!("could not get signer key {:?}", &desc))?;
+        let key = PublicKey::from_sobject(sob, KeyRole::SigningSubkey)?;
+        Ok(DsmAgent {
+            credentials,
+            descriptor: desc.clone(),
+            public: key.sequoia_key.context("key is not loaded")?,
+            role: Role::Signer,
+        })
     }
 
     /// Returns several DsmAgents with decryption capabilities, corresponding to
@@ -447,7 +464,7 @@ impl DsmAgent {
         let prim_descriptor = SobjectDescriptor::Name(key_name.to_string());
         let prim_sobject = dsm_client
             .get_sobject(None, &prim_descriptor)
-            .context(format!("could not get primary key {}", key_name))?;
+            .context(format!("could not get primary key {:?}", &prim_descriptor))?;
 
         if let Some(KeyLinks { subkeys, .. }) = prim_sobject.links {
             for uid in subkeys {
@@ -457,7 +474,7 @@ impl DsmAgent {
                     .context("could not get subkey".to_string())?;
                 if let Some(kf) = KeyMetadata::from_sobject(&sobject)?.key_flags {
                     if kf.for_storage_encryption() || kf.for_transport_encryption() {
-                        let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
+                        let key = PublicKey::from_sobject(sobject, KeyRole::EncryptionSubkey)?;
                         decryptors.push(DsmAgent {
                             credentials: credentials.clone(),
                             descriptor,
@@ -489,7 +506,8 @@ enum SupportedPkAlgo {
 #[derive(Clone, Debug, PartialEq)]
 enum KeyRole {
     Primary,
-    Subkey,
+    SigningSubkey,
+    EncryptionSubkey,
 }
 
 #[derive(Deserialize, Serialize, Default)]
@@ -536,7 +554,7 @@ impl KeyMetadata {
         Ok(custom_metadata)
     }
 
-    fn print_metadata_for_pre_0_3_0(md: &String) -> Result<()> {
+    fn print_metadata_for_pre_0_3_0(md: &str) -> Result<()> {
         // It should at least be a dict
         let dict: HashMap::<String, String> = serde_json::from_str(md)?;
 
@@ -599,15 +617,15 @@ impl KeyMetadata {
 /// Generates an OpenPGP key with secrets stored in DSM. At the OpenPGP
 /// level, this method produces a key consisting of
 ///
-/// - A primary signing key (flags C + S),
+/// - A primary certifying key (flag C)
+/// - A signing subkey (flag S),
 /// - a transport and storage encryption subkey (flags Et + Er).
 ///
-/// At the DSM level, this method creates the two corresponding Sobjects.
-/// The encryption key's KID is stored as a custom metadata field of the
-/// signing key.
+/// At the DSM level, this method creates the three corresponding Sobjects,
+/// linked by KeyLinks.
 ///
 /// The public certificate (Transferable Public Key) is computed, stored as
-/// an additional custom metadata field on the primary key, and returned.
+/// an additional custom metadata field on the primary key.
 pub fn generate_key(
     key_name: &str,
     validity_period: Option<Duration>,
@@ -641,7 +659,7 @@ pub fn generate_key(
 
     let dsm_client = credentials.dsm_client()?;
 
-    info!("create primary key");
+    info!("key generation: create primary key");
     let primary = PublicKey::create(
         &dsm_client,
         key_name.to_string(),
@@ -652,17 +670,32 @@ pub fn generate_key(
     )
     .context("could not create primary key")?;
 
-    info!("create decryption subkey");
-    let subkey = PublicKey::create(
+    info!("key generation: create signing subkey");
+    let signing_subkey = PublicKey::create(
         &dsm_client,
         key_name.to_string(),
-        KeyRole::Subkey,
+        KeyRole::SigningSubkey,
         &algorithm,
         exportable,
         validity_period
     )?;
 
-    info!("bind subkey to primary key in DSM");
+    info!("key generation: create decryption subkey");
+    let encryption_subkey = PublicKey::create(
+        &dsm_client,
+        key_name.to_string(),
+        KeyRole::EncryptionSubkey,
+        &algorithm,
+        exportable,
+        validity_period
+    )?;
+
+    let prim_flags = KeyFlags::empty().set_certification();
+    let signing_subkey_flags = KeyFlags::empty().set_signing();
+    let encryption_subkey_flags = KeyFlags::empty()
+        .set_storage_encryption()
+        .set_transport_encryption();
+
     let links = KeyLinks {
         parent: Some(primary.uid()?),
         ..Default::default()
@@ -671,15 +704,17 @@ pub fn generate_key(
         links: Some(links),
         ..Default::default()
     };
-    dsm_client.__update_sobject(
-        &subkey.uid()?, &link_update_req, "bind subkey to primary key"
-    )?;
+    info!("key generation: bind subkeys to primary key in DSM");
+    for subkey in [&signing_subkey, &encryption_subkey] {
+        dsm_client.__update_sobject(
+            &subkey.uid()?, &link_update_req, "bind subkey to primary key"
+        )?;
+    }
 
-    // Primary + sig, UserID + sig, subkey + sig
-    let mut packets = Vec::<Packet>::with_capacity(6);
+    // Primary + sig, UserID + sig, subkeys + sigs
+    let mut packets = Vec::<Packet>::with_capacity(8);
 
-    // Self-sign primary key
-    info!("generate certificate - self-sign primary key");
+    info!("key generation: self-sign primary key");
     let prim: Key<PublicParts, PrimaryRole> = primary
         .sequoia_key
         .clone()
@@ -689,9 +724,11 @@ pub fn generate_key(
     let prim_id = prim.keyid().to_hex();
     let prim_creation_time = prim.creation_time();
 
-    let mut prim_signer = DsmAgent::new_certifier(credentials, key_name)?;
-
-    let prim_flags = KeyFlags::empty().set_certification().set_signing();
+    // To sign other keys and packets
+    let mut prim_signer = DsmAgent::new_certifier(credentials.clone(), key_name)?;
+    // To sign primary key
+    let mut subkey_signer = DsmAgent::new_signing_subkey_from_descriptor(
+        credentials, &signing_subkey.descriptor)?;
 
     let prim_sig_builder = SignatureBuilder::new(SignatureType::DirectKey)
         .set_features(Features::sequoia())?
@@ -717,53 +754,76 @@ pub fn generate_key(
     let mut cert = Cert::try_from(packets)?;
 
     // User ID + signature
-    info!("sign user ID");
-    let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
-        .set_primary_userid(true)?
-        .set_features(Features::sequoia())?
-        .set_key_flags(prim_flags.clone())?
-        .set_key_validity_period(validity_period)?
-        .set_signature_creation_time(prim_creation_time)?
-        .set_preferred_symmetric_algorithms(vec![
-            SymmetricAlgorithm::AES256,
-            SymmetricAlgorithm::AES128,
-        ])?
-        .set_preferred_hash_algorithms(vec![
-            HashAlgorithm::SHA512,
-            HashAlgorithm::SHA256,
-        ])?;
-    let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
+    info!("key generation: sign user ID");
+    {
+        let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
+            .set_primary_userid(true)?
+            .set_features(Features::sequoia())?
+            .set_key_flags(prim_flags.clone())?
+            .set_key_validity_period(validity_period)?
+            .set_signature_creation_time(prim_creation_time)?
+            .set_preferred_symmetric_algorithms(vec![
+                SymmetricAlgorithm::AES256,
+                SymmetricAlgorithm::AES128,
+            ])?
+            .set_preferred_hash_algorithms(vec![
+                HashAlgorithm::SHA512,
+                HashAlgorithm::SHA256,
+            ])?;
+        let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
-    cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
+        cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
+    }
 
-    // Subkey + signature
-    info!("sign subkey");
-    let subkey_public: Key<PublicParts, SubordinateRole> = subkey
-        .sequoia_key
-        .as_ref()
-        .context("unloaded subkey")?
-        .clone()
-        .into();
-    let subkey_creation_time = subkey_public.creation_time();
+    info!("key generation: sign encryption subkey");
+    {
+        let (subkey, flags) = (&encryption_subkey, &encryption_subkey_flags);
+        let pk: Key<PublicParts, SubordinateRole> = subkey
+            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
-    let subkey_flags = KeyFlags::empty()
-        .set_storage_encryption()
-        .set_transport_encryption();
+        let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
+            .set_key_validity_period(validity_period)?
+            .set_hash_algo(hash_algo)
+            .set_signature_creation_time(pk.creation_time())?
+            .set_key_flags(flags.clone())?;
 
-    let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
-        .set_key_validity_period(validity_period)?
-        .set_hash_algo(hash_algo)
-        .set_signature_creation_time(subkey_creation_time)?
-        .set_key_flags(subkey_flags.clone())?;
-    let subkey_fingerprint = subkey_public.fingerprint().to_hex();
-    let subkey_id = subkey_public.keyid().to_hex();
+        let signature = pk.bind(&mut prim_signer, &cert, builder)?;
+        cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+    }
 
-    let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
-    cert = cert
-        .insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
+    info!("key generation: create embedded signature (signing-subkey signs primary)");
+    let embedded_signature = {
+        let subkey: Key<PublicParts, SubordinateRole> = signing_subkey
+            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
+        let pk: Key<PublicParts, PrimaryRole> = primary
+            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
-    info!("Generation: store primary metadata");
+        SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
+            .set_key_validity_period(validity_period)?
+            .set_hash_algo(hash_algo)
+            .set_signature_creation_time(subkey.creation_time())?
+            .sign_primary_key_binding(&mut subkey_signer, &pk, &subkey)?
+    };
+
+    info!("key generation: sign signing key");
+    {
+        let (subkey, flags) = (&signing_subkey, &signing_subkey_flags);
+        let pk: Key<PublicParts, SubordinateRole> = subkey
+            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+
+        let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
+            .set_key_validity_period(validity_period)?
+            .set_hash_algo(hash_algo)
+            .set_signature_creation_time(pk.creation_time())?
+            .set_key_flags(flags.clone())?
+            .set_embedded_signature(embedded_signature)?;
+
+        let signature = pk.bind(&mut prim_signer, &cert, builder)?;
+        cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+    }
+
+    info!("key generation: store primary metadata");
     {
         let primary_desc = format!(
             "PGP primary, {}, {}", prim_id, prim_flags.human_readable()
@@ -785,18 +845,24 @@ pub fn generate_key(
         )?;
     }
 
-    info!("Generation: rename subkey and store metadata");
-    {
+    info!("key generation: rename subkeys and store metadata");
+    for (subkey, flags) in [
+        (&signing_subkey, &signing_subkey_flags),
+        (&encryption_subkey, &encryption_subkey_flags),
+    ] {
+        let pk: Key<PublicParts, SubordinateRole> = subkey
+            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+
         let subkey_name = format!(
-            "{} {}", key_name, subkey_id
-        );
+            "{} {}/{}", key_name, pk.keyid().to_hex(), prim_id,
+        ).to_string();
         let subkey_desc = format!(
-            "PGP subkey of {}, {}", prim_id, subkey_flags.human_readable()
+            "PGP subkey, {}", flags.human_readable()
         );
         let key_json = serde_json::to_string(&KeyMetadata {
             sq_dsm_version:              SQ_DSM_VERSION.to_string(),
-            fingerprint:                 subkey_fingerprint,
-            key_flags:                   Some(subkey_flags),
+            fingerprint:                 pk.fingerprint().to_hex(),
+            key_flags:                   Some(flags.clone()),
             certificate:                 None,
             external_creation_timestamp: None,
             hash_algo:                   Some(hash_algo),
@@ -811,7 +877,7 @@ pub fn generate_key(
             ..Default::default()
         };
         dsm_client.__update_sobject(
-            &subkey.uid()?, &update_req, "store PGP certificate as metadata"
+            &subkey.uid()?, &update_req, "store subkey metadata"
         )?;
     }
 
@@ -849,7 +915,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
         )
         .context(format!("could not export primary secret {}", key_name))?;
     let key_md = KeyMetadata::from_sobject(&prim_sob)?;
-    let packet = secret_packet_from_sobject(&prim_sob, KeyRole::Primary)?;
+    let packet = secret_packet_from_sobject(&prim_sob)?;
     packets.push(packet);
 
     // Subkeys
@@ -861,7 +927,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
                     "export subkey",
                 )
                 .context(format!("could not export subkey secret {}", key_name))?;
-            let packet = secret_packet_from_sobject(&sob, KeyRole::Subkey)?;
+            let packet = secret_packet_from_sobject(&sob)?;
             packets.push(packet);
         }
     } else {
@@ -901,7 +967,7 @@ pub fn import_tsk_to_dsm(
     ) -> Result<Uuid> {
         let req = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
-                let value = der::serialize::rsa_private(n, e, &d, &p, &q, &u);
+                let value = der::serialize::rsa_private(n, e, d, p, q, u);
                 let key_size = n.bits() as u32;
                 let rsa_opts = if ops.contains(KeyOperations::SIGN) {
                     let sig_policy = RsaSignaturePolicy {
@@ -937,7 +1003,7 @@ pub fn import_tsk_to_dsm(
                 }
             },
             (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
+                let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
                     custom_metadata:   Some(metadata.to_custom_metadata()?),
@@ -950,7 +1016,7 @@ pub fn import_tsk_to_dsm(
                 }
             },
             (MpiPublic::ECDSA { curve, .. }, MpiSecret::ECDSA { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
+                let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
                     custom_metadata:   Some(metadata.to_custom_metadata()?),
@@ -963,7 +1029,7 @@ pub fn import_tsk_to_dsm(
                 }
             },
             (MpiPublic::ECDH { curve, q: _, hash, sym }, MpiSecret::ECDH { scalar }) => {
-                let value = der::serialize::ec_private(&curve, &scalar)?;
+                let value = der::serialize::ec_private(curve, scalar)?;
                 metadata.hash_algo = Some(*hash);
                 metadata.symm_algo = Some(*sym);
                 SobjectRequest {
@@ -1072,14 +1138,14 @@ pub fn import_tsk_to_dsm(
         prim_desc,
         prim_ops,
         &mut prim_metadata,
-        &primary.mpis(),
+        primary.mpis(),
         &prim_hazmat,
         prim_deactivation
     )?;
 
     for subkey in tsk.keys().subkeys().unencrypted_secret() {
         let creation_time = Timestamp::try_from(subkey.creation_time())?;
-        let subkey_flags = subkey.key_flags().unwrap_or(KeyFlags::empty());
+        let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
         let subkey_id = subkey.keyid().to_hex();
         let subkey_name = format!(
             "{} {}/{}", key_name, prim_id, subkey_id,
@@ -1120,7 +1186,7 @@ pub fn import_tsk_to_dsm(
             subkey_desc,
             subkey_ops,
             &mut subkey_md,
-            &subkey.mpis(),
+            subkey.mpis(),
             &subkey_hazmat,
             subkey_deactivation,
         )?;
@@ -1146,14 +1212,20 @@ impl PublicKey {
     // Creates the private key inside DSM and returns the associated PublicKey
     fn create(
         client: &DsmClient,
-        name: String,
+        key_name: String,
         role: KeyRole,
         algo: &SupportedPkAlgo,
         exportable: bool,
         validity_period: Option<Duration>
     ) -> Result<Self> {
+        let name = match role {
+            KeyRole::Primary => key_name,
+            KeyRole::EncryptionSubkey => key_name + " (PGP: decryption subkey)",
+            KeyRole::SigningSubkey => key_name + " (PGP: signing subkey)",
+        };
+
         let mut sobject_request = match (&role, algo) {
-            (KeyRole::Primary, SupportedPkAlgo::Rsa(key_size)) => {
+            (KeyRole::Primary | KeyRole::SigningSubkey, SupportedPkAlgo::Rsa(key_size)) => {
                 let sig_policy = RsaSignaturePolicy {
                     padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
                 };
@@ -1173,7 +1245,7 @@ impl PublicKey {
                     ..Default::default()
                 }
             }
-            (KeyRole::Subkey, SupportedPkAlgo::Rsa(key_size)) => {
+            (KeyRole::EncryptionSubkey, SupportedPkAlgo::Rsa(key_size)) => {
                 let enc_policy = RsaEncryptionPolicy {
                     padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
                 };
@@ -1183,7 +1255,7 @@ impl PublicKey {
                 });
 
                 SobjectRequest {
-                    name: Some(name + " (PGP: decryption subkey)"),
+                    name: Some(name),
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(
                         KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE,
@@ -1193,7 +1265,7 @@ impl PublicKey {
                     ..Default::default()
                 }
             }
-            (KeyRole::Primary, SupportedPkAlgo::Curve25519) => SobjectRequest {
+            (KeyRole::Primary | KeyRole::SigningSubkey, SupportedPkAlgo::Curve25519) => SobjectRequest {
                 name: Some(name),
                 obj_type: Some(ObjectType::Ec),
                 key_ops: Some(
@@ -1202,9 +1274,7 @@ impl PublicKey {
                 elliptic_curve: Some(ApiCurve::Ed25519),
                 ..Default::default()
             },
-            (KeyRole::Subkey, SupportedPkAlgo::Curve25519) => {
-                let name = name + " (PGP: decryption subkey)";
-
+            (KeyRole::EncryptionSubkey, SupportedPkAlgo::Curve25519) => {
                 SobjectRequest {
                     name: Some(name),
                     obj_type: Some(ObjectType::Ec),
@@ -1215,7 +1285,7 @@ impl PublicKey {
                     ..Default::default()
                 }
             }
-            (KeyRole::Primary, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
+            (KeyRole::Primary | KeyRole::SigningSubkey, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
                 name: Some(name),
                 obj_type: Some(ObjectType::Ec),
                 key_ops: Some(
@@ -1224,8 +1294,8 @@ impl PublicKey {
                 elliptic_curve: Some(*curve),
                 ..Default::default()
             },
-            (KeyRole::Subkey, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
-                name: Some(name + " (PGP: decryption subkey)"),
+            (KeyRole::EncryptionSubkey, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
+                name: Some(name),
                 obj_type: Some(ObjectType::Ec),
                 key_ops: Some(
                     KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE,
@@ -1259,8 +1329,7 @@ impl PublicKey {
         let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid")?);
 
         // Newly created Sobjects don't have metadata yet
-        let md = KeyMetadata::from_sobject(&sob)
-            .unwrap_or(KeyMetadata::default());
+        let md = KeyMetadata::from_sobject(&sob).unwrap_or_default();
         let time: SystemTime = if let Some(secs) = md.external_creation_timestamp {
             Timestamp::from(secs).into()
         } else {
@@ -1269,7 +1338,7 @@ impl PublicKey {
 
         let raw_pk = sob.pub_key.context("public bits of sobject missing")?;
 
-        let (pk_algo, pk_material, role) = match sob.obj_type {
+        let (pk_algo, pk_material) = match sob.obj_type {
             ObjectType::Ec => match sob.elliptic_curve {
                 Some(ApiCurve::Ed25519) => {
                     let pk_algo = PublicKeyAlgorithm::EdDSA;
@@ -1279,7 +1348,7 @@ impl PublicKey {
                     let point = MPI::new_compressed_point(&raw_pk[12..]);
 
                     let ec_pk = MpiPublic::EdDSA { curve, q: point };
-                    (pk_algo, ec_pk, role)
+                    (pk_algo, ec_pk)
                 }
                 Some(ApiCurve::X25519) => {
                     let pk_algo = PublicKeyAlgorithm::ECDH;
@@ -1295,7 +1364,7 @@ impl PublicKey {
                         sym: md.symm_algo.unwrap_or(default_symm),
                     };
 
-                    (pk_algo, ec_pk, KeyRole::Subkey)
+                    (pk_algo, ec_pk)
                 }
                 Some(curve @ ApiCurve::NistP256)
                 | Some(curve @ ApiCurve::NistP384)
@@ -1307,11 +1376,11 @@ impl PublicKey {
 
                     let point = MPI::new_point(&x, &y, bits_field);
                     let (pk_algo, ec_pk) = match role {
-                        KeyRole::Primary => (
+                        KeyRole::Primary | KeyRole::SigningSubkey => (
                             PublicKeyAlgorithm::ECDSA,
                             MpiPublic::ECDSA { curve, q: point },
                         ),
-                        KeyRole::Subkey => (
+                        KeyRole::EncryptionSubkey => (
                             PublicKeyAlgorithm::ECDH,
                             MpiPublic::ECDH {
                                 curve,
@@ -1321,7 +1390,7 @@ impl PublicKey {
                             },
                         ),
                     };
-                    (pk_algo, ec_pk, role)
+                    (pk_algo, ec_pk)
                 }
                 Some(curve) => {
                     return Err(Error::msg(format!(
@@ -1341,7 +1410,7 @@ impl PublicKey {
                 };
                 let pk_algo = PublicKeyAlgorithm::RSAEncryptSign;
 
-                (pk_algo, pk_material, role)
+                (pk_algo, pk_material)
             },
             t => { return Err(Error::msg(format!("unknown object: {:?}", t))); }
         };
@@ -1557,11 +1626,24 @@ impl Decryptor for DsmAgent {
     }
 }
 
-fn secret_packet_from_sobject(
-    sobject: &Sobject,
-    role: KeyRole,
-) -> Result<Packet> {
+fn secret_packet_from_sobject(sobject: &Sobject) -> Result<Packet> {
     let md = KeyMetadata::from_sobject(sobject)?;
+
+    let role = match md.key_flags {
+        Some(f) if f.for_certification() => {
+            KeyRole::Primary
+        },
+        Some(f) if f.for_signing() => {
+            KeyRole::SigningSubkey
+        },
+        Some(f) if f.for_transport_encryption() || f.for_storage_encryption() => {
+            KeyRole::EncryptionSubkey
+        },
+        _ => {
+            return Err(anyhow::anyhow!(
+                    "cannot deduce key role from Sobject flags"));
+        }
+    };
 
     let time: SystemTime = if let Some(secs) = md.external_creation_timestamp {
         Timestamp::from(secs).into()
@@ -1573,8 +1655,7 @@ fn secret_packet_from_sobject(
         .context("secret bits missing in Sobject")?;
     let raw_public = sobject.pub_key.as_ref()
         .context("public bits missing in Sobject")?;
-    let is_signer =
-        (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
+    let is_signer = (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
     match sobject.obj_type {
         ObjectType::Ec => match sobject.elliptic_curve {
             Some(ApiCurve::Ed25519) => {
@@ -1589,12 +1670,15 @@ fn secret_packet_from_sobject(
                         )?,
                     )
                     .into()),
-                    KeyRole::Subkey => Ok(Key::V4(
+                    KeyRole::SigningSubkey => Ok(Key::V4(
                         Key4::<_, SubordinateRole>::import_secret_ed25519(
                             secret, time,
                         )?,
                     )
                     .into()),
+                    KeyRole::EncryptionSubkey => {
+                        return Err(anyhow::anyhow!("encryption keys can't sign"))
+                    },
                 }
             }
             Some(ApiCurve::X25519) => {
@@ -1603,10 +1687,10 @@ fn secret_packet_from_sobject(
                 }
                 let secret = &raw_secret[16..];
                 match role {
-                    KeyRole::Primary => {
-                        Err(anyhow::anyhow!("primary keys can't decrypt"))
+                    KeyRole::Primary | KeyRole::SigningSubkey => {
+                        Err(anyhow::anyhow!("signing keys can't decrypt"))
                     },
-                    KeyRole::Subkey => Ok(Key::V4(
+                    KeyRole::EncryptionSubkey => Ok(Key::V4(
                         Key4::<_, SubordinateRole>::import_secret_cv25519(
                             secret, md.hash_algo, md.symm_algo, time,
                         )?,
@@ -1649,14 +1733,12 @@ fn secret_packet_from_sobject(
                     KeyRole::Primary => {
                         Ok(Key::V4(Key4::<_, PrimaryRole>::with_secret(
                             time, algo, public, secret,
-                        )?)
-                        .into())
+                        )?).into())
                     }
-                    KeyRole::Subkey => {
+                    KeyRole::EncryptionSubkey | KeyRole::SigningSubkey => {
                         Ok(Key::V4(Key4::<_, SubordinateRole>::with_secret(
                             time, algo, public, secret,
-                        )?)
-                        .into())
+                        )?).into())
                     }
                 }
             }
@@ -1674,7 +1756,7 @@ fn secret_packet_from_sobject(
                         time
                     )?
                 ).into()),
-                KeyRole::Subkey => Ok(Key::V4(
+                KeyRole::SigningSubkey | KeyRole::EncryptionSubkey => Ok(Key::V4(
                     Key4::<_, SubordinateRole>::import_secret_rsa_unchecked_e(
                         &sk.e,
                         &sk.d,
@@ -1857,7 +1939,7 @@ fn try_unlock_p12(cert_file: String, passphrase: Option<&str>) -> Result<Identit
     // Try to unlock certificate with passed password, if any
     let mut first = true;
     if let Ok(id) = Identity::from_pkcs12(&cert, passphrase.unwrap_or("")) {
-        return Ok(id)
+        Ok(id)
     } else {
         // Try to unlock with env var passphrase
         if let Ok(pass) = env::var(ENV_P12_PASS) {
