@@ -912,7 +912,7 @@ $ sq key adopt --keyring juliet-old.pgp --key 0123456789ABCDEF -- juliet-new.pgp
                         .about("List details on DSM key")
                         .long_about(
 "
-This command will print data on the given DSM key name if the key is present.
+This command prints data on a given DSM key name, if the key is present.
 ")
                         .after_help(
 "EXAMPLES:
@@ -933,9 +933,7 @@ $ sq key info --dsm-key 0123456789A
 "
 This command prints details about all the keys accessible to the app.
 Command will query DSM list keys API for each group, and club the outputs
-to print on STDOUT. Note that this command might cause delays after execution
-as it depends on multiple API calls depending on the distribution of keys
-in the account.
+to print on STDOUT.
 ")
                         .after_help(
 "EXAMPLES:

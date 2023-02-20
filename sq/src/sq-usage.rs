@@ -774,7 +774,7 @@
 //!
 //! ```text
 //!
-//! This command will print data on the given DSM key name if the key is present.
+//! This command prints data on a given DSM key name, if the key is present.
 //!
 //! USAGE:
 //!     sq key info --dsm-key <DSM-KEY-NAME>
@@ -804,9 +804,7 @@
 //!
 //! This command prints details about all the keys accessible to the app.
 //! Command will query DSM list keys API for each group, and club the outputs
-//! to print on STDOUT. Note that this command might cause delays after execution
-//! as it depends on multiple API calls depending on the distribution of keys
-//! in the account.
+//! to print on STDOUT.
 //!
 //! USAGE:
 //!     sq key list-dsm-keys [FLAGS]

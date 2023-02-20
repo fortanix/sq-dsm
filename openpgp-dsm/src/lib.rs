@@ -985,7 +985,11 @@ pub fn list_keys(cred: Credentials) -> Result<Vec<DsmKeyInfo>> {
 
         for key_details in dsm_client.list_sobjects(Some(&params))?
             .iter()
-            .filter(|key| filter_pgp_keys(key))
+            .filter(|key|
+                    match &key.custom_metadata {
+                        Some(metadata) => metadata.contains_key(&DSM_LABEL_PGP.to_string()),
+                        None => false,
+                    })
             .map(|key| DsmKeyInfo::from(key)) {
             key_info_store.push(key_details);
         }
@@ -994,13 +998,6 @@ pub fn list_keys(cred: Credentials) -> Result<Vec<DsmKeyInfo>> {
     Ok(key_info_store)
 }
 
-/// Filter keys which do not have PGP signature/metadata
-fn filter_pgp_keys(key: &Sobject) -> bool {
-    match &key.custom_metadata {
-        Some(metadata) => metadata.contains_key(&DSM_LABEL_PGP.to_string()),
-        None => false,
-    }
-}
 /// Extracts the certificate of the corresponding PGP key. Note that this
 /// certificate, created at key-generation time, is stored in the custom
 /// metadata of the Security Object representing the primary key.
