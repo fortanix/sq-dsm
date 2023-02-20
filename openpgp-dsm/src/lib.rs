@@ -885,45 +885,97 @@ pub fn generate_key(
     Ok(())
 }
 
+pub struct DsmKeyInfo {
+    name: String,
+    kid: Uuid,
+    hashing_algo: Option<HashAlgorithm>,
+    created_at: SdkmsTime,
+    last_used_at: SdkmsTime,
+    fingerprint: String,
+}
+
+impl From<&Sobject> for DsmKeyInfo {
+    /// Expects `DSM_LABEL_PGP` key to be present in metadata.
+    fn from(key: &Sobject) -> Self {
+        let key_md = KeyMetadata::from_sobject(&key).unwrap();
+        DsmKeyInfo { 
+            name: key.name.as_ref().unwrap().into(),
+            kid: key.kid.unwrap(),
+            hashing_algo: key_md.hash_algo,
+            created_at: key.created_at,
+            last_used_at: key.lastused_at,
+            fingerprint: key_md.fingerprint
+        }
+    }
+}
+
+impl DsmKeyInfo {
+    /// Prints key details in concise format, includes name, uuid, created_at
+     pub fn sobject_short_details_formatter(&self) -> String {
+        format!(
+            "{}  {}  {name:<20.*}",
+            self.kid,
+            self.created_at.to_datetime(),
+            20,
+            name = self.name,
+            )
+    }
+
+    /// Prints key details in verbose format, includes all fields.
+    pub fn sobject_long_details_formatter(&self) -> String {
+        format!(
+            "{}:
+    UUID: {}
+    Hashing algorithm: {}
+    Created at: {}
+    Last used at: {}
+    PGP fingerprint: {}
+",
+            self.name,
+            self.kid,
+            match self.hashing_algo {
+                Some(hash_algo) => hash_algo.to_string(),
+                None => "None".into(),
+            },
+            self.created_at.to_datetime(),
+            if self.last_used_at.eq(&SdkmsTime(0)) {
+                "NA".into()
+            } else {
+                self.last_used_at.to_datetime().to_string()
+            },
+            self.fingerprint
+        )
+    }
+}
+
 /// Gets info on a key and prints revelant PGP details for it.
 /// Returns `Err` if key is not present.
-pub fn dsm_key_info(cred: Credentials, key_name: &str) -> Result<Vec<String>> {
+pub fn dsm_key_info(cred: Credentials, key_name: &str) -> Result<Option<DsmKeyInfo>> {
     info!("dsm list_keys");
     let dsm_client = cred.dsm_client()?;
-    let mut key_info_store: Vec<String> = Vec::new();
 
     let params = ListSobjectsParams {
         name: Some(key_name.to_string()),
         ..Default::default()
     };
 
-    let keys = dsm_client.list_sobjects(Some(&params))?;
+    let key: DsmKeyInfo = match dsm_client.list_sobjects(Some(&params))?.first() {
+        Some(key) => key.into(),
+        None => return Ok(None)
+    };
 
-    // If multiple keys with same name exists, iterate and print them all
-    for key in keys.iter() {
-        key_info_store.push(sobject_long_details_formatter(&key));
-    }
-
-    let footer = format!("\nTOTAL OBJECTS: {}\n", key_info_store.len());
-    key_info_store.push(footer);
-
-    Ok(key_info_store)
+    Ok(Some(key))
 }
+
 /// Iterates through accessible groups and fetches all keys available to app.
-/// Returns an sorted list of keys grouped by group ID.
-/// Note that this funtion has linear time complexity over the number of groups
-/// the app has access over.
-pub fn list_keys(cred: Credentials, verbose: bool) -> Result<Vec<String>> {
+/// Returns a sorted list of keys grouped by group ID.
+pub fn list_keys(cred: Credentials) -> Result<Vec<DsmKeyInfo>> {
     info!("dsm list_keys");
     let dsm_client = cred.dsm_client()?;
-    let mut key_info_store: Vec<String> = Vec::new();
+    let mut key_info_store: Vec<DsmKeyInfo> = Vec::new();
 
     let groups = dsm_client.list_groups()?;
 
-    let header = format!("{}{}Name",
-                         format!("{:width$}", "UUID", width = 38),
-                         format!("{:width$}", "Date Created", width = 25));
-    key_info_store.push(header);
 
     for group in groups {
         let params = ListSobjectsParams {
@@ -931,22 +983,13 @@ pub fn list_keys(cred: Credentials, verbose: bool) -> Result<Vec<String>> {
             ..Default::default()
         };
 
-
         for key_details in dsm_client.list_sobjects(Some(&params))?
             .iter()
             .filter(|key| filter_pgp_keys(key))
-            .map(|key|
-                 if verbose {
-                     sobject_long_details_formatter(&key)
-                 } else {
-                     sobject_short_details_formatter(&key)
-                 }) {
+            .map(|key| DsmKeyInfo::from(key)) {
             key_info_store.push(key_details);
         }
     }
-
-    let footer = format!("\nTOTAL OBJECTS: {}\n", key_info_store.len() - 1);
-    key_info_store.push(footer);
 
     Ok(key_info_store)
 }
@@ -958,43 +1001,6 @@ fn filter_pgp_keys(key: &Sobject) -> bool {
         None => false,
     }
 }
-
-/// Prints key details in concise format, includes name, uuid, created_at
-fn sobject_short_details_formatter(key: &Sobject) -> String {
-    format!(
-        "{}  {}  {name:<20.*}",
-        key.kid.unwrap_or(Uuid::nil()),
-        key.created_at.to_datetime(),
-        20,
-        name = key.name.as_ref().unwrap_or(&"nil".to_owned()),
-    )
-}
-
-/// Prints key details in verbose format, includes all fields.
-/// Expects `DSM_LABEL_PGP` key to be present in metadata.
-/// !!! PANICS if metadata is corrupted or KeyID not present
-fn sobject_long_details_formatter(key: &Sobject) -> String {
-    let key_md = KeyMetadata::from_sobject(key).unwrap();
-
-    format!(
-        "{}:\n
-    UUID: {}
-    Hashing algorithm: {:?}
-    Created at: {}
-    Last used at: {}
-    PGP fingerprint: {}",
-        key.name.as_ref().unwrap_or(&"unknown".to_string()),
-        key.kid.unwrap(),
-        match key_md.hash_algo {
-            Some(hash_algo) => hash_algo.to_string(),
-            None => "None".to_owned(),
-        },
-        key.created_at.to_datetime(),
-        key.lastused_at.to_datetime(),
-        key_md.fingerprint
-    )
-}
-
 /// Extracts the certificate of the corresponding PGP key. Note that this
 /// certificate, created at key-generation time, is stored in the custom
 /// metadata of the Security Object representing the primary key.

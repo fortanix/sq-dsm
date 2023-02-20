@@ -343,7 +343,9 @@ fn print_dsm_key_info(_config: Config, m: &ArgMatches) -> Result<()> {
                 "No Key name provided"))
     };
 
-    print!("{}",output.iter().join("\n"));
+    print!("{}\n",output.iter()
+           .map(|key| key.sobject_long_details_formatter())
+           .join("\n"));
 
     Ok(())
 }
@@ -356,10 +358,29 @@ fn list_dsm_keys(_config: Config, m: &ArgMatches) -> Result<()> {
         m.value_of("pkcs12-passphrase"),
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let verbose = m.is_present("long");
+    let output = dsm::list_keys(dsm_auth)?;
 
-    let output = dsm::list_keys(dsm_auth, m.is_present("long"))?;
-
-    print!("{}",output.iter().join("\n"));
+    print!("{header}\n{body}\n{footer}\n",
+           header = if verbose {
+               // Long details are not columnar, hence no column headers
+               "".to_string()
+           } else {
+               format!("\n{}{}Name",
+                       format!("{:width$}", "UUID", width = 38),
+                       format!("{:width$}", "Date Created", width = 25))
+           },
+           body = output
+               .iter()
+               .map( |key|
+                     if verbose {
+                         key.sobject_long_details_formatter()
+                     }else {
+                         key.sobject_short_details_formatter()
+                     })
+               .join("\n"),
+           footer = format!("\nTOTAL OBJECTS: {}\n", output.len()),
+           );
 
     Ok(())
 }
