@@ -18,9 +18,7 @@ use crate::openpgp::types::SignatureType;
 
 use openpgp_dsm as dsm;
 
-use crate::{
-    open_or_stdin,
-};
+use crate::open_or_stdin;
 use crate::Config;
 use crate::SECONDS_IN_YEAR;
 use crate::parse_duration;
@@ -33,6 +31,8 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("dsm-import", Some(m)) => dsm_import(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
+        ("info", Some(m)) => print_dsm_key_info(config, m)?,
+        ("list-dsm-keys", Some(m)) => list_dsm_keys(config, m)?,
         ("extract-dsm-secret", Some(m)) => extract_dsm(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
         ("attest-certifications", Some(m)) =>
@@ -323,6 +323,66 @@ fn _unlock(key: Cert) -> Result<Cert> {
                key.keys().unencrypted_secret().count());
 
     Ok(key)
+}
+
+fn print_dsm_key_info(_config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_secret = dsm::Auth::from_options_or_env(
+        m.value_of("api-key"),
+        m.value_of("client-cert"),
+        m.value_of("app-uuid"),
+        m.value_of("pkcs12-passphrase"),
+    )?;
+    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+
+    let output = match m.value_of("dsm-key") {
+        Some(key_name) => {
+            // Fortanix DSM
+            dsm::dsm_key_info(dsm_auth, key_name)?
+        },
+        None => return Err(anyhow::anyhow!(
+                "No Key name provided"))
+    };
+
+    print!("{}\n",output.iter()
+           .map(|key| key.format_details_long())
+           .join("\n"));
+
+    Ok(())
+}
+
+fn list_dsm_keys(_config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_secret = dsm::Auth::from_options_or_env(
+        m.value_of("api-key"),
+        m.value_of("client-cert"),
+        m.value_of("app-uuid"),
+        m.value_of("pkcs12-passphrase"),
+    )?;
+    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let verbose = m.is_present("long");
+    let output = dsm::list_keys(dsm_auth)?;
+
+    print!("{header}\n{body}\n{footer}\n",
+           header = if verbose {
+               // Long details are not columnar, hence no column headers
+               "".to_string()
+           } else {
+               format!("\n{}{}Name",
+                       format!("{:width$}", "UUID", width = 38),
+                       format!("{:width$}", "Date Created", width = 25))
+           },
+           body = output
+               .iter()
+               .map( |key|
+                     if verbose {
+                         key.format_details_long()
+                     }else {
+                         key.format_details_short()
+                     })
+               .join("\n"),
+           footer = format!("\nTOTAL OBJECTS: {}\n", output.len()),
+           );
+
+    Ok(())
 }
 
 fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {

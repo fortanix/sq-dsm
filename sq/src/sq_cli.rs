@@ -907,6 +907,49 @@ $ sq key adopt --keyring juliet-old.pgp --key 0123456789ABCDEF -- juliet-new.pgp
                              .help("Emits binary data"))
                 )
                 .subcommand(
+                    SubCommand::with_name("info")
+                        .display_order(300)
+                        .about("List details on DSM key")
+                        .long_about(
+"
+This command prints data on a given DSM key name, if the key is present.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Prints details on given key
+$ sq key info --dsm-key 0123456789A
+")
+                        .arg(Arg::with_name("dsm-key")
+                             .long("dsm-key").value_name("DSM-KEY-NAME")
+                             .required(true)
+                             .help("Name of the DSM key"))
+                )
+                .subcommand(
+                    SubCommand::with_name("list-dsm-keys")
+                        .display_order(400)
+                        .about("List all accessible keys for the App")
+                        .long_about(
+"
+This command prints details about all the keys accessible to the app.
+Command will query DSM list keys API for each group, and club the outputs
+to print on STDOUT.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Print list of keys which app can access
+$ sq key list-dsm-keys
+
+# Print detailed list of keys which app can access
+$ sq key list-dsm-keys -l
+")
+                        .arg(Arg::with_name("long")
+                             .short("l").long("long")
+                             .help("prints long details of key")
+                            )
+                )
+                .subcommand(
                     SubCommand::with_name("attest-certifications")
                         .display_order(200)
                         .about("Attests to third-party certifications")
