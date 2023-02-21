@@ -537,8 +537,9 @@ impl KeyMetadata {
                 match serde_json::from_str(&dict[DSM_LABEL_PGP]) {
                     Ok(key_md) => Ok(key_md),
                     Err(e) => {
-                        KeyMetadata::print_metadata_for_pre_0_3_0(&dict[DSM_LABEL_PGP]).unwrap();
-                        Err(anyhow::anyhow!("failed to read metadata: {:?}", e))
+                        KeyMetadata::print_metadata_for_pre_0_3_0(&dict[DSM_LABEL_PGP])
+                            .map_err(|e| anyhow::anyhow!("Failed to read metadata: {:?}", e))?;
+                        Err(anyhow::anyhow!("Failed to parse Sobject: {:?}", e))
 
                     }
                 }
