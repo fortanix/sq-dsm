@@ -344,7 +344,7 @@ fn print_dsm_key_info(_config: Config, m: &ArgMatches) -> Result<()> {
     };
 
     print!("{}\n",output.iter()
-           .map(|key| key.sobject_long_details_formatter())
+           .map(|key| key.format_details_long())
            .join("\n"));
 
     Ok(())
@@ -374,9 +374,9 @@ fn list_dsm_keys(_config: Config, m: &ArgMatches) -> Result<()> {
                .iter()
                .map( |key|
                      if verbose {
-                         key.sobject_long_details_formatter()
+                         key.format_details_long()
                      }else {
-                         key.sobject_short_details_formatter()
+                         key.format_details_short()
                      })
                .join("\n"),
            footer = format!("\nTOTAL OBJECTS: {}\n", output.len()),

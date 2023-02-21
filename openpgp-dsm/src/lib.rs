@@ -21,7 +21,7 @@
 use core::fmt::Display;
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -888,30 +888,35 @@ pub fn generate_key(
 pub struct DsmKeyInfo {
     name: String,
     kid: Uuid,
-    hashing_algo: Option<HashAlgorithm>,
+    object_type: ObjectType,
     created_at: SdkmsTime,
     last_used_at: SdkmsTime,
     fingerprint: String,
 }
 
-impl From<&Sobject> for DsmKeyInfo {
+impl TryFrom<&Sobject> for DsmKeyInfo {
+    type Error = anyhow::Error;
+
     /// Expects `DSM_LABEL_PGP` key to be present in metadata.
-    fn from(key: &Sobject) -> Self {
-        let key_md = KeyMetadata::from_sobject(&key).unwrap();
-        DsmKeyInfo { 
-            name: key.name.as_ref().unwrap().into(),
-            kid: key.kid.unwrap(),
-            hashing_algo: key_md.hash_algo,
+    fn try_from(key: &Sobject) -> Result<Self, Self::Error> {
+        let key_md = KeyMetadata::from_sobject(&key)?;
+        Ok(DsmKeyInfo { 
+            name: key.name.as_ref()
+                .ok_or(anyhow::anyhow!("Key name not present"))?
+                .into(),
+            kid: key.kid
+                .ok_or(anyhow::anyhow!("Key ID not present"))?,
+            object_type: key.obj_type,
             created_at: key.created_at,
             last_used_at: key.lastused_at,
-            fingerprint: key_md.fingerprint
-        }
+            fingerprint: key_md.fingerprint,
+        })
     }
 }
 
 impl DsmKeyInfo {
     /// Prints key details in concise format, includes name, uuid, created_at
-     pub fn sobject_short_details_formatter(&self) -> String {
+     pub fn format_details_short(&self) -> String {
         format!(
             "{}  {}  {name:<20.*}",
             self.kid,
@@ -922,21 +927,18 @@ impl DsmKeyInfo {
     }
 
     /// Prints key details in verbose format, includes all fields.
-    pub fn sobject_long_details_formatter(&self) -> String {
+    pub fn format_details_long(&self) -> String {
         format!(
             "{}:
     UUID: {}
-    Hashing algorithm: {}
+    Object Type: {:?}
     Created at: {}
     Last used at: {}
     PGP fingerprint: {}
 ",
             self.name,
             self.kid,
-            match self.hashing_algo {
-                Some(hash_algo) => hash_algo.to_string(),
-                None => "None".into(),
-            },
+            self.object_type,
             self.created_at.to_datetime(),
             if self.last_used_at.eq(&SdkmsTime(0)) {
                 "NA".into()
@@ -951,7 +953,7 @@ impl DsmKeyInfo {
 /// Gets info on a key and prints revelant PGP details for it.
 /// Returns `Err` if key is not present.
 pub fn dsm_key_info(cred: Credentials, key_name: &str) -> Result<Option<DsmKeyInfo>> {
-    info!("dsm list_keys");
+    info!("dsm key_info");
     let dsm_client = cred.dsm_client()?;
 
     let params = ListSobjectsParams {
@@ -960,8 +962,9 @@ pub fn dsm_key_info(cred: Credentials, key_name: &str) -> Result<Option<DsmKeyIn
     };
 
     let key: DsmKeyInfo = match dsm_client.list_sobjects(Some(&params))?.first() {
-        Some(key) => key.into(),
-        None => return Ok(None)
+        Some(key) => key.try_into()?,
+        None => return Err(anyhow::anyhow!("no key with name {} exists",
+                                           &key_name)),
     };
 
     Ok(Some(key))
@@ -990,8 +993,8 @@ pub fn list_keys(cred: Credentials) -> Result<Vec<DsmKeyInfo>> {
                         Some(metadata) => metadata.contains_key(&DSM_LABEL_PGP.to_string()),
                         None => false,
                     })
-            .map(|key| DsmKeyInfo::from(key)) {
-            key_info_store.push(key_details);
+            .map(|key| DsmKeyInfo::try_from(key)) {
+            key_info_store.push(key_details?);
         }
     }
 
