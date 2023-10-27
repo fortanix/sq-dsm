@@ -83,9 +83,32 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             m.value_of("app-uuid"),
             m.value_of("pkcs12-passphrase"),
         )?;
+
+        let mut key_flags: Vec<dsm::KeyFlagsArg> = vec![];
+        match m.value_of("primary-flags") {
+            Some("CS") => {
+                key_flags.push(dsm::KeyFlagsArg::CS);
+                key_flags.push(dsm::KeyFlagsArg::EtEr);
+            },
+            Some("C") => {
+                key_flags.push(dsm::KeyFlagsArg::C);
+                key_flags.push(dsm::KeyFlagsArg::S);
+                key_flags.push(dsm::KeyFlagsArg::EtEr);
+            },
+            Some(ref flag) => {
+                return Err(anyhow::anyhow!("Unknown value for primary-flags '{}'", flag));
+            }
+            None => {
+                key_flags.push(dsm::KeyFlagsArg::C);
+                key_flags.push(dsm::KeyFlagsArg::S);
+                key_flags.push(dsm::KeyFlagsArg::EtEr);
+            },
+        }
+
         println!("Generating keys inside inside Fortanix DSM. This might take a while...");
         dsm::generate_key(
             dsm_key_name,
+            key_flags,
             d,
             m.value_of("userid"),
             m.value_of("cipher-suite"),

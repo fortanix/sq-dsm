@@ -616,20 +616,32 @@ impl KeyMetadata {
     }
 }
 
+pub enum KeyFlagsArg {
+    C,
+    CS,
+    S,
+    EtEr,
+}
+
 /// Generates an OpenPGP key with secrets stored in DSM. At the OpenPGP
 /// level, this method produces a key consisting of
 ///
-/// - A primary certifying key (flag C)
+/// - A primary certifying key (flag C) or primary signing key (flags C + S),
 /// - A signing subkey (flag S),
-/// - a transport and storage encryption subkey (flags Et + Er).
+/// - A transport and storage encryption subkey (flags Et + Er).
 ///
-/// At the DSM level, this method creates the three corresponding Sobjects,
+/// The type and number of subkeys created is based on values passed via
+/// key_flag_args argument.
+/// First entry of key_flag_args always corresponds to primary key.
+///
+/// At the DSM level, this method creates corresponding Sobjects,
 /// linked by KeyLinks.
 ///
 /// The public certificate (Transferable Public Key) is computed, stored as
 /// an additional custom metadata field on the primary key.
 pub fn generate_key(
     key_name: &str,
+    key_flag_args: Vec<KeyFlagsArg>,
     validity_period: Option<Duration>,
     user_id: Option<&str>,
     algo: Option<&str>,
@@ -672,27 +684,47 @@ pub fn generate_key(
     )
     .context("could not create primary key")?;
 
-    info!("key generation: create signing subkey");
-    let signing_subkey = PublicKey::create(
-        &dsm_client,
-        key_name.to_string(),
-        KeyRole::SigningSubkey,
-        &algorithm,
-        exportable,
-        validity_period
-    )?;
+    let mut signing_subkeys: Vec<PublicKey> = vec![];
+    let mut encryption_subkeys: Vec<PublicKey> = vec![];
+    for flag in &key_flag_args {
+        match flag {
+            KeyFlagsArg::S => {
+                info!("key generation: create signing subkey");
+                let signing_subkey = PublicKey::create(
+                    &dsm_client,
+                    key_name.to_string(),
+                    KeyRole::SigningSubkey,
+                    &algorithm,
+                    exportable,
+                    validity_period
+                )?;
 
-    info!("key generation: create decryption subkey");
-    let encryption_subkey = PublicKey::create(
-        &dsm_client,
-        key_name.to_string(),
-        KeyRole::EncryptionSubkey,
-        &algorithm,
-        exportable,
-        validity_period
-    )?;
+                signing_subkeys.push(signing_subkey);
+            },
 
-    let prim_flags = KeyFlags::empty().set_certification();
+            KeyFlagsArg::EtEr => {
+                info!("key generation: create decryption subkey");
+                let encryption_subkey = PublicKey::create(
+                    &dsm_client,
+                    key_name.to_string(),
+                    KeyRole::EncryptionSubkey,
+                    &algorithm,
+                    exportable,
+                    validity_period
+                )?;
+
+                encryption_subkeys.push(encryption_subkey);
+            },
+
+            _ => {},
+        }
+    }
+
+    let prim_flags = match key_flag_args[0] {
+        KeyFlagsArg::C => KeyFlags::empty().set_certification(),
+        KeyFlagsArg::CS => KeyFlags::empty().set_certification().set_signing(),
+        _ => KeyFlags::empty(),
+    };
     let signing_subkey_flags = KeyFlags::empty().set_signing();
     let encryption_subkey_flags = KeyFlags::empty()
         .set_storage_encryption()
@@ -707,7 +739,12 @@ pub fn generate_key(
         ..Default::default()
     };
     info!("key generation: bind subkeys to primary key in DSM");
-    for subkey in [&signing_subkey, &encryption_subkey] {
+    for subkey in &signing_subkeys {
+        dsm_client.__update_sobject(
+            &subkey.uid()?, &link_update_req, "bind subkey to primary key"
+        )?;
+    }
+    for subkey in &encryption_subkeys {
         dsm_client.__update_sobject(
             &subkey.uid()?, &link_update_req, "bind subkey to primary key"
         )?;
@@ -728,9 +765,6 @@ pub fn generate_key(
 
     // To sign other keys and packets
     let mut prim_signer = DsmAgent::new_certifier(credentials.clone(), key_name)?;
-    // To sign primary key
-    let mut subkey_signer = DsmAgent::new_signing_subkey_from_descriptor(
-        credentials, &signing_subkey.descriptor)?;
 
     let prim_sig_builder = SignatureBuilder::new(SignatureType::DirectKey)
         .set_features(Features::sequoia())?
@@ -777,52 +811,59 @@ pub fn generate_key(
         cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
     }
 
-    info!("key generation: sign encryption subkey");
-    {
-        let (subkey, flags) = (&encryption_subkey, &encryption_subkey_flags);
-        let pk: Key<PublicParts, SubordinateRole> = subkey
-            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+    if !encryption_subkeys.is_empty() {
+        info!("key generation: sign encryption subkey");
+        {
+            let (subkey, flags) = (&encryption_subkeys[0], &encryption_subkey_flags);
+            let pk: Key<PublicParts, SubordinateRole> = subkey
+                .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
-        let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_key_validity_period(validity_period)?
-            .set_hash_algo(hash_algo)
-            .set_signature_creation_time(pk.creation_time())?
-            .set_key_flags(flags.clone())?;
+            let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
+                .set_key_validity_period(validity_period)?
+                .set_hash_algo(hash_algo)
+                .set_signature_creation_time(pk.creation_time())?
+                .set_key_flags(flags.clone())?;
 
-        let signature = pk.bind(&mut prim_signer, &cert, builder)?;
-        cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+            let signature = pk.bind(&mut prim_signer, &cert, builder)?;
+            cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+        }
     }
 
-    info!("key generation: create embedded signature (signing-subkey signs primary)");
-    let embedded_signature = {
-        let subkey: Key<PublicParts, SubordinateRole> = signing_subkey
-            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+    if !signing_subkeys.is_empty() {
+        info!("key generation: create embedded signature (signing-subkey signs primary)");
+        // To sign primary key
+        let mut subkey_signer = DsmAgent::new_signing_subkey_from_descriptor(
+            credentials, &signing_subkeys[0].descriptor)?;
+        let embedded_signature = {
+            let subkey: Key<PublicParts, SubordinateRole> = signing_subkeys[0]
+                .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
-        let pk: Key<PublicParts, PrimaryRole> = primary
-            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+            let pk: Key<PublicParts, PrimaryRole> = primary
+                .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
-        SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
-            .set_key_validity_period(validity_period)?
-            .set_hash_algo(hash_algo)
-            .set_signature_creation_time(subkey.creation_time())?
-            .sign_primary_key_binding(&mut subkey_signer, &pk, &subkey)?
-    };
+            SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
+                .set_key_validity_period(validity_period)?
+                .set_hash_algo(hash_algo)
+                .set_signature_creation_time(subkey.creation_time())?
+                .sign_primary_key_binding(&mut subkey_signer, &pk, &subkey)?
+        };
 
-    info!("key generation: sign signing key");
-    {
-        let (subkey, flags) = (&signing_subkey, &signing_subkey_flags);
-        let pk: Key<PublicParts, SubordinateRole> = subkey
-            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+        info!("key generation: sign signing key");
+        {
+            let (subkey, flags) = (&signing_subkeys[0], &signing_subkey_flags);
+            let pk: Key<PublicParts, SubordinateRole> = subkey
+                .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
-        let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_key_validity_period(validity_period)?
-            .set_hash_algo(hash_algo)
-            .set_signature_creation_time(pk.creation_time())?
-            .set_key_flags(flags.clone())?
-            .set_embedded_signature(embedded_signature)?;
+            let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
+                .set_key_validity_period(validity_period)?
+                .set_hash_algo(hash_algo)
+                .set_signature_creation_time(pk.creation_time())?
+                .set_key_flags(flags.clone())?
+                .set_embedded_signature(embedded_signature)?;
 
-        let signature = pk.bind(&mut prim_signer, &cert, builder)?;
-        cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+            let signature = pk.bind(&mut prim_signer, &cert, builder)?;
+            cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+        }
     }
 
     info!("key generation: store primary metadata");
@@ -848,10 +889,14 @@ pub fn generate_key(
     }
 
     info!("key generation: rename subkeys and store metadata");
-    for (subkey, flags) in [
-        (&signing_subkey, &signing_subkey_flags),
-        (&encryption_subkey, &encryption_subkey_flags),
-    ] {
+    let mut subkey_flag:Vec<(&PublicKey, &KeyFlags)> = vec![];
+    if !signing_subkeys.is_empty() {
+        subkey_flag.push((&signing_subkeys[0], &signing_subkey_flags));
+    }
+    if !encryption_subkeys.is_empty() {
+        subkey_flag.push((&encryption_subkeys[0], &encryption_subkey_flags));
+    }
+    for (subkey, flags) in subkey_flag {
         let pk: Key<PublicParts, SubordinateRole> = subkey
             .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 

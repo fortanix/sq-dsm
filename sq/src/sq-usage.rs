@@ -494,6 +494,9 @@
 //!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
 //!             Passphrase for unlocking the PKCS12 identity file (cert-based
 //!             authentication)
+//!         --primary-flags <[C | CS]>
+//!             Generate keys using 2-key (CS) or 3-key (C) structure
+//!
 //!         --rev-cert <FILE or ->
 //!             Writes the revocation certificate to FILE. mandatory if OUTFILE is
 //!             "-". [default: <OUTFILE>.rev]
