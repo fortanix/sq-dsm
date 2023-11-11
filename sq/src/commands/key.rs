@@ -84,24 +84,24 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             m.value_of("pkcs12-passphrase"),
         )?;
 
-        let mut key_flags: Vec<dsm::KeyFlagsArg> = vec![];
-        match m.value_of("primary-flags") {
-            Some("CS") => {
-                key_flags.push(dsm::KeyFlagsArg::CS);
-                key_flags.push(dsm::KeyFlagsArg::EtEr);
+        let mut key_flags: Vec<KeyFlags> = vec![];
+        match m.value_of("key-flags") {
+            Some("CS,EtEr") => {
+                key_flags.push(KeyFlags::empty().set_certification().set_signing());
+                key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
             },
-            Some("C") => {
-                key_flags.push(dsm::KeyFlagsArg::C);
-                key_flags.push(dsm::KeyFlagsArg::S);
-                key_flags.push(dsm::KeyFlagsArg::EtEr);
+            Some("C,S,EtEr") => {
+                key_flags.push(KeyFlags::empty().set_certification());
+                key_flags.push(KeyFlags::empty().set_signing());
+                key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
             },
             Some(ref flag) => {
-                return Err(anyhow::anyhow!("Unknown value for primary-flags '{}'", flag));
+                return Err(anyhow::anyhow!("Unsupported value for key-flags '{}'", flag));
             }
             None => {
-                key_flags.push(dsm::KeyFlagsArg::C);
-                key_flags.push(dsm::KeyFlagsArg::S);
-                key_flags.push(dsm::KeyFlagsArg::EtEr);
+                key_flags.push(KeyFlags::empty().set_certification());
+                key_flags.push(KeyFlags::empty().set_signing());
+                key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
             },
         }
 

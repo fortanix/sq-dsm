@@ -637,9 +637,9 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                                  "rev-cert",
                              ])
                              .requires("userid"))
-                        .arg(Arg::with_name("primary-flags")
-                             .long("primary-flags").value_name("[C | CS]")
-                             .help("Generate keys using 2-key or 3-key structure")
+                        .arg(Arg::with_name("key-flags")
+                             .long("key-flags").value_name("[C,S,EtEr | CS,EtEr]")
+                             .help("Generate keys using 2-key (CS,EtEr) or 3-key structure (C,S,EtEr)")
                              .conflicts_with_all(&[
                                  "export",
                                  "cannot-encrypt",

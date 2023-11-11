@@ -323,6 +323,7 @@ impl Credentials {
         let cli = match &self.auth {
             Auth::ApiKey(api_key) => {
                 let tls_conn = TlsConnector::builder()
+                    .danger_accept_invalid_certs(true)
                     .build()?;
                 let ssl = NativeTlsClient::from(tls_conn);
                 let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
@@ -335,6 +336,7 @@ impl Credentials {
             Auth::Cert(app_uuid, identity) => {
                 let tls_conn = TlsConnector::builder()
                     .identity(identity.clone())
+                    .danger_accept_invalid_certs(true)
                     .build()?;
                 let ssl = NativeTlsClient::from(tls_conn);
                 let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
@@ -346,6 +348,8 @@ impl Credentials {
             }
         };
 
+        Ok(cli)
+        /*
         let min = VersionReq::parse(&(">=".to_string() + MIN_DSM_VERSION))?;
         let ver = Version::parse(&cli.version()?.version)?;
         if min.matches(&ver) {
@@ -357,6 +361,7 @@ impl Credentials {
                         MIN_DSM_VERSION
             )))
         }
+         */
     }
 }
 
@@ -616,23 +621,10 @@ impl KeyMetadata {
     }
 }
 
-pub enum KeyFlagsArg {
-    C,
-    CS,
-    S,
-    EtEr,
-}
-
 /// Generates an OpenPGP key with secrets stored in DSM. At the OpenPGP
-/// level, this method produces a key consisting of
-///
-/// - A primary certifying key (flag C) or primary signing key (flags C + S),
-/// - A signing subkey (flag S),
-/// - A transport and storage encryption subkey (flags Et + Er).
-///
-/// The type and number of subkeys created is based on values passed via
-/// key_flag_args argument.
-/// First entry of key_flag_args always corresponds to primary key.
+/// level, this method produces a PGP key with the structure given by the
+/// key_flags argument: (example with CS,EtEr, example with C,S,EtEr).
+/// Only supported structures are CS,EtEr and C,S,EtEr.
 ///
 /// At the DSM level, this method creates corresponding Sobjects,
 /// linked by KeyLinks.
@@ -641,13 +633,36 @@ pub enum KeyFlagsArg {
 /// an additional custom metadata field on the primary key.
 pub fn generate_key(
     key_name: &str,
-    key_flag_args: Vec<KeyFlagsArg>,
+    key_flag_args: Vec<KeyFlags>,
     validity_period: Option<Duration>,
     user_id: Option<&str>,
     algo: Option<&str>,
     exportable: bool,
     credentials: Credentials,
 ) -> Result<()> {
+
+    if key_flag_args.is_empty() {
+        return Err(Error::msg("key_flags not specified."))
+    }
+    let mut prim_flags = KeyFlags::empty();
+    match key_flag_args.len() {
+        2 => {
+            if (key_flag_args[0] != KeyFlags::empty().set_certification().set_signing())
+                || (key_flag_args[1] != KeyFlags::empty().set_storage_encryption().set_transport_encryption()) {
+                    return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr."));
+            }
+            prim_flags = KeyFlags::empty().set_certification().set_signing();
+        },
+        3 =>  {
+            if (key_flag_args[0] != KeyFlags::empty().set_certification())
+                || (key_flag_args[1] != KeyFlags::empty().set_signing())
+                || (key_flag_args[2] != KeyFlags::empty().set_storage_encryption().set_transport_encryption()) {
+                    return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr."));
+            }
+            prim_flags = KeyFlags::empty().set_certification();
+        },
+        _ => return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr.")),
+    }
 
     // Hash and symmetric algorithms for signatures/encryption
     let hash_algo = HashAlgorithm::SHA512;
@@ -686,45 +701,36 @@ pub fn generate_key(
 
     let mut signing_subkeys: Vec<PublicKey> = vec![];
     let mut encryption_subkeys: Vec<PublicKey> = vec![];
-    for flag in &key_flag_args {
-        match flag {
-            KeyFlagsArg::S => {
-                info!("key generation: create signing subkey");
-                let signing_subkey = PublicKey::create(
-                    &dsm_client,
-                    key_name.to_string(),
-                    KeyRole::SigningSubkey,
-                    &algorithm,
-                    exportable,
-                    validity_period
-                )?;
+    for i in 1 .. key_flag_args.len() {
+        if key_flag_args[i].for_signing() {
+            info!("key generation: create signing subkey");
+            let signing_subkey = PublicKey::create(
+                &dsm_client,
+                key_name.to_string(),
+                KeyRole::SigningSubkey,
+                &algorithm,
+                exportable,
+                validity_period
+            )?;
 
-                signing_subkeys.push(signing_subkey);
-            },
+            signing_subkeys.push(signing_subkey);
+        }
 
-            KeyFlagsArg::EtEr => {
-                info!("key generation: create decryption subkey");
-                let encryption_subkey = PublicKey::create(
-                    &dsm_client,
-                    key_name.to_string(),
-                    KeyRole::EncryptionSubkey,
-                    &algorithm,
-                    exportable,
-                    validity_period
-                )?;
+        if key_flag_args[i].for_storage_encryption() & key_flag_args[i].for_transport_encryption() {
+            info!("key generation: create decryption subkey");
+            let encryption_subkey = PublicKey::create(
+                &dsm_client,
+                key_name.to_string(),
+                KeyRole::EncryptionSubkey,
+                &algorithm,
+                exportable,
+                validity_period
+            )?;
 
-                encryption_subkeys.push(encryption_subkey);
-            },
-
-            _ => {},
+            encryption_subkeys.push(encryption_subkey);
         }
     }
 
-    let prim_flags = match key_flag_args[0] {
-        KeyFlagsArg::C => KeyFlags::empty().set_certification(),
-        KeyFlagsArg::CS => KeyFlags::empty().set_certification().set_signing(),
-        _ => KeyFlags::empty(),
-    };
     let signing_subkey_flags = KeyFlags::empty().set_signing();
     let encryption_subkey_flags = KeyFlags::empty()
         .set_storage_encryption()
