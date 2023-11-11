@@ -623,8 +623,11 @@ impl KeyMetadata {
 
 /// Generates an OpenPGP key with secrets stored in DSM. At the OpenPGP
 /// level, this method produces a PGP key with the structure given by the
-/// key_flags argument: (example with CS,EtEr, example with C,S,EtEr).
-/// Only supported structures are CS,EtEr and C,S,EtEr.
+/// `key_flags` argument.
+/// For example, `[CS,EtEr]` produces a PGP key with a primary key used
+/// for both certification and signing and an encryption subkey, and `[C,S,EtEr]`
+/// produces a PGP key with a certification primary key, a signing subkey, and
+/// an encryption subkey.
 ///
 /// At the DSM level, this method creates corresponding Sobjects,
 /// linked by KeyLinks.
@@ -644,19 +647,23 @@ pub fn generate_key(
     if key_flag_args.is_empty() {
         return Err(Error::msg("key_flags not specified."))
     }
+    let c = KeyFlags::empty().set_certification();
+    let s = KeyFlags::empty().set_signing();
+    let cs = KeyFlags::empty().set_certification().set_signing();
+    let eter = KeyFlags::empty().set_storage_encryption().set_transport_encryption();
     let mut prim_flags = KeyFlags::empty();
     match key_flag_args.len() {
         2 => {
-            if (key_flag_args[0] != KeyFlags::empty().set_certification().set_signing())
-                || (key_flag_args[1] != KeyFlags::empty().set_storage_encryption().set_transport_encryption()) {
+            if (key_flag_args[0] != cs)
+                || (key_flag_args[1] != eter) {
                     return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr."));
             }
             prim_flags = KeyFlags::empty().set_certification().set_signing();
         },
         3 =>  {
-            if (key_flag_args[0] != KeyFlags::empty().set_certification())
-                || (key_flag_args[1] != KeyFlags::empty().set_signing())
-                || (key_flag_args[2] != KeyFlags::empty().set_storage_encryption().set_transport_encryption()) {
+            if (key_flag_args[0] != c)
+                || (key_flag_args[1] != s)
+                || (key_flag_args[2] != eter) {
                     return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr."));
             }
             prim_flags = KeyFlags::empty().set_certification();
@@ -701,8 +708,8 @@ pub fn generate_key(
 
     let mut signing_subkeys: Vec<PublicKey> = vec![];
     let mut encryption_subkeys: Vec<PublicKey> = vec![];
-    for i in 1 .. key_flag_args.len() {
-        if key_flag_args[i].for_signing() {
+    for key_flag in key_flag_args.iter().skip(1) {
+        if key_flag.for_signing() {
             info!("key generation: create signing subkey");
             let signing_subkey = PublicKey::create(
                 &dsm_client,
@@ -716,7 +723,7 @@ pub fn generate_key(
             signing_subkeys.push(signing_subkey);
         }
 
-        if key_flag_args[i].for_storage_encryption() & key_flag_args[i].for_transport_encryption() {
+        if key_flag.for_storage_encryption() & key_flag.for_transport_encryption() {
             info!("key generation: create decryption subkey");
             let encryption_subkey = PublicKey::create(
                 &dsm_client,

@@ -86,18 +86,27 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
 
         let mut key_flags: Vec<KeyFlags> = vec![];
         match m.value_of("key-flags") {
-            Some("CS,EtEr") => {
-                key_flags.push(KeyFlags::empty().set_certification().set_signing());
-                key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
+            Some(flags) => {
+                for flag in flags.split(",") {
+                    match flag {
+                        "C" => {
+                            key_flags.push(KeyFlags::empty().set_certification());
+                        },
+                        "S" => {
+                            key_flags.push(KeyFlags::empty().set_signing());
+                        },
+                        "CS" => {
+                            key_flags.push(KeyFlags::empty().set_certification().set_signing());
+                        },
+                        "EtEr" => {
+                            key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
+                        },
+                        _ => {
+                            return Err(anyhow::anyhow!("Unsupported flag value found in key-flags '{}'", flag));
+                        }
+                    }
+                }
             },
-            Some("C,S,EtEr") => {
-                key_flags.push(KeyFlags::empty().set_certification());
-                key_flags.push(KeyFlags::empty().set_signing());
-                key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
-            },
-            Some(ref flag) => {
-                return Err(anyhow::anyhow!("Unsupported value for key-flags '{}'", flag));
-            }
             None => {
                 key_flags.push(KeyFlags::empty().set_certification());
                 key_flags.push(KeyFlags::empty().set_signing());

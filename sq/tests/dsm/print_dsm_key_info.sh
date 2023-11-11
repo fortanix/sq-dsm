@@ -14,6 +14,16 @@ do
 	user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
 	$sq key generate --userid="$user_id" --dsm-key="$dsm_name" --cipher-suite="$alg" --dsm-exportable
 	$sq key info --dsm-key="$dsm_name" | awk '{print}'
+
+    key_flags=( "C,S,EtEr" "CS,EtEr" )
+    for key_flag in "${key_flags[@]}"
+    do
+        key_flag_for_filename=${key_flag//,/_}
+        dsm_name="generate-knownkeys-test-$key_flag_for_filename-$random-$alg"
+        user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
+        $sq key generate --userid="$user_id" --dsm-key="$dsm_name" --key-flags="$key_flag" --cipher-suite="$alg" --dsm-exportable
+        $sq key info --dsm-key="$dsm_name" | awk '{print}'a
+    done
 done
 
 ldk_cmd_long_resp=$($sq key list-dsm-keys -l | tail -2 | head -1 | awk '{print $NF}')
