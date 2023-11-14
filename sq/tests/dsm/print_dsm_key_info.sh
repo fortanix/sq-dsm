@@ -22,7 +22,7 @@ do
         dsm_name="generate-knownkeys-test-$key_flag_for_filename-$random-$alg"
         user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
         $sq key generate --userid="$user_id" --dsm-key="$dsm_name" --key-flags="$key_flag" --cipher-suite="$alg" --dsm-exportable
-        $sq key info --dsm-key="$dsm_name" | awk '{print}'a
+        $sq key info --dsm-key="$dsm_name" | awk '{print}'
     done
 done
 

@@ -323,7 +323,6 @@ impl Credentials {
         let cli = match &self.auth {
             Auth::ApiKey(api_key) => {
                 let tls_conn = TlsConnector::builder()
-                    .danger_accept_invalid_certs(true)
                     .build()?;
                 let ssl = NativeTlsClient::from(tls_conn);
                 let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
@@ -336,7 +335,6 @@ impl Credentials {
             Auth::Cert(app_uuid, identity) => {
                 let tls_conn = TlsConnector::builder()
                     .identity(identity.clone())
-                    .danger_accept_invalid_certs(true)
                     .build()?;
                 let ssl = NativeTlsClient::from(tls_conn);
                 let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
@@ -348,8 +346,6 @@ impl Credentials {
             }
         };
 
-        Ok(cli)
-        /*
         let min = VersionReq::parse(&(">=".to_string() + MIN_DSM_VERSION))?;
         let ver = Version::parse(&cli.version()?.version)?;
         if min.matches(&ver) {
@@ -361,7 +357,6 @@ impl Credentials {
                         MIN_DSM_VERSION
             )))
         }
-         */
     }
 }
 
