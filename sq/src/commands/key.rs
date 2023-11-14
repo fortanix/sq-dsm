@@ -83,9 +83,41 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             m.value_of("app-uuid"),
             m.value_of("pkcs12-passphrase"),
         )?;
+
+        let mut key_flags: Vec<KeyFlags> = vec![];
+        match m.value_of("key-flags") {
+            Some(flags) => {
+                for flag in flags.split(",") {
+                    match flag {
+                        "C" => {
+                            key_flags.push(KeyFlags::empty().set_certification());
+                        },
+                        "S" => {
+                            key_flags.push(KeyFlags::empty().set_signing());
+                        },
+                        "CS" => {
+                            key_flags.push(KeyFlags::empty().set_certification().set_signing());
+                        },
+                        "EtEr" => {
+                            key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
+                        },
+                        _ => {
+                            return Err(anyhow::anyhow!("Unsupported flag value found in key-flags '{}'", flag));
+                        }
+                    }
+                }
+            },
+            None => {
+                key_flags.push(KeyFlags::empty().set_certification());
+                key_flags.push(KeyFlags::empty().set_signing());
+                key_flags.push(KeyFlags::empty().set_storage_encryption().set_transport_encryption());
+            },
+        }
+
         println!("Generating keys inside inside Fortanix DSM. This might take a while...");
         dsm::generate_key(
             dsm_key_name,
+            key_flags,
             d,
             m.value_of("userid"),
             m.value_of("cipher-suite"),
