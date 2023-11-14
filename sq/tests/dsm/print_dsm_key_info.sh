@@ -10,7 +10,7 @@ random=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "10" | head -n 1)
 array=( rsa2k rsa3k rsa4k nistp256 nistp384 nistp521 cv25519 )
 for alg in "${array[@]}"
 do
-	dsm_name="generate-knownkeys-test-$random-$alg"
+	dsm_name="print-key-info-test-$random-$alg"
 	user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
 	$sq key generate --userid="$user_id" --dsm-key="$dsm_name" --cipher-suite="$alg" --dsm-exportable
 	$sq key info --dsm-key="$dsm_name" | awk '{print}'
@@ -19,7 +19,7 @@ do
     for key_flag in "${key_flags[@]}"
     do
         key_flag_for_filename=${key_flag//,/_}
-        dsm_name="generate-knownkeys-test-$key_flag_for_filename-$random-$alg"
+        dsm_name="print-key-info-test-$key_flag_for_filename-$random-$alg"
         user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
         $sq key generate --userid="$user_id" --dsm-key="$dsm_name" --key-flags="$key_flag" --cipher-suite="$alg" --dsm-exportable
         $sq key info --dsm-key="$dsm_name" | awk '{print}'

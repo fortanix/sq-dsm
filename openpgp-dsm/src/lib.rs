@@ -646,14 +646,13 @@ pub fn generate_key(
     let s = KeyFlags::empty().set_signing();
     let cs = KeyFlags::empty().set_certification().set_signing();
     let eter = KeyFlags::empty().set_storage_encryption().set_transport_encryption();
-    let mut prim_flags = KeyFlags::empty();
-    match key_flag_args.len() {
+    let prim_flags = match key_flag_args.len() {
         2 => {
             if (key_flag_args[0] != cs)
                 || (key_flag_args[1] != eter) {
                     return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr."));
             }
-            prim_flags = KeyFlags::empty().set_certification().set_signing();
+            KeyFlags::empty().set_certification().set_signing()
         },
         3 =>  {
             if (key_flag_args[0] != c)
@@ -661,10 +660,10 @@ pub fn generate_key(
                 || (key_flag_args[2] != eter) {
                     return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr."));
             }
-            prim_flags = KeyFlags::empty().set_certification();
+            KeyFlags::empty().set_certification()
         },
         _ => return Err(Error::msg("key_flags supported structures are CS,EtEr and C,S,EtEr.")),
-    }
+    };
 
     // Hash and symmetric algorithms for signatures/encryption
     let hash_algo = HashAlgorithm::SHA512;
