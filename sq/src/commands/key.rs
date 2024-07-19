@@ -131,11 +131,23 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
 
     // Cipher Suite
     match m.value_of("cipher-suite") {
+        Some("rsa2k") => {
+            builder = builder.set_cipher_suite(CipherSuite::RSA2k);
+        }
         Some("rsa3k") => {
             builder = builder.set_cipher_suite(CipherSuite::RSA3k);
         }
         Some("rsa4k") => {
             builder = builder.set_cipher_suite(CipherSuite::RSA4k);
+        }
+        Some("nistp256") => {
+            builder = builder.set_cipher_suite(CipherSuite::P256);
+        }
+        Some("nistp384") => {
+            builder = builder.set_cipher_suite(CipherSuite::P384);
+        }
+        Some("nistp521") => {
+            builder = builder.set_cipher_suite(CipherSuite::P521);
         }
         Some("cv25519") => {
             builder = builder.set_cipher_suite(CipherSuite::Cv25519);
