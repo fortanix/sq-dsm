@@ -62,3 +62,10 @@ test-dsm:
 	./tests/dsm/sq_roundtrips.sh -c nistp384
 	./tests/dsm/sq_roundtrips.sh -c nistp521
 	./tests/dsm/sq_roundtrips.sh -c cv25519
+	./tests/local/generate_keys.sh -c rsa2k
+	./tests/local/generate_keys.sh -c rsa3k
+	./tests/local/generate_keys.sh -c rsa4k
+	./tests/local/generate_keys.sh -c nistp256
+	./tests/local/generate_keys.sh -c nistp384
+	./tests/local/generate_keys.sh -c nistp521
+	./tests/local/generate_keys.sh -c cv25519
