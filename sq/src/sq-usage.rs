@@ -474,7 +474,7 @@
 //!             universal]
 //!     -c, --cipher-suite <CIPHER-SUITE>
 //!             Selects the cryptographic algorithms for the key [default: cv25519]
-//!             [possible values: rsa2k, rsa3k, rsa4k, cv25519, nistp256, nistp384,
+//!             [possible values: rsa2k, rsa3k, rsa4k, rsa8k, cv25519, nistp256, nistp384,
 //!             nistp521]
 //!         --client-cert <P12-FILE>
 //!             Authenticates to Fortanix DSM with the given client certificate
