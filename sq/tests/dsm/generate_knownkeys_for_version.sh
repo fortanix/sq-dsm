@@ -21,7 +21,7 @@ versionkeys="$SCRIPT_DIR/../data/knownkeys/sq-dsm-$v"
 
 random=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "10" | head -n 1)
 
-array=( rsa2k rsa3k rsa4k nistp256 nistp384 nistp521 cv25519 )
+array=( rsa2k rsa3k rsa4k rsa8k nistp256 nistp384 nistp521 cv25519 )
 for alg in "${array[@]}"
 do
     user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"

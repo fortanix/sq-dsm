@@ -594,6 +594,7 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                                  "rsa2k",
                                  "rsa3k",
                                  "rsa4k",
+                                 "rsa8k",
                                  "cv25519",
                                  "nistp256",
                                  "nistp384",
