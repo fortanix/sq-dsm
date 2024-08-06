@@ -47,8 +47,8 @@ DSM, and Bob and Charlie hold regular PGP keys.
 1. Generate a DSM key for Alice, and local keys for Bob and Charlie
 ```
 $  sq key generate --dsm-key="alice" --cipher-suite="nistp521" --userid="Alice <alice@example.com>"
-$  sq key generate --cipher-suite="rsa3k" --userid="Bob <bob@example.com> --export="bob.asc"
-$  sq key generate --userid="Charlie <charlie@example.com> --export="charlie.asc"
+$  sq key generate --cipher-suite="rsa3k" --userid="Bob <bob@example.com>" --export="bob.asc"
+$  sq key generate --userid="Charlie <charlie@example.com>" --export="charlie.asc"
 ```
 
 2. Recover Alice's Transferable Public Key (TPK)
