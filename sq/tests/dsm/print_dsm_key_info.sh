@@ -7,7 +7,7 @@ source $SCRIPT_DIR/common.sh
 
 random=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "10" | head -n 1)
 
-array=( rsa2k rsa3k rsa4k nistp256 nistp384 nistp521 cv25519 )
+array=( rsa2k rsa3k rsa4k rsa8k nistp256 nistp384 nistp521 cv25519 )
 for alg in "${array[@]}"
 do
 	dsm_name="print-key-info-test-$random-$alg"

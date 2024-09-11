@@ -680,6 +680,7 @@ pub fn generate_key(
         Some("rsa2k") => SupportedPkAlgo::Rsa(2048),
         Some("rsa3k") => SupportedPkAlgo::Rsa(3072),
         Some("rsa4k") => SupportedPkAlgo::Rsa(4096),
+        Some("rsa8k") => SupportedPkAlgo::Rsa(8192),
         Some("cv25519") => SupportedPkAlgo::Curve25519,
         Some("nistp256") => SupportedPkAlgo::Ec(ApiCurve::NistP256),
         Some("nistp384") => SupportedPkAlgo::Ec(ApiCurve::NistP384),
