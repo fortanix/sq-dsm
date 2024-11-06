@@ -1704,8 +1704,24 @@ impl Decryptor for DsmAgent {
 
         match ciphertext {
             MpiCiphertext::RSA { c } => {
+                let data_length = c.value().len();
+
+                // RSA Key size is not directly available, so we're estimating it based on the ciphertext size. 
+                let target_length = match data_length {
+                    len if len <= 256 => 256,     // likely RSA-2048
+                    len if len <= 384 => 384,     // likely RSA-3072
+                    len if len <= 512 => 512,     // likely RSA-4096
+                    len if len <= 1024 => 1024,   // likely RSA-8192
+                    _ => data_length,             // Return original length if no match
+                };
+
+                let mut cipher = c.value().to_vec().into();
+                if data_length < target_length {
+                    cipher = c.value_padded(target_length).context("Failed to adjust padding.")?.to_vec().into();
+                }
+
                 let decrypt_req = DecryptRequest {
-                    cipher: c.value().to_vec().into(),
+                    cipher: cipher,
                     alg:    Some(Rsa),
                     iv:     None,
                     key:    Some(self.descriptor.clone()),
