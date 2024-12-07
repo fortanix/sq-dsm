@@ -467,11 +467,12 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let input = open_or_stdin(m.value_of("input"))?;
-    let key = _unlock(Cert::from_reader(input)?)?;
+    let cert = Cert::from_reader(input)?;
+    let key = if cert.is_tsk() { _unlock(cert)? } else { cert };
     let valid_key = key.with_policy(&config.policy, None)?;
 
     match m.value_of("dsm-key") {
-        Some(key_name) => dsm::import_tsk_to_dsm(
+        Some(key_name) => dsm::import_key_to_dsm(
             valid_key, key_name, dsm_auth, m.is_present("dsm-exportable"),
         ),
         None => unreachable!("name is compulsory")

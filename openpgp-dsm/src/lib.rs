@@ -73,7 +73,6 @@ use sequoia_openpgp::types::{
 use sequoia_openpgp::{Cert, Packet};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
 mod der;
 
 /// DsmAgent implements [Signer] and [Decryptor] with secrets stored inside
@@ -1119,7 +1118,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
 }
 
 /// Imports a given Transferable Secret Key to DSM.
-pub fn import_tsk_to_dsm(
+pub fn import_key_to_dsm(
     tsk:        ValidCert,
     key_name:   &str,
     cred:       Credentials,
@@ -1133,11 +1132,11 @@ pub fn import_tsk_to_dsm(
         ops:      KeyOperations,
         metadata: &mut KeyMetadata,
         mpis:     &MpiPublic,
-        hazmat:   &MpiSecret,
+        hazmat:   Option<&MpiSecret>,
         deact:    Option<SdkmsTime>,
     ) -> Result<Uuid> {
         let req = match (mpis, hazmat) {
-            (MpiPublic::RSA{ e, n }, MpiSecret::RSA { d, p, q, u }) => {
+            (MpiPublic::RSA{ e, n }, Some(MpiSecret::RSA { d, p, q, u })) => {
                 let value = der::serialize::rsa_private(n, e, d, p, q, u);
                 let key_size = n.bits() as u32;
                 let rsa_opts = if ops.contains(KeyOperations::SIGN) {
@@ -1173,7 +1172,42 @@ pub fn import_tsk_to_dsm(
                     ..Default::default()
                 }
             },
-            (MpiPublic::EdDSA { curve, .. }, MpiSecret::EdDSA { scalar }) => {
+            (MpiPublic::RSA{ e, n }, None) => {
+                let value = der::serialize::rsa_public(n, e);
+                let key_size = n.bits() as u32;
+                let rsa_opts = if ops.contains(KeyOperations::SIGN) {
+                    let sig_policy = RsaSignaturePolicy {
+                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
+                    };
+                    Some(RsaOptions {
+                        signature_policy: vec![sig_policy],
+                        ..Default::default()
+                    })
+                } else if ops.contains(KeyOperations::DECRYPT) {
+                    let enc_policy = RsaEncryptionPolicy {
+                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
+                    };
+                    Some(RsaOptions {
+                        encryption_policy: vec![enc_policy],
+                        ..Default::default()
+                    })
+                } else {
+                    None
+                };
+                SobjectRequest {
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Rsa),
+                    key_ops:           Some(ops),
+                    key_size:          Some(key_size),
+                    rsa:               rsa_opts,
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::EdDSA { curve, .. }, Some(MpiSecret::EdDSA { scalar })) => {
                 let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
@@ -1186,7 +1220,7 @@ pub fn import_tsk_to_dsm(
                     ..Default::default()
                 }
             },
-            (MpiPublic::ECDSA { curve, .. }, MpiSecret::ECDSA { scalar }) => {
+            (MpiPublic::ECDSA { curve, .. },Some( MpiSecret::ECDSA { scalar })) => {
                 let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
@@ -1199,7 +1233,7 @@ pub fn import_tsk_to_dsm(
                     ..Default::default()
                 }
             },
-            (MpiPublic::ECDH { curve, q: _, hash, sym }, MpiSecret::ECDH { scalar }) => {
+            (MpiPublic::ECDH { curve, q: _, hash, sym }, Some(MpiSecret::ECDH { scalar })) => {
                 let value = der::serialize::ec_private(curve, scalar)?;
                 metadata.hash_algo = Some(*hash);
                 metadata.symm_algo = Some(*sym);
@@ -1265,9 +1299,27 @@ pub fn import_tsk_to_dsm(
     }
 
     let prim_key = tsk.primary_key();
-    let primary = prim_key.key().clone().parts_into_secret()?;
+    let key = prim_key.key().clone();
 
-    let creation_time = Timestamp::try_from(primary.creation_time())?;
+    let (secret_key, public_key, is_secret) = match key.clone().parts_into_secret() {
+        Ok(v) => (Some(v), None, true),
+        Err(_e) => (None, Some(key.parts_into_public()), false),
+    };
+
+    let (key_creation_time, creation_secs) = if is_secret {
+        // If it's a secret key, calculate creation time using the secret key's creation time
+        let creation_time = secret_key.as_ref().unwrap().creation_time();
+        let creation_secs = creation_time.duration_since(UNIX_EPOCH)?.as_secs();
+        (creation_time, creation_secs)
+    } else {
+        // If it's a public key, calculate creation time using the public key's creation time
+        let creation_time = public_key.as_ref().unwrap().creation_time();
+        let creation_secs = creation_time.duration_since(UNIX_EPOCH)?.as_secs();
+        (creation_time, creation_secs)
+    };
+    
+    let creation_time = Timestamp::try_from(key_creation_time)?;
+    
     let prim_flags = tsk.primary_key()
         .key_flags()
         .ok_or_else(|| anyhow::anyhow!("Bad input: primary has no key flags"))?;
@@ -1277,9 +1329,6 @@ pub fn import_tsk_to_dsm(
         "PGP primary, {}, {}", prim_id, prim_flags.human_readable()
     );
     let prim_deactivation = if let Some(d) = prim_key.key_validity_period() {
-        let creation_secs = primary
-            .creation_time()
-            .duration_since(UNIX_EPOCH)?.as_secs();
         Some(SdkmsTime(creation_secs + d.as_secs()))
     } else {
         None
@@ -1301,20 +1350,26 @@ pub fn import_tsk_to_dsm(
         exportable
     );
 
-    let prim_hazmat = get_hazardous_material(&primary);
+    let (prim_hazmat, mpis) = if is_secret {
+        let secret = secret_key.as_ref().unwrap();
+        (Some(get_hazardous_material(secret)), secret.mpis())
+    } else {
+        let public = public_key.as_ref().unwrap();
+        (None, public.mpis())
+    };
 
-    let prim_uuid = import_constructed_sobject(
+    let prim_uuid = import_constructed_sobject( 
         &cred,
         prim_name,
         prim_desc,
         prim_ops,
         &mut prim_metadata,
-        primary.mpis(),
-        &prim_hazmat,
+        mpis,
+        prim_hazmat.as_ref(),
         prim_deactivation
     )?;
 
-    for subkey in tsk.keys().subkeys().unencrypted_secret() {
+   for subkey in tsk.keys().subkeys().unencrypted_secret() {
         let creation_time = Timestamp::try_from(subkey.creation_time())?;
         let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
         let subkey_id = subkey.keyid().to_hex();
@@ -1348,7 +1403,7 @@ pub fn import_tsk_to_dsm(
             exportable
         );
 
-        let subkey_hazmat = get_hazardous_material(&subkey);
+        let subkey_hazmat = if is_secret { Some(get_hazardous_material(&subkey)) } else { None };
 
         info!("import subkey {}", subkey_name);
         let subkey_uuid = import_constructed_sobject(
@@ -1358,7 +1413,7 @@ pub fn import_tsk_to_dsm(
             subkey_ops,
             &mut subkey_md,
             subkey.mpis(),
-            &subkey_hazmat,
+            subkey_hazmat.as_ref(),
             subkey_deactivation,
         )?;
 
@@ -1374,7 +1429,7 @@ pub fn import_tsk_to_dsm(
         cred.dsm_client()?.__update_sobject(
             &subkey_uuid, &link_req, "bind subkey to primary key"
         )?;
-    }
+    } 
 
     Ok(())
 }

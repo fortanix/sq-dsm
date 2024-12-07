@@ -147,6 +147,15 @@ pub mod serialize {
     use sequoia_openpgp::crypto::mpi;
     use num::bigint::BigUint;
 
+    pub fn rsa_public(n: &mpi::MPI, e: &mpi::MPI) -> Vec<u8> {
+        yasna::construct_der(|writer| {
+            writer.write_sequence(|writer| {
+                writer.next().write_biguint(&BigUint::from_bytes_be(n.value()));
+                writer.next().write_biguint(&BigUint::from_bytes_be(e.value()));
+            });
+        })
+    }
+
     pub fn rsa_private(
         n: &mpi::MPI,
         e: &mpi::MPI,
