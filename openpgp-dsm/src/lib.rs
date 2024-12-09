@@ -1117,7 +1117,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
     Ok(merged)
 }
 
-/// Imports a given Transferable Secret Key to DSM.
+/// Imports a given Transferable Public Key (TPK)/Transferable Secret Key (TSK) to DSM.
 pub fn import_key_to_dsm(
     tsk:        ValidCert,
     key_name:   &str,
@@ -1274,27 +1274,40 @@ pub fn import_key_to_dsm(
         key_flags:  Option<KeyFlags>,
         pk_algo:    PublicKeyAlgorithm,
         exportable: bool,
+        is_secret: bool,
     ) -> KeyOperations {
         let mut ops = KeyOperations::APPMANAGEABLE;
-
         if exportable {
             ops |= KeyOperations::EXPORT;
         }
 
-        if let Some(f) = key_flags {
-            if f.for_signing() | f.for_certification() {
-                ops |= KeyOperations::SIGN;
-            }
+        if is_secret{
+            // SECRET KEY
+            if let Some(f) = key_flags {
+                if f.for_signing() | f.for_certification() {
+                    ops |= KeyOperations::SIGN;
+                }
 
-            if f.for_transport_encryption() | f.for_storage_encryption() {
-                if pk_algo == PublicKeyAlgorithm::ECDH {
-                    ops |= KeyOperations::AGREEKEY;
-                } else {
-                    ops |= KeyOperations::DECRYPT;
+                if f.for_transport_encryption() | f.for_storage_encryption() {
+                    if pk_algo == PublicKeyAlgorithm::ECDH {
+                        ops |= KeyOperations::AGREEKEY;
+                    } else {
+                        ops |= KeyOperations::DECRYPT;
+                    }
+                }
+            }
+        } else {
+            // PUBLIC KEY
+            if let Some(f) = key_flags {
+                if f.for_signing() | f.for_certification() {
+                    ops |= KeyOperations::VERIFY;
+                }
+
+                if f.for_transport_encryption() | f.for_storage_encryption() {
+                    ops |= KeyOperations::ENCRYPT;
                 }
             }
         }
-
         ops
     }
 
@@ -1347,7 +1360,8 @@ pub fn import_key_to_dsm(
     let prim_ops = get_operations(
         prim_key.key_flags(),
         prim_key.pk_algo(),
-        exportable
+        exportable,
+        is_secret
     );
 
     let (prim_hazmat, mpis) = if is_secret {
@@ -1369,67 +1383,131 @@ pub fn import_key_to_dsm(
         prim_deactivation
     )?;
 
-   for subkey in tsk.keys().subkeys().unencrypted_secret() {
-        let creation_time = Timestamp::try_from(subkey.creation_time())?;
-        let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
-        let subkey_id = subkey.keyid().to_hex();
-        let subkey_name = format!(
-            "{} {}/{}", key_name, prim_id, subkey_id,
-        ).to_string();
-        let subkey_desc = format!(
-            "PGP subkey, {}", subkey_flags.human_readable()
-        );
-        let subkey_deactivation = if let Some(d) = subkey.key_validity_period() {
-            let creation_secs = subkey
-                .creation_time()
-                .duration_since(UNIX_EPOCH)?.as_secs();
-            Some(SdkmsTime(creation_secs + d.as_secs()))
-        } else {
-            None
-        };
-
-        let mut subkey_md = KeyMetadata {
-            certificate:                 None,
-            sq_dsm_version:              SQ_DSM_VERSION.to_string(),
-            external_creation_timestamp: Some(creation_time.into()),
-            fingerprint:                 subkey.fingerprint().to_hex(),
-            key_flags:                   Some(subkey_flags),
-            ..Default::default()
-        };
-
-        let subkey_ops = get_operations(
-            subkey.key_flags(),
-            subkey.pk_algo(),
-            exportable
-        );
-
-        let subkey_hazmat = if is_secret { Some(get_hazardous_material(&subkey)) } else { None };
-
-        info!("import subkey {}", subkey_name);
-        let subkey_uuid = import_constructed_sobject(
-            &cred,
-            subkey_name.clone(),
-            subkey_desc,
-            subkey_ops,
-            &mut subkey_md,
-            subkey.mpis(),
-            subkey_hazmat.as_ref(),
-            subkey_deactivation,
-        )?;
-
-        info!("bind subkey {} to primary key in DSM", subkey_name);
-        let link_req = SobjectRequest {
-            links: Some(KeyLinks {
-                parent: Some(prim_uuid),
+    if is_secret{
+        for subkey in tsk.keys().subkeys().unencrypted_secret() {
+            let creation_time = Timestamp::try_from(subkey.creation_time())?;
+            let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
+            let subkey_id = subkey.keyid().to_hex();
+            let subkey_name = format!(
+                "{} {}/{}", key_name, prim_id, subkey_id,
+            ).to_string();
+            let subkey_desc = format!(
+                "PGP subkey, {}", subkey_flags.human_readable()
+            );
+            let subkey_deactivation = if let Some(d) = subkey.key_validity_period() {
+                let creation_secs = subkey
+                    .creation_time()
+                    .duration_since(UNIX_EPOCH)?.as_secs();
+                Some(SdkmsTime(creation_secs + d.as_secs()))
+            } else {
+                None
+            };
+    
+            let mut subkey_md = KeyMetadata {
+                certificate:                 None,
+                sq_dsm_version:              SQ_DSM_VERSION.to_string(),
+                external_creation_timestamp: Some(creation_time.into()),
+                fingerprint:                 subkey.fingerprint().to_hex(),
+                key_flags:                   Some(subkey_flags),
                 ..Default::default()
-            }),
-            ..Default::default()
-        };
-
-        cred.dsm_client()?.__update_sobject(
-            &subkey_uuid, &link_req, "bind subkey to primary key"
-        )?;
-    } 
+            };
+    
+            let subkey_ops = get_operations(
+                subkey.key_flags(),
+                subkey.pk_algo(),
+                exportable,
+                is_secret
+            );
+    
+            let subkey_hazmat = Some(get_hazardous_material(&subkey));
+    
+            info!("import subkey {}", subkey_name);
+            let subkey_uuid = import_constructed_sobject(
+                &cred,
+                subkey_name.clone(),
+                subkey_desc,
+                subkey_ops,
+                &mut subkey_md,
+                subkey.mpis(),
+                subkey_hazmat.as_ref(),
+                subkey_deactivation,
+            )?;
+    
+            info!("bind subkey {} to primary key in DSM", subkey_name);
+            let link_req = SobjectRequest {
+                links: Some(KeyLinks {
+                    parent: Some(prim_uuid),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+    
+            cred.dsm_client()?.__update_sobject(
+                &subkey_uuid, &link_req, "bind subkey to primary key"
+            )?;
+        }
+    }else {
+        for subkey in tsk.keys().subkeys() {
+            let creation_time = Timestamp::try_from(subkey.creation_time())?;
+            let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
+            let subkey_id = subkey.keyid().to_hex();
+            let subkey_name = format!(
+                "{} {}/{}", key_name, prim_id, subkey_id,
+            ).to_string();
+            let subkey_desc = format!(
+                "PGP subkey, {}", subkey_flags.human_readable()
+            );
+            let subkey_deactivation = if let Some(d) = subkey.key_validity_period() {
+                let creation_secs = subkey
+                    .creation_time()
+                    .duration_since(UNIX_EPOCH)?.as_secs();
+                Some(SdkmsTime(creation_secs + d.as_secs()))
+            } else {
+                None
+            };
+    
+            let mut subkey_md = KeyMetadata {
+                certificate:                 None,
+                sq_dsm_version:              SQ_DSM_VERSION.to_string(),
+                external_creation_timestamp: Some(creation_time.into()),
+                fingerprint:                 subkey.fingerprint().to_hex(),
+                key_flags:                   Some(subkey_flags),
+                ..Default::default()
+            };
+    
+            let subkey_ops = get_operations(
+                subkey.key_flags(),
+                subkey.pk_algo(),
+                exportable,
+                is_secret
+            );
+    
+            info!("import subkey {}", subkey_name);
+            let subkey_uuid = import_constructed_sobject(
+                &cred,
+                subkey_name.clone(),
+                subkey_desc,
+                subkey_ops,
+                &mut subkey_md,
+                subkey.mpis(),
+                None,
+                subkey_deactivation,
+            )?;
+    
+            info!("bind subkey {} to primary key in DSM", subkey_name);
+            let link_req = SobjectRequest {
+                links: Some(KeyLinks {
+                    parent: Some(prim_uuid),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+    
+            cred.dsm_client()?.__update_sobject(
+                &subkey_uuid, &link_req, "bind subkey to primary key"
+            )?;
+        }
+    }
 
     Ok(())
 }

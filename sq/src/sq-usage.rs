@@ -406,8 +406,8 @@
 //!     extract-cert             Converts a key to a cert
 //!     extract-dsm-secret       Extracts a secret key from Fortanix DSM
 //!     dsm-import
-//!             Imports a Transferable Secret Key into Fortanix DSM
-//!
+//!             Imports a given Transferable Public Key (TPK)/Transferable Secret
+//!             Key (TSK) into Fortanix DSM
 //!     attest-certifications    Attests to third-party certifications
 //!     info                     List details on DSM key
 //!     list-dsm-keys            List all accessible keys for the App
@@ -474,8 +474,8 @@
 //!             universal]
 //!     -c, --cipher-suite <CIPHER-SUITE>
 //!             Selects the cryptographic algorithms for the key [default: cv25519]
-//!             [possible values: rsa2k, rsa3k, rsa4k, rsa8k, cv25519, nistp256, nistp384,
-//!             nistp521]
+//!             [possible values: rsa2k, rsa3k, rsa4k, rsa8k, cv25519, nistp256,
+//!             nistp384, nistp521]
 //!         --client-cert <P12-FILE>
 //!             Authenticates to Fortanix DSM with the given client certificate
 //!
@@ -673,7 +673,8 @@
 //! ### Subcommand key dsm-import
 //!
 //! ```text
-//! Imports a Transferable Secret Key info Fortanix DSM
+//! Imports a given Transferable Public Key (TPK)/Transferable Secret Key (TSK) info
+//! Fortanix DSM
 //!
 //! This command unlocks the TSK (if encrypted), and imports it into Fortanix DSM
 //! for secure storage and usage.

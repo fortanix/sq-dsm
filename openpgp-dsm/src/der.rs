@@ -148,10 +148,21 @@ pub mod serialize {
     use num::bigint::BigUint;
 
     pub fn rsa_public(n: &mpi::MPI, e: &mpi::MPI) -> Vec<u8> {
-        yasna::construct_der(|writer| {
-            writer.write_sequence(|writer| {
-                writer.next().write_biguint(&BigUint::from_bytes_be(n.value()));
-                writer.next().write_biguint(&BigUint::from_bytes_be(e.value()));
+        let rsa_key_bits = yasna::construct_der(|der_writer| {
+            der_writer.write_sequence_of(|w| {
+                w.next()
+                    .write_biguint(&BigUint::from_bytes_be(n.value()));
+                w.next()
+                    .write_biguint(&BigUint::from_bytes_be(e.value()));
+            });
+        });
+        yasna::construct_der(|der_writer| {
+            der_writer.write_sequence_of(|w| {
+                w.next().write_sequence(|w| {
+                    w.next().write_oid(&Oid::from_slice(&[1, 2, 840, 113549, 1, 1, 1]));
+                    w.next().write_null();
+                });
+                w.next().write_bitvec_bytes(&rsa_key_bits, rsa_key_bits.len() * 8);
             });
         })
     }
