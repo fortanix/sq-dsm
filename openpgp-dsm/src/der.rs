@@ -147,8 +147,9 @@ pub mod serialize {
     use sequoia_openpgp::crypto::mpi;
     use num::bigint::BigUint;
 
-    pub fn rsa_public(n: &mpi::MPI, e: &mpi::MPI) -> Vec<u8> {
-        let rsa_key_bits = yasna::construct_der(|der_writer| {
+    pub fn spki_rsa(n: &mpi::MPI, e: &mpi::MPI) -> Vec<u8> {
+        // RSA public key
+        let rsa_public_key = yasna::construct_der(|der_writer| {
             der_writer.write_sequence_of(|w| {
                 w.next()
                     .write_biguint(&BigUint::from_bytes_be(n.value()));
@@ -156,13 +157,15 @@ pub mod serialize {
                     .write_biguint(&BigUint::from_bytes_be(e.value()));
             });
         });
+
+        // Construct the SPKI structure
         yasna::construct_der(|der_writer| {
             der_writer.write_sequence_of(|w| {
                 w.next().write_sequence(|w| {
                     w.next().write_oid(&Oid::from_slice(&[1, 2, 840, 113549, 1, 1, 1]));
                     w.next().write_null();
                 });
-                w.next().write_bitvec_bytes(&rsa_key_bits, rsa_key_bits.len() * 8);
+                w.next().write_bitvec(&BitVec::from_bytes(&rsa_public_key));
             });
         })
     }
@@ -207,6 +210,57 @@ pub mod serialize {
         })
     }
 
+    pub fn spki_eddsa(curve: &Curve, q: &mpi::MPI) -> Result<Vec<u8>> {
+        // Decode the point to get the public key bytes (compressed form)
+        let (public_key, _) = q.decode_point(curve)?;
+        let oid = curve_oid(curve)?;
+
+        // Construct the SPKI structure
+        Ok(yasna::construct_der(|der_writer| {
+            der_writer.write_sequence(|writer| {
+                // Write AlgorithmIdentifier
+                writer.next().write_sequence(|writer| {
+                    writer.next().write_oid(&oid);
+                });
+
+                // Write the public key as a BIT STRING (single compressed point)
+                writer.next().write_bitvec(&BitVec::from_bytes(&public_key));
+            });
+        }))
+    }
+
+
+    pub fn spki_ecdsa(curve: &Curve, q: &mpi::MPI) -> Result<Vec<u8>> {
+        // Decode the point to get the public key bytes (uncompressed form)
+        let (x, y) = q.decode_point(curve)?;
+    
+        // Construct the uncompressed public key (0x04 | x | y)
+        let mut public_key = Vec::new();
+        public_key.push(0x04); // Prefix for uncompressed point
+        public_key.extend_from_slice(&x); // X-coordinate
+        public_key.extend_from_slice(&y); // Y-coordinate
+    
+        let oid = curve_oid(curve)?;
+    
+        // Construct the SPKI structure
+        Ok(yasna::construct_der(|der_writer| {
+            der_writer.write_sequence(|writer| {
+                // Write AlgorithmIdentifier
+                writer.next().write_sequence(|writer| {
+                    // OID for ecPublicKey (1.2.840.10045.2.1)
+                    writer.next().write_oid(&yasna::models::ObjectIdentifier::from_slice(&[
+                        1, 2, 840, 10045, 2, 1,
+                    ]));
+                    // Write curve parameters (OID of the curve, e.g., prime256v1)
+                    writer.next().write_oid(&oid);
+                });
+    
+                // Write the public key as a BIT STRING (uncompressed format)
+                writer.next().write_bitvec(&BitVec::from_bytes(&public_key));
+            });
+        }))
+    }
+    
     pub fn ec_private_25519(curve: &Curve, x: Vec<u8>) -> Result<Vec<u8>> {
         let opaque_octet_string = yasna::construct_der(|w| {
             w.write_bytes(&x);

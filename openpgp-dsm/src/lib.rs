@@ -1135,6 +1135,7 @@ pub fn import_key_to_dsm(
         hazmat:   Option<&MpiSecret>,
         deact:    Option<SdkmsTime>,
     ) -> Result<Uuid> {
+        println!("inside import_constructed_sobject ");
         let req = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, Some(MpiSecret::RSA { d, p, q, u })) => {
                 let value = der::serialize::rsa_private(n, e, d, p, q, u);
@@ -1173,7 +1174,7 @@ pub fn import_key_to_dsm(
                 }
             },
             (MpiPublic::RSA{ e, n }, None) => {
-                let value = der::serialize::rsa_public(n, e);
+                let value = der::serialize::spki_rsa(n, e);
                 let key_size = n.bits() as u32;
                 let rsa_opts = if ops.contains(KeyOperations::SIGN) {
                     let sig_policy = RsaSignaturePolicy {
@@ -1209,6 +1210,50 @@ pub fn import_key_to_dsm(
             },
             (MpiPublic::EdDSA { curve, .. }, Some(MpiSecret::EdDSA { scalar })) => {
                 let value = der::serialize::ec_private(curve, scalar)?;
+                SobjectRequest {
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Ec),
+                    key_ops:           Some(ops),
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::EdDSA { curve, q }, None ) => {
+                println!("in eddsa pub key section with curve => {:?}", curve);
+                let value = der::serialize::spki_eddsa(curve, q)?;
+                SobjectRequest {
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Ec),
+                    key_ops:           Some(ops),
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::ECDSA { curve, q }, None) => {
+                println!("in ecdsa pub key section with curver => {:?}", curve);
+                let value = der::serialize::spki_ecdsa(curve, q)?;
+                SobjectRequest {
+                    name:              Some(name.clone()),
+                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    description:       Some(desc),
+                    obj_type:          Some(ObjectType::Ec),
+                    key_ops:           Some(ops),
+                    value:             Some(value.into()),
+                    deactivation_date: deact,
+                    ..Default::default()
+                }
+            },
+            (MpiPublic::ECDH { curve, q, hash, sym }, None) => {
+                let value = der::serialize::spki_ecdh(curve, q);
+                println!("in ecdh with curve => {:?}", curve);
+                metadata.hash_algo = Some(*hash);
+                metadata.symm_algo = Some(*sym);
                 SobjectRequest {
                     name:              Some(name.clone()),
                     custom_metadata:   Some(metadata.to_custom_metadata()?),
@@ -1304,7 +1349,7 @@ pub fn import_key_to_dsm(
                 }
 
                 if f.for_transport_encryption() | f.for_storage_encryption() {
-                    ops |= KeyOperations::ENCRYPT;
+                    //ops |= KeyOperations::ENCRYPT;
                 }
             }
         }
@@ -1422,6 +1467,7 @@ pub fn import_key_to_dsm(
             let subkey_hazmat = Some(get_hazardous_material(&subkey));
     
             info!("import subkey {}", subkey_name);
+            println!("inside subkeys if means private");
             let subkey_uuid = import_constructed_sobject(
                 &cred,
                 subkey_name.clone(),
@@ -1483,6 +1529,7 @@ pub fn import_key_to_dsm(
             );
     
             info!("import subkey {}", subkey_name);
+            println!("inside subkeys else means public");
             let subkey_uuid = import_constructed_sobject(
                 &cred,
                 subkey_name.clone(),
