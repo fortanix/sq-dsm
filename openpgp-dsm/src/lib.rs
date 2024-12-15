@@ -1135,7 +1135,6 @@ pub fn import_key_to_dsm(
         hazmat:   Option<&MpiSecret>,
         deact:    Option<SdkmsTime>,
     ) -> Result<Uuid> {
-        println!("inside import_constructed_sobject ");
         let req = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, Some(MpiSecret::RSA { d, p, q, u })) => {
                 let value = der::serialize::rsa_private(n, e, d, p, q, u);
@@ -1222,8 +1221,7 @@ pub fn import_key_to_dsm(
                 }
             },
             (MpiPublic::EdDSA { curve, q }, None ) => {
-                println!("in eddsa pub key section with curve => {:?}", curve);
-                let value = der::serialize::spki_eddsa(curve, q)?;
+                let value = der::serialize::spki_ec(curve, q);
                 SobjectRequest {
                     name:              Some(name.clone()),
                     custom_metadata:   Some(metadata.to_custom_metadata()?),
@@ -1236,8 +1234,7 @@ pub fn import_key_to_dsm(
                 }
             },
             (MpiPublic::ECDSA { curve, q }, None) => {
-                println!("in ecdsa pub key section with curver => {:?}", curve);
-                let value = der::serialize::spki_ecdsa(curve, q)?;
+                let value = der::serialize::spki_ec(curve, q);
                 SobjectRequest {
                     name:              Some(name.clone()),
                     custom_metadata:   Some(metadata.to_custom_metadata()?),
@@ -1250,8 +1247,7 @@ pub fn import_key_to_dsm(
                 }
             },
             (MpiPublic::ECDH { curve, q, hash, sym }, None) => {
-                let value = der::serialize::spki_ecdh(curve, q);
-                println!("in ecdh with curve => {:?}", curve);
+                let value = der::serialize::spki_ec(curve, q);
                 metadata.hash_algo = Some(*hash);
                 metadata.symm_algo = Some(*sym);
                 SobjectRequest {
@@ -1349,7 +1345,11 @@ pub fn import_key_to_dsm(
                 }
 
                 if f.for_transport_encryption() | f.for_storage_encryption() {
-                    //ops |= KeyOperations::ENCRYPT;
+                    if pk_algo == PublicKeyAlgorithm::ECDH {
+                        ops |= KeyOperations::AGREEKEY;
+                    } else{
+                        ops |= KeyOperations::ENCRYPT;
+                    }
                 }
             }
         }
@@ -1467,7 +1467,6 @@ pub fn import_key_to_dsm(
             let subkey_hazmat = Some(get_hazardous_material(&subkey));
     
             info!("import subkey {}", subkey_name);
-            println!("inside subkeys if means private");
             let subkey_uuid = import_constructed_sobject(
                 &cred,
                 subkey_name.clone(),
@@ -1529,7 +1528,6 @@ pub fn import_key_to_dsm(
             );
     
             info!("import subkey {}", subkey_name);
-            println!("inside subkeys else means public");
             let subkey_uuid = import_constructed_sobject(
                 &cred,
                 subkey_name.clone(),
@@ -1922,7 +1920,7 @@ impl Decryptor for DsmAgent {
                     _ => panic!("inconsistent pk algo"),
                 };
 
-                let ephemeral_der = der::serialize::spki_ecdh(curve, e);
+                let ephemeral_der = der::serialize::spki_ec(curve, e);
 
                 // Import ephemeral public key
                 let e_descriptor = {
