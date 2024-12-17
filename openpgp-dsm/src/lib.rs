@@ -73,6 +73,7 @@ use sequoia_openpgp::types::{
 use sequoia_openpgp::{Cert, Packet};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
 mod der;
 
 /// DsmAgent implements [Signer] and [Decryptor] with secrets stored inside
@@ -1315,14 +1316,15 @@ pub fn import_key_to_dsm(
         key_flags:  Option<KeyFlags>,
         pk_algo:    PublicKeyAlgorithm,
         exportable: bool,
-        is_secret: bool,
+        is_secret_key: bool,
     ) -> KeyOperations {
         let mut ops = KeyOperations::APPMANAGEABLE;
+
         if exportable {
             ops |= KeyOperations::EXPORT;
         }
 
-        if is_secret{
+        if is_secret_key{
             // SECRET KEY
             if let Some(f) = key_flags {
                 if f.for_signing() | f.for_certification() {
@@ -1353,18 +1355,19 @@ pub fn import_key_to_dsm(
                 }
             }
         }
+
         ops
     }
 
     let prim_key = tsk.primary_key();
-    let key = prim_key.key().clone();
+    let key = prim_key.key();
 
-    let (secret_key, public_key, is_secret) = match key.clone().parts_into_secret() {
+    let (secret_key, public_key, is_secret_key) = match key.clone().parts_into_secret() {
         Ok(v) => (Some(v), None, true),
-        Err(_e) => (None, Some(key.parts_into_public()), false),
+        Err(_e) => (None, Some(key.clone().parts_into_public()), false),
     };
 
-    let (key_creation_time, creation_secs) = if is_secret {
+    let (key_creation_time, creation_secs) = if is_secret_key {
         // If it's a secret key, calculate creation time using the secret key's creation time
         let creation_time = secret_key.as_ref().unwrap().creation_time();
         let creation_secs = creation_time.duration_since(UNIX_EPOCH)?.as_secs();
@@ -1406,10 +1409,10 @@ pub fn import_key_to_dsm(
         prim_key.key_flags(),
         prim_key.pk_algo(),
         exportable,
-        is_secret
+        is_secret_key
     );
 
-    let (prim_hazmat, mpis) = if is_secret {
+    let (prim_hazmat, mpis) = if is_secret_key {
         let secret = secret_key.as_ref().unwrap();
         (Some(get_hazardous_material(secret)), secret.mpis())
     } else {
@@ -1428,7 +1431,8 @@ pub fn import_key_to_dsm(
         prim_deactivation
     )?;
 
-    if is_secret{
+    if is_secret_key{
+        // TSK SubKeys
         for subkey in tsk.keys().subkeys().unencrypted_secret() {
             let creation_time = Timestamp::try_from(subkey.creation_time())?;
             let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
@@ -1461,7 +1465,7 @@ pub fn import_key_to_dsm(
                 subkey.key_flags(),
                 subkey.pk_algo(),
                 exportable,
-                is_secret
+                is_secret_key
             );
     
             let subkey_hazmat = Some(get_hazardous_material(&subkey));
@@ -1492,6 +1496,7 @@ pub fn import_key_to_dsm(
             )?;
         }
     }else {
+        // TPK SubKeys
         for subkey in tsk.keys().subkeys() {
             let creation_time = Timestamp::try_from(subkey.creation_time())?;
             let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
@@ -1524,7 +1529,7 @@ pub fn import_key_to_dsm(
                 subkey.key_flags(),
                 subkey.pk_algo(),
                 exportable,
-                is_secret
+                is_secret_key
             );
     
             info!("import subkey {}", subkey_name);
