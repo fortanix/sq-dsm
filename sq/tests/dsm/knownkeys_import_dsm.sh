@@ -40,11 +40,21 @@ for f in "$knownkeys"/*; do
     $sq key extract-cert < "$f" > "$alice_public"
     diff "$alice_public" "$alice_public_extracted"
 
+    comm "Import public key into DSM"
+    $sq key dsm-import --dsm-key="publickey-$key_name" < "$alice_public_extracted"
+
+    # Retrieve public key from DSM & Compare uploaded and extracted public keys
+    comm "Compare public keys"
+    $sq key extract-cert --dsm-key="publickey-$key_name" > publickey_$key_name.asc
+    diff publickey_$key_name.asc $alice_public_extracted
+
     comm "Signature roundtrip"
     $sq sign --dsm-key="$key_name" < "$message" | $sq verify --signer-cert="$alice_public"
+    $sq sign --dsm-key="$key_name" < "$message" | $sq verify --signer-cert="publickey_$key_name.asc"
 
     comm "Encryption roundtrip"
     $sq encrypt --recipient-cert="$alice_public_extracted" < "$message" | $sq decrypt --dsm-key="$key_name"
+    $sq encrypt --recipient-cert="publickey_$key_name.asc" < "$message" | $sq decrypt --dsm-key="$key_name"
 
 done
 
