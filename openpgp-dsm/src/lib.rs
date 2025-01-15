@@ -1118,7 +1118,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
     Ok(merged)
 }
 
-/// Imports a given Transferable Public Key (TPK)/Transferable Secret Key (TSK) to DSM.
+/// Imports a given Transferable Secret Key (TSK) or a Transferable Public Key (TPK) into DSM.
 pub fn import_key_to_dsm(
     tsk:        ValidCert,
     key_name:   &str,

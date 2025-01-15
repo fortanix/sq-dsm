@@ -186,7 +186,7 @@ pub mod serialize {
             })
         })
     }
-    
+
     pub fn ec_private_25519(curve: &Curve, x: Vec<u8>) -> Result<Vec<u8>> {
         let opaque_octet_string = yasna::construct_der(|w| {
             w.write_bytes(&x);
@@ -236,6 +236,8 @@ pub mod serialize {
     }
 
     pub fn spki_rsa(n: &mpi::MPI, e: &mpi::MPI) -> Vec<u8> {
+        let rsa_oid = Oid::from_slice(&[1, 2, 840, 113549, 1, 1, 1]);
+
         // RSA public key
         let rsa_public_key = yasna::construct_der(|der_writer| {
             der_writer.write_sequence_of(|w| {
@@ -250,7 +252,7 @@ pub mod serialize {
         yasna::construct_der(|der_writer| {
             der_writer.write_sequence_of(|w| {
                 w.next().write_sequence(|w| {
-                    w.next().write_oid(&Oid::from_slice(&[1, 2, 840, 113549, 1, 1, 1]));
+                    w.next().write_oid(&rsa_oid);
                     w.next().write_null();
                 });
                 w.next().write_bitvec(&BitVec::from_bytes(&rsa_public_key));

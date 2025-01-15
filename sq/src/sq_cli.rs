@@ -835,9 +835,9 @@ command exfiltrates secrets from DSM and outputs a Key.
                             )
                 .subcommand(SubCommand::with_name("dsm-import")
                             .display_order(112)
-                            .about("Imports a Transferable Public Key (TPK)/Transferable Secret Key (TSK) into Fortanix DSM")
+                            .about("Imports a Transferable Secret Key (TSK) or a Transferable Public Key (TPK) into Fortanix DSM")
                             .long_about(
-"Imports a Transferable Public Key (TPK)/Transferable Secret Key (TSK) info Fortanix DSM
+"Imports a Transferable Secret Key (TSK) or a Transferable Public Key (TPK) into Fortanix DSM
 
 This command unlocks the TSK (if encrypted), and imports it into Fortanix DSM for secure storage and usage.
 ")
