@@ -12,8 +12,16 @@ repository = "https://gitlab.com/sequoia-pgp/sequoia"
 build = "build.rs"
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "1.0.0" }
+sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
 anyhow = "1.0.18"
 
 [lib]
 bench = false
+
+[features]
+default = ["sequoia-openpgp/default"]
+crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
+crypto-cng = ["sequoia-openpgp/crypto-cng"]
+compression = ["sequoia-openpgp/compression"]
+compression-deflate = ["sequoia-openpgp/compression-deflate"]
+compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]

@@ -437,7 +437,7 @@ When building, make sure to disable default features (to disable
 Nettle) and enable the CNG via `crypto-cng` Cargo feature:
 
 ```bash
-$ cargo build --no-default-features --features crypto-cng,compression # Only change crypto backend
+$ cargo build --no-default-features --features net,crypto-cng,compression
 ```
 
 [`capnp`]: https://capnproto.org/install.html

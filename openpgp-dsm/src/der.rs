@@ -235,19 +235,44 @@ pub mod serialize {
         }))
     }
 
-    pub fn spki_ecdh(curve: &Curve, e: &mpi::MPI) -> Vec<u8> {
+    pub fn spki_rsa(n: &mpi::MPI, e: &mpi::MPI) -> Vec<u8> {
+        let rsa_oid = Oid::from_slice(&[1, 2, 840, 113549, 1, 1, 1]);
+
+        // RSA public key
+        let rsa_public_key = yasna::construct_der(|der_writer| {
+            der_writer.write_sequence_of(|w| {
+                w.next()
+                    .write_biguint(&BigUint::from_bytes_be(n.value()));
+                w.next()
+                    .write_biguint(&BigUint::from_bytes_be(e.value()));
+            });
+        });
+
+        // Construct the SPKI structure
+        yasna::construct_der(|der_writer| {
+            der_writer.write_sequence_of(|w| {
+                w.next().write_sequence(|w| {
+                    w.next().write_oid(&rsa_oid);
+                    w.next().write_null();
+                });
+                w.next().write_bitvec(&BitVec::from_bytes(&rsa_public_key));
+            });
+        })
+    }
+
+    pub fn spki_ec(curve: &Curve, e: &mpi::MPI) -> Vec<u8> {
         match curve {
-            Curve::Cv25519 => {
+            Curve::Cv25519 | Curve::Ed25519 => {
                 let x = e.value();
                 assert!(!x.is_empty());
 
                 let x = x[1..].to_vec();
 
-                let curve_25519_oid = Oid::from_slice(&[1, 3, 101, 110]);
+                let oid = curve_oid(curve).expect("bad curve OID");
                 yasna::construct_der(|w| {
                     w.write_sequence(|w| {
                         w.next().write_sequence(|w| {
-                            w.next().write_oid(&curve_25519_oid);
+                            w.next().write_oid(&oid);
                         });
                         w.next().write_bitvec(&BitVec::from_bytes(&x))
                     });
