@@ -1922,7 +1922,7 @@ impl Decryptor for DsmAgent {
             MpiCiphertext::ECDH { e, .. } => {
                 let curve = match &self.public.mpis() {
                     MpiPublic::ECDH { curve, .. } => curve,
-                    _ => panic!("inconsistent pk algo"),
+                    _ => return Err(Error::msg("inconsistent pk algo")),
                 };
 
                 let ephemeral_der = der::serialize::spki_ec(curve, e);
