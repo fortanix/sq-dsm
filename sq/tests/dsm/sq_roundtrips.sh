@@ -76,4 +76,13 @@ $sq decrypt $apikey --signer-cert="$bob_dsm" --signer-cert="$bob_local_pub" --ds
 
 diff "$message" "$decrypted_signed"
 
+# Encrypt to multiple recipients, Decrypt with one of the recipient
+comm "encrypt to both Bob and Alice"
+$sq --force encrypt --recipient-cert "$bob_dsm" --recipient-cert "$alice_public" "$message" --output "$encrypted_nosign"
+my_cat "$encrypted_nosign"
+
+comm "decrypt with Alice key"
+$sq --force decrypt --dsm-key="$alice_key_name" "$encrypted_nosign" --output "$decrypted_nosign"
+diff "$message" "$decrypted_nosign"
+
 echo "SUCCESS"
