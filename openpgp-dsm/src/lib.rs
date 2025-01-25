@@ -634,6 +634,7 @@ pub fn generate_key(
     key_flag_args: Vec<KeyFlags>,
     validity_period: Option<Duration>,
     user_id: Option<&str>,
+    group_name: Option<&str>,
     algo: Option<&str>,
     exportable: bool,
     credentials: Credentials,
@@ -690,6 +691,18 @@ pub fn generate_key(
 
     let dsm_client = credentials.dsm_client()?;
 
+    // Get Group-ID from given Group name
+    let g_id: Option<Uuid> = if let Some(name) = group_name {
+        let groups_list = dsm_client.list_groups().context(format!("Failed to fetch Groups list"))?;
+        let found_group = groups_list.iter().find(|group| group.name == name);
+        if found_group.is_none() {
+            println!("Group '{}' not found, Proceeding with the default group.", name);
+        }
+        found_group.map(|group| group.group_id)
+    } else {
+        None
+    };
+
     info!("key generation: create primary key");
     let primary = PublicKey::create(
         &dsm_client,
@@ -697,7 +710,8 @@ pub fn generate_key(
         KeyRole::Primary,
         &algorithm,
         exportable,
-        validity_period
+        validity_period,
+        g_id
     )
     .context("could not create primary key")?;
 
@@ -712,7 +726,8 @@ pub fn generate_key(
                 KeyRole::SigningSubkey,
                 &algorithm,
                 exportable,
-                validity_period
+                validity_period,
+                g_id
             )?;
 
             signing_subkeys.push(signing_subkey);
@@ -726,7 +741,8 @@ pub fn generate_key(
                 KeyRole::EncryptionSubkey,
                 &algorithm,
                 exportable,
-                validity_period
+                validity_period,
+                g_id
             )?;
 
             encryption_subkeys.push(encryption_subkey);
@@ -942,6 +958,7 @@ pub fn generate_key(
 pub struct DsmKeyInfo {
     name: String,
     kid: Uuid,
+    group_id: Uuid,
     object_type: ObjectType,
     created_at: SdkmsTime,
     last_used_at: SdkmsTime,
@@ -960,6 +977,8 @@ impl TryFrom<&Sobject> for DsmKeyInfo {
                 .into(),
             kid: key.kid
                 .ok_or(anyhow::anyhow!("Key ID not present"))?,
+            group_id: key.group_id
+                .ok_or(anyhow::anyhow!("GroupID not present"))?,
             object_type: key.obj_type,
             created_at: key.created_at,
             last_used_at: key.lastused_at,
@@ -985,6 +1004,7 @@ impl DsmKeyInfo {
         format!(
             "{}:
     UUID: {}
+    GroupID: {}
     Object Type: {:?}
     Created at: {}
     Last used at: {}
@@ -992,6 +1012,7 @@ impl DsmKeyInfo {
 ",
             self.name,
             self.kid,
+            self.group_id,
             self.object_type,
             self.created_at.to_datetime(),
             if self.last_used_at.eq(&SdkmsTime(0)) {
@@ -1122,6 +1143,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
 pub fn import_key_to_dsm(
     tsk:        ValidCert,
     key_name:   &str,
+    group_name: Option<&str>,
     cred:       Credentials,
     exportable: bool,
 ) -> Result<()> {
@@ -1135,8 +1157,9 @@ pub fn import_key_to_dsm(
         mpis:     &MpiPublic,
         hazmat:   Option<&MpiSecret>,
         deact:    Option<SdkmsTime>,
+        group_id: Option<Uuid>,
     ) -> Result<Uuid> {
-        let req = match (mpis, hazmat) {
+        let mut sobject_request = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, Some(MpiSecret::RSA { d, p, q, u })) => {
                 let value = der::serialize::rsa_private(n, e, d, p, q, u);
                 let key_size = n.bits() as u32;
@@ -1293,9 +1316,11 @@ pub fn import_key_to_dsm(
             _ => unimplemented!("public key algorithm")
         };
 
+        sobject_request.group_id = group_id;
+
         Ok(
             cred.dsm_client()?
-            .import_sobject(&req)
+            .import_sobject(&sobject_request)
             .context(format!("could not import secret {}", name))?
             .kid
             .ok_or(anyhow::anyhow!("no UUID returned from DSM"))?
@@ -1358,6 +1383,18 @@ pub fn import_key_to_dsm(
 
         ops
     }
+
+    // Get Group-ID from given Group name
+    let g_id: Option<Uuid> = if let Some(name) = group_name {
+        let groups_list = cred.dsm_client()?.list_groups().context(format!("Failed to fetch Groups list"))?;
+        let found_group = groups_list.iter().find(|group| group.name == name);
+        if found_group.is_none() {
+            println!("Group '{}' not found, Proceeding with the default group.", name);
+        }
+        found_group.map(|group| group.group_id)
+    } else {
+        None
+    };
 
     let prim_key = tsk.primary_key();
     let key = prim_key.key();
@@ -1428,7 +1465,8 @@ pub fn import_key_to_dsm(
         &mut prim_metadata,
         mpis,
         prim_hazmat.as_ref(),
-        prim_deactivation
+        prim_deactivation,
+        g_id
     )?;
 
     if is_secret_key{
@@ -1480,6 +1518,7 @@ pub fn import_key_to_dsm(
                 subkey.mpis(),
                 subkey_hazmat.as_ref(),
                 subkey_deactivation,
+                g_id,
             )?;
     
             info!("bind subkey {} to primary key in DSM", subkey_name);
@@ -1542,6 +1581,7 @@ pub fn import_key_to_dsm(
                 subkey.mpis(),
                 None,
                 subkey_deactivation,
+                g_id,
             )?;
     
             info!("bind subkey {} to primary key in DSM", subkey_name);
@@ -1570,7 +1610,8 @@ impl PublicKey {
         role: KeyRole,
         algo: &SupportedPkAlgo,
         exportable: bool,
-        validity_period: Option<Duration>
+        validity_period: Option<Duration>,
+        group_id: Option<Uuid>,
     ) -> Result<Self> {
         let name = match role {
             KeyRole::Primary => key_name,
@@ -1670,6 +1711,8 @@ impl PublicKey {
         } else {
             None
         };
+
+        sobject_request.group_id = group_id;
 
         let sobject = client.create_sobject(&sobject_request)
             .context("dsm client could not create sobject")?;

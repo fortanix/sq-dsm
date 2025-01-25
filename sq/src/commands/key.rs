@@ -120,6 +120,7 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             key_flags,
             d,
             m.value_of("userid"),
+            m.value_of("dsm-group-name"),
             m.value_of("cipher-suite"),
             m.is_present("dsm-exportable"),
             dsm::Credentials::new(dsm_secret)?,
@@ -470,10 +471,11 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
     let cert = Cert::from_reader(input)?;
     let key = if cert.is_tsk() { _unlock(cert)? } else { cert };
     let valid_key = key.with_policy(&config.policy, None)?;
+    let group_name = m.value_of("dsm-group-name");
 
     match m.value_of("dsm-key") {
         Some(key_name) => dsm::import_key_to_dsm(
-            valid_key, key_name, dsm_auth, m.is_present("dsm-exportable"),
+            valid_key, key_name, group_name, dsm_auth, m.is_present("dsm-exportable"),
         ),
         None => unreachable!("name is compulsory")
     }

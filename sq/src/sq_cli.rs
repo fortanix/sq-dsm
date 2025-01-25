@@ -700,6 +700,11 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                              .short("e").long("export").value_name("OUTFILE")
                              .help("Writes the key to OUTFILE")
                              .required_unless("dsm-key"))
+                         .arg(Arg::with_name("dsm-group-name")
+                             .long("dsm-group-name").value_name("DSM-GROUP-NAME")
+                             .help("Generate Keys inside Fortanix DSM in \
+                             the given group name")
+                             .requires("dsm-key"))
                         .arg(Arg::with_name("rev-cert")
                              .long("rev-cert").value_name("FILE or -")
                              .required_if("export", "-")
@@ -870,6 +875,11 @@ $ sq-dsm key dsm-import --dsm-key=\"Imported by sq-dsm\" < my_priv_key.asc
                             .arg(Arg::with_name("dsm-exportable")
                                 .long("dsm-exportable")
                                 .help("(DANGER) Configure the key to be exportable from DSM"))
+                            .arg(Arg::with_name("dsm-group-name")
+                                .long("dsm-group-name").value_name("DSM-GROUP-NAME")
+                                .help("Imports Keys into Fortanix DSM in \
+                                the given group-name")
+                                .requires("dsm-key"))
                             .arg(Arg::with_name("input")
                                  .long("input").value_name("FILE")
                                  .help("Reads from FILE or stdin if omitted"))
