@@ -2,6 +2,8 @@ use anyhow::Context as _;
 use clap::ArgMatches;
 use itertools::Itertools;
 use std::time::{SystemTime, Duration};
+use std::collections::{HashMap, HashSet};
+use std::process;
 
 use crate::openpgp::KeyHandle;
 use crate::openpgp::Packet;
@@ -33,6 +35,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("info", Some(m)) => print_dsm_key_info(config, m)?,
         ("list-dsm-keys", Some(m)) => list_dsm_keys(config, m)?,
+        ("list-dsm-groups", Some(m)) => list_dsm_groups(config, m)?,
         ("extract-dsm-secret", Some(m)) => extract_dsm(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
         ("attest-certifications", Some(m)) =>
@@ -115,15 +118,44 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
         }
 
         println!("Generating keys inside inside Fortanix DSM. This might take a while...");
+
+        // Retrieve custom-metadata from command-line arguments
+        let mut seen_keys = HashSet::new();
+        let metadata: Option<HashMap<String, String>> = m.values_of("custom-metadata")
+            .map(|values| {
+                values
+                    .filter_map(|v| {
+                        let mut parts = v.splitn(2, '=');
+                        if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                            // 'sq_dsm' key is reserved for sq-dsm default metadata and should not be modified by users.
+                            // To prevent overwrite, we restrict its usage in custom metadata input.
+                            if key == dsm::DSM_LABEL_PGP {
+                                eprintln!("Error: '{}' is not allowed as a key in custom metadata", key);
+                                process::exit(1);
+                            }
+                            // Check for duplicate keys
+                            if !seen_keys.insert(key.clone()) {
+                                eprintln!("Error: Duplicate key '{}' found in given custom metadata.", key);
+                                process::exit(1);
+                            }
+                            Some((key.to_string(), value.to_string()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect()
+            });
+
         dsm::generate_key(
             dsm_key_name,
             key_flags,
             d,
             m.value_of("userid"),
-            m.value_of("dsm-group-name"),
+            m.value_of("dsm-group-id"),
             m.value_of("cipher-suite"),
             m.is_present("dsm-exportable"),
             dsm::Credentials::new(dsm_secret)?,
+            metadata,
         )?;
         println!("OK");
 
@@ -430,6 +462,43 @@ fn list_dsm_keys(_config: Config, m: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+fn list_dsm_groups(_config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_secret = dsm::Auth::from_options_or_env(
+        m.value_of("api-key"),
+        m.value_of("client-cert"),
+        m.value_of("app-uuid"),
+        m.value_of("pkcs12-passphrase"),
+    )?;
+    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    
+    // Returns list of groups that app belongs to.
+    let output = dsm::list_groups(dsm_auth)?;
+
+    // Prints group details includes name, uuid, created_at.
+    print!("{header}\n{body}\n{footer}\n",
+        header = 
+            format!("\n{}{}Name",
+                    format!("{:width$}", "UUID", width = 38),
+                    format!("{:width$}", "Date Created", width = 25))
+        ,
+        body = output
+            .iter()
+            .map( |group|
+                format!(
+                    "{}  {}  {name:<.*}",
+                    group.group_id,
+                    group.created_at.to_datetime(),
+                    20,
+                    name = group.name,
+                    )
+                )
+            .join("\n"),
+        footer = format!("\nTOTAL GROUPS: {}\n", output.len()),
+    );
+
+    Ok(())
+}
+
 fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
 
@@ -471,11 +540,38 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
     let cert = Cert::from_reader(input)?;
     let key = if cert.is_tsk() { _unlock(cert)? } else { cert };
     let valid_key = key.with_policy(&config.policy, None)?;
-    let group_name = m.value_of("dsm-group-name");
+    let group_id = m.value_of("dsm-group-id");
+
+    // Retrieve custom-metadata from command-line arguments
+    let mut seen_keys = HashSet::new();
+    let metadata: Option<HashMap<String, String>> = m.values_of("custom-metadata")
+        .map(|values| {
+            values
+                .filter_map(|v| {
+                    let mut parts = v.splitn(2, '=');
+                    if let (Some(key), Some(value)) = (parts.next(), parts.next()) {
+                        // 'sq_dsm' key is reserved for sq-dsm default metadata and should not be modified by users.
+                        // To prevent overwrite, we restrict its usage in custom metadata input.
+                        if key == dsm::DSM_LABEL_PGP {
+                            eprintln!("Error: '{}' is not allowed as a key in custom metadata", key);
+                            process::exit(1);
+                        }
+                        // Check for duplicate keys
+                        if !seen_keys.insert(key.clone()) {
+                            eprintln!("Error: Duplicate key '{}' found in given custom metadata.", key);
+                            process::exit(1);
+                        }
+                        Some((key.to_string(), value.to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        });
 
     match m.value_of("dsm-key") {
         Some(key_name) => dsm::import_key_to_dsm(
-            valid_key, key_name, group_name, dsm_auth, m.is_present("dsm-exportable"),
+            valid_key, key_name, group_id, dsm_auth, m.is_present("dsm-exportable"), metadata
         ),
         None => unreachable!("name is compulsory")
     }

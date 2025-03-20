@@ -700,10 +700,17 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                              .short("e").long("export").value_name("OUTFILE")
                              .help("Writes the key to OUTFILE")
                              .required_unless("dsm-key"))
-                         .arg(Arg::with_name("dsm-group-name")
-                             .long("dsm-group-name").value_name("DSM-GROUP-NAME")
+                         .arg(Arg::with_name("dsm-group-id")
+                             .long("dsm-group-id").value_name("DSM-GROUP-ID")
                              .help("Generate Keys inside Fortanix DSM in \
-                             the given group name")
+                             the given group-id")
+                             .requires("dsm-key"))
+                         .arg(Arg::with_name("custom-metadata")
+                             .long("custom-metadata").value_name("CUSTOM-METADATA")
+                             .takes_value(true)
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("Specifies optional custom-metadata as key-value pairs (`key=value`). Can be repeated for multiple entries.\nEg : sq-dsm key generate --custom-metadata key1=value1 --custom-metadata key2=value2.\n ")
                              .requires("dsm-key"))
                         .arg(Arg::with_name("rev-cert")
                              .long("rev-cert").value_name("FILE or -")
@@ -875,10 +882,17 @@ $ sq-dsm key dsm-import --dsm-key=\"Imported by sq-dsm\" < my_priv_key.asc
                             .arg(Arg::with_name("dsm-exportable")
                                 .long("dsm-exportable")
                                 .help("(DANGER) Configure the key to be exportable from DSM"))
-                            .arg(Arg::with_name("dsm-group-name")
-                                .long("dsm-group-name").value_name("DSM-GROUP-NAME")
+                            .arg(Arg::with_name("dsm-group-id")
+                                .long("dsm-group-id").value_name("DSM-GROUP-ID")
                                 .help("Imports Keys into Fortanix DSM in \
-                                the given group-name")
+                                the given group-id")
+                                .requires("dsm-key"))
+                            .arg(Arg::with_name("custom-metadata")
+                                .long("custom-metadata").value_name("CUSTOM-METADATA")
+                                .takes_value(true)
+                                .multiple(true)
+                                .number_of_values(1)
+                                .help("Specifies optional custom-metadata as key-value pairs (`key=value`). Can be repeated for multiple entries.\nEg : sq-dsm key dsm-import --custom-metadata key1=value1 --custom-metadata key2=value2.\n ")
                                 .requires("dsm-key"))
                             .arg(Arg::with_name("input")
                                  .long("input").value_name("FILE")
@@ -962,15 +976,26 @@ to print on STDOUT.
 "EXAMPLES:
 
 # Print list of keys which app can access
-$ sq key list-dsm-keys
+$ sq-dsm key list-dsm-keys
 
 # Print detailed list of keys which app can access
-$ sq key list-dsm-keys -l
+$ sq-dsm key list-dsm-keys -l
 ")
                         .arg(Arg::with_name("long")
                              .short("l").long("long")
                              .help("prints long details of key")
                             )
+                )
+                .subcommand(
+                    SubCommand::with_name("list-dsm-groups")
+                        .display_order(400)
+                        .about("List all accessible groups for the App")
+                        .after_help(
+"EXAMPLES:
+
+# Print list of groups which app belongs to
+$ sq-dsm key list-dsm-groups
+")
                 )
                 .subcommand(
                     SubCommand::with_name("attest-certifications")
