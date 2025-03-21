@@ -121,7 +121,7 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
 
         // Retrieve custom-metadata from command-line arguments
         let mut seen_keys = HashSet::new();
-        let metadata: Option<HashMap<String, String>> = m.values_of("custom-metadata")
+        let user_metadata: Option<HashMap<String, String>> = m.values_of("custom-metadata")
             .map(|values| {
                 values
                     .filter_map(|v| {
@@ -155,7 +155,7 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             m.value_of("cipher-suite"),
             m.is_present("dsm-exportable"),
             dsm::Credentials::new(dsm_secret)?,
-            metadata,
+            user_metadata,
         )?;
         println!("OK");
 
@@ -544,7 +544,7 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
 
     // Retrieve custom-metadata from command-line arguments
     let mut seen_keys = HashSet::new();
-    let metadata: Option<HashMap<String, String>> = m.values_of("custom-metadata")
+    let user_metadata: Option<HashMap<String, String>> = m.values_of("custom-metadata")
         .map(|values| {
             values
                 .filter_map(|v| {
@@ -571,7 +571,7 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
 
     match m.value_of("dsm-key") {
         Some(key_name) => dsm::import_key_to_dsm(
-            valid_key, key_name, group_id, dsm_auth, m.is_present("dsm-exportable"), metadata
+            valid_key, key_name, group_id, dsm_auth, m.is_present("dsm-exportable"), user_metadata
         ),
         None => unreachable!("name is compulsory")
     }

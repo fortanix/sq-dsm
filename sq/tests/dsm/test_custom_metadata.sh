@@ -32,7 +32,7 @@ fi
 # 1. Create key from sq-dsm with some dummy custom metadata
 user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
 dsm_name="sq-dsm-test-custom-metadata-$random-rsa2k"
-$sq key generate --userid="$user_id" --dsm-key="$dsm_name" --key-flags="C,S,EtEr" --cipher-suite="rsa2k" --dsm-exportable --custom-metadata testkey1=testvalue1 --custom-metadata testkey2=testvalue2
+$sq key generate --userid="$user_id" --dsm-key="$dsm_name" --key-flags="C,S,EtEr" --cipher-suite="rsa2k" --dsm-exportable --custom-metadata testkey1=testvalue1 --custom-metadata testkey2=testvalue2 >/dev/null
 
 # Edge cases
 # should not allow sq_dsm as key
@@ -49,13 +49,10 @@ fi
 response_metadata=$(curl -s -X POST "$FORTANIX_API_ENDPOINT/crypto/v1/keys/info" \
      -H "Content-Type: application/json" \
      -H "Authorization: Basic $FORTANIX_API_KEY" \
-     -d "{ \"name\": \"$dsm_name\" }" | jq -c '.custom_metadata')
+     -d "{ \"name\": \"$dsm_name\" }" | jq -c '.custom_metadata.user_metadata')
 
-# Check if given custom metadata exists
 for key in "testkey1" "testkey2"; do
-    value=$(echo "$response_metadata" | jq -r --arg key "$key" '.[$key] // empty')
-    
-    if [[ -z "$value" ]]; then
+    if ! echo "$response_metadata" | jq -e --arg key "$key" 'fromjson | has($key)' >/dev/null; then
         echo "Error: Missing '$key' in the custom metadata!"
         exit 1
     fi
@@ -81,13 +78,10 @@ fi
 response_metadata=$(curl -s -X POST "$FORTANIX_API_ENDPOINT/crypto/v1/keys/info" \
      -H "Content-Type: application/json" \
      -H "Authorization: Basic $FORTANIX_API_KEY" \
-     -d "{ \"name\": \"$key_name\" }" | jq -c '.custom_metadata')
+     -d "{ \"name\": \"$key_name\" }" | jq -c '.custom_metadata.user_metadata')
 
-# Check if given custom metadata exists
 for key in "testkey1" "testkey2"; do
-    value=$(echo "$response_metadata" | jq -r --arg key "$key" '.[$key] // empty')
-    
-    if [[ -z "$value" ]]; then
+    if ! echo "$response_metadata" | jq -e --arg key "$key" 'fromjson | has($key)' >/dev/null; then
         echo "Error: Missing '$key' in the custom metadata!"
         exit 1
     fi

@@ -630,15 +630,15 @@ impl KeyMetadata {
 /// The public certificate (Transferable Public Key) is computed, stored as
 /// an additional custom metadata field on the primary key.
 pub fn generate_key(
-    key_name: &str,
-    key_flag_args: Vec<KeyFlags>,
+    key_name:        &str,
+    key_flag_args:   Vec<KeyFlags>,
     validity_period: Option<Duration>,
-    user_id: Option<&str>,
-    group_id: Option<&str>,
-    algo: Option<&str>,
-    exportable: bool,
-    credentials: Credentials,
-    metadata: Option<HashMap<String, String>>,
+    user_id:         Option<&str>,
+    group_id:        Option<&str>,
+    algo:            Option<&str>,
+    exportable:      bool,
+    credentials:     Credentials,
+    user_metadata:   Option<HashMap<String, String>>,
 ) -> Result<()> {
 
     if key_flag_args.is_empty() {
@@ -691,7 +691,7 @@ pub fn generate_key(
     };
 
     let dsm_client = credentials.dsm_client()?;
-    let g_id: Option<Uuid> = group_id.and_then(|id| id.parse().ok());
+    let group_id: Option<Uuid> = group_id.and_then(|id| id.parse().ok());
 
     info!("key generation: create primary key");
     let primary = PublicKey::create(
@@ -701,7 +701,7 @@ pub fn generate_key(
         &algorithm,
         exportable,
         validity_period,
-        g_id
+        group_id
     )
     .context("could not create primary key")?;
 
@@ -717,7 +717,7 @@ pub fn generate_key(
                 &algorithm,
                 exportable,
                 validity_period,
-                g_id
+                group_id
             )?;
 
             signing_subkeys.push(signing_subkey);
@@ -732,7 +732,7 @@ pub fn generate_key(
                 &algorithm,
                 exportable,
                 validity_period,
-                g_id
+                group_id
             )?;
 
             encryption_subkeys.push(encryption_subkey);
@@ -892,8 +892,9 @@ pub fn generate_key(
             certificate:    Some(String::from_utf8(cert.armored().to_vec()?)?),
             ..Default::default()
         }.to_custom_metadata()?;
-        if let Some(ref data) = metadata {
-            prim_metadata.extend(data.clone());
+        // Add user given custom metadata in new field `user_metadata`
+        if let Some(ref data) = user_metadata {
+            prim_metadata.insert("user_metadata".to_string(), serde_json::to_string(&data)?);
         }
         let update_req = SobjectRequest {
             description:     Some(primary_desc),
@@ -934,8 +935,9 @@ pub fn generate_key(
         })?;
         let mut sub_metadata = HashMap::<String, String>::new();
         sub_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
-        if let Some(ref data) = metadata {
-            sub_metadata.extend(data.clone());
+        // Add user given custom metadata in new field `user_metadata`
+        if let Some(ref data) = user_metadata {
+            sub_metadata.insert("user_metadata".to_string(), serde_json::to_string(&data)?);
         }
         let update_req = SobjectRequest {
             name:            Some(subkey_name),
@@ -1079,7 +1081,7 @@ pub fn list_keys(cred: Credentials) -> Result<Vec<DsmKeyInfo>> {
 
 /// Returns list of groups that app belongs to.
 pub fn list_groups(cred: Credentials) -> Result<Vec<Group>> {
-    info!("dsm list_groups => Fetching list of groups that app belongs to.");
+    info!("dsm list_groups => Fetching list of groups that app belongs to");
     let dsm_client = cred.dsm_client()?;
     Ok(dsm_client.list_groups()?)
 }
@@ -1149,25 +1151,25 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
 
 /// Imports a given Transferable Secret Key (TSK) or a Transferable Public Key (TPK) into DSM.
 pub fn import_key_to_dsm(
-    tsk:        ValidCert,
-    key_name:   &str,
-    group_id: Option<&str>,
-    cred:       Credentials,
-    exportable: bool,
-    metadata: Option<HashMap<String, String>>,
+    tsk:           ValidCert,
+    key_name:      &str,
+    group_id:      Option<&str>,
+    cred:          Credentials,
+    exportable:    bool,
+    user_metadata: Option<HashMap<String, String>>,
 ) -> Result<()> {
 
     fn import_constructed_sobject(
-        cred:     &Credentials,
-        name:     String,
-        desc:     String,
-        ops:      KeyOperations,
-        key_metadata: &mut KeyMetadata,
-        mpis:     &MpiPublic,
-        hazmat:   Option<&MpiSecret>,
-        deact:    Option<SdkmsTime>,
-        group_id: Option<Uuid>,
-        custom_metadata: Option<HashMap<String, String>>,
+        cred:          &Credentials,
+        name:          String,
+        desc:          String,
+        ops:           KeyOperations,
+        key_metadata:  &mut KeyMetadata,
+        mpis:          &MpiPublic,
+        hazmat:        Option<&MpiSecret>,
+        deact:         Option<SdkmsTime>,
+        group_id:      Option<Uuid>,
+        user_metadata: Option<HashMap<String, String>>,
     ) -> Result<Uuid> {
         let mut sobject_request = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, Some(MpiSecret::RSA { d, p, q, u })) => {
@@ -1326,13 +1328,12 @@ pub fn import_key_to_dsm(
             _ => unimplemented!("public key algorithm")
         };
 
-        let updated_metadata = sobject_request.custom_metadata
-            .into_iter()
-            .chain(custom_metadata)
-            .flatten()
-            .collect::<HashMap<String, String>>();
-
-        sobject_request.custom_metadata = (!updated_metadata.is_empty()).then_some(updated_metadata);
+        // Add user given custom metadata in new field `user_metadata`
+        if let Some(ref mut key_metadata) = sobject_request.custom_metadata{
+            if let Some(ref data) = user_metadata {
+                key_metadata.insert("user_metadata".to_string(), serde_json::to_string(&data)?);
+            }
+        }
         sobject_request.group_id = group_id;
 
         Ok(
@@ -1401,7 +1402,7 @@ pub fn import_key_to_dsm(
         ops
     }
 
-    let g_id: Option<Uuid> = group_id.and_then(|id| id.parse().ok());
+    let group_id: Option<Uuid> = group_id.and_then(|id| id.parse().ok());
     let prim_key = tsk.primary_key();
     let key = prim_key.key();
 
@@ -1472,8 +1473,8 @@ pub fn import_key_to_dsm(
         mpis,
         prim_hazmat.as_ref(),
         prim_deactivation,
-        g_id,
-        metadata.clone()
+        group_id,
+        user_metadata.clone()
     )?;
 
     if is_secret_key{
@@ -1525,8 +1526,8 @@ pub fn import_key_to_dsm(
                 subkey.mpis(),
                 subkey_hazmat.as_ref(),
                 subkey_deactivation,
-                g_id,
-                metadata.clone(),
+                group_id,
+                user_metadata.clone(),
             )?;
     
             info!("bind subkey {} to primary key in DSM", subkey_name);
@@ -1589,8 +1590,8 @@ pub fn import_key_to_dsm(
                 subkey.mpis(),
                 None,
                 subkey_deactivation,
-                g_id,
-                metadata.clone(),
+                group_id,
+                user_metadata.clone(),
             )?;
     
             info!("bind subkey {} to primary key in DSM", subkey_name);
