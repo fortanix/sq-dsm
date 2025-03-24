@@ -49,8 +49,9 @@ fi
 response_metadata=$(curl -s -X POST "$FORTANIX_API_ENDPOINT/crypto/v1/keys/info" \
      -H "Content-Type: application/json" \
      -H "Authorization: Basic $FORTANIX_API_KEY" \
-     -d "{ \"name\": \"$dsm_name\" }" | jq -c '.custom_metadata.user_metadata')
+     -d "{ \"name\": \"$dsm_name\" }" | jq -c '.custom_metadata.sq_dsm_user_metadata')
 
+# Check if given custom metadata exists
 for key in "testkey1" "testkey2"; do
     if ! echo "$response_metadata" | jq -e --arg key "$key" 'fromjson | has($key)' >/dev/null; then
         echo "Error: Missing '$key' in the custom metadata!"
@@ -78,8 +79,9 @@ fi
 response_metadata=$(curl -s -X POST "$FORTANIX_API_ENDPOINT/crypto/v1/keys/info" \
      -H "Content-Type: application/json" \
      -H "Authorization: Basic $FORTANIX_API_KEY" \
-     -d "{ \"name\": \"$key_name\" }" | jq -c '.custom_metadata.user_metadata')
+     -d "{ \"name\": \"$key_name\" }" | jq -c '.custom_metadata.sq_dsm_user_metadata')
 
+# Check if given custom metadata exists
 for key in "testkey1" "testkey2"; do
     if ! echo "$response_metadata" | jq -e --arg key "$key" 'fromjson | has($key)' >/dev/null; then
         echo "Error: Missing '$key' in the custom metadata!"

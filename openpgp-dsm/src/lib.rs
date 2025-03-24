@@ -892,9 +892,9 @@ pub fn generate_key(
             certificate:    Some(String::from_utf8(cert.armored().to_vec()?)?),
             ..Default::default()
         }.to_custom_metadata()?;
-        // Add user given custom metadata in new field `user_metadata`
+        // Add user given custom metadata in new field `sq_dsm_user_metadata`
         if let Some(ref data) = user_metadata {
-            prim_metadata.insert("user_metadata".to_string(), serde_json::to_string(&data)?);
+            prim_metadata.insert("sq_dsm_user_metadata".to_string(), serde_json::to_string(&data)?);
         }
         let update_req = SobjectRequest {
             description:     Some(primary_desc),
@@ -935,9 +935,9 @@ pub fn generate_key(
         })?;
         let mut sub_metadata = HashMap::<String, String>::new();
         sub_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
-        // Add user given custom metadata in new field `user_metadata`
+        // Add user given custom metadata in new field `sq_dsm_user_metadata`
         if let Some(ref data) = user_metadata {
-            sub_metadata.insert("user_metadata".to_string(), serde_json::to_string(&data)?);
+            sub_metadata.insert("sq_dsm_user_metadata".to_string(), serde_json::to_string(&data)?);
         }
         let update_req = SobjectRequest {
             name:            Some(subkey_name),
@@ -1328,10 +1328,10 @@ pub fn import_key_to_dsm(
             _ => unimplemented!("public key algorithm")
         };
 
-        // Add user given custom metadata in new field `user_metadata`
+        // Add user given custom metadata in new field `sq_dsm_user_metadata`
         if let Some(ref mut key_metadata) = sobject_request.custom_metadata{
             if let Some(ref data) = user_metadata {
-                key_metadata.insert("user_metadata".to_string(), serde_json::to_string(&data)?);
+                key_metadata.insert("sq_dsm_user_metadata".to_string(), serde_json::to_string(&data)?);
             }
         }
         sobject_request.group_id = group_id;
