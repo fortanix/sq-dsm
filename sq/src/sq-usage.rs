@@ -410,6 +410,7 @@
 //!             (TPK) into Fortanix DSM
 //!     attest-certifications    Attests to third-party certifications
 //!     info                     List details on DSM key
+//!     list-dsm-groups          List all accessible groups for the App
 //!     list-dsm-keys            List all accessible keys for the App
 //!     adopt                    Binds keys from one certificate to another
 //!     help
@@ -478,6 +479,15 @@
 //!             nistp384, nistp521]
 //!         --client-cert <P12-FILE>
 //!             Authenticates to Fortanix DSM with the given client certificate
+//!
+//!         --custom-metadata <CUSTOM-METADATA>...
+//!             Specifies optional custom-metadata as key-value pairs (`key=value`).
+//!             Can be repeated for multiple entries.
+//!             Eg : sq-dsm key generate --custom-metadata key1=value1 --custom-
+//!             metadata key2=value2.
+//! 
+//!         --dsm-group-id <DSM-GROUP-ID>
+//!             Generate Keys inside Fortanix DSM in the given group-id
 //!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Generate secrets inside Fortanix DSM with the given name
@@ -703,6 +713,15 @@
 //!         --client-cert <P12-FILE>
 //!             Authenticates to Fortanix DSM with the given client certificate
 //!
+//!         --custom-metadata <CUSTOM-METADATA>...
+//!             Specifies optional custom-metadata as key-value pairs (`key=value`).
+//!             Can be repeated for multiple entries.
+//!             Eg : sq-dsm key dsm-import --custom-metadata key1=value1 --custom-
+//!             metadata key2=value2.
+//! 
+//!         --dsm-group-id <DSM-GROUP-ID>
+//!             Imports Keys into Fortanix DSM in the given group-id
+//!
 //!         --dsm-key <DSM-KEY-NAME>
 //!             Name of the DSM key
 //!
@@ -802,6 +821,24 @@
 //! $ sq key info --dsm-key 0123456789A
 //! ```
 //!
+//! ### Subcommand key list-dsm-groups
+//!
+//! ```text
+//! List all accessible groups for the App
+//!
+//! USAGE:
+//!     sq key list-dsm-groups
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! EXAMPLES:
+//!
+//! # Print list of groups which app belongs to
+//! $ sq-dsm key list-dsm-groups
+//! ```
+//!
 //! ### Subcommand key list-dsm-keys
 //!
 //! ```text
@@ -827,10 +864,10 @@
 //! EXAMPLES:
 //!
 //! # Print list of keys which app can access
-//! $ sq key list-dsm-keys
+//! $ sq-dsm key list-dsm-keys
 //!
 //! # Print detailed list of keys which app can access
-//! $ sq key list-dsm-keys -l
+//! $ sq-dsm key list-dsm-keys -l
 //! ```
 //!
 //! ### Subcommand key adopt

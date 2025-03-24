@@ -38,6 +38,7 @@ install: build-release
 test-dsm:
 	cargo build
 	./tests/dsm/print_dsm_key_info.sh
+	./tests/dsm/test_custom_metadata.sh
 	./tests/dsm/knownkeys_import_dsm.sh
 	./tests/dsm/generate_gpg_import_dsm_auto.tcl
 	./tests/dsm/key_expiration.sh -c rsa2k

@@ -45,7 +45,7 @@ use sdkms::api_model::{
     KeyOperations, ObjectType, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
     RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest,
     SignResponse, Sobject, SobjectDescriptor, SobjectRequest, Time as SdkmsTime,
-    ListSobjectsParams
+    ListSobjectsParams, Group
 };
 use sdkms::operations::Operation;
 use sdkms::{Error as DsmError, PendingApproval, SdkmsClient as DsmClient};
@@ -90,7 +90,7 @@ pub struct DsmAgent {
 
 /// The version of this crate.
 pub const SQ_DSM_VERSION: &str = env!("CARGO_PKG_VERSION");
-const DSM_LABEL_PGP:      &str = "sq_dsm";
+pub const DSM_LABEL_PGP:  &str = "sq_dsm";
 const ENV_API_KEY:        &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT:   &str = "FORTANIX_API_ENDPOINT";
 const ENV_APP_UUID:       &str = "FORTANIX_APP_UUID";
@@ -630,13 +630,15 @@ impl KeyMetadata {
 /// The public certificate (Transferable Public Key) is computed, stored as
 /// an additional custom metadata field on the primary key.
 pub fn generate_key(
-    key_name: &str,
-    key_flag_args: Vec<KeyFlags>,
+    key_name:        &str,
+    key_flag_args:   Vec<KeyFlags>,
     validity_period: Option<Duration>,
-    user_id: Option<&str>,
-    algo: Option<&str>,
-    exportable: bool,
-    credentials: Credentials,
+    user_id:         Option<&str>,
+    group_id:        Option<&str>,
+    algo:            Option<&str>,
+    exportable:      bool,
+    credentials:     Credentials,
+    user_metadata:   Option<HashMap<String, String>>,
 ) -> Result<()> {
 
     if key_flag_args.is_empty() {
@@ -689,6 +691,7 @@ pub fn generate_key(
     };
 
     let dsm_client = credentials.dsm_client()?;
+    let group_id: Option<Uuid> = group_id.and_then(|id| id.parse().ok());
 
     info!("key generation: create primary key");
     let primary = PublicKey::create(
@@ -697,7 +700,8 @@ pub fn generate_key(
         KeyRole::Primary,
         &algorithm,
         exportable,
-        validity_period
+        validity_period,
+        group_id
     )
     .context("could not create primary key")?;
 
@@ -712,7 +716,8 @@ pub fn generate_key(
                 KeyRole::SigningSubkey,
                 &algorithm,
                 exportable,
-                validity_period
+                validity_period,
+                group_id
             )?;
 
             signing_subkeys.push(signing_subkey);
@@ -726,7 +731,8 @@ pub fn generate_key(
                 KeyRole::EncryptionSubkey,
                 &algorithm,
                 exportable,
-                validity_period
+                validity_period,
+                group_id
             )?;
 
             encryption_subkeys.push(encryption_subkey);
@@ -879,13 +885,17 @@ pub fn generate_key(
         let primary_desc = format!(
             "PGP primary, {}, {}", prim_id, prim_flags.human_readable()
         );
-        let prim_metadata = KeyMetadata {
+        let mut prim_metadata = KeyMetadata {
             sq_dsm_version: SQ_DSM_VERSION.to_string(),
             fingerprint:    prim_fingerprint,
             key_flags:      Some(prim_flags),
             certificate:    Some(String::from_utf8(cert.armored().to_vec()?)?),
             ..Default::default()
         }.to_custom_metadata()?;
+        // Add user given custom metadata in new field `sq_dsm_user_metadata`
+        if let Some(ref data) = user_metadata {
+            prim_metadata.insert("sq_dsm_user_metadata".to_string(), serde_json::to_string(&data)?);
+        }
         let update_req = SobjectRequest {
             description:     Some(primary_desc),
             custom_metadata: Some(prim_metadata),
@@ -925,6 +935,10 @@ pub fn generate_key(
         })?;
         let mut sub_metadata = HashMap::<String, String>::new();
         sub_metadata.insert(DSM_LABEL_PGP.to_string(), key_json);
+        // Add user given custom metadata in new field `sq_dsm_user_metadata`
+        if let Some(ref data) = user_metadata {
+            sub_metadata.insert("sq_dsm_user_metadata".to_string(), serde_json::to_string(&data)?);
+        }
         let update_req = SobjectRequest {
             name:            Some(subkey_name),
             description:     Some(subkey_desc),
@@ -942,10 +956,12 @@ pub fn generate_key(
 pub struct DsmKeyInfo {
     name: String,
     kid: Uuid,
+    group_id: Uuid,
     object_type: ObjectType,
     created_at: SdkmsTime,
     last_used_at: SdkmsTime,
     fingerprint: String,
+    custom_metadata: HashMap<String, String>,
 }
 
 impl TryFrom<&Sobject> for DsmKeyInfo {
@@ -960,10 +976,14 @@ impl TryFrom<&Sobject> for DsmKeyInfo {
                 .into(),
             kid: key.kid
                 .ok_or(anyhow::anyhow!("Key ID not present"))?,
+            group_id: key.group_id
+                .ok_or(anyhow::anyhow!("Group ID not present"))?,
             object_type: key.obj_type,
             created_at: key.created_at,
             last_used_at: key.lastused_at,
             fingerprint: key_md.fingerprint,
+            custom_metadata: key.custom_metadata.clone()
+                .ok_or(anyhow::anyhow!("Custom Metadata not present"))?,
         })
     }
 }
@@ -985,13 +1005,16 @@ impl DsmKeyInfo {
         format!(
             "{}:
     UUID: {}
+    Group ID: {}
     Object Type: {:?}
     Created at: {}
     Last used at: {}
     PGP fingerprint: {}
+    Custom Metadata: {:#?}
 ",
             self.name,
             self.kid,
+            self.group_id,
             self.object_type,
             self.created_at.to_datetime(),
             if self.last_used_at.eq(&SdkmsTime(0)) {
@@ -999,7 +1022,8 @@ impl DsmKeyInfo {
             } else {
                 self.last_used_at.to_datetime().to_string()
             },
-            self.fingerprint
+            self.fingerprint,
+            self.custom_metadata
         )
     }
 }
@@ -1053,6 +1077,13 @@ pub fn list_keys(cred: Credentials) -> Result<Vec<DsmKeyInfo>> {
     }
 
     Ok(key_info_store)
+}
+
+/// Returns list of groups that app belongs to.
+pub fn list_groups(cred: Credentials) -> Result<Vec<Group>> {
+    info!("dsm list_groups => Fetching list of groups that app belongs to");
+    let dsm_client = cred.dsm_client()?;
+    Ok(dsm_client.list_groups()?)
 }
 
 /// Extracts the certificate of the corresponding PGP key. Note that this
@@ -1120,23 +1151,27 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
 
 /// Imports a given Transferable Secret Key (TSK) or a Transferable Public Key (TPK) into DSM.
 pub fn import_key_to_dsm(
-    tsk:        ValidCert,
-    key_name:   &str,
-    cred:       Credentials,
-    exportable: bool,
+    tsk:           ValidCert,
+    key_name:      &str,
+    group_id:      Option<&str>,
+    cred:          Credentials,
+    exportable:    bool,
+    user_metadata: Option<HashMap<String, String>>,
 ) -> Result<()> {
 
     fn import_constructed_sobject(
-        cred:     &Credentials,
-        name:     String,
-        desc:     String,
-        ops:      KeyOperations,
-        metadata: &mut KeyMetadata,
-        mpis:     &MpiPublic,
-        hazmat:   Option<&MpiSecret>,
-        deact:    Option<SdkmsTime>,
+        cred:          &Credentials,
+        name:          String,
+        desc:          String,
+        ops:           KeyOperations,
+        key_metadata:  &mut KeyMetadata,
+        mpis:          &MpiPublic,
+        hazmat:        Option<&MpiSecret>,
+        deact:         Option<SdkmsTime>,
+        group_id:      Option<Uuid>,
+        user_metadata: Option<HashMap<String, String>>,
     ) -> Result<Uuid> {
-        let req = match (mpis, hazmat) {
+        let mut sobject_request = match (mpis, hazmat) {
             (MpiPublic::RSA{ e, n }, Some(MpiSecret::RSA { d, p, q, u })) => {
                 let value = der::serialize::rsa_private(n, e, d, p, q, u);
                 let key_size = n.bits() as u32;
@@ -1162,7 +1197,7 @@ pub fn import_key_to_dsm(
 
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Rsa),
                     key_ops:           Some(ops),
@@ -1197,7 +1232,7 @@ pub fn import_key_to_dsm(
                 };
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Rsa),
                     key_ops:           Some(ops),
@@ -1212,7 +1247,7 @@ pub fn import_key_to_dsm(
                 let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Ec),
                     key_ops:           Some(ops),
@@ -1225,7 +1260,7 @@ pub fn import_key_to_dsm(
                 let value = der::serialize::spki_ec(curve, q);
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Ec),
                     key_ops:           Some(ops),
@@ -1238,7 +1273,7 @@ pub fn import_key_to_dsm(
                 let value = der::serialize::spki_ec(curve, q);
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Ec),
                     key_ops:           Some(ops),
@@ -1249,11 +1284,11 @@ pub fn import_key_to_dsm(
             },
             (MpiPublic::ECDH { curve, q, hash, sym }, None) => {
                 let value = der::serialize::spki_ec(curve, q);
-                metadata.hash_algo = Some(*hash);
-                metadata.symm_algo = Some(*sym);
+                key_metadata.hash_algo = Some(*hash);
+                key_metadata.symm_algo = Some(*sym);
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Ec),
                     key_ops:           Some(ops),
@@ -1266,7 +1301,7 @@ pub fn import_key_to_dsm(
                 let value = der::serialize::ec_private(curve, scalar)?;
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Ec),
                     key_ops:           Some(ops),
@@ -1277,11 +1312,11 @@ pub fn import_key_to_dsm(
             },
             (MpiPublic::ECDH { curve, q: _, hash, sym }, Some(MpiSecret::ECDH { scalar })) => {
                 let value = der::serialize::ec_private(curve, scalar)?;
-                metadata.hash_algo = Some(*hash);
-                metadata.symm_algo = Some(*sym);
+                key_metadata.hash_algo = Some(*hash);
+                key_metadata.symm_algo = Some(*sym);
                 SobjectRequest {
                     name:              Some(name.clone()),
-                    custom_metadata:   Some(metadata.to_custom_metadata()?),
+                    custom_metadata:   Some(key_metadata.to_custom_metadata()?),
                     description:       Some(desc),
                     obj_type:          Some(ObjectType::Ec),
                     key_ops:           Some(ops),
@@ -1293,9 +1328,17 @@ pub fn import_key_to_dsm(
             _ => unimplemented!("public key algorithm")
         };
 
+        // Add user given custom metadata in new field `sq_dsm_user_metadata`
+        if let Some(ref mut key_metadata) = sobject_request.custom_metadata{
+            if let Some(ref data) = user_metadata {
+                key_metadata.insert("sq_dsm_user_metadata".to_string(), serde_json::to_string(&data)?);
+            }
+        }
+        sobject_request.group_id = group_id;
+
         Ok(
             cred.dsm_client()?
-            .import_sobject(&req)
+            .import_sobject(&sobject_request)
             .context(format!("could not import secret {}", name))?
             .kid
             .ok_or(anyhow::anyhow!("no UUID returned from DSM"))?
@@ -1359,6 +1402,7 @@ pub fn import_key_to_dsm(
         ops
     }
 
+    let group_id: Option<Uuid> = group_id.and_then(|id| id.parse().ok());
     let prim_key = tsk.primary_key();
     let key = prim_key.key();
 
@@ -1428,7 +1472,9 @@ pub fn import_key_to_dsm(
         &mut prim_metadata,
         mpis,
         prim_hazmat.as_ref(),
-        prim_deactivation
+        prim_deactivation,
+        group_id,
+        user_metadata.clone()
     )?;
 
     if is_secret_key{
@@ -1480,6 +1526,8 @@ pub fn import_key_to_dsm(
                 subkey.mpis(),
                 subkey_hazmat.as_ref(),
                 subkey_deactivation,
+                group_id,
+                user_metadata.clone(),
             )?;
     
             info!("bind subkey {} to primary key in DSM", subkey_name);
@@ -1542,6 +1590,8 @@ pub fn import_key_to_dsm(
                 subkey.mpis(),
                 None,
                 subkey_deactivation,
+                group_id,
+                user_metadata.clone(),
             )?;
     
             info!("bind subkey {} to primary key in DSM", subkey_name);
@@ -1570,7 +1620,8 @@ impl PublicKey {
         role: KeyRole,
         algo: &SupportedPkAlgo,
         exportable: bool,
-        validity_period: Option<Duration>
+        validity_period: Option<Duration>,
+        group_id: Option<Uuid>,
     ) -> Result<Self> {
         let name = match role {
             KeyRole::Primary => key_name,
@@ -1670,6 +1721,8 @@ impl PublicKey {
         } else {
             None
         };
+
+        sobject_request.group_id = group_id;
 
         let sobject = client.create_sobject(&sobject_request)
             .context("dsm client could not create sobject")?;
