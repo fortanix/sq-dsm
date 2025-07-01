@@ -378,7 +378,7 @@ fn _password(config: Config, m: &ArgMatches, key: Cert) -> Result<()> {
 }
 
 // Unlocks a cert with a passphrase
-fn _unlock(key: Cert) -> Result<Cert> {
+pub fn _unlock(key: Cert) -> Result<Cert> {
     if ! key.is_tsk() {
         return Err(anyhow::anyhow!("Input is not a Transferable Secret Key"));
     }
@@ -512,7 +512,7 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
                 m.value_of("pkcs12-passphrase"),
             )?;
             let dsm_auth = dsm::Credentials::new(dsm_secret)?;
-            dsm::extract_cert(key_name, dsm_auth)?
+            dsm::extract_cert(key_name, dsm_auth, None)?
         }
         None => {
             let input = open_or_stdin(m.value_of("input"))?;
@@ -571,7 +571,7 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
 
     match m.value_of("dsm-key") {
         Some(key_name) => dsm::import_key_to_dsm(
-            valid_key, key_name, group_id, dsm_auth, m.is_present("dsm-exportable"), user_metadata
+            valid_key, key_name, group_id, dsm_auth, m.is_present("dsm-exportable"), user_metadata, false
         ),
         None => unreachable!("name is compulsory")
     }
@@ -586,7 +586,7 @@ fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
     let key = match m.value_of("dsm-key") {
-        Some(key_name) => dsm::extract_tsk_from_dsm(key_name, dsm_auth)?,
+        Some(key_name) => dsm::extract_tsk_from_dsm(key_name, dsm_auth, None)?,
         None => unreachable!("name is compulsory")
     };
 

@@ -930,7 +930,7 @@
 //! Collections of keys or certficicates (also known as "keyrings" when
 //! they contain secret key material, and "certrings" when they don't) are
 //! any number of concatenated certificates.  This subcommand provides
-//! tools to list, split, join, merge, and filter keyrings.
+//! tools to dsm-import, list, split, join, merge, and filter keyrings.
 //!
 //! Note: In the documentation of this subcommand, we sometimes use the
 //! terms keys and certs interchangeably.
@@ -944,12 +944,15 @@
 //!
 //!
 //! SUBCOMMANDS:
-//!     list      Lists keys in a keyring
-//!     split     Splits a keyring into individual keys
-//!     join      Joins keys or keyrings into a single keyring
-//!     merge     Merges keys or keyrings into a single keyring
-//!     filter    Joins keys into a keyring applying a filter
-//!     help      Prints this message or the help of the given subcommand(s)
+//!     list              Lists keys in a keyring
+//!     split             Splits a keyring into individual keys
+//!     join              Joins keys or keyrings into a single keyring
+//!     create-keyring    Create keyrings from DSM Keys
+//!     dsm-import        Import keyrings into DSM
+//!     merge             Merges keys or keyrings into a single keyring
+//!     filter            Joins keys into a keyring applying a filter
+//!     help              Prints this message or the help of the given
+//!                       subcommand(s)
 //! ```
 //!
 //! ### Subcommand keyring list
@@ -1069,6 +1072,77 @@
 //!
 //! # Collect certs for an email conversation
 //! $ sq keyring join juliet.pgp romeo.pgp alice.pgp
+//! ```
+//!
+//! ### Subcommand keyring create-keyring
+//!
+//! ```text
+//! Create keyrings from DSM Keys
+//!
+//! USAGE:
+//!     sq keyring create-keyring [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!         --public-only
+//!             Extract only Public keys from DSM
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --dsm-key-id <DSM-KEY-ID>...
+//!             DSM key ID's to create keyring
+//!
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! $ sq-dsm keyring create-keyring --dsm-key-id <DSM_KEY_ID> --dsm-key-id
+//! <DSM_KEY_ID> --output keyring.pgp
+//! ```
+//!
+//! ### Subcommand keyring dsm-import
+//!
+//! ```text
+//! Import keyrings into DSM
+//!
+//! USAGE:
+//!     sq keyring dsm-import [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!         --dsm-exportable
+//!             (DANGER) Configure the key to be exportable from DSM
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --dsm-group-id <DSM-GROUP-ID>
+//!             Generate Keyring keys inside Fortanix DSM in the given group-id
+//!
+//!         --input <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!         --keyring-name <KEYRING-NAME>
+//!             Name to store the given keyring in DSM
+//!
+//!
+//! EXAMPLES:
+//!
+//! $ sq-dsm keyring dsm-import --keyring-name <keyring-name> --input keyring.pgp
 //! ```
 //!
 //! ### Subcommand keyring merge

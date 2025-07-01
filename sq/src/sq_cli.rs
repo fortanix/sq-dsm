@@ -1054,7 +1054,7 @@ $ sq key attest-certifications --none juliet.pgp
 Collections of keys or certficicates (also known as \"keyrings\" when
 they contain secret key material, and \"certrings\" when they don't) are
 any number of concatenated certificates.  This subcommand provides
-tools to list, split, join, merge, and filter keyrings.
+tools to dsm-import, list, split, join, merge, and filter keyrings.
 
 Note: In the documentation of this subcommand, we sometimes use the
 terms keys and certs interchangeably.
@@ -1214,6 +1214,57 @@ $ sq keyring merge certs.pgp romeo-updates.pgp
                              .short("B").long("binary")
                              .help("Emits binary data"))
                 )
+                .subcommand(
+                    SubCommand::with_name("dsm-import")
+                        .display_order(350)
+                        .about("Import keyrings into DSM")
+                        .long_about("Import keyrings into DSM")
+                        .after_help(
+"EXAMPLES:
+
+$ sq-dsm keyring dsm-import --keyring-name <keyring-name> --input keyring.pgp 
+")
+                        .arg(Arg::with_name("keyring-name")
+                             .long("keyring-name").value_name("KEYRING-NAME")
+                             .help("Name to store the given keyring in DSM"))
+                        .arg(Arg::with_name("dsm-exportable")
+                            .long("dsm-exportable")
+                            .help("(DANGER) Configure the key to be exportable from DSM"))
+                        .arg(Arg::with_name("input")
+                                 .long("input").value_name("FILE")
+                                 .help("Reads from FILE or stdin if omitted"))
+                        .arg(Arg::with_name("dsm-group-id")
+                             .long("dsm-group-id").value_name("DSM-GROUP-ID")
+                             .help("Generate Keyring keys inside Fortanix DSM in \
+                             the given group-id")
+                             .requires("keyring-name"))
+                )
+                .subcommand(
+                    SubCommand::with_name("create-keyring")
+                        .display_order(350)
+                        .about("Create keyrings from DSM Keys")
+                        .long_about("Create keyrings from DSM Keys")
+                        .after_help(
+"EXAMPLES:
+
+$ sq-dsm keyring create-keyring --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID> --output keyring.pgp 
+")
+                        .arg(Arg::with_name("dsm-key-id")
+                             .long("dsm-key-id").value_name("DSM-KEY-ID")
+                             .takes_value(true)
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("DSM key ID's to create keyring"))
+                        .arg(Arg::with_name("public-only")
+                            .long("public-only")
+                            .help("Extract only Public keys from DSM"))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Emits binary data"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Writes to FILE or stdout if omitted"))
+               )
                 .subcommand(
                     SubCommand::with_name("list")
                         .about("Lists keys in a keyring")
