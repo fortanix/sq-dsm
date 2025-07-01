@@ -1217,8 +1217,8 @@ $ sq keyring merge certs.pgp romeo-updates.pgp
                 .subcommand(
                     SubCommand::with_name("dsm-import")
                         .display_order(350)
-                        .about("Import keyrings into DSM")
-                        .long_about("Import keyrings into DSM")
+                        .about("Import keys from a keyring file into Fortanix DSM")
+                        .long_about("Import keys from a keyring file into Fortanix DSM")
                         .after_help(
 "EXAMPLES:
 
@@ -1226,7 +1226,7 @@ $ sq-dsm keyring dsm-import --keyring-name <keyring-name> --input keyring.pgp
 ")
                         .arg(Arg::with_name("keyring-name")
                              .long("keyring-name").value_name("KEYRING-NAME")
-                             .help("Name to store the given keyring in DSM"))
+                             .help("Name of the keyring. Used to label(name) keys during import"))
                         .arg(Arg::with_name("dsm-exportable")
                             .long("dsm-exportable")
                             .help("(DANGER) Configure the key to be exportable from DSM"))
@@ -1235,19 +1235,19 @@ $ sq-dsm keyring dsm-import --keyring-name <keyring-name> --input keyring.pgp
                                  .help("Reads from FILE or stdin if omitted"))
                         .arg(Arg::with_name("dsm-group-id")
                              .long("dsm-group-id").value_name("DSM-GROUP-ID")
-                             .help("Generate Keyring keys inside Fortanix DSM in \
-                             the given group-id")
+                             .help("Import Keyring keys into Fortanix DSM in the given group-id")
                              .requires("keyring-name"))
                 )
                 .subcommand(
-                    SubCommand::with_name("create-keyring")
+                    SubCommand::with_name("extract")
                         .display_order(350)
-                        .about("Create keyrings from DSM Keys")
-                        .long_about("Create keyrings from DSM Keys")
+                        .about("Extract keys from Fortanix DSM and export them as a keyring file.")
+                        .long_about("Retrieves keys from Fortanix DSM using the specified key IDs and writes them to a keyring file. 
+By default, only public keys are exported. Use --include-private to also export private keys also.")
                         .after_help(
 "EXAMPLES:
 
-$ sq-dsm keyring create-keyring --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID> --output keyring.pgp 
+$ sq-dsm keyring extract --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID> --output keyring.pgp 
 ")
                         .arg(Arg::with_name("dsm-key-id")
                              .long("dsm-key-id").value_name("DSM-KEY-ID")
@@ -1255,9 +1255,9 @@ $ sq-dsm keyring create-keyring --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_
                              .multiple(true)
                              .number_of_values(1)
                              .help("DSM key ID's to create keyring"))
-                        .arg(Arg::with_name("public-only")
-                            .long("public-only")
-                            .help("Extract only Public keys from DSM"))
+                        .arg(Arg::with_name("include-private")
+                             .long("include-private")
+                             .help("By default, only public keys are exported. Use this flag to include private keys in the exported keyring."))
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
                              .help("Emits binary data"))

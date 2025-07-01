@@ -3,7 +3,6 @@ use std::{
     collections::hash_map::Entry,
     fs::File,
     io,
-    io::Write,
     path::PathBuf,
 };
 use anyhow::Context;
@@ -168,8 +167,14 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("dsm-import",  Some(m)) => {
             dsm_import(config, m)
         },
-        ("create-keyring",  Some(m)) => {
-            create_keyring(config, m)
+        ("extract",  Some(m)) => {
+            let mut output = if m.is_present("include-private") {
+                config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::SecretKey)?
+            }else {
+                config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::PublicKey)?
+            };
+            extract_dsm( m, &mut output)?;
+            output.finalize()
         },
         ("split",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
@@ -240,27 +245,32 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
 
     let input = open_or_stdin(m.value_of("input"))?;
+
+    // for import all keys of keyring to specific group apart from default group
     let group_id = m.value_of("dsm-group-id");
 
-    // Parse keyring into certificates and updload as seperate keys into DSM
+    // Parse keyring into certificates and upload as seperate keys into DSM
     for cert in CertParser::from_reader(input)? {
         let cert = cert.context("Malformed certificate in keyring")?;
+
+        // decrypt if secrets in keyring were protected with password
         let key = if cert.is_tsk() { _unlock(cert)? } else { cert };
+
         let valid_key = key.with_policy(&config.policy, None)?;
         match m.value_of("keyring-name") {
             Some(keyring_name) => 
                 dsm::import_key_to_dsm(
                     valid_key, &keyring_name, group_id, dsm_auth.clone(), m.is_present("dsm-exportable"), None, true
                 )?,
-            None => unreachable!("name is compulsory")
+            None => unreachable!("keyring name is compulsory")
         }
     }
-    
+    println!("OK");
     Ok(())
 }
 
 /// Creates keyring from DSM keys.
-fn create_keyring(config: Config, m: &ArgMatches) -> Result<()> {
+fn extract_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
     let dsm_secret = dsm::Auth::from_options_or_env(
         m.value_of("api-key"),
         m.value_of("client-cert"),
@@ -269,34 +279,11 @@ fn create_keyring(config: Config, m: &ArgMatches) -> Result<()> {
     )?;
 
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
-    let mut include_private = false;
-
-    // Warn user if `--public-only` not present
-    if !m.is_present("public-only") {
-        print!("WARNING: --public-only not passed. This will fetch keyring related private keys from DSM. Proceed? [y/N]: ");
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        if !input.trim().eq_ignore_ascii_case("y") {
-            // if not y, it will be aborted
-            println!("Operation aborted.");
-            return Ok(());
-        }else{
-            // user choosed "y", so we can give private keys 
-            include_private = true;
-        }
-    }
-
-    let mut output = if include_private{
-        config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::SecretKey)?
-    }else {
-        config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::PublicKey)?
-    };
+    let include_private  = m.is_present("include-private");
 
     // password to encrypt the secret materials in keyring
     let mut password = None;
-    if include_private{
+    if include_private {
         let prompt_0 =
             rpassword::read_password_from_tty(Some("New password: "))
             .context("Error reading password")?;
@@ -336,10 +323,10 @@ fn create_keyring(config: Config, m: &ArgMatches) -> Result<()> {
                         key = key.insert_packets(encrypted)?;
                     }
 
-                    key.as_tsk().serialize(&mut output)?;
+                    key.as_tsk().serialize(output)?;
                 } else {
                     let cert = dsm::extract_cert("", dsm_auth.clone(), Some(key_id))?;
-                    cert.serialize(&mut output)?;
+                    cert.serialize(output)?;
                 }
             }
         }
@@ -348,7 +335,7 @@ fn create_keyring(config: Config, m: &ArgMatches) -> Result<()> {
             std::process::exit(1); // Exit with error code
         }
     };
-    output.finalize();
+    
     Ok(())
 }
 

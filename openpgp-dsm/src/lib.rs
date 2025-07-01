@@ -1096,16 +1096,15 @@ pub fn extract_cert(key_name: &str, cred: Credentials, key_id: Option<&str>) -> 
     // keyring will only accept key-ids
     let kid: Option<Uuid> = key_id.and_then(|id| id.parse().ok());
 
-    let sobject = if let Some(key_id) = kid {
-        // for keyring 
-        dsm_client
-            .get_sobject(None, &SobjectDescriptor::Kid(key_id))
-            .context(format!("could not DSM key {}", key_id))?
-    } else {
-        dsm_client
-            .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
-            .context(format!("could not get primary key {}", key_name))?
+    let sobject_descriptor= if let Some(key_id) = kid {
+        SobjectDescriptor::Kid(key_id)
+    } else{
+        SobjectDescriptor::Name(key_name.to_string())
     };
+
+    let sobject = dsm_client
+            .get_sobject(None, &sobject_descriptor)
+            .context(format!("could not get primary key {}", key_id.map_or_else(|| key_name.to_string(), |id| id.to_string())))?;
     
     Cert::from_str(
         &KeyMetadata::from_sobject(&sobject)?.certificate
@@ -1134,7 +1133,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials, key_id: Option<&s
             &sobject_descriptor,
             "export primary key",
         )
-        .context(format!("could not export primary secret {}", key_name))?;
+        .context(format!("could not get primary key {}", key_id.map_or_else(|| key_name.to_string(), |id| id.to_string())))?;
     let key_md = KeyMetadata::from_sobject(&prim_sob)?;
     let packet = secret_packet_from_sobject(&prim_sob)?;
     packets.push(packet);
@@ -1176,7 +1175,7 @@ pub fn import_key_to_dsm(
     cred:          Credentials,
     exportable:    bool,
     user_metadata: Option<HashMap<String, String>>,
-    is_keyring: bool,
+    is_keyring:    bool,
 ) -> Result<()> {
 
     fn import_constructed_sobject(
@@ -1450,8 +1449,8 @@ pub fn import_key_to_dsm(
         .ok_or_else(|| anyhow::anyhow!("Bad input: primary has no key flags"))?;
     let prim_id = prim_key.keyid().to_hex();
 
-    // For PGP keyring, primary keys => {keyring-name} {primary-finerprint}
-    // For PGP key, primary key => {keyname}
+    // For PGP keyring, primary key name => {keyring-name} {primary-finerprint}
+    // For PGP key, primary key name => {keyname}
     let prim_name = if is_keyring {
         format!("{} {}", key_name.to_string(), prim_id)
     }else{
