@@ -1054,7 +1054,7 @@ $ sq key attest-certifications --none juliet.pgp
 Collections of keys or certficicates (also known as \"keyrings\" when
 they contain secret key material, and \"certrings\" when they don't) are
 any number of concatenated certificates.  This subcommand provides
-tools to dsm-import, list, split, join, merge, and filter keyrings.
+tools to list, split, join, merge, and filter keyrings.
 
 Note: In the documentation of this subcommand, we sometimes use the
 terms keys and certs interchangeably.

@@ -31,7 +31,8 @@ use openpgp::{
 };
 
 use crate::{
-    commands::key::_unlock,
+    commands::key::unlock,
+    commands::key::dsm_auth,
     Config,
     open_or_stdin,
 };
@@ -236,13 +237,7 @@ fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
 
 /// Import keyring into DSM.
 fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
-    let dsm_secret = dsm::Auth::from_options_or_env(
-        m.value_of("api-key"),
-        m.value_of("client-cert"),
-        m.value_of("app-uuid"),
-        m.value_of("pkcs12-passphrase"),
-    )?;
-    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let dsm_auth = dsm_auth(m)?;
 
     let input = open_or_stdin(m.value_of("input"))?;
 
@@ -254,7 +249,7 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
         let cert = cert.context("Malformed certificate in keyring")?;
 
         // decrypt if secrets in keyring were protected with password
-        let key = if cert.is_tsk() { _unlock(cert)? } else { cert };
+        let key = if cert.is_tsk() { unlock(cert)? } else { cert };
 
         let valid_key = key.with_policy(&config.policy, None)?;
         match m.value_of("keyring-name") {
@@ -307,7 +302,7 @@ fn extract_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
         Some(values) => {
             for key_id in values {
                 if include_private {
-                    let mut key = dsm::extract_tsk_from_dsm("", dsm_auth.clone(), Some(key_id))?;
+                    let mut key = dsm::extract_tsk_from_dsm( dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth.clone())?;
                     
                     // Encrypt secret all keymaterial in keyring with given password
                     if let Some(ref new) = password {
@@ -325,7 +320,7 @@ fn extract_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
 
                     key.as_tsk().serialize(output)?;
                 } else {
-                    let cert = dsm::extract_cert("", dsm_auth.clone(), Some(key_id))?;
+                    let cert = dsm::extract_cert(dsm::KeyIdentifier::KeyId(key_id.to_string()),  dsm_auth.clone())?;
                     cert.serialize(output)?;
                 }
             }

@@ -24,6 +24,7 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::File;
+use std::fmt;
 use std::io::Read;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -86,6 +87,20 @@ pub struct DsmAgent {
     descriptor:  SobjectDescriptor,
     public:      Key<PublicParts, UnspecifiedRole>,
     role:        Role,
+}
+
+#[derive(Debug)]
+pub enum KeyIdentifier {
+    KeyName(String),
+    KeyId(String),
+}
+
+impl fmt::Display for KeyIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KeyIdentifier::KeyName(s) | KeyIdentifier::KeyId(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 /// The version of this crate.
@@ -1089,22 +1104,24 @@ pub fn list_groups(cred: Credentials) -> Result<Vec<Group>> {
 /// Extracts the certificate of the corresponding PGP key. Note that this
 /// certificate, created at key-generation time, is stored in the custom
 /// metadata of the Security Object representing the primary key.
-pub fn extract_cert(key_name: &str, cred: Credentials, key_id: Option<&str>) -> Result<Cert> {
+pub fn extract_cert(identifier: KeyIdentifier, cred: Credentials) -> Result<Cert> {
     info!("dsm extract_cert");
     let dsm_client = cred.dsm_client()?;
 
-    // keyring will only accept key-ids
-    let kid: Option<Uuid> = key_id.and_then(|id| id.parse().ok());
-
-    let sobject_descriptor= if let Some(key_id) = kid {
-        SobjectDescriptor::Kid(key_id)
-    } else{
-        SobjectDescriptor::Name(key_name.to_string())
+    let sobject_descriptor = match &identifier {
+        KeyIdentifier::KeyName(name) => {
+            SobjectDescriptor::Name(name.to_string())
+        }
+        KeyIdentifier::KeyId(id) => {
+            // convert String to UUID
+            let key_id = Uuid::parse_str(&id).context("bad Key UUID")?;
+            SobjectDescriptor::Kid(key_id)
+        }
     };
 
     let sobject = dsm_client
             .get_sobject(None, &sobject_descriptor)
-            .context(format!("could not get primary key {}", key_id.map_or_else(|| key_name.to_string(), |id| id.to_string())))?;
+            .context(format!("could not get primary key {}", identifier))?;
     
     Cert::from_str(
         &KeyMetadata::from_sobject(&sobject)?.certificate
@@ -1112,19 +1129,21 @@ pub fn extract_cert(key_name: &str, cred: Credentials, key_id: Option<&str>) -> 
     )
 }
 
-pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials, key_id: Option<&str>) -> Result<Cert> {
+pub fn extract_tsk_from_dsm(identifier: KeyIdentifier, cred: Credentials) -> Result<Cert> {
     // Extract all secrets as packets
     let dsm_client = cred.dsm_client()?;
 
     let mut packets = Vec::<Packet>::with_capacity(2);
 
-    // keyring will only accept key-ids
-    let kid: Option<Uuid> = key_id.and_then(|id| id.parse().ok());
-    
-    let sobject_descriptor= if let Some(key_id) = kid {
-        SobjectDescriptor::Kid(key_id)
-    } else{
-        SobjectDescriptor::Name(key_name.to_string())
+    let sobject_descriptor = match &identifier {
+        KeyIdentifier::KeyName(name) => {
+            SobjectDescriptor::Name(name.to_string())
+        }
+        KeyIdentifier::KeyId(id) => {
+            // convert String to UUID
+            let key_id = Uuid::parse_str(&id).context("bad Key UUID")?;
+            SobjectDescriptor::Kid(key_id)
+        }
     };
 
     // Primary key
@@ -1133,7 +1152,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials, key_id: Option<&s
             &sobject_descriptor,
             "export primary key",
         )
-        .context(format!("could not get primary key {}", key_id.map_or_else(|| key_name.to_string(), |id| id.to_string())))?;
+        .context(format!("could not get primary key {}", identifier))?;
     let key_md = KeyMetadata::from_sobject(&prim_sob)?;
     let packet = secret_packet_from_sobject(&prim_sob)?;
     packets.push(packet);
@@ -1146,7 +1165,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials, key_id: Option<&s
                     &SobjectDescriptor::Kid(*uid),
                     "export subkey",
                 )
-                .context(format!("could not export subkey secret {}", key_name))?;
+                .context(format!("could not export subkey secret {}", identifier))?;
             let packet = secret_packet_from_sobject(&sob)?;
             packets.push(packet);
         }
