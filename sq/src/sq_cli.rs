@@ -1241,9 +1241,8 @@ $ sq-dsm keyring dsm-import --keyring-name <keyring-name> --input keyring.pgp
                 .subcommand(
                     SubCommand::with_name("extract")
                         .display_order(350)
-                        .about("Extract keys from Fortanix DSM and export them as a keyring file.")
-                        .long_about("Retrieves keys from Fortanix DSM using the specified key IDs and writes them to a keyring file. 
-By default, only public keys are exported. Use --include-private to also export private keys also.")
+                        .about("Extract Public keys from Fortanix DSM and export them as a keyring file.")
+                        .long_about("Retrieves Public keys from Fortanix DSM using the specified key IDs and writes them to a keyring file.")
                         .after_help(
 "EXAMPLES:
 
@@ -1255,9 +1254,29 @@ $ sq-dsm keyring extract --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID> --o
                              .multiple(true)
                              .number_of_values(1)
                              .help("DSM key ID's to create keyring"))
-                        .arg(Arg::with_name("include-private")
-                             .long("include-private")
-                             .help("By default, only public keys are exported. Use this flag to include private keys in the exported keyring."))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Emits binary data"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Writes to FILE or stdout if omitted"))
+               )
+                .subcommand(
+                    SubCommand::with_name("extract-secret")
+                        .display_order(350)
+                        .about("Extract Priavte keys(TSK) from Fortanix DSM and export them as a keyring file.")
+                        .long_about("Retrieves Priavte keys(TSK) from Fortanix DSM using the specified key IDs and writes them to a keyring file.")
+                        .after_help(
+"EXAMPLES:
+
+$ sq-dsm keyring extract-secret --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID> --output keyring.pgp 
+")
+                        .arg(Arg::with_name("dsm-key-id")
+                             .long("dsm-key-id").value_name("DSM-KEY-ID")
+                             .takes_value(true)
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("DSM key ID's to create keyring"))
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
                              .help("Emits binary data"))

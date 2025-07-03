@@ -169,12 +169,13 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
             dsm_import(config, m)
         },
         ("extract",  Some(m)) => {
-            let mut output = if m.is_present("include-private") {
-                config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::SecretKey)?
-            }else {
-                config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::PublicKey)?
-            };
+            let mut output = config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::PublicKey)?;
             extract_dsm( m, &mut output)?;
+            output.finalize()
+        },
+        ("extract-secret",  Some(m)) => {
+            let mut output = config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::SecretKey)?;
+            extract_secret_dsm( m, &mut output)?;
             output.finalize()
         },
         ("split",  Some(m)) => {
@@ -264,65 +265,15 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-/// Creates keyring from DSM keys.
+/// Creates Public keyring from DSM keys.
 fn extract_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
-    let dsm_secret = dsm::Auth::from_options_or_env(
-        m.value_of("api-key"),
-        m.value_of("client-cert"),
-        m.value_of("app-uuid"),
-        m.value_of("pkcs12-passphrase"),
-    )?;
-
-    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
-    let include_private  = m.is_present("include-private");
-
-    // password to encrypt the secret materials in keyring
-    let mut password = None;
-    if include_private {
-        let prompt_0 =
-            rpassword::read_password_from_tty(Some("New password: "))
-            .context("Error reading password")?;
-        let prompt_1 =
-            rpassword::read_password_from_tty(Some("Repeat new password: "))
-            .context("Error reading password")?;
-
-        if prompt_0 != prompt_1 {
-            return Err(anyhow::anyhow!("Passwords do not match"));
-        }
-        
-        password = if prompt_0.is_empty() {
-            // Empty password means no password.
-            None
-        } else {
-            Some(prompt_0.into())
-        };
-    }
+    let dsm_auth = dsm_auth(m)?;
 
     match m.values_of("dsm-key-id") {
         Some(values) => {
             for key_id in values {
-                if include_private {
-                    let mut key = dsm::extract_tsk_from_dsm( dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth.clone())?;
-                    
-                    // Encrypt secret all keymaterial in keyring with given password
-                    if let Some(ref new) = password {
-                        let mut encrypted: Vec<Packet> = vec![
-                            key.primary_key().key().clone().parts_into_secret()?
-                                .encrypt_secret(&new)?.into()
-                        ];
-                        for ka in key.keys().subkeys().unencrypted_secret() {
-                            encrypted.push(
-                                ka.key().clone().parts_into_secret()?
-                                    .encrypt_secret(&new)?.into());
-                        }
-                        key = key.insert_packets(encrypted)?;
-                    }
-
-                    key.as_tsk().serialize(output)?;
-                } else {
-                    let cert = dsm::extract_cert(dsm::KeyIdentifier::KeyId(key_id.to_string()),  dsm_auth.clone())?;
-                    cert.serialize(output)?;
-                }
+                let cert = dsm::extract_cert(dsm::KeyIdentifier::KeyId(key_id.to_string()),  dsm_auth.clone())?;
+                cert.serialize(output)?;
             }
         }
         None => {
@@ -330,7 +281,60 @@ fn extract_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
             std::process::exit(1); // Exit with error code
         }
     };
-    
+    println!("OK");
+    Ok(())
+}
+
+/// Creates Private keyring from DSM keys.
+fn extract_secret_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
+    let dsm_auth = dsm_auth(m)?;
+
+    let prompt_0 =
+        rpassword::read_password_from_tty(Some("New password: "))
+        .context("Error reading password")?;
+    let prompt_1 =
+        rpassword::read_password_from_tty(Some("Repeat new password: "))
+        .context("Error reading password")?;
+
+    if prompt_0 != prompt_1 {
+        return Err(anyhow::anyhow!("Passwords do not match"));
+    }
+
+    let password = if prompt_0.is_empty() {
+        // Empty password means no password.
+        None
+    } else {
+        Some(prompt_0.into())
+    };
+
+    match m.values_of("dsm-key-id") {
+        Some(values) => {
+            for key_id in values {
+                let mut key = dsm::extract_tsk_from_dsm( dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth.clone())?;
+
+                // Encrypt secret all keymaterial in keyring with given password
+                if let Some(ref new) = password {
+                    let mut encrypted: Vec<Packet> = vec![
+                        key.primary_key().key().clone().parts_into_secret()?
+                            .encrypt_secret(&new)?.into()
+                    ];
+                    for ka in key.keys().subkeys().unencrypted_secret() {
+                        encrypted.push(
+                            ka.key().clone().parts_into_secret()?
+                                .encrypt_secret(&new)?.into());
+                    }
+                    key = key.insert_packets(encrypted)?;
+                }
+
+                key.as_tsk().serialize(output)?;
+            }
+        }
+        None => {
+            eprintln!("No key-id values provided to create keyring.");
+            std::process::exit(1); // Exit with error code
+        }
+    };
+    println!("OK");
     Ok(())
 }
 

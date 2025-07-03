@@ -56,7 +56,7 @@ fn create_or_stdout(f: Option<&str>, force: bool)
                             .context("Failed to create output file")?))
             } else {
                 Err(anyhow::anyhow!(
-                    format!("File {:?} exists, use \"sq --force ...\" to \
+                    format!("File {:?} exists, use \"sq-dsm --force ...\" to \
                              overwrite", p)))
             }
         }

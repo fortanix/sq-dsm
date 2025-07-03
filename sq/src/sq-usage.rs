@@ -944,15 +944,18 @@
 //!
 //!
 //! SUBCOMMANDS:
-//!     list          Lists keys in a keyring
-//!     split         Splits a keyring into individual keys
-//!     join          Joins keys or keyrings into a single keyring
-//!     dsm-import    Import keys from a keyring file into Fortanix DSM
-//!     extract       Extract keys from Fortanix DSM and export them as a
-//!                   keyring file.
-//!     merge         Merges keys or keyrings into a single keyring
-//!     filter        Joins keys into a keyring applying a filter
-//!     help          Prints this message or the help of the given subcommand(s)
+//!     list              Lists keys in a keyring
+//!     split             Splits a keyring into individual keys
+//!     join              Joins keys or keyrings into a single keyring
+//!     dsm-import        Import keys from a keyring file into Fortanix DSM
+//!     extract           Extract Public keys from Fortanix DSM and export them
+//!                       as a keyring file.
+//!     extract-secret    Extract Priavte keys(TSK) from Fortanix DSM and export
+//!                       them as a keyring file.
+//!     merge             Merges keys or keyrings into a single keyring
+//!     filter            Joins keys into a keyring applying a filter
+//!     help              Prints this message or the help of the given
+//!                       subcommand(s)
 //! ```
 //!
 //! ### Subcommand keyring list
@@ -1112,10 +1115,8 @@
 //! ### Subcommand keyring extract
 //!
 //! ```text
-//! Retrieves keys from Fortanix DSM using the specified key IDs and writes them to
-//! a keyring file.
-//! By default, only public keys are exported. Use --include-private to also export
-//! private keys also.
+//! Retrieves Public keys from Fortanix DSM using the specified key IDs and writes
+//! them to a keyring file.
 //!
 //! USAGE:
 //!     sq keyring extract [FLAGS] [OPTIONS]
@@ -1127,9 +1128,6 @@
 //!     -h, --help
 //!             Prints help information
 //!
-//!         --include-private
-//!             By default, only public keys are exported. Use this flag to include
-//!             private keys in the exported keyring.
 //!     -V, --version
 //!             Prints version information
 //!
@@ -1146,6 +1144,40 @@
 //!
 //! $ sq-dsm keyring extract --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID>
 //! --output keyring.pgp
+//! ```
+//!
+//! ### Subcommand keyring extract-secret
+//!
+//! ```text
+//! Retrieves Priavte keys(TSK) from Fortanix DSM using the specified key IDs and
+//! writes them to a keyring file.
+//!
+//! USAGE:
+//!     sq keyring extract-secret [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --dsm-key-id <DSM-KEY-ID>...
+//!             DSM key ID's to create keyring
+//!
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! $ sq-dsm keyring extract-secret --dsm-key-id <DSM_KEY_ID> --dsm-key-id
+//! <DSM_KEY_ID> --output keyring.pgp
 //! ```
 //!
 //! ### Subcommand keyring merge
