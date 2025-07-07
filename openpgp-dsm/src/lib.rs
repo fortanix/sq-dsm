@@ -24,6 +24,7 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::File;
+use std::fmt;
 use std::io::Read;
 use std::net::IpAddr;
 use std::str::FromStr;
@@ -86,6 +87,20 @@ pub struct DsmAgent {
     descriptor:  SobjectDescriptor,
     public:      Key<PublicParts, UnspecifiedRole>,
     role:        Role,
+}
+
+#[derive(Debug)]
+pub enum KeyIdentifier {
+    KeyName(String),
+    KeyId(String),
+}
+
+impl fmt::Display for KeyIdentifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KeyIdentifier::KeyName(s) | KeyIdentifier::KeyId(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 /// The version of this crate.
@@ -1089,33 +1104,55 @@ pub fn list_groups(cred: Credentials) -> Result<Vec<Group>> {
 /// Extracts the certificate of the corresponding PGP key. Note that this
 /// certificate, created at key-generation time, is stored in the custom
 /// metadata of the Security Object representing the primary key.
-pub fn extract_cert(key_name: &str, cred: Credentials) -> Result<Cert> {
+pub fn extract_cert(identifier: KeyIdentifier, cred: Credentials) -> Result<Cert> {
     info!("dsm extract_cert");
     let dsm_client = cred.dsm_client()?;
 
-    let sobject = dsm_client
-        .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
-        .context(format!("could not get primary key {}", key_name))?;
+    let sobject_descriptor = match &identifier {
+        KeyIdentifier::KeyName(name) => {
+            SobjectDescriptor::Name(name.to_string())
+        }
+        KeyIdentifier::KeyId(id) => {
+            // convert String to UUID
+            let key_id = Uuid::parse_str(&id).context("bad Key UUID")?;
+            SobjectDescriptor::Kid(key_id)
+        }
+    };
 
+    let sobject = dsm_client
+            .get_sobject(None, &sobject_descriptor)
+            .context(format!("could not get primary key {}", identifier))?;
+    
     Cert::from_str(
         &KeyMetadata::from_sobject(&sobject)?.certificate
         .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
     )
 }
 
-pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
+pub fn extract_tsk_from_dsm(identifier: KeyIdentifier, cred: Credentials) -> Result<Cert> {
     // Extract all secrets as packets
     let dsm_client = cred.dsm_client()?;
 
     let mut packets = Vec::<Packet>::with_capacity(2);
 
+    let sobject_descriptor = match &identifier {
+        KeyIdentifier::KeyName(name) => {
+            SobjectDescriptor::Name(name.to_string())
+        }
+        KeyIdentifier::KeyId(id) => {
+            // convert String to UUID
+            let key_id = Uuid::parse_str(&id).context("bad Key UUID")?;
+            SobjectDescriptor::Kid(key_id)
+        }
+    };
+
     // Primary key
     let prim_sob = dsm_client
         .__export_sobject(
-            &SobjectDescriptor::Name(key_name.to_string()),
+            &sobject_descriptor,
             "export primary key",
         )
-        .context(format!("could not export primary secret {}", key_name))?;
+        .context(format!("could not get primary key {}", identifier))?;
     let key_md = KeyMetadata::from_sobject(&prim_sob)?;
     let packet = secret_packet_from_sobject(&prim_sob)?;
     packets.push(packet);
@@ -1128,7 +1165,7 @@ pub fn extract_tsk_from_dsm(key_name: &str, cred: Credentials) -> Result<Cert> {
                     &SobjectDescriptor::Kid(*uid),
                     "export subkey",
                 )
-                .context(format!("could not export subkey secret {}", key_name))?;
+                .context(format!("could not export subkey secret {}", identifier))?;
             let packet = secret_packet_from_sobject(&sob)?;
             packets.push(packet);
         }
@@ -1157,6 +1194,7 @@ pub fn import_key_to_dsm(
     cred:          Credentials,
     exportable:    bool,
     user_metadata: Option<HashMap<String, String>>,
+    is_keyring:    bool,
 ) -> Result<()> {
 
     fn import_constructed_sobject(
@@ -1429,7 +1467,15 @@ pub fn import_key_to_dsm(
         .key_flags()
         .ok_or_else(|| anyhow::anyhow!("Bad input: primary has no key flags"))?;
     let prim_id = prim_key.keyid().to_hex();
-    let prim_name = key_name.to_string();
+
+    // For PGP keyring, primary key name => {keyring-name} {primary-finerprint}
+    // For PGP key, primary key name => {keyname}
+    let prim_name = if is_keyring {
+        format!("{} {}", key_name.to_string(), prim_id)
+    }else{
+        key_name.to_string()
+    };
+
     let prim_desc = format!(
         "PGP primary, {}, {}", prim_id, prim_flags.human_readable()
     );

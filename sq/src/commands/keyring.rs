@@ -8,6 +8,10 @@ use std::{
 use anyhow::Context;
 
 use sequoia_openpgp as openpgp;
+
+use openpgp_dsm as dsm;
+use clap::ArgMatches;
+
 use openpgp::{
     Result,
     armor,
@@ -16,6 +20,7 @@ use openpgp::{
         CertParser,
     },
     Fingerprint,
+    Packet,
     packet::{
         UserID,
         UserAttribute,
@@ -26,6 +31,8 @@ use openpgp::{
 };
 
 use crate::{
+    commands::key::unlock,
+    commands::key::dsm_auth,
     Config,
     open_or_stdin,
 };
@@ -158,6 +165,19 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
             let mut input = open_or_stdin(m.value_of("input"))?;
             list(config, &mut input, m.is_present("all-userids"))
         },
+        ("dsm-import",  Some(m)) => {
+            dsm_import(config, m)
+        },
+        ("extract",  Some(m)) => {
+            let mut output = config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::PublicKey)?;
+            extract_dsm( m, &mut output)?;
+            output.finalize()
+        },
+        ("extract-secret",  Some(m)) => {
+            let mut output = config.create_or_stdout_pgp(m.value_of("output"), m.is_present("binary"), armor::Kind::SecretKey)?;
+            extract_secret_dsm( m, &mut output)?;
+            output.finalize()
+        },
         ("split",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let prefix =
@@ -213,6 +233,108 @@ fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
             }
         }
     }
+    Ok(())
+}
+
+/// Import keyring into DSM.
+fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_auth = dsm_auth(m)?;
+
+    let input = open_or_stdin(m.value_of("input"))?;
+
+    // for import all keys of keyring to specific group apart from default group
+    let group_id = m.value_of("dsm-group-id");
+
+    // Parse keyring into certificates and upload as seperate keys into DSM
+    for cert in CertParser::from_reader(input)? {
+        let cert = cert.context("Malformed certificate in keyring")?;
+
+        // decrypt if secrets in keyring were protected with password
+        let key = if cert.is_tsk() { unlock(cert)? } else { cert };
+
+        let valid_key = key.with_policy(&config.policy, None)?;
+        match m.value_of("keyring-name") {
+            Some(keyring_name) => 
+                dsm::import_key_to_dsm(
+                    valid_key, &keyring_name, group_id, dsm_auth.clone(), m.is_present("dsm-exportable"), None, true
+                )?,
+            None => unreachable!("keyring name is compulsory")
+        }
+    }
+    println!("OK");
+    Ok(())
+}
+
+/// Creates Public keyring from DSM keys.
+fn extract_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
+    let dsm_auth = dsm_auth(m)?;
+
+    match m.values_of("dsm-key-id") {
+        Some(values) => {
+            for key_id in values {
+                let cert = dsm::extract_cert(dsm::KeyIdentifier::KeyId(key_id.to_string()),  dsm_auth.clone())?;
+                cert.serialize(output)?;
+            }
+        }
+        None => {
+            eprintln!("No key-id values provided to create keyring.");
+            std::process::exit(1); // Exit with error code
+        }
+    };
+    println!("OK");
+    Ok(())
+}
+
+/// Creates Private keyring from DSM keys.
+fn extract_secret_dsm(m: &ArgMatches, output: &mut dyn io::Write) -> Result<()> {
+    let dsm_auth = dsm_auth(m)?;
+
+    let prompt_0 =
+        rpassword::read_password_from_tty(Some("New password: "))
+        .context("Error reading password")?;
+    let prompt_1 =
+        rpassword::read_password_from_tty(Some("Repeat new password: "))
+        .context("Error reading password")?;
+
+    if prompt_0 != prompt_1 {
+        return Err(anyhow::anyhow!("Passwords do not match"));
+    }
+
+    let password = if prompt_0.is_empty() {
+        // Empty password means no password.
+        None
+    } else {
+        Some(prompt_0.into())
+    };
+
+    match m.values_of("dsm-key-id") {
+        Some(values) => {
+            for key_id in values {
+                let mut key = dsm::extract_tsk_from_dsm( dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth.clone())?;
+
+                // Encrypt secret all keymaterial in keyring with given password
+                if let Some(ref new) = password {
+                    let mut encrypted: Vec<Packet> = vec![
+                        key.primary_key().key().clone().parts_into_secret()?
+                            .encrypt_secret(&new)?.into()
+                    ];
+                    for ka in key.keys().subkeys().unencrypted_secret() {
+                        encrypted.push(
+                            ka.key().clone().parts_into_secret()?
+                                .encrypt_secret(&new)?.into());
+                    }
+                    key = key.insert_packets(encrypted)?;
+                }
+
+                key.as_tsk().serialize(output)?;
+            }
+        }
+        None => {
+            eprintln!("No key-id values provided to create keyring.");
+            std::process::exit(1); // Exit with error code
+        }
+    };
+    println!("OK");
     Ok(())
 }
 

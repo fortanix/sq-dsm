@@ -944,12 +944,18 @@
 //!
 //!
 //! SUBCOMMANDS:
-//!     list      Lists keys in a keyring
-//!     split     Splits a keyring into individual keys
-//!     join      Joins keys or keyrings into a single keyring
-//!     merge     Merges keys or keyrings into a single keyring
-//!     filter    Joins keys into a keyring applying a filter
-//!     help      Prints this message or the help of the given subcommand(s)
+//!     list              Lists keys in a keyring
+//!     split             Splits a keyring into individual keys
+//!     join              Joins keys or keyrings into a single keyring
+//!     dsm-import        Import keys from a keyring file into Fortanix DSM
+//!     extract           Extract Public keys from Fortanix DSM and export them
+//!                       as a keyring file.
+//!     extract-secret    Extract Priavte keys(TSK) from Fortanix DSM and export
+//!                       them as a keyring file.
+//!     merge             Merges keys or keyrings into a single keyring
+//!     filter            Joins keys into a keyring applying a filter
+//!     help              Prints this message or the help of the given
+//!                       subcommand(s)
 //! ```
 //!
 //! ### Subcommand keyring list
@@ -1069,6 +1075,109 @@
 //!
 //! # Collect certs for an email conversation
 //! $ sq keyring join juliet.pgp romeo.pgp alice.pgp
+//! ```
+//!
+//! ### Subcommand keyring dsm-import
+//!
+//! ```text
+//! Import keys from a keyring file into Fortanix DSM
+//!
+//! USAGE:
+//!     sq keyring dsm-import [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!         --dsm-exportable
+//!             (DANGER) Configure the key to be exportable from DSM
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --dsm-group-id <DSM-GROUP-ID>
+//!             Import Keyring keys into Fortanix DSM in the given group-id
+//!
+//!         --input <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!         --keyring-name <KEYRING-NAME>
+//!             Name of the keyring. Used to label(name) keys during import
+//!
+//!
+//! EXAMPLES:
+//!
+//! $ sq-dsm keyring dsm-import --keyring-name <keyring-name> --input keyring.pgp
+//! ```
+//!
+//! ### Subcommand keyring extract
+//!
+//! ```text
+//! Retrieves Public keys from Fortanix DSM using the specified key IDs and writes
+//! them to a keyring file.
+//!
+//! USAGE:
+//!     sq keyring extract [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --dsm-key-id <DSM-KEY-ID>...
+//!             DSM key ID's to create keyring
+//!
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! $ sq-dsm keyring extract --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID>
+//! --output keyring.pgp
+//! ```
+//!
+//! ### Subcommand keyring extract-secret
+//!
+//! ```text
+//! Retrieves Priavte keys(TSK) from Fortanix DSM using the specified key IDs and
+//! writes them to a keyring file.
+//!
+//! USAGE:
+//!     sq keyring extract-secret [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --dsm-key-id <DSM-KEY-ID>...
+//!             DSM key ID's to create keyring
+//!
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! $ sq-dsm keyring extract-secret --dsm-key-id <DSM_KEY_ID> --dsm-key-id
+//! <DSM_KEY_ID> --output keyring.pgp
 //! ```
 //!
 //! ### Subcommand keyring merge

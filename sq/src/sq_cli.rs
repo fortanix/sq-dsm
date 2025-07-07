@@ -1215,6 +1215,76 @@ $ sq keyring merge certs.pgp romeo-updates.pgp
                              .help("Emits binary data"))
                 )
                 .subcommand(
+                    SubCommand::with_name("dsm-import")
+                        .display_order(350)
+                        .about("Import keys from a keyring file into Fortanix DSM")
+                        .long_about("Import keys from a keyring file into Fortanix DSM")
+                        .after_help(
+"EXAMPLES:
+
+$ sq-dsm keyring dsm-import --keyring-name <keyring-name> --input keyring.pgp 
+")
+                        .arg(Arg::with_name("keyring-name")
+                             .long("keyring-name").value_name("KEYRING-NAME")
+                             .help("Name of the keyring. Used to label(name) keys during import"))
+                        .arg(Arg::with_name("dsm-exportable")
+                            .long("dsm-exportable")
+                            .help("(DANGER) Configure the key to be exportable from DSM"))
+                        .arg(Arg::with_name("input")
+                                 .long("input").value_name("FILE")
+                                 .help("Reads from FILE or stdin if omitted"))
+                        .arg(Arg::with_name("dsm-group-id")
+                             .long("dsm-group-id").value_name("DSM-GROUP-ID")
+                             .help("Import Keyring keys into Fortanix DSM in the given group-id")
+                             .requires("keyring-name"))
+                )
+                .subcommand(
+                    SubCommand::with_name("extract")
+                        .display_order(350)
+                        .about("Extract Public keys from Fortanix DSM and export them as a keyring file.")
+                        .long_about("Retrieves Public keys from Fortanix DSM using the specified key IDs and writes them to a keyring file.")
+                        .after_help(
+"EXAMPLES:
+
+$ sq-dsm keyring extract --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID> --output keyring.pgp 
+")
+                        .arg(Arg::with_name("dsm-key-id")
+                             .long("dsm-key-id").value_name("DSM-KEY-ID")
+                             .takes_value(true)
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("DSM key ID's to create keyring"))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Emits binary data"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Writes to FILE or stdout if omitted"))
+               )
+                .subcommand(
+                    SubCommand::with_name("extract-secret")
+                        .display_order(350)
+                        .about("Extract Priavte keys(TSK) from Fortanix DSM and export them as a keyring file.")
+                        .long_about("Retrieves Priavte keys(TSK) from Fortanix DSM using the specified key IDs and writes them to a keyring file.")
+                        .after_help(
+"EXAMPLES:
+
+$ sq-dsm keyring extract-secret --dsm-key-id <DSM_KEY_ID> --dsm-key-id <DSM_KEY_ID> --output keyring.pgp 
+")
+                        .arg(Arg::with_name("dsm-key-id")
+                             .long("dsm-key-id").value_name("DSM-KEY-ID")
+                             .takes_value(true)
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("DSM key ID's to create keyring"))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Emits binary data"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Writes to FILE or stdout if omitted"))
+               )
+                .subcommand(
                     SubCommand::with_name("list")
                         .about("Lists keys in a keyring")
                         .display_order(100)

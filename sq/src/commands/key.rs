@@ -378,7 +378,7 @@ fn _password(config: Config, m: &ArgMatches, key: Cert) -> Result<()> {
 }
 
 // Unlocks a cert with a passphrase
-fn _unlock(key: Cert) -> Result<Cert> {
+pub fn unlock(key: Cert) -> Result<Cert> {
     if ! key.is_tsk() {
         return Err(anyhow::anyhow!("Input is not a Transferable Secret Key"));
     }
@@ -403,13 +403,7 @@ fn _unlock(key: Cert) -> Result<Cert> {
 }
 
 fn print_dsm_key_info(_config: Config, m: &ArgMatches) -> Result<()> {
-    let dsm_secret = dsm::Auth::from_options_or_env(
-        m.value_of("api-key"),
-        m.value_of("client-cert"),
-        m.value_of("app-uuid"),
-        m.value_of("pkcs12-passphrase"),
-    )?;
-    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let dsm_auth = dsm_auth(m)?;
 
     let output = match m.value_of("dsm-key") {
         Some(key_name) => {
@@ -428,13 +422,7 @@ fn print_dsm_key_info(_config: Config, m: &ArgMatches) -> Result<()> {
 }
 
 fn list_dsm_keys(_config: Config, m: &ArgMatches) -> Result<()> {
-    let dsm_secret = dsm::Auth::from_options_or_env(
-        m.value_of("api-key"),
-        m.value_of("client-cert"),
-        m.value_of("app-uuid"),
-        m.value_of("pkcs12-passphrase"),
-    )?;
-    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let dsm_auth = dsm_auth(m)?;
     let verbose = m.is_present("long");
     let output = dsm::list_keys(dsm_auth)?;
 
@@ -463,13 +451,7 @@ fn list_dsm_keys(_config: Config, m: &ArgMatches) -> Result<()> {
 }
 
 fn list_dsm_groups(_config: Config, m: &ArgMatches) -> Result<()> {
-    let dsm_secret = dsm::Auth::from_options_or_env(
-        m.value_of("api-key"),
-        m.value_of("client-cert"),
-        m.value_of("app-uuid"),
-        m.value_of("pkcs12-passphrase"),
-    )?;
-    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let dsm_auth = dsm_auth(m)?;
     
     // Returns list of groups that app belongs to.
     let output = dsm::list_groups(dsm_auth)?;
@@ -505,14 +487,8 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     let cert = match m.value_of("dsm-key") {
         Some(key_name) => {
             // Fortanix DSM
-            let dsm_secret = dsm::Auth::from_options_or_env(
-                m.value_of("api-key"),
-                m.value_of("client-cert"),
-                m.value_of("app-uuid"),
-                m.value_of("pkcs12-passphrase"),
-            )?;
-            let dsm_auth = dsm::Credentials::new(dsm_secret)?;
-            dsm::extract_cert(key_name, dsm_auth)?
+            let dsm_auth = dsm_auth(m)?;
+            dsm::extract_cert(dsm::KeyIdentifier::KeyName(key_name.to_string()), dsm_auth)?
         }
         None => {
             let input = open_or_stdin(m.value_of("input"))?;
@@ -528,7 +504,7 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
+pub fn dsm_auth(m: &ArgMatches) -> Result<dsm::Credentials> {
     let dsm_secret = dsm::Auth::from_options_or_env(
         m.value_of("api-key"),
         m.value_of("client-cert"),
@@ -536,9 +512,14 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
         m.value_of("pkcs12-passphrase"),
     )?;
     let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    Ok(dsm_auth)
+}
+
+fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_auth = dsm_auth(m)?;
     let input = open_or_stdin(m.value_of("input"))?;
     let cert = Cert::from_reader(input)?;
-    let key = if cert.is_tsk() { _unlock(cert)? } else { cert };
+    let key = if cert.is_tsk() { unlock(cert)? } else { cert };
     let valid_key = key.with_policy(&config.policy, None)?;
     let group_id = m.value_of("dsm-group-id");
 
@@ -571,22 +552,16 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
 
     match m.value_of("dsm-key") {
         Some(key_name) => dsm::import_key_to_dsm(
-            valid_key, key_name, group_id, dsm_auth, m.is_present("dsm-exportable"), user_metadata
+            valid_key, key_name, group_id, dsm_auth, m.is_present("dsm-exportable"), user_metadata, false
         ),
         None => unreachable!("name is compulsory")
     }
 }
 
 fn extract_dsm(config: Config, m: &ArgMatches) -> Result<()> {
-    let dsm_secret = dsm::Auth::from_options_or_env(
-        m.value_of("api-key"),
-        m.value_of("client-cert"),
-        m.value_of("app-uuid"),
-        m.value_of("pkcs12-passphrase"),
-    )?;
-    let dsm_auth = dsm::Credentials::new(dsm_secret)?;
+    let dsm_auth = dsm_auth(m)?;
     let key = match m.value_of("dsm-key") {
-        Some(key_name) => dsm::extract_tsk_from_dsm(key_name, dsm_auth)?,
+        Some(key_name) => dsm::extract_tsk_from_dsm(dsm::KeyIdentifier::KeyName(key_name.to_string()), dsm_auth)?,
         None => unreachable!("name is compulsory")
     };
 
