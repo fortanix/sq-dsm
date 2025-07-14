@@ -75,16 +75,16 @@ fn sq_certify() -> Result<()> {
 
     // No expiry.
     let output = Command::cargo_bin("sq")
-    .unwrap()
-    .args(&[
-        "certify",
-        alice_pgp.to_str().unwrap(),
-        bob_pgp.to_str().unwrap(),
-        "bob@example.org",
-        "--expires", "never"
-    ])
-    .output()
-    .expect("Failed to run command");
+        .unwrap()
+        .args(&[
+            "certify",
+            alice_pgp.to_str().unwrap(),
+            bob_pgp.to_str().unwrap(),
+            "bob@example.org",
+            "--expires", "never"
+        ])
+        .output()
+        .expect("Failed to run command");
 
     assert!(
         output.status.success(),
@@ -116,22 +116,22 @@ fn sq_certify() -> Result<()> {
 
     // Have alice certify bob@example.org for 0xB0B.
     let output = Command::cargo_bin("sq")
-    .unwrap()
-    .args(&[
-        "certify",
-        alice_pgp.to_str().unwrap(),
-        bob_pgp.to_str().unwrap(),
-        "bob@example.org",
-        "--depth", "10",
-        "--amount", "5",
-        "--regex", "a",
-        "--regex", "b",
-        "--local",
-        "--non-revocable",
-        "--expires-in", "1d",
-    ])
-    .output()
-    .expect("Failed to run command");
+        .unwrap()
+        .args(&[
+            "certify",
+            alice_pgp.to_str().unwrap(),
+            bob_pgp.to_str().unwrap(),
+            "bob@example.org",
+            "--depth", "10",
+            "--amount", "5",
+            "--regex", "a",
+            "--regex", "b",
+            "--local",
+            "--non-revocable",
+            "--expires-in", "1d",
+        ])
+        .output()
+        .expect("Failed to run command");
     
     assert!(
         output.status.success(),
@@ -180,18 +180,18 @@ fn sq_certify() -> Result<()> {
     // With a notation.
     
     let output = Command::cargo_bin("sq")
-    .unwrap()
-    .args(&[
-        "certify",
-        "--notation", "foo", "bar",
-        "--notation", "!foo", "xyzzy",
-        "--notation", "hello@example.org", "1234567890",
-        alice_pgp.to_str().unwrap(),
-        bob_pgp.to_str().unwrap(),
-        "bob@example.org",
-    ])
-    .output()
-    .expect("Failed to run command");
+        .unwrap()
+        .args(&[
+            "certify",
+            "--notation", "foo", "bar",
+            "--notation", "!foo", "xyzzy",
+            "--notation", "hello@example.org", "1234567890",
+            alice_pgp.to_str().unwrap(),
+            bob_pgp.to_str().unwrap(),
+            "bob@example.org",
+        ])
+        .output()
+        .expect("Failed to run command");
 
     assert!(
         output.status.success(),
