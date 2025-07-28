@@ -33,6 +33,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("dsm-import", Some(m)) => dsm_import(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
+        ("rotate", Some(m)) => rotate(config, m)?,
         ("info", Some(m)) => print_dsm_key_info(config, m)?,
         ("list-dsm-keys", Some(m)) => list_dsm_keys(config, m)?,
         ("list-dsm-groups", Some(m)) => list_dsm_groups(config, m)?,
@@ -42,6 +43,22 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
             attest_certifications(config, m)?,
         _ => unreachable!(),
         }
+    Ok(())
+}
+
+fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_auth = dsm_auth(m)?;    
+
+    match m.value_of("dsm-key-id") {
+        Some(key_id) => {
+            dsm::rotate_tsk(dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth)?
+        }
+        None => {
+            eprintln!("No key-id provided to rotate key.");
+            std::process::exit(1); 
+        }
+    };
+    println!("OK");
     Ok(())
 }
 
@@ -134,7 +151,7 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
                                 process::exit(1);
                             }
                             // Check for duplicate keys
-                            if !seen_keys.insert(key.clone()) {
+                            if !seen_keys.insert(key) {
                                 eprintln!("Error: Duplicate key '{}' found in given custom metadata.", key);
                                 process::exit(1);
                             }
@@ -538,7 +555,7 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
                             process::exit(1);
                         }
                         // Check for duplicate keys
-                        if !seen_keys.insert(key.clone()) {
+                        if !seen_keys.insert(key) {
                             eprintln!("Error: Duplicate key '{}' found in given custom metadata.", key);
                             process::exit(1);
                         }
