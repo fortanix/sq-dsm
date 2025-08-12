@@ -139,17 +139,15 @@ mod integration {
     #[test]
     fn adopt_encryption() -> Result<()> {
         // Adopt an encryption subkey.
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
                 "--keyring", alice().to_str().unwrap(),
                 "--key", &alice_encryption().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
-
+            .output()?;
+        
         assert!(
             output.status.success(),
             "Command failed: {}",
@@ -167,16 +165,14 @@ mod integration {
     #[test]
     fn adopt_signing() -> Result<()> {
         // Adopt a signing subkey (subkey has secret key material).
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
                 "--keyring", alice().to_str().unwrap(),
                 "--key", &alice_signing().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),
@@ -195,16 +191,14 @@ mod integration {
     #[test]
     fn adopt_certification() -> Result<()> {
         // Adopt a certification subkey (subkey has secret key material).
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 carol().to_str().unwrap(),
                 "--keyring", alice().to_str().unwrap(),
                 "--key", &alice_primary().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),
@@ -223,8 +217,7 @@ mod integration {
     #[test]
     fn adopt_encryption_and_signing() -> Result<()> {
         // Adopt an encryption subkey and a signing subkey.
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
@@ -232,8 +225,7 @@ mod integration {
                 "--key", &alice_signing().0.to_hex(),
                 "--key", &alice_encryption().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),
@@ -252,8 +244,7 @@ mod integration {
     #[test]
     fn adopt_twice() -> Result<()> {
         // Adopt the same an encryption subkey twice.
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
@@ -261,8 +252,7 @@ mod integration {
                 "--key", &alice_encryption().0.to_hex(),
                 "--key", &alice_encryption().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),
@@ -281,8 +271,7 @@ mod integration {
     #[test]
     fn adopt_key_appears_twice() -> Result<()> {
         // Adopt the an encryption subkey that appears twice.
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
@@ -290,8 +279,7 @@ mod integration {
                 "--keyring", alice().to_str().unwrap(),
                 "--key", &alice_encryption().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),
@@ -310,16 +298,14 @@ mod integration {
     #[test]
     fn adopt_own_encryption() -> Result<()> {
         // Adopt its own encryption subkey.  This should be a noop.
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 alice().to_str().unwrap(),
                 "--keyring", alice().to_str().unwrap(),
                 "--key", &alice_encryption().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),
@@ -338,16 +324,14 @@ mod integration {
     #[test]
     fn adopt_own_primary() -> Result<()> {
         // Adopt own primary key.
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
                 "--keyring", bob().to_str().unwrap(),
                 "--key", &bob_primary().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),
@@ -366,8 +350,7 @@ mod integration {
     #[test]
     fn adopt_missing() -> Result<()> {
         // Adopt a key that is not present.
-        Command::cargo_bin("sq")
-            .unwrap()
+        Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
@@ -383,8 +366,7 @@ mod integration {
     #[test]
     fn adopt_from_multiple() -> Result<()> {
         // Adopt from multiple certificates simultaneously.
-        let output = Command::cargo_bin("sq")
-            .unwrap()
+        let output = Command::cargo_bin("sq")?
             .args(&[
                 "key", "adopt",
                 bob().to_str().unwrap(),
@@ -395,8 +377,7 @@ mod integration {
                 "--key", &carol_signing().0.to_hex(),
                 "--key", &carol_encryption().0.to_hex(),
             ])
-            .output()
-            .expect("Failed to run command");
+            .output()?;
 
         assert!(
             output.status.success(),

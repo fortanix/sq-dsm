@@ -42,7 +42,7 @@ nettle = { version = "7.0.2", optional = true }
 regex = "1"
 regex-syntax = "0.6"
 serde = { version = "1.0", features = ["derive"] }
-sha1collisiondetection = { version = "0.3.4", default-features = false, features = ["std"] }
+sha1collisiondetection = { version = "0.2.3", default-features = false, features = ["std"] }
 thiserror = "1.0.2"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 backtrace = "0.3.3"

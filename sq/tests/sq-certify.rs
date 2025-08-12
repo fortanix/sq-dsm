@@ -32,22 +32,21 @@ fn sq_certify() -> Result<()> {
     bob.serialize(&mut file)?;
 
     // A simple certification.
-    let output = Command::cargo_bin("sq")
-        .unwrap()
+    let output = Command::cargo_bin("sq")?
         .args(&[
             "certify",
             alice_pgp.to_str().unwrap(),
             bob_pgp.to_str().unwrap(),
             "bob@example.org",
         ])
-        .output()
-        .expect("Failed to run command");
+        .output()?;
 
     assert!(
         output.status.success(),
         "Command failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+
     let policy = StandardPolicy::new();
     let cert = Cert::from_bytes(&output.stdout).unwrap();
     let vc = cert.with_policy(&policy, None).unwrap();
@@ -74,8 +73,7 @@ fn sq_certify() -> Result<()> {
     assert!(found, "Bad certification");
 
     // No expiry.
-    let output = Command::cargo_bin("sq")
-        .unwrap()
+    let output = Command::cargo_bin("sq")?
         .args(&[
             "certify",
             alice_pgp.to_str().unwrap(),
@@ -83,14 +81,14 @@ fn sq_certify() -> Result<()> {
             "bob@example.org",
             "--expires", "never"
         ])
-        .output()
-        .expect("Failed to run command");
+        .output()?;
 
     assert!(
         output.status.success(),
         "Command failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+
     let policy = StandardPolicy::new();
     let cert = Cert::from_bytes(&output.stdout).unwrap();
     let vc = cert.with_policy(&policy, None).unwrap();
@@ -115,8 +113,7 @@ fn sq_certify() -> Result<()> {
     assert!(found, "Bad certification");
 
     // Have alice certify bob@example.org for 0xB0B.
-    let output = Command::cargo_bin("sq")
-        .unwrap()
+    let output = Command::cargo_bin("sq")?
         .args(&[
             "certify",
             alice_pgp.to_str().unwrap(),
@@ -130,8 +127,7 @@ fn sq_certify() -> Result<()> {
             "--non-revocable",
             "--expires-in", "1d",
         ])
-        .output()
-        .expect("Failed to run command");
+        .output()?;
     
     assert!(
         output.status.success(),
@@ -166,8 +162,7 @@ fn sq_certify() -> Result<()> {
     assert!(found, "Bad certification");
 
     // It should fail if the User ID doesn't exist.
-    Command::cargo_bin("sq")
-        .unwrap()
+    Command::cargo_bin("sq")?
         .args(&[
             "certify",
             alice_pgp.to_str().unwrap(),
@@ -179,8 +174,7 @@ fn sq_certify() -> Result<()> {
 
     // With a notation.
     
-    let output = Command::cargo_bin("sq")
-        .unwrap()
+    let output = Command::cargo_bin("sq")?
         .args(&[
             "certify",
             "--notation", "foo", "bar",
@@ -190,8 +184,7 @@ fn sq_certify() -> Result<()> {
             bob_pgp.to_str().unwrap(),
             "bob@example.org",
         ])
-        .output()
-        .expect("Failed to run command");
+        .output()?;
 
     assert!(
         output.status.success(),

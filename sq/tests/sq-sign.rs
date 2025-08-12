@@ -296,25 +296,20 @@ fn sq_sign_append() {
 #[allow(unreachable_code)]
 fn sq_sign_append_on_compress_then_sign() {
     use crate::openpgp::policy::StandardPolicy as P;
-    println!("Startin sq_sign_append_on_compress_then_sign ");
 
     let p = &P::new();
     let tmp_dir = TempDir::new().unwrap();
     let sig0 = tmp_dir.path().join("sig0");
-    println!("310 line ");
 
     // This is quite an odd scheme, so we need to create such a
     // message by foot.
     let tsk = Cert::from_file(&artifact("keys/dennis-simon-anton-private.pgp"))
         .unwrap();
-    println!("316 line ");
     let key = tsk.keys().with_policy(p, None).for_signing().next().unwrap().key();
-    println!("317 line ");
     let sec = match key.optional_secret() {
         Some(SecretKeyMaterial::Unencrypted(ref u)) => u.clone(),
         _ => unreachable!(),
     };
-    println!("322 line ");
     let keypair = KeyPair::new(key.clone(), sec).unwrap();
     let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
                              keypair).build().unwrap();
@@ -329,7 +324,6 @@ fn sq_sign_append_on_compress_then_sign() {
         .unwrap();
     literal.finalize()
         .unwrap();
-    println!("335 line ");
     // Check that the content is sane.
     let packets: Vec<Packet> =
         PacketPile::from_file(&sig0).unwrap().into_children().collect();
@@ -350,7 +344,6 @@ fn sq_sign_append_on_compress_then_sign() {
     } else {
         panic!("expected signature");
     }
-    println!("356 line ");
 
     // Verify signed message.
     Command::cargo_bin("sq")
@@ -378,8 +371,7 @@ fn sq_sign_append_on_compress_then_sign() {
             &sig0.to_string_lossy(),
         ])
         .assert()
-        .failure();
-    println!("385 line ");
+        .failure(); // XXX: Currently, this is not implemented.
 
     // XXX: Currently, this is not implemented in sq.
     return;
