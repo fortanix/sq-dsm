@@ -869,6 +869,26 @@ sq-dsm key rotate --dsm-key-id <DSM-KEY-ID>")
                                 .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
                                 .help("Passphrase for unlocking the PKCS12 identity file \
                                        (cert-based authentication)"))
+                            .group(ArgGroup::with_name("expiration-group")
+                               .args(&["expires", "expires-in"]))
+                               .arg(Arg::with_name("expires")
+                                   .long("expires").value_name("TIME")
+                                   .help("Makes the key expire at TIME (as ISO 8601)")
+                                   .long_help(
+                                        "Makes the key expire at TIME (as ISO 8601). \
+                                        Use \"never\" to create keys that do not \
+                                        expire."))
+                               .arg(Arg::with_name("expires-in")
+                                   .long("expires-in").value_name("DURATION")
+                                   // Catch negative numbers.
+                                   .allow_hyphen_values(true)
+                                   .help("Makes the key expire after DURATION \
+                                             (as N[ymwd]) [default: 3y]")
+                                   .long_help(
+                                        "Makes the key expire after DURATION. \
+                                        Either \"N[ymwd]\", for N years, months, \
+                                        weeks, or days, or \"never\"."))
+
                             .arg(Arg::with_name("dsm-key-id")
                               .long("dsm-key-id").value_name("DSM-KEY-ID")
                               .help("DSM key ID of key to rotate"))

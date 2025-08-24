@@ -49,9 +49,30 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
 fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
     let dsm_auth = dsm_auth(m)?;    
 
+    // Expiration.
+    let mut builder = CertBuilder::new();
+    
+    let d = match (m.value_of("expires"), m.value_of("expires-in")) {
+        (None, None) => // Default expiration.
+            Some(Duration::new(3 * SECONDS_IN_YEAR, 0)),
+        (Some(t), None) if t == "never" => None ,
+        (Some(t), None) => {
+            let now = builder.creation_time()
+                .unwrap_or_else(std::time::SystemTime::now);
+            let expiration = SystemTime::from(
+                crate::parse_iso8601(t, chrono::NaiveTime::from_hms(0, 0, 0))?);
+            let validity = expiration.duration_since(now)?;
+            builder = builder.set_creation_time(now);
+            Some(validity)
+        },
+        (None, Some(d)) if d == "never" => None,
+        (None, Some(d)) =>  Some(parse_duration(d)?),
+        (Some(_), Some(_)) => unreachable!("conflicting args"),
+    };
+
     match m.value_of("dsm-key-id") {
         Some(key_id) => {
-            dsm::rotate_tsk(dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth)?
+            dsm::rotate_tsk(dsm::KeyIdentifier::KeyId(key_id.to_string()), d, dsm_auth)?
         }
         None => {
             eprintln!("No key-id provided to rotate key.");
