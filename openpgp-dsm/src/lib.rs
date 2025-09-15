@@ -35,7 +35,7 @@ use anyhow::{Context, Error, Result};
 use http::uri::Uri;
 use hyper::client::{Client as HyperClient, ProxyConfig};
 use hyper::net::HttpsConnector;
-use hyper_native_tls::native_tls::{Identity, TlsConnector};
+use hyper_native_tls::native_tls::{Identity, Certificate, TlsConnector};
 use hyper_native_tls::NativeTlsClient;
 use ipnetwork::IpNetwork;
 use log::{info, warn};
@@ -108,6 +108,7 @@ pub const SQ_DSM_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DSM_LABEL_PGP:  &str = "sq_dsm";
 const ENV_API_KEY:        &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT:   &str = "FORTANIX_API_ENDPOINT";
+const ENV_CA_FILE:        &str = "FORTANIX_CA_FILE";
 const ENV_APP_UUID:       &str = "FORTANIX_APP_UUID";
 const ENV_HTTP_PROXY:     &str = "http_proxy";
 const ENV_NO_PROXY:       &str = "no_proxy";
@@ -337,8 +338,13 @@ impl Credentials {
 
         let cli = match &self.auth {
             Auth::ApiKey(api_key) => {
-                let tls_conn = TlsConnector::builder()
-                    .build()?;
+                let mut tls_connector = TlsConnector::builder();
+                if let Ok(ca_path) = env::var(ENV_CA_FILE).map(|s| s.trim().to_string()) {
+                    let buf = std::fs::read(&ca_path).with_context(|| format!("Failed to read custom CA file at {}", ca_path))?;
+                    let cert = Certificate::from_pem(&buf).with_context(|| format!("Invalid PEM in custom CA file at {}", ca_path))?;
+                    tls_connector.add_root_certificate(cert);
+                }
+                let tls_conn = tls_connector.build()?;
                 let ssl = NativeTlsClient::from(tls_conn);
                 let hyper_client = maybe_proxied(&self.api_endpoint, ssl)?;
                 let cli = builder
