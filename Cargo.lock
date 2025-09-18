@@ -2104,7 +2104,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openpgp-dsm"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "anyhow",
  "bindgen 0.57.0",
@@ -2149,6 +2149,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28988d872ab76095a6e6ac88d99b54fd267702734fd7ffe610ca27f533ddb95a"
 
 [[package]]
+name = "openssl-src"
+version = "111.25.0+1.1.1t"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3173cd3626c43e3854b1b727422a276e568d9ec5fe8cec197822cf52cfb743d6"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2157,6 +2166,7 @@ dependencies = [
  "autocfg 1.0.1",
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
@@ -2976,7 +2986,7 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 [[package]]
 name = "sdkms"
 version = "0.2.1"
-source = "git+https://github.com/zugzwang/sdkms-client-rust.git?branch=keylinks#83328a1e8a704d210dbad59771cf85be32d654e8"
+source = "git+https://github.com/zugzwang/sdkms-client-rust.git?branch=keylinks#12836c70df98b7be4c49b45b31182f0f9d5abcb5"
 dependencies = [
  "bitflags 1.3.2",
  "chrono",
@@ -3159,6 +3169,7 @@ dependencies = [
  "fehler",
  "itertools 0.9.0",
  "openpgp-dsm",
+ "openssl",
  "rpassword",
  "sequoia-autocrypt",
  "sequoia-net",
