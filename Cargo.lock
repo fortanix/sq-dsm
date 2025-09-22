@@ -4261,8 +4261,7 @@ dependencies = [
 [[package]]
 name = "win-crypto-ng"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24cf92e98e8f4ade45b5140795415a0f256fd9b69a1919248dcda11ba5d6466c"
+source = "git+https://github.com/emgre/win-crypto-ng?rev=306da1c87fad53b5e51f9e089b04380a5c336de7#306da1c87fad53b5e51f9e089b04380a5c336de7"
 dependencies = [
  "cipher",
  "doc-comment",

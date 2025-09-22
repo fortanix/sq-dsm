@@ -14,6 +14,11 @@ members = [
 debug = true
 
 [patch.crates-io]
-# Rust 1.69+ broke ntapi v0.3.x, which doesn't contain proper fix:
-# https://github.com/MSxDOS/ntapi/pull/12
+# ntapi 0.3.7 contains code that will be incompatible with future versions of Rust
+# Issue : https://github.com/MSxDOS/ntapi/issues/11
+# Fix : https://github.com/MSxDOS/ntapi/pull/12
 ntapi = { git = "https://github.com/MSxDOS/ntapi", rev = "24fc1e47677fc9f6e38e5f154e6011dc9b270da6" }
+# win-crypto-ng 0.4 contains code that will be incompatible with future versions of Rust
+# Issue : https://github.com/emgre/win-crypto-ng/issues/40
+# Fix : https://github.com/emgre/win-crypto-ng/pull/43
+win-crypto-ng = { git = "https://github.com/emgre/win-crypto-ng", rev = "306da1c87fad53b5e51f9e089b04380a5c336de7"}
