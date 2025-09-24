@@ -1189,6 +1189,19 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
                 }
             };
             old_subkeys.push((sub_key, role));
+
+            // Unlink old subkeys from primary key
+            let links = KeyLinks {
+                parent: None,
+                ..Default::default()
+            };
+            let link_update_req = SobjectRequest {
+                links: Some(links),
+                ..Default::default()
+            };
+            dsm_client.__update_sobject(
+                uid, &link_update_req, "unlink old subkey from primary key"
+            )?;
         }
     } else {
         return Err(Error::msg("could not find subkeys"));
