@@ -69,7 +69,7 @@ use sequoia_openpgp::policy::StandardPolicy;
 use sequoia_openpgp::serialize::SerializeInto;
 use sequoia_openpgp::types::{
     Curve as SequoiaCurve, Features, HashAlgorithm, KeyFlags,
-    PublicKeyAlgorithm, SignatureType, SymmetricAlgorithm, Timestamp,
+    PublicKeyAlgorithm, ReasonForRevocation, SignatureType, SymmetricAlgorithm, Timestamp,
 };
 use sequoia_openpgp::{Cert, Packet};
 use serde::{Deserialize, Serialize};
@@ -1151,26 +1151,29 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
         }
     };
 
-    // Get Primary key
-    let prim_sob = dsm_client
-        .__export_sobject(
-            &sobject_descriptor,
-            "export primary key",
-        )
-        .context(format!("could not get primary key {}", identifier))?;
-    let primary = PublicKey::from_sobject(prim_sob.clone(), KeyRole::Primary)?;
+    // Get Primary key from DSM
+    let prim_sobject = dsm_client
+            .get_sobject(None, &sobject_descriptor)
+            .context(format!("could not get primary key {:?}", &sobject_descriptor))?;
+
+    let primary = PublicKey::from_sobject(prim_sobject.clone(), KeyRole::Primary)?;
+    let prim_name = prim_sobject.name.clone().ok_or_else(|| Error::msg("Primary key doesn't have name"))?;
+    let prim_metadata = KeyMetadata::from_sobject(&prim_sobject)?;
+    let mut cert = Cert::from_str(
+        &prim_metadata.certificate
+        .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
+    )?;
+    // setup primary key signer
+    let mut prim_signer = DsmAgent::new_certifier(cred.clone(), &prim_name)?;
     
     // store old keys & their roles so that we can create new subkeys with old subkeys properties.
     let mut old_subkeys: Vec<(Sobject, KeyRole)> = Vec::new();
 
-    if let Some(KeyLinks { ref subkeys, .. }) = prim_sob.links {
+    if let Some(KeyLinks { ref subkeys, .. }) = prim_sobject.links {
         for uid in subkeys {
             let sub_key = dsm_client
-                .__export_sobject(
-                    &SobjectDescriptor::Kid(*uid),
-                    "export subkey",
-                )
-                .context(format!("could not export subkey secret {}", identifier))?;
+                .get_sobject(None, &SobjectDescriptor::Kid(*uid))
+                .context(format!("could not get subkey {:?}", &SobjectDescriptor::Kid(*uid)))?;
             
             let key_metadata = KeyMetadata::from_sobject(&sub_key)?;
             let role = match key_metadata.key_flags {
@@ -1188,27 +1191,43 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
                             "cannot deduce key role from Sobject flags"));
                 }
             };
-            old_subkeys.push((sub_key, role));
+
+            old_subkeys.push((sub_key.clone(), role.clone()));
+
+            let old_subkey = PublicKey::from_sobject(sub_key, role.clone())?;
+
+            // Revoke old subkeys
+            info!("key rotation: add revocation signature for old subkeys");
+            let pk: Key<PublicParts, SubordinateRole> = old_subkey
+                .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+
+            let revocation_builder = SignatureBuilder::new(SignatureType::SubkeyRevocation)
+                .set_reason_for_revocation(
+                ReasonForRevocation::KeySuperseded,
+                b"Subkey rotated as part of PGP key rotation.")?;
+            
+            let revocation_signature = pk.bind(&mut prim_signer, &cert, revocation_builder)?;
+            cert = cert.insert_packets(vec![Packet::from(pk), revocation_signature.into()])?;
 
             // Unlink old subkeys from primary key
+            info!("key rotation: unlink subkeys from primary key in DSM");
             let links = KeyLinks {
                 parent: None,
                 ..Default::default()
             };
+
             let link_update_req = SobjectRequest {
                 links: Some(links),
                 ..Default::default()
             };
+
             dsm_client.__update_sobject(
                 uid, &link_update_req, "unlink old subkey from primary key"
             )?;
         }
     } else {
-        return Err(Error::msg("could not find subkeys"));
+        return Err(Error::msg("could not find subkeys in primary key"));
     }
-
-    let prim_name = prim_sob.name.clone().ok_or_else(|| Error::msg("Primary key doesn't have name"))?;
-    let prim_metadata = KeyMetadata::from_sobject(&prim_sob)?;
 
     let deactivation_date = if let Some(d) = validity_period {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
@@ -1217,8 +1236,8 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
         None
     };
 
-    let mut signing_subkeys: Vec<PublicKey> = vec![];
-    let mut encryption_subkeys: Vec<PublicKey> = vec![];
+    let mut new_signing_subkeys: Vec<PublicKey> = Vec::new();
+    let mut new_encryption_subkeys: Vec<PublicKey> = Vec::new();
 
     // Generate new sub keys based on old keys roles
     for (subkey, role) in old_subkeys{
@@ -1254,18 +1273,18 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
             dest: sobject_request,
         };
 
-        // rotate subkeys
-        let reky_sobj = dsm_client.rotate_sobject(&rekey_req)
+        // rotate subkeys in DSM
+        let rekey_sobj = dsm_client.rotate_sobject(&rekey_req)
             .context("dsm client could not rotate sobject")?;
         
-        let new_subkey = PublicKey::from_sobject(reky_sobj, role.clone())?;
+        let new_subkey = PublicKey::from_sobject(rekey_sobj, role.clone())?;
         
-        if role == KeyRole::EncryptionSubkey { 
-            encryption_subkeys.push(new_subkey.clone());
+        if matches!(role, KeyRole::EncryptionSubkey) { 
+            new_encryption_subkeys.push(new_subkey.clone());
         } 
 
-        if role == KeyRole::SigningSubkey { 
-            signing_subkeys.push(new_subkey);
+        if matches!(role, KeyRole::SigningSubkey) { 
+            new_signing_subkeys.push(new_subkey);
         }
     }
     
@@ -1273,22 +1292,12 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
     let encryption_subkey_flags = KeyFlags::empty()
         .set_storage_encryption()
         .set_transport_encryption();
+    let hash_algo = HashAlgorithm::SHA512;
 
-    // setup primary key signer
-    let mut prim_signer = DsmAgent::new_certifier(cred.clone(), &prim_name)?;
-
-    let mut cert = Cert::from_str(
-        &prim_metadata.certificate
-        .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
-    )?;
-
-    let hash_algo = prim_metadata.hash_algo
-        .unwrap_or(HashAlgorithm::SHA512);
-
-    if !encryption_subkeys.is_empty() {
+    if !new_encryption_subkeys.is_empty() {
         info!("key generation: sign new encryption subkey");
         {
-            let (subkey, flags) = (&encryption_subkeys[0], &encryption_subkey_flags);
+            let (subkey, flags) = (&new_encryption_subkeys[0], &encryption_subkey_flags);
             let pk: Key<PublicParts, SubordinateRole> = subkey
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
@@ -1303,28 +1312,28 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
         }
     }
 
-    if !signing_subkeys.is_empty() {
+    let primary_key: Key<PublicParts, PrimaryRole> = primary
+                .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+
+    if !new_signing_subkeys.is_empty() {
         info!("key generation: create embedded signature (signing-subkey signs primary)");
         // To sign primary key
         let mut subkey_signer = DsmAgent::new_signing_subkey_from_descriptor(
-            cred, &signing_subkeys[0].descriptor)?;
+            cred, &new_signing_subkeys[0].descriptor)?;
         let embedded_signature = {
-            let subkey: Key<PublicParts, SubordinateRole> = signing_subkeys[0]
-                .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
-
-            let pk: Key<PublicParts, PrimaryRole> = primary
+            let subkey: Key<PublicParts, SubordinateRole> = new_signing_subkeys[0]
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
             SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
                 .set_key_validity_period(validity_period)?
                 .set_hash_algo(hash_algo)
                 .set_signature_creation_time(subkey.creation_time())?
-                .sign_primary_key_binding(&mut subkey_signer, &pk, &subkey)?
+                .sign_primary_key_binding(&mut subkey_signer, &primary_key, &subkey)?
         };
 
         info!("key generation: sign signing key");
         {
-            let (subkey, flags) = (&signing_subkeys[0], &signing_subkey_flags);
+            let (subkey, flags) = (&new_signing_subkeys[0], &signing_subkey_flags);
             let pk: Key<PublicParts, SubordinateRole> = subkey
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
@@ -1342,41 +1351,62 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
 
     info!("key rotation: bind new subkeys to primary key in DSM");
     let links = KeyLinks {
-        parent: Some(prim_sob.clone().kid.ok_or(anyhow::anyhow!("Key ID not present"))?),
+        parent: Some(primary.uid()?),
         ..Default::default()
     };
+
     let link_update_req = SobjectRequest {
         links: Some(links),
         ..Default::default()
     };
-    for subkey in &signing_subkeys {
+
+    for subkey in &new_signing_subkeys {
         dsm_client.__update_sobject(
             &subkey.uid()?, &link_update_req, "bind new subkey to primary key"
         )?;
     }
-    for subkey in &encryption_subkeys {
+    for subkey in &new_encryption_subkeys {
         dsm_client.__update_sobject(
             &subkey.uid()?, &link_update_req, "bind new subkey to primary key"
         )?;
     }
 
-    info!("key generation: store updated primary metadata");
+    info!("key rotation: store updated cert in primary metadata");
     {
         let new_prim_metadata = KeyMetadata {
             certificate:    Some(String::from_utf8(cert.armored().to_vec()?)?),
             ..prim_metadata
         }.to_custom_metadata()?;
+
         let update_req = SobjectRequest {
             custom_metadata: Some(new_prim_metadata),
             ..Default::default()
         };
+
         dsm_client.__update_sobject(
-            &prim_sob.clone().kid.ok_or(anyhow::anyhow!("Key ID not present"))?, &update_req, "store PGP certificate as metadata"
+            &primary.uid()?, &update_req, "store PGP certificate as metadata"
+        )?;
+    }
+
+    info!("key rotation: rename subkeys");
+    for subkey in new_encryption_subkeys.iter().chain(new_signing_subkeys.iter()) {
+        let pk: Key<PublicParts, SubordinateRole> = subkey
+            .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
+
+        let subkey_name = format!(
+            "{} {}/{}", prim_name, pk.keyid().to_hex(), primary_key.keyid().to_hex(),
+        ).to_string();
+
+        let update_req = SobjectRequest {
+            name:            Some(subkey_name),
+            ..Default::default()
+        };
+        dsm_client.__update_sobject(
+            &subkey.uid()?, &update_req, "store subkey metadata"
         )?;
     }
 
     Ok(())
-
 }
 
 pub fn extract_tsk_from_dsm(identifier: KeyIdentifier, cred: Credentials) -> Result<Cert> {

@@ -50,7 +50,7 @@ fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
     let dsm_auth = dsm_auth(m)?;    
 
     // Expiration.
-    let mut builder = CertBuilder::new();
+    let builder = CertBuilder::new();
     
     let d = match (m.value_of("expires"), m.value_of("expires-in")) {
         (None, None) => // Default expiration.
@@ -62,7 +62,6 @@ fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
             let expiration = SystemTime::from(
                 crate::parse_iso8601(t, chrono::NaiveTime::from_hms(0, 0, 0))?);
             let validity = expiration.duration_since(now)?;
-            builder = builder.set_creation_time(now);
             Some(validity)
         },
         (None, Some(d)) if d == "never" => None,
@@ -79,7 +78,9 @@ fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
             std::process::exit(1); 
         }
     };
+
     println!("OK");
+    
     Ok(())
 }
 
