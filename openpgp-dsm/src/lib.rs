@@ -1136,7 +1136,7 @@ pub fn extract_cert(identifier: KeyIdentifier, cred: Credentials) -> Result<Cert
 }
 
 /// Rotates Key in DSM 
-pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, cred: Credentials) -> Result<()> {
+pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     info!("dsm rotate_tsk");
     let dsm_client = cred.dsm_client()?;
 
@@ -1229,11 +1229,23 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
         return Err(Error::msg("could not find subkeys in primary key"));
     }
 
-    let deactivation_date = if let Some(d) = validity_period {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        Some(SdkmsTime(now + d.as_secs()))
-    } else {
-        None
+    // Calculate the remaining validity period for new subkeys
+    // If primary key has a deactivation_date:
+    //   - check if it is expired → throw error [New subkeys must not outlive the primary key & cannot rotate expired key]
+    //   - otherwise calculate remaining duration
+    // If primary key has no deactivation_date (lifelong), validity_period is None
+    let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let validity_period: Option<Duration> = match prim_sobject.deactivation_date {
+        Some(time) => {
+            if time.0 <= current_time {
+                return Err(Error::msg("Cannot rotate subkeys: primary key has already expired"));
+            }
+            // New subkeys Validity Period
+            Some(Duration::from_secs(time.0 - current_time))
+        }
+        None => {
+            None
+        }
     };
 
     let mut new_signing_subkeys: Vec<PublicKey> = Vec::new();
@@ -1244,7 +1256,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, validity_period: Option<Duration>, 
         let sobject_request = SobjectRequest{
             aes: subkey.aes,
             custom_metadata: subkey.custom_metadata,
-            deactivation_date: deactivation_date,
+            deactivation_date: subkey.deactivation_date,
             des: subkey.des,
             des3: subkey.des3,
             description: subkey.description,

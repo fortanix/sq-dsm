@@ -710,12 +710,6 @@
 //!         --dsm-key-id <DSM-KEY-ID>
 //!             DSM key ID of key to rotate
 //!
-//!         --expires <TIME>
-//!             Makes the key expire at TIME (as ISO 8601). Use "never" to create
-//!             keys that do not expire.
-//!         --expires-in <DURATION>
-//!             Makes the key expire after DURATION. Either "N[ymwd]", for N years,
-//!             months, weeks, or days, or "never".
 //!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
 //!             Passphrase for unlocking the PKCS12 identity file (cert-based
 //!             authentication)
