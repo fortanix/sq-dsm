@@ -405,7 +405,7 @@
 //!     password                 Changes password protecting secrets
 //!     extract-cert             Converts a key to a cert
 //!     extract-dsm-secret       Extracts a secret key from Fortanix DSM
-//!     rotate                   Rotate the PGP Key using the specified key ID
+//!     rotate                   Rotate the PGP Key for the specified key ID
 //!     dsm-import
 //!             Imports a Transferable Secret Key (TSK) or a Transferable Public Key
 //!             (TPK) into Fortanix DSM
@@ -684,7 +684,7 @@
 //! ### Subcommand key rotate
 //!
 //! ```text
-//! Rotate the PGP Key using the specified key ID
+//! Rotate the PGP Key for the specified key ID
 //!
 //! USAGE:
 //!     sq key rotate [OPTIONS]

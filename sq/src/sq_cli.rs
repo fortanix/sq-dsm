@@ -847,9 +847,9 @@ command exfiltrates secrets from DSM and outputs a Key.
                             )
                 .subcommand(SubCommand::with_name("rotate")
                             .display_order(111)
-                            .about("Rotate the PGP Key using the specified key ID")
+                            .about("Rotate the PGP Key for the specified key ID")
                             .long_about(
-"Rotate the PGP Key using the specified key ID")
+"Rotate the PGP Key for the specified key ID")
 .after_help(
                                 "EXAMPLES:
 sq-dsm key rotate --dsm-key-id <DSM-KEY-ID>")

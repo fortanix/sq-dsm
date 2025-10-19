@@ -48,19 +48,14 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
 
 fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
     let dsm_auth = dsm_auth(m)?;    
-
     match m.value_of("dsm-key-id") {
         Some(key_id) => {
             dsm::rotate_tsk(dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth)?
         }
-        None => {
-            eprintln!("No key-id provided to rotate key.");
-            std::process::exit(1); 
-        }
+        None => return Err(anyhow::anyhow!("No Dsm-Key-Id provided to rotate key"))
     };
 
     println!("OK");
-    
     Ok(())
 }
 

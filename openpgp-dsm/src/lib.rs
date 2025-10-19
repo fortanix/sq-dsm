@@ -1171,6 +1171,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
 
     if let Some(KeyLinks { ref subkeys, .. }) = prim_sobject.links {
         for uid in subkeys {
+            // Get SubKey from DSM
             let sub_key = dsm_client
                 .get_sobject(None, &SobjectDescriptor::Kid(*uid))
                 .context(format!("could not get subkey {:?}", &SobjectDescriptor::Kid(*uid)))?;
@@ -1197,7 +1198,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
             let old_subkey = PublicKey::from_sobject(sub_key, role.clone())?;
 
             // Revoke old subkeys
-            info!("key rotation: add revocation signature for old subkeys");
+            info!("key rotation: add revocation signature in cert for old subkeys");
             let pk: Key<PublicParts, SubordinateRole> = old_subkey
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
@@ -1209,13 +1210,12 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
             let revocation_signature = pk.bind(&mut prim_signer, &cert, revocation_builder)?;
             cert = cert.insert_packets(vec![Packet::from(pk), revocation_signature.into()])?;
 
-            // Unlink old subkeys from primary key
+            // Unlink old subkeys from primary key in DSM
             info!("key rotation: unlink subkeys from primary key in DSM");
             let links = KeyLinks {
                 parent: None,
                 ..Default::default()
             };
-
             let link_update_req = SobjectRequest {
                 links: Some(links),
                 ..Default::default()
@@ -1229,16 +1229,16 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         return Err(Error::msg("could not find subkeys in primary key"));
     }
 
-    // Calculate the remaining validity period for new subkeys
-    // If primary key has a deactivation_date:
-    //   - check if it is expired → throw error [New subkeys must not outlive the primary key & cannot rotate expired key]
-    //   - otherwise calculate remaining duration
-    // If primary key has no deactivation_date (lifelong), validity_period is None
+    // Calculate the remaining validity period for new subkeys. New subkeys must not outlive the primary key
+    // If primary key has a deactivation date:
+    //   - check if it is expired => throw error [ Cannot rotate expired key]
+    //   - otherwise calculate remaining duration & keep it same for new keys
+    // If primary key has no deactivation_date, key new subkeys validity_period is None
     let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
     let validity_period: Option<Duration> = match prim_sobject.deactivation_date {
         Some(time) => {
             if time.0 <= current_time {
-                return Err(Error::msg("Cannot rotate subkeys: primary key has already expired"));
+                return Err(Error::msg("Cannot rotate subkeys: primary key is expired"));
             }
             // New subkeys Validity Period
             Some(Duration::from_secs(time.0 - current_time))
@@ -1276,6 +1276,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
             rotation_policy: subkey.rotation_policy,
             state: subkey.state,
             group_id: subkey.group_id,
+            rsa: subkey.rsa,
             ..Default::default()
         };
 
@@ -1307,7 +1308,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     let hash_algo = HashAlgorithm::SHA512;
 
     if !new_encryption_subkeys.is_empty() {
-        info!("key generation: sign new encryption subkey");
+        info!("key rotation: sign new encryption subkey");
         {
             let (subkey, flags) = (&new_encryption_subkeys[0], &encryption_subkey_flags);
             let pk: Key<PublicParts, SubordinateRole> = subkey
@@ -1328,7 +1329,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
     if !new_signing_subkeys.is_empty() {
-        info!("key generation: create embedded signature (signing-subkey signs primary)");
+        info!("key rotation: create embedded signature (signing-subkey signs primary)");
         // To sign primary key
         let mut subkey_signer = DsmAgent::new_signing_subkey_from_descriptor(
             cred, &new_signing_subkeys[0].descriptor)?;
@@ -1343,7 +1344,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
                 .sign_primary_key_binding(&mut subkey_signer, &primary_key, &subkey)?
         };
 
-        info!("key generation: sign signing key");
+        info!("key rotation: sign signing key");
         {
             let (subkey, flags) = (&new_signing_subkeys[0], &signing_subkey_flags);
             let pk: Key<PublicParts, SubordinateRole> = subkey
@@ -1366,7 +1367,6 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         parent: Some(primary.uid()?),
         ..Default::default()
     };
-
     let link_update_req = SobjectRequest {
         links: Some(links),
         ..Default::default()
@@ -1386,7 +1386,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     info!("key rotation: store updated cert in primary metadata");
     {
         let new_prim_metadata = KeyMetadata {
-            certificate:    Some(String::from_utf8(cert.armored().to_vec()?)?),
+            certificate: Some(String::from_utf8(cert.armored().to_vec()?)?),
             ..prim_metadata
         }.to_custom_metadata()?;
 
@@ -1400,7 +1400,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         )?;
     }
 
-    info!("key rotation: rename subkeys");
+    info!("key rotation: rename new subkeys");
     for subkey in new_encryption_subkeys.iter().chain(new_signing_subkeys.iter()) {
         let pk: Key<PublicParts, SubordinateRole> = subkey
             .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
@@ -1947,6 +1947,7 @@ pub fn import_key_to_dsm(
         }
     }
 
+    println!("OK");
     Ok(())
 }
 
