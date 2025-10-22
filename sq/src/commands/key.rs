@@ -4,6 +4,7 @@ use itertools::Itertools;
 use std::time::{SystemTime, Duration};
 use std::collections::{HashMap, HashSet};
 use std::process;
+use std::io::{self, Write};
 
 use crate::openpgp::KeyHandle;
 use crate::openpgp::Packet;
@@ -48,15 +49,36 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
 
 fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
     let dsm_auth = dsm_auth(m)?;    
-    match m.value_of("dsm-key-id") {
-        Some(key_id) => {
-            dsm::rotate_tsk(dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth)?
-        }
-        None => return Err(anyhow::anyhow!("No Dsm-Key-Id provided to rotate key"))
-    };
 
-    println!("OK");
-    Ok(())
+    println!(
+        "You are about to rotate the PGP key\n\
+        This operation will:\n\
+        • Deactivate and unlink old subkeys\n\
+        • Generate and link new subkeys\n\
+        • Update the PGP certificate with subkey bindings\n\
+        This action is irreversible.",
+    );
+    print!("\nContinue with rotation? [y/N]: ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    let user_option = matches!(input.trim().to_lowercase().as_str(), "y" | "yes");
+
+    if user_option {
+        match m.value_of("dsm-key-id") {
+            Some(key_id) => {
+                dsm::rotate_tsk(dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth)?
+            }
+            None => return Err(anyhow::anyhow!("Error: No key ID provided for key rotation."))
+        };
+        println!("OK");
+        Ok(())
+    }else{
+        println!("\nAborted.");
+        Ok(())
+    }
 }
 
 fn generate(config: Config, m: &ArgMatches) -> Result<()> {

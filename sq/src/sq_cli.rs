@@ -849,7 +849,14 @@ command exfiltrates secrets from DSM and outputs a Key.
                             .display_order(111)
                             .about("Rotate the PGP Key for the specified key ID")
                             .long_about(
-"Rotate the PGP Key for the specified key ID")
+"Rotates PGP Key.
+
+During PGP key rotation, the following operations are performed:
+- Unlinks old subkeys from the primary key and deactivates them in DSM.
+- Adds subkey revocation signature packets for the old subkeys to the PGP certificate.
+- Generates new subkeys to replace the old subkeys and links them to the primary key in DSM.
+- Adds subkey binding signature packets for the newly created subkeys to the PGP certificate.
+")
 .after_help(
                                 "EXAMPLES:
 sq-dsm key rotate --dsm-key-id <DSM-KEY-ID>")

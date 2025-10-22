@@ -1151,6 +1151,8 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         }
     };
 
+    let hash_algo = HashAlgorithm::SHA512;
+
     // Get Primary key from DSM
     let prim_sobject = dsm_client
             .get_sobject(None, &sobject_descriptor)
@@ -1203,6 +1205,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
             let revocation_builder = SignatureBuilder::new(SignatureType::SubkeyRevocation)
+                .set_hash_algo(hash_algo)
                 .set_reason_for_revocation(
                 ReasonForRevocation::KeySuperseded,
                 b"Subkey rotated as part of PGP key rotation.")?;
@@ -1253,7 +1256,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
 
     // Generate new sub keys based on old keys roles
     for (subkey, role) in old_subkeys{
-        let sobject_request = SobjectRequest{
+        let mut sobject_request = SobjectRequest{
             aes: subkey.aes,
             custom_metadata: subkey.custom_metadata,
             deactivation_date: subkey.deactivation_date,
@@ -1279,6 +1282,9 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
             rsa: subkey.rsa,
             ..Default::default()
         };
+        if let Some(ref mut rsa_options) = sobject_request.rsa {
+            rsa_options.key_size = None;
+        }
 
         let rekey_req = SobjectRekeyRequest{
             // revoke old subkeys
@@ -1305,7 +1311,6 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     let encryption_subkey_flags = KeyFlags::empty()
         .set_storage_encryption()
         .set_transport_encryption();
-    let hash_algo = HashAlgorithm::SHA512;
 
     if !new_encryption_subkeys.is_empty() {
         info!("key rotation: sign new encryption subkey");
