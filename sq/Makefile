@@ -70,3 +70,4 @@ test-dsm:
 	./tests/local/generate_keys.sh -c nistp384
 	./tests/local/generate_keys.sh -c nistp521
 	./tests/local/generate_keys.sh -c cv25519
+	./tests/dsm/test_key_rotation.sh
