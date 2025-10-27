@@ -48,6 +48,7 @@ use sdkms::api_model::{
     SignResponse, Sobject, SobjectDescriptor, SobjectRequest, SobjectRekeyRequest, Time as SdkmsTime,
     ListSobjectsParams, Group
 };
+use sdkms::SdkmsClient;
 use sdkms::operations::Operation;
 use sdkms::{Error as DsmError, PendingApproval, SdkmsClient as DsmClient};
 use semver::{Version, VersionReq};
@@ -319,7 +320,7 @@ impl <S: Into<Cow<'static, str>> + Display> OperateOrAskApproval<S> for DsmClien
                 .get_sobject(None, &SobjectDescriptor::Kid(current_key_id))
                 .with_context(|| format!("Decrypt error: Failed to fetch key {:?}", current_key_id))?;
 
-            // Extract replaced link safely
+            // Extract replaced key
             let replaced_id = match current_sobject
                 .links
                 .as_ref()
@@ -1356,9 +1357,17 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
             rsa_options.key_size = None;
         }
 
+        let mut deactivate_rotated_key = false;
+
+        // Old rotated SigningSubkey should not sign new messages, so we can deactivate old SigningSubkey in rotation.
+        // But Old rotated EncryptionSubkey should be able to do AGREEKEY/DECRYPT in decryption, so we can keep it active.
+        if matches!(role, KeyRole::SigningSubkey) { 
+            deactivate_rotated_key = true;
+        }
+
         let rekey_req = SobjectRekeyRequest{
             // revoke old subkeys
-            deactivate_rotated_key: true,
+            deactivate_rotated_key: deactivate_rotated_key,
             dest: sobject_request,
         };
 
@@ -2418,25 +2427,25 @@ impl Decryptor for DsmAgent {
 
                 // Agree on a ECDH secret between the recipient private key, and
                 // the ephemeral public key.
-                let secret: Protected = {
-                    let agree_req = AgreeKeyRequest {
-                        activation_date:   None,
-                        deactivation_date: None,
-                        private_key:       self.descriptor.clone(),
-                        public_key:        e_descriptor,
-                        mechanism:         AgreeKeyMechanism::DiffieHellman,
-                        name:              None,
-                        group_id:          None,
-                        key_type:          ObjectType::Secret,
-                        key_size:          curve_key_size(curve).context("size")?,
-                        enabled:           true,
-                        description:       None,
-                        custom_metadata:   None,
-                        key_ops:           Some(KeyOperations::EXPORT),
-                        state:             None,
-                        transient:         true,
-                    };
+                let agree_req = AgreeKeyRequest {
+                    activation_date:   None,
+                    deactivation_date: None,
+                    private_key:       self.descriptor.clone(),
+                    public_key:        e_descriptor,
+                    mechanism:         AgreeKeyMechanism::DiffieHellman,
+                    name:              None,
+                    group_id:          None,
+                    key_type:          ObjectType::Secret,
+                    key_size:          curve_key_size(curve).context("size")?,
+                    enabled:           true,
+                    description:       None,
+                    custom_metadata:   None,
+                    key_ops:           Some(KeyOperations::EXPORT),
+                    state:             None,
+                    transient:         true,
+                };
 
+                let secret: Protected = {
                     let agreed_tkey = cli
                         .__agree(&agree_req, "ECDH exchange")
                         .context("ECDH exchange")?
@@ -2453,14 +2462,104 @@ impl Decryptor for DsmAgent {
                         .into()
                 };
 
-                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)
-                    .context("could not unwrap the session key")?
+                let session_key_result = match ecdh::decrypt_unwrap(&self.public, &secret, ciphertext) {
+                    Ok(resp) => Ok(resp),
+                    Err(err) => __try_agree_with_rotated_keys(&self.credentials, &cli, &agree_req, err, ciphertext)
+                };
+
+                Ok(session_key_result.context("could not unwrap the session key")?
                     .to_vec()
                     .into())
             }
             _ => Err(Error::msg("unsupported/unknown algorithm")),
         }
     }
+}
+
+/// Retries ECDH agreement & get SessionKey using rotated keys.
+/// 
+/// Each rotated key maintains a `replaced` link that references the previous key it superseded.
+/// When ECDH agreement with the current key fails, this method follows the key’s
+/// `replaced` link to older rotated keys, retrying ECDH agreement until it succeeds
+/// or no further replacements exist. A `HashSet` of visited key IDs ensures
+/// the traversal does not enter a loop.
+///
+/// Returns the first successful [`SessionKey`], or the original error if all
+/// agree attempts fail.
+fn __try_agree_with_rotated_keys(
+    credentials: &Credentials,
+    cli: &SdkmsClient,
+    agree_req: &AgreeKeyRequest,
+    first_err: anyhow::Error,
+    ciphertext: &MpiCiphertext,
+) -> Result<SessionKey> {
+    let mut req = agree_req.clone();
+    let key_desc = req.private_key;
+    let mut current_key_id = cli
+        .get_sobject(None, &key_desc)
+        .context(format!("Agree error: Failed to fetch key {:?}", key_desc))?
+        .kid
+        .ok_or_else(|| anyhow::anyhow!("Agree error: Missing key ID"))?;
+
+    let mut visited = HashSet::new();
+
+    while visited.insert(current_key_id) {
+        let current_sobject = cli
+                .get_sobject(None, &SobjectDescriptor::Kid(current_key_id))
+                .with_context(|| format!("Agree error: Failed to fetch key {:?}", current_key_id))?;
+
+        // Extract replaced key
+        let replaced_id = match current_sobject
+            .links
+            .as_ref()
+            .and_then(|links| links.replaced.clone())
+        {
+            Some(id) => id,
+            None => {
+                // No older key exists, return the original decrypt error
+                return Err(first_err.into());
+            }
+        };
+
+        // Update Agree request with old key
+        req.private_key = SobjectDescriptor::Kid(replaced_id);
+        let old_sobject = cli
+            .get_sobject(None, &SobjectDescriptor::Kid(replaced_id))
+            .context("could not get subkey".to_string())?;
+        let old_key = PublicKey::from_sobject(old_sobject, KeyRole::EncryptionSubkey)?;
+        let old_agent = DsmAgent {
+            credentials: credentials.clone(),
+            descriptor: SobjectDescriptor::Kid(replaced_id),
+            public: old_key.sequoia_key.context("key is not loaded")?,
+            role: Role::Decryptor,
+        };
+
+        current_key_id = replaced_id;
+
+        let secret: Protected = {
+            let agreed_tkey = cli
+                .__agree(&req, "ECDH exchange")
+                .context("ECDH exchange")?
+                .transient_key
+                .context("could not retrieve agreed key")?;
+
+            let desc = SobjectDescriptor::TransientKey(agreed_tkey);
+
+            cli.export_sobject(&desc)
+                .context("could not export transient key")?
+                .value
+                .context("could not retrieve secret from sobject")?
+                .to_vec()
+                .into()
+        };
+
+        match ecdh::decrypt_unwrap(&old_agent.public, &secret, ciphertext) {
+            Ok(resp) => return Ok(resp),
+            Err(_) => continue,
+        }
+    }
+
+    Err(anyhow::anyhow!("Agree error: loop detected in rotated keys"))
 }
 
 fn secret_packet_from_sobject(sobject: &Sobject) -> Result<Packet> {

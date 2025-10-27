@@ -41,105 +41,110 @@ fi
 
 ## Test rotate command
 printf "Y el verso cae al alma como al pasto el rocío.\n" > "$message"
-
+array=( rsa2k rsa3k rsa4k rsa8k nistp256 nistp384 nistp521 cv25519 )
 #-------------------------------------------------------------------------------------------------
-# Intial tests
+for alg in "${array[@]}"
+do
+    # Intial tests
+    
+    # 1. Generate key from sq-dsm
+    comm "[$alg] Generate key"
+    user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
+    dsm_name="sq-dsm-test-key-rotation-$random-$alg"
+    $sq --force key generate --userid="$user_id" --dsm-key="$dsm_name" --cipher-suite="rsa2k" --dsm-exportable >/dev/null
 
-# 1. Generate key from sq-dsm
-comm "Generate key"
-user_id="Knownkey-Test-$alg (sq-dsm $v) <xyz@xyz.xyz>"
-dsm_name="sq-dsm-test-key-rotation-$random-rsa2k"
-$sq key generate --userid="$user_id" --dsm-key="$dsm_name" --cipher-suite="rsa2k" --dsm-exportable >/dev/null
+    # 2. Extract PGP cert from the key
+    comm "[$alg] Extract PGP certificate"
+    $sq --force key extract-cert --dsm-key="$dsm_name" --output "$initial_public_cert"
 
-# 2. Extract PGP cert from the key
-comm "Extract PGP certificate"
-$sq key extract-cert --dsm-key="$dsm_name" --output "$initial_public_cert"
+    # 3. Encrypt & Decrypt test
+    comm "[$alg] Initial Encrypt & Decrypt test"
+    $sq --force encrypt --recipient-cert "$initial_public_cert" "$message" --output "$initial_encrypted_message"
+    $sq --force decrypt --dsm-key="$dsm_name" "$initial_encrypted_message" --output "$initial_decrypted_message"
+    diff "$message" "$initial_decrypted_message"
 
-# 3. Encrypt & Decrypt test
-comm "Initial Encrypt & Decrypt test"
-$sq encrypt --recipient-cert "$initial_public_cert" "$message" --output "$initial_encrypted_message"
-$sq decrypt --dsm-key="$dsm_name" "$initial_encrypted_message" --output "$initial_decrypted_message"
-diff "$message" "$initial_decrypted_message"
+    # 4. Sign & Verify test
+    comm "[$alg] Initial Sign & Verify test"
+    $sq --force sign --dsm-key="$dsm_name" "$message" --output "$initial_signed_message"
+    $sq --force verify --signer-cert="$initial_public_cert" "$initial_signed_message"
 
-# 4. Sign & Verify test
-comm "Initial Sign & Verify test"
-$sq sign --dsm-key="$dsm_name" "$message" --output "$initial_signed_message"
-$sq verify --signer-cert="$initial_public_cert" "$initial_signed_message"
+    #-------------------------------------------------------------------------------------------------
+    # 5. Rotate the key & test new & old keys [1st round]
+    # Fetch key-id from DSM
+    comm "[$alg] First round : Rotate key"
+    curl_resp=$(curl -s -k -X POST "$FORTANIX_API_ENDPOINT/crypto/v1/keys/info" \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Basic $FORTANIX_API_KEY" \
+        -d "{\"name\": \"$dsm_name\"}") 
 
-#-------------------------------------------------------------------------------------------------
-# 5. Rotate the key & test new & old keys [1st round]
-# Fetch key-id from DSM
-comm "First round : Rotate key"
-curl_resp=$(curl -s -k -X POST "$FORTANIX_API_ENDPOINT/crypto/v1/keys/info" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Basic $FORTANIX_API_KEY" \
-    -d "{\"name\": \"$dsm_name\"}") 
+    primary_key_id=$(echo "$curl_resp" | jq -r '.kid')
+    # enter y when asked for key roatation confirmation
+    $sq --force key rotate --dsm-key-id "$primary_key_id"
 
-primary_key_id=$(echo "$curl_resp" | jq -r '.kid')
-# enter y when asked for key roatation confirmation
-$sq key rotate --dsm-key-id "$primary_key_id"
+    # 6. Decrypt intial encrypted message on rotated key
+    comm "[$alg] First round : Decrypt test"
+    $sq --force decrypt --dsm-key="$dsm_name" "$initial_encrypted_message" --output "$decrypted_old_initial_message_1"
+    diff "$message" "$decrypted_old_initial_message_1"
 
-# 6. Decrypt intial encrypted message on rotated key
-comm "First round : Decrypt test"
-$sq decrypt --dsm-key="$dsm_name" "$initial_encrypted_message" --output "$decrypted_old_initial_message_1"
-diff "$message" "$decrypted_old_initial_message_1"
+    # 7. Extract rotated PGP cert from the key
+    comm "[$alg] First round : Extract Rotated PGP certificate"
+    $sq --force key extract-cert --dsm-key="$dsm_name" --output "$firstR_rotated_public_cert"
 
-# 7. Extract rotated PGP cert from the key
-comm "First round : Extract Rotated PGP certificate"
-$sq key extract-cert --dsm-key="$dsm_name" --output "$firstR_rotated_public_cert"
+    # 8. Verify previous signed message on rotated key
+    comm "[$alg] First round : Verify test"
+    $sq --force verify --signer-cert="$firstR_rotated_public_cert" "$initial_signed_message"
 
-# 8. Verify previous signed message on rotated key
-comm "First round : Verify test"
-$sq verify --signer-cert="$firstR_rotated_public_cert" "$initial_signed_message"
+    # 9. Encrypt & Decrypt test
+    comm "[$alg] First round : Rotated Encrypt & Decrypt test"
+    $sq --force encrypt --recipient-cert "$firstR_rotated_public_cert" "$message" --output "$firstR_encrypted_message"
+    $sq --force decrypt --dsm-key="$dsm_name" "$firstR_encrypted_message" --output "$firstR_decrypted_message"
+    diff "$message" "$firstR_decrypted_message"
 
-# 9. Encrypt & Decrypt test
-comm "First round : Rotated Encrypt & Decrypt test"
-$sq encrypt --recipient-cert "$firstR_rotated_public_cert" "$message" --output "$firstR_encrypted_message"
-$sq decrypt --dsm-key="$dsm_name" "$firstR_encrypted_message" --output "$firstR_decrypted_message"
-diff "$message" "$firstR_decrypted_message"
+    # 10. Sign & Verify test
+    comm "[$alg] First round : Rotated Sign & Verify test"
+    $sq --force sign --dsm-key="$dsm_name" "$message" --output "$firstR_signed_message"
+    $sq --force verify --signer-cert="$firstR_rotated_public_cert" "$firstR_signed_message"
 
-# 10. Sign & Verify test
-comm "First round : Rotated Sign & Verify test"
-$sq sign --dsm-key="$dsm_name" "$message" --output "$firstR_signed_message"
-$sq verify --signer-cert="$firstR_rotated_public_cert" "$firstR_signed_message"
+    #-------------------------------------------------------------------------------------------------
+    # 11. Again Rotate the key [2nd round]
+    comm "[$alg] Second round : Rotate key"
+    # enter y when asked for key roatation confirmation
+    $sq --force key rotate --dsm-key-id "$primary_key_id"
 
-#-------------------------------------------------------------------------------------------------
-# 11. Again Rotate the key [2nd round]
-comm "Second round : Rotate key"
-# enter y when asked for key roatation confirmation
-$sq key rotate --dsm-key-id "$primary_key_id"
+    # 12. Decrypt initial encrypted message on rotated key
+    comm "[$alg] Second round : Decrypt test"
+    $sq --force decrypt --dsm-key="$dsm_name" "$initial_encrypted_message" --output "$decrypted_old_initial_message_2"
+    diff "$message" "$decrypted_old_initial_message_2"
 
-# 12. Decrypt initial encrypted message on rotated key
-comm "Second round : Decrypt test"
-$sq decrypt --dsm-key="$dsm_name" "$initial_encrypted_message" --output "$decrypted_old_initial_message_2"
-diff "$message" "$decrypted_old_initial_message_2"
+    # 13. Decrypt first round encrypted message on rotated key
+    comm "[$alg] Second round : Decrypt test"
+    $sq --force decrypt --dsm-key="$dsm_name" "$firstR_encrypted_message" --output "$decrypted_old_first_message_2"
+    diff "$message" "$decrypted_old_first_message_2"
 
-# 13. Decrypt first round encrypted message on rotated key
-comm "Second round : Decrypt test"
-$sq decrypt --dsm-key="$dsm_name" "$firstR_encrypted_message" --output "$decrypted_old_first_message_2"
-diff "$message" "$decrypted_old_first_message_2"
+    # 14. Extract rotated PGP cert from the key
+    comm "[$alg] Second round : Extract Rotated PGP certificate"
+    $sq --force key extract-cert --dsm-key="$dsm_name" --output "$secondR_rotated_public_cert"
 
-# 14. Extract rotated PGP cert from the key
-comm "Second round : Extract Rotated PGP certificate"
-$sq key extract-cert --dsm-key="$dsm_name" --output "$secondR_rotated_public_cert"
+    # 15. Verify initial signed message on rotated key
+    comm "[$alg] Second round : Verify test"
+    $sq --force verify --signer-cert="$secondR_rotated_public_cert" "$initial_signed_message"
 
-# 15. Verify initial signed message on rotated key
-comm "Second round : Verify test"
-$sq verify --signer-cert="$secondR_rotated_public_cert" "$initial_signed_message"
+    # 16. Verify first round signed message on rotated key
+    comm "[$alg] Second round : Verify test"
+    $sq --force verify --signer-cert="$secondR_rotated_public_cert" "$firstR_signed_message"
 
-# 16. Verify first round signed message on rotated key
-comm "Second round : Verify test"
-$sq verify --signer-cert="$secondR_rotated_public_cert" "$firstR_signed_message"
+    # 17. Encrypt & Decrypt test
+    comm "[$alg] Second round : Rotated Encrypt & Decrypt test"
+    $sq --force encrypt --recipient-cert "$secondR_rotated_public_cert" "$message" --output "$secondR_encrypted_message"
+    $sq --force decrypt --dsm-key="$dsm_name" "$secondR_encrypted_message" --output "$secondR_decrypted_message"
+    diff "$message" "$secondR_decrypted_message"
 
-# 17. Encrypt & Decrypt test
-comm "Second round : Rotated Encrypt & Decrypt test"
-$sq encrypt --recipient-cert "$secondR_rotated_public_cert" "$message" --output "$secondR_encrypted_message"
-$sq decrypt --dsm-key="$dsm_name" "$secondR_encrypted_message" --output "$secondR_decrypted_message"
-diff "$message" "$secondR_decrypted_message"
+    # 18. Sign & Verify test
+    comm "[$alg] Second round : Rotated Sign & Verify test"
+    $sq --force sign --dsm-key="$dsm_name" "$message" --output "$secondR_signed_message"
+    $sq --force verify --signer-cert="$secondR_rotated_public_cert" "$secondR_signed_message"
 
-# 18. Sign & Verify test
-comm "Second round : Rotated Sign & Verify test"
-$sq sign --dsm-key="$dsm_name" "$message" --output "$secondR_signed_message"
-$sq verify --signer-cert="$secondR_rotated_public_cert" "$secondR_signed_message"
+    echo -e "\n [$alg] SUCCESS \n"
+done
 
 echo "SUCCESS"
