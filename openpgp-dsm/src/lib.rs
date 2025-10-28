@@ -209,9 +209,6 @@ trait OperateOrAskApproval<S: Into<Cow<'static, str>> + Display> {
     fn __retry_until_resolved<O: Operation>(&self, pa: &PendingApproval<O>, desc: S)
         -> Result<O::Output>;
     
-    fn __try_decrypt_with_rotated_keys(&self, request: &DecryptRequest, first_err: DsmError, _desc: S) 
-        -> Result<DecryptResponse>;
-
     fn __update_sobject(&self, uuid: &Uuid, req: &SobjectRequest, desc: S)
         -> Result<Sobject>;
 
@@ -283,72 +280,6 @@ impl <S: Into<Cow<'static, str>> + Display> OperateOrAskApproval<S> for DsmClien
         }
     }
 
-    /// Retries decryption using rotated keys.
-    /// 
-    /// Each rotated key maintains a `replaced` link that references the previous key it superseded.
-    /// When decryption with the current key fails, this method follows the key’s
-    /// `replaced` link to older rotated keys, retrying decryption until it succeeds
-    /// or no further replacements exist. A `HashSet` of visited key IDs ensures
-    /// the traversal does not enter a loop.
-    ///
-    /// Returns the first successful [`DecryptResponse`], or the original error if all
-    /// decryption attempts fail.
-    fn __try_decrypt_with_rotated_keys(
-        &self, request: &DecryptRequest, first_err: DsmError, _desc: S,
-    ) -> Result<DecryptResponse> {
-        let mut req = request.clone();
-
-        // Get the key descriptor from the decrypt request
-        let key_desc = req
-            .key
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Decrypt error: Missing key descriptor"))?;
-
-        // Fetch the starting (root) key
-        let mut current_key_id = self
-            .get_sobject(None, key_desc)
-            .context(format!("Decrypt error: Failed to fetch key {:?}", key_desc))?
-            .kid
-            .ok_or_else(|| anyhow::anyhow!("Decrypt error: Missing key ID"))?;
-
-        let mut visited = HashSet::new();
-
-        // Loop over replacement chain. Maintain Hashset to avoid cycles.
-        while visited.insert(current_key_id) {
-            // Fetch the current key.
-            let current_sobject = self
-                .get_sobject(None, &SobjectDescriptor::Kid(current_key_id))
-                .with_context(|| format!("Decrypt error: Failed to fetch key {:?}", current_key_id))?;
-
-            // Extract replaced key
-            let replaced_id = match current_sobject
-                .links
-                .as_ref()
-                .and_then(|links| links.replaced.clone())
-            {
-                Some(id) => id,
-                None => {
-                    // No older key exists, return the original decrypt error
-                    return Err(first_err.into());
-                }
-            };
-
-            // Update Decrypt request with old key
-            req.key = Some(SobjectDescriptor::Kid(replaced_id));
-            current_key_id = replaced_id;
-
-            // Attempt decryption with the old key
-            match self.decrypt(&req) {
-                Ok(resp) => return Ok(resp),
-                Err(_) => continue,
-            }
-        }
-
-        Err(anyhow::anyhow!(
-            "Decrypt error: loop detected in rotated keys"
-        ))
-    }
-
     fn __decrypt(
         &self, req: &DecryptRequest, desc: S
     ) -> Result<DecryptResponse> {
@@ -360,7 +291,7 @@ impl <S: Into<Cow<'static, str>> + Display> OperateOrAskApproval<S> for DsmClien
                 )?;
                 self.__retry_until_resolved(&pa, desc)
             }
-            Err(err) => self.__try_decrypt_with_rotated_keys(req, err, desc),
+            Err(err) => Err(err.into()),
             Ok(resp) => Ok(resp)
         }
     }
@@ -1222,7 +1153,6 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     };
 
     let hash_algo = HashAlgorithm::SHA512;
-
     // Get Primary key from DSM
     let prim_sobject = dsm_client
             .get_sobject(None, &sobject_descriptor)
@@ -1231,6 +1161,16 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     let primary = PublicKey::from_sobject(prim_sobject.clone(), KeyRole::Primary)?;
     let prim_name = prim_sobject.name.clone().ok_or_else(|| Error::msg("Primary key doesn't have name"))?;
     let prim_metadata = KeyMetadata::from_sobject(&prim_sobject)?;
+    
+    // PGP Rotation should be performed on PGP primary key
+    if let Some(ref flags) = prim_metadata.key_flags {
+        if !flags.for_certification() {
+            return Err(anyhow::anyhow!("key rotation must be performed with the Primary key"));
+        }
+    } else {
+        return Err(anyhow::anyhow!("key rotation must be performed with the Primary key"));
+    }
+
     let mut cert = Cert::from_str(
         &prim_metadata.certificate
         .ok_or(anyhow::anyhow!("no certificate in DSM custom metadata"))?
@@ -1267,7 +1207,6 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
                 })?;
 
             old_subkeys.push((sub_key.clone(), role.clone()));
-
             let old_subkey = PublicKey::from_sobject(sub_key, role.clone())?;
 
             // Revoke old subkeys
@@ -1358,15 +1297,13 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         }
 
         let mut deactivate_rotated_key = false;
-
         // Old rotated SigningSubkey should not sign new messages, so we can deactivate old SigningSubkey in rotation.
         // But Old rotated EncryptionSubkey should be able to do AGREEKEY/DECRYPT in decryption, so we can keep it active.
         if matches!(role, KeyRole::SigningSubkey) { 
             deactivate_rotated_key = true;
         }
-
         let rekey_req = SobjectRekeyRequest{
-            // revoke old subkeys
+            // deactivate old SigningSubkey
             deactivate_rotated_key: deactivate_rotated_key,
             dest: sobject_request,
         };
@@ -2389,9 +2326,13 @@ impl Decryptor for DsmAgent {
                     tag:    None,
                 };
 
+                let decrypt_result = match cli.__decrypt(&decrypt_req, "decrypt session key") {
+                    Ok(resp) => Ok(resp),
+                    Err(err) => __try_decrypt_with_rotated_keys(&cli, &decrypt_req, err)
+                };
+
                 Ok(
-                    cli.__decrypt(&decrypt_req, "decrypt session key")
-                    .context("failed RSA decryption")?
+                    decrypt_result.context("failed RSA decryption")?
                     .plain.to_vec().into()
                 )
             }
@@ -2474,6 +2415,74 @@ impl Decryptor for DsmAgent {
             _ => Err(Error::msg("unsupported/unknown algorithm")),
         }
     }
+}
+
+/// Retries decryption using rotated keys.
+/// 
+/// Each rotated key maintains a `replaced` link that references the previous key it superseded.
+/// When decryption with the current key fails, this method follows the key’s
+/// `replaced` link to older rotated keys, retrying decryption until it succeeds
+/// or no further replacements exist. A `HashSet` of visited key IDs ensures
+/// the traversal does not enter a loop.
+///
+/// Returns the first successful [`DecryptResponse`], or the original error if all
+/// decryption attempts fail.
+fn __try_decrypt_with_rotated_keys(
+    cli: &SdkmsClient, 
+    decrypt_req: &DecryptRequest, 
+    first_err: anyhow::Error,
+) -> Result<DecryptResponse> {
+    let mut req = decrypt_req.clone();
+
+    // Get the key descriptor from the decrypt request
+    let key_desc = req
+        .key
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Decrypt error: Missing key descriptor"))?;
+
+    // Fetch the starting (root) key
+    let mut current_key_id = cli
+        .get_sobject(None, key_desc)
+        .context(format!("Decrypt error: Failed to fetch key {:?}", key_desc))?
+        .kid
+        .ok_or_else(|| anyhow::anyhow!("Decrypt error: Missing key ID"))?;
+
+    let mut visited = HashSet::new();
+
+    // Loop over replacement chain. Maintain Hashset to avoid cycles.
+    while visited.insert(current_key_id) {
+        // Fetch the current key.
+        let current_sobject = cli
+            .get_sobject(None, &SobjectDescriptor::Kid(current_key_id))
+            .with_context(|| format!("Decrypt error: Failed to fetch key {:?}", current_key_id))?;
+
+        // Extract replaced key
+        let replaced_id = match current_sobject
+            .links
+            .as_ref()
+            .and_then(|links| links.replaced.clone())
+        {
+            Some(id) => id,
+            None => {
+                // No older key exists, return the original decrypt error
+                return Err(first_err.into());
+            }
+        };
+
+        // Update Decrypt request with old key
+        req.key = Some(SobjectDescriptor::Kid(replaced_id));
+        current_key_id = replaced_id;
+
+        // Attempt decryption with the old key
+        match cli.__decrypt(&req, "decrypt session key") {
+            Ok(resp) => return Ok(resp),
+            Err(_) => continue,
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "Decrypt error: loop detected in rotated keys"
+    ))
 }
 
 /// Retries ECDH agreement & get SessionKey using rotated keys.

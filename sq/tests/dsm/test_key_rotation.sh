@@ -144,7 +144,7 @@ do
     $sq --force sign --dsm-key="$dsm_name" "$message" --output "$secondR_signed_message"
     $sq --force verify --signer-cert="$secondR_rotated_public_cert" "$secondR_signed_message"
 
-    echo -e "\n [$alg] SUCCESS \n"
+    echo -e "\n~~~ [$alg] SUCCESS ~~~ \n"
 done
 
 echo "SUCCESS"
