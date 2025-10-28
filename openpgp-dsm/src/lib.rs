@@ -20,7 +20,7 @@
 
 use core::fmt::Display;
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::env;
 use std::fs::File;
@@ -48,7 +48,6 @@ use sdkms::api_model::{
     SignResponse, Sobject, SobjectDescriptor, SobjectRequest, SobjectRekeyRequest, Time as SdkmsTime,
     ListSobjectsParams, Group
 };
-use sdkms::SdkmsClient;
 use sdkms::operations::Operation;
 use sdkms::{Error as DsmError, PendingApproval, SdkmsClient as DsmClient};
 use semver::{Version, VersionReq};
@@ -65,7 +64,7 @@ use sequoia_openpgp::packet::key::{
 };
 use sequoia_openpgp::packet::prelude::SecretKeyMaterial;
 use sequoia_openpgp::packet::signature::SignatureBuilder;
-use sequoia_openpgp::packet::{Key, UserID};
+use sequoia_openpgp::packet::{Key, UserID, PKESK};
 use sequoia_openpgp::policy::StandardPolicy;
 use sequoia_openpgp::serialize::SerializeInto;
 use sequoia_openpgp::types::{
@@ -74,6 +73,7 @@ use sequoia_openpgp::types::{
 };
 use sequoia_openpgp::{Cert, Packet};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
 mod der;
@@ -480,7 +480,7 @@ impl DsmAgent {
     /// NOTE: From RFC4880bis "[...] it is a thorny issue to determine what is
     /// "communications" and what is "storage". This decision is left wholly up
     /// to the implementation".
-    pub fn new_decryptors(credentials: Credentials, key_name: &str) -> Result<Vec<Self>> {
+    pub fn new_decryptors(credentials: Credentials, key_name: &str, pkesk: &PKESK) -> Result<Vec<Self>> {
         let mut decryptors = Vec::<DsmAgent>::new();
 
         let dsm_client = credentials.dsm_client()?;
@@ -498,6 +498,40 @@ impl DsmAgent {
                 if let Some(kf) = KeyMetadata::from_sobject(&sobject)?.key_flags {
                     if kf.for_storage_encryption() || kf.for_transport_encryption() {
                         let key = PublicKey::from_sobject(sobject, KeyRole::EncryptionSubkey)?;
+                        decryptors.push(DsmAgent {
+                            credentials: credentials.clone(),
+                            descriptor,
+                            public: key.sequoia_key.context("key is not loaded")?,
+                            role: Role::Decryptor,
+                        });
+                    }
+                }
+            }
+        }
+
+        // In some cases, decryption may require using a rotated (previous) encryption subkey.
+        // The PKESK packet includes the recipient Key ID that identifies the key originally used for encryption.
+        // Since DSM subkeys are named using their Key IDs, we can look up the corresponding subkey in DSM.
+        // This subkey is then added as a fallback decryptor to handle messages encrypted with old rotated keys.
+        let old_key_name = pkesk.recipient().to_hex();
+        let search_filter = serde_json::to_string(&json!({
+            "name": {
+                "$text": { "$search": old_key_name }
+            }
+        })).context("failed to serialize search filter to fecth old rotated key")?;
+        let params = ListSobjectsParams {
+            filter: Some(search_filter),
+            show_pub_key: true,
+            ..Default::default()
+        };
+
+        if let Some(rotated_sobj) = dsm_client.list_sobjects(Some(&params))?.first() {
+            let descriptor = SobjectDescriptor::Kid(rotated_sobj.kid.context("no kid")?);
+            if let Some(kf) = KeyMetadata::from_sobject(&rotated_sobj)?.key_flags {
+                if kf.for_storage_encryption() || kf.for_transport_encryption() {
+                    let key = PublicKey::from_sobject(rotated_sobj.clone(), KeyRole::EncryptionSubkey)?;
+                    // Avoid duplicate decryptor
+                    if !decryptors.iter().any(|d| d.descriptor == descriptor) {
                         decryptors.push(DsmAgent {
                             credentials: credentials.clone(),
                             descriptor,
@@ -2326,13 +2360,9 @@ impl Decryptor for DsmAgent {
                     tag:    None,
                 };
 
-                let decrypt_result = match cli.__decrypt(&decrypt_req, "decrypt session key") {
-                    Ok(resp) => Ok(resp),
-                    Err(err) => __try_decrypt_with_rotated_keys(&cli, &decrypt_req, err)
-                };
-
                 Ok(
-                    decrypt_result.context("failed RSA decryption")?
+                    cli.__decrypt(&decrypt_req, "decrypt session key")
+                    .context("failed RSA decryption")?
                     .plain.to_vec().into()
                 )
             }
@@ -2368,25 +2398,25 @@ impl Decryptor for DsmAgent {
 
                 // Agree on a ECDH secret between the recipient private key, and
                 // the ephemeral public key.
-                let agree_req = AgreeKeyRequest {
-                    activation_date:   None,
-                    deactivation_date: None,
-                    private_key:       self.descriptor.clone(),
-                    public_key:        e_descriptor,
-                    mechanism:         AgreeKeyMechanism::DiffieHellman,
-                    name:              None,
-                    group_id:          None,
-                    key_type:          ObjectType::Secret,
-                    key_size:          curve_key_size(curve).context("size")?,
-                    enabled:           true,
-                    description:       None,
-                    custom_metadata:   None,
-                    key_ops:           Some(KeyOperations::EXPORT),
-                    state:             None,
-                    transient:         true,
-                };
-
                 let secret: Protected = {
+                    let agree_req = AgreeKeyRequest {
+                        activation_date:   None,
+                        deactivation_date: None,
+                        private_key:       self.descriptor.clone(),
+                        public_key:        e_descriptor,
+                        mechanism:         AgreeKeyMechanism::DiffieHellman,
+                        name:              None,
+                        group_id:          None,
+                        key_type:          ObjectType::Secret,
+                        key_size:          curve_key_size(curve).context("size")?,
+                        enabled:           true,
+                        description:       None,
+                        custom_metadata:   None,
+                        key_ops:           Some(KeyOperations::EXPORT),
+                        state:             None,
+                        transient:         true,
+                    };
+
                     let agreed_tkey = cli
                         .__agree(&agree_req, "ECDH exchange")
                         .context("ECDH exchange")?
@@ -2403,172 +2433,14 @@ impl Decryptor for DsmAgent {
                         .into()
                 };
 
-                let session_key_result = match ecdh::decrypt_unwrap(&self.public, &secret, ciphertext) {
-                    Ok(resp) => Ok(resp),
-                    Err(err) => __try_agree_with_rotated_keys(&self.credentials, &cli, &agree_req, err, ciphertext)
-                };
-
-                Ok(session_key_result.context("could not unwrap the session key")?
+                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)
+                    .context("could not unwrap the session key")?
                     .to_vec()
                     .into())
             }
             _ => Err(Error::msg("unsupported/unknown algorithm")),
         }
     }
-}
-
-/// Retries decryption using rotated keys.
-/// 
-/// Each rotated key maintains a `replaced` link that references the previous key it superseded.
-/// When decryption with the current key fails, this method follows the key’s
-/// `replaced` link to older rotated keys, retrying decryption until it succeeds
-/// or no further replacements exist. A `HashSet` of visited key IDs ensures
-/// the traversal does not enter a loop.
-///
-/// Returns the first successful [`DecryptResponse`], or the original error if all
-/// decryption attempts fail.
-fn __try_decrypt_with_rotated_keys(
-    cli: &SdkmsClient, 
-    decrypt_req: &DecryptRequest, 
-    first_err: anyhow::Error,
-) -> Result<DecryptResponse> {
-    let mut req = decrypt_req.clone();
-
-    // Get the key descriptor from the decrypt request
-    let key_desc = req
-        .key
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("Decrypt error: Missing key descriptor"))?;
-
-    // Fetch the starting (root) key
-    let mut current_key_id = cli
-        .get_sobject(None, key_desc)
-        .context(format!("Decrypt error: Failed to fetch key {:?}", key_desc))?
-        .kid
-        .ok_or_else(|| anyhow::anyhow!("Decrypt error: Missing key ID"))?;
-
-    let mut visited = HashSet::new();
-
-    // Loop over replacement chain. Maintain Hashset to avoid cycles.
-    while visited.insert(current_key_id) {
-        // Fetch the current key.
-        let current_sobject = cli
-            .get_sobject(None, &SobjectDescriptor::Kid(current_key_id))
-            .with_context(|| format!("Decrypt error: Failed to fetch key {:?}", current_key_id))?;
-
-        // Extract replaced key
-        let replaced_id = match current_sobject
-            .links
-            .as_ref()
-            .and_then(|links| links.replaced.clone())
-        {
-            Some(id) => id,
-            None => {
-                // No older key exists, return the original decrypt error
-                return Err(first_err.into());
-            }
-        };
-
-        // Update Decrypt request with old key
-        req.key = Some(SobjectDescriptor::Kid(replaced_id));
-        current_key_id = replaced_id;
-
-        // Attempt decryption with the old key
-        match cli.__decrypt(&req, "decrypt session key") {
-            Ok(resp) => return Ok(resp),
-            Err(_) => continue,
-        }
-    }
-
-    Err(anyhow::anyhow!(
-        "Decrypt error: loop detected in rotated keys"
-    ))
-}
-
-/// Retries ECDH agreement & get SessionKey using rotated keys.
-/// 
-/// Each rotated key maintains a `replaced` link that references the previous key it superseded.
-/// When ECDH agreement with the current key fails, this method follows the key’s
-/// `replaced` link to older rotated keys, retrying ECDH agreement until it succeeds
-/// or no further replacements exist. A `HashSet` of visited key IDs ensures
-/// the traversal does not enter a loop.
-///
-/// Returns the first successful [`SessionKey`], or the original error if all
-/// agree attempts fail.
-fn __try_agree_with_rotated_keys(
-    credentials: &Credentials,
-    cli: &SdkmsClient,
-    agree_req: &AgreeKeyRequest,
-    first_err: anyhow::Error,
-    ciphertext: &MpiCiphertext,
-) -> Result<SessionKey> {
-    let mut req = agree_req.clone();
-    let key_desc = req.private_key;
-    let mut current_key_id = cli
-        .get_sobject(None, &key_desc)
-        .context(format!("Agree error: Failed to fetch key {:?}", key_desc))?
-        .kid
-        .ok_or_else(|| anyhow::anyhow!("Agree error: Missing key ID"))?;
-
-    let mut visited = HashSet::new();
-
-    while visited.insert(current_key_id) {
-        let current_sobject = cli
-                .get_sobject(None, &SobjectDescriptor::Kid(current_key_id))
-                .with_context(|| format!("Agree error: Failed to fetch key {:?}", current_key_id))?;
-
-        // Extract replaced key
-        let replaced_id = match current_sobject
-            .links
-            .as_ref()
-            .and_then(|links| links.replaced.clone())
-        {
-            Some(id) => id,
-            None => {
-                // No older key exists, return the original decrypt error
-                return Err(first_err.into());
-            }
-        };
-
-        // Update Agree request with old key
-        req.private_key = SobjectDescriptor::Kid(replaced_id);
-        let old_sobject = cli
-            .get_sobject(None, &SobjectDescriptor::Kid(replaced_id))
-            .context("could not get subkey".to_string())?;
-        let old_key = PublicKey::from_sobject(old_sobject, KeyRole::EncryptionSubkey)?;
-        let old_agent = DsmAgent {
-            credentials: credentials.clone(),
-            descriptor: SobjectDescriptor::Kid(replaced_id),
-            public: old_key.sequoia_key.context("key is not loaded")?,
-            role: Role::Decryptor,
-        };
-
-        current_key_id = replaced_id;
-
-        let secret: Protected = {
-            let agreed_tkey = cli
-                .__agree(&req, "ECDH exchange")
-                .context("ECDH exchange")?
-                .transient_key
-                .context("could not retrieve agreed key")?;
-
-            let desc = SobjectDescriptor::TransientKey(agreed_tkey);
-
-            cli.export_sobject(&desc)
-                .context("could not export transient key")?
-                .value
-                .context("could not retrieve secret from sobject")?
-                .to_vec()
-                .into()
-        };
-
-        match ecdh::decrypt_unwrap(&old_agent.public, &secret, ciphertext) {
-            Ok(resp) => return Ok(resp),
-            Err(_) => continue,
-        }
-    }
-
-    Err(anyhow::anyhow!("Agree error: loop detected in rotated keys"))
 }
 
 fn secret_packet_from_sobject(sobject: &Sobject) -> Result<Packet> {

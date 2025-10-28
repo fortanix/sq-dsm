@@ -18,7 +18,7 @@ num = "0.4.0"
 rpassword = "5.0"
 spki = "0.4.0"
 sequoia-openpgp = { path = "../openpgp", default-features = false }
-sdkms = { git = "https://github.com/zugzwang/sdkms-client-rust.git", branch = "keylinks" }
+sdkms = { git = "https://github.com/syam-adam/sdkms-client-rust.git", branch = "syam/add-filter-support-v2" }
 semver = "1.0.4"
 serde = "1.0"
 serde_derive = "1.0"
