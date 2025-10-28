@@ -513,12 +513,13 @@ impl DsmAgent {
         // The PKESK packet includes the recipient Key ID that identifies the key originally used for encryption.
         // Since DSM subkeys are named using their Key IDs, we can look up the corresponding subkey in DSM.
         // This subkey is then added as a fallback decryptor to handle messages encrypted with old rotated keys.
-        let old_key_name = pkesk.recipient().to_hex();
+        let recipient_key_id = pkesk.recipient().to_hex();
         let search_filter = serde_json::to_string(&json!({
-            "name": {
-                "$text": { "$search": old_key_name }
+            "custom_attributes.sq_dsm": {
+                "$text": { "$search": recipient_key_id }
             }
-        })).context("failed to serialize search filter to fecth old rotated key")?;
+        })).context("failed to serialize search filter for custom attribute lookup")?;
+
         let params = ListSobjectsParams {
             filter: Some(search_filter),
             show_pub_key: true,
@@ -1295,8 +1296,8 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         }
     };
 
-    let mut new_signing_subkeys: Vec<PublicKey> = Vec::new();
-    let mut new_encryption_subkeys: Vec<PublicKey> = Vec::new();
+    let mut new_signing_subkeys: Vec<(PublicKey, Sobject)> = Vec::new();
+    let mut new_encryption_subkeys: Vec<(PublicKey, Sobject)> = Vec::new();
 
     // Generate new sub keys based on old keys roles
     for (subkey, role) in old_subkeys{
@@ -1346,14 +1347,14 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         let rekey_sobj = dsm_client.rotate_sobject(&rekey_req)
             .context("dsm client could not rotate sobject")?;
         
-        let new_subkey = PublicKey::from_sobject(rekey_sobj, role.clone())?;
+        let new_subkey = PublicKey::from_sobject(rekey_sobj.clone(), role.clone())?;
         
         if matches!(role, KeyRole::EncryptionSubkey) { 
-            new_encryption_subkeys.push(new_subkey.clone());
+            new_encryption_subkeys.push((new_subkey.clone(), rekey_sobj.clone()));
         } 
 
         if matches!(role, KeyRole::SigningSubkey) { 
-            new_signing_subkeys.push(new_subkey);
+            new_signing_subkeys.push((new_subkey, rekey_sobj));
         }
     }
     
@@ -1365,7 +1366,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     if !new_encryption_subkeys.is_empty() {
         info!("key rotation: sign new encryption subkey");
         {
-            let (subkey, flags) = (&new_encryption_subkeys[0], &encryption_subkey_flags);
+            let (subkey, flags) = (&new_encryption_subkeys[0].0, &encryption_subkey_flags);
             let pk: Key<PublicParts, SubordinateRole> = subkey
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
@@ -1387,9 +1388,9 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         info!("key rotation: create embedded signature (signing-subkey signs primary)");
         // To sign primary key
         let mut subkey_signer = DsmAgent::new_signing_subkey_from_descriptor(
-            cred, &new_signing_subkeys[0].descriptor)?;
+            cred, &new_signing_subkeys[0].0.descriptor)?;
         let embedded_signature = {
-            let subkey: Key<PublicParts, SubordinateRole> = new_signing_subkeys[0]
+            let subkey: Key<PublicParts, SubordinateRole> = new_signing_subkeys[0].0
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
             SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
@@ -1401,7 +1402,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
 
         info!("key rotation: sign signing key");
         {
-            let (subkey, flags) = (&new_signing_subkeys[0], &signing_subkey_flags);
+            let (subkey, flags) = (&new_signing_subkeys[0].0, &signing_subkey_flags);
             let pk: Key<PublicParts, SubordinateRole> = subkey
                 .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
@@ -1427,12 +1428,12 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
         ..Default::default()
     };
 
-    for subkey in &new_signing_subkeys {
+    for (subkey, _) in &new_signing_subkeys {
         dsm_client.__update_sobject(
             &subkey.uid()?, &link_update_req, "bind new subkey to primary key"
         )?;
     }
-    for subkey in &new_encryption_subkeys {
+    for (subkey, _) in &new_encryption_subkeys {
         dsm_client.__update_sobject(
             &subkey.uid()?, &link_update_req, "bind new subkey to primary key"
         )?;
@@ -1456,7 +1457,7 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     }
 
     info!("key rotation: rename new subkeys");
-    for subkey in new_encryption_subkeys.iter().chain(new_signing_subkeys.iter()) {
+    for (subkey, sobject) in new_encryption_subkeys.iter().chain(new_signing_subkeys.iter()) {
         let pk: Key<PublicParts, SubordinateRole> = subkey
             .sequoia_key.as_ref().context("unloaded subkey")?.clone().into();
 
@@ -1464,8 +1465,16 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
             "{} {}/{}", prim_name, pk.keyid().to_hex(), primary_key.keyid().to_hex(),
         ).to_string();
 
+        let sobj_metadata = KeyMetadata::from_sobject(&sobject)?;
+        // Update new subkey fingerprint in custom metadata.
+        let updated_metadata = KeyMetadata {
+            fingerprint: pk.fingerprint().to_hex(),
+            ..sobj_metadata
+        }.to_custom_metadata()?;
+
         let update_req = SobjectRequest {
             name:            Some(subkey_name),
+            custom_metadata: Some(updated_metadata),
             ..Default::default()
         };
         dsm_client.__update_sobject(
