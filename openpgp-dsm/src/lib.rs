@@ -1198,12 +1198,8 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     let prim_metadata = KeyMetadata::from_sobject(&prim_sobject)?;
     
     // PGP Rotation should be performed on PGP primary key
-    if let Some(ref flags) = prim_metadata.key_flags {
-        if !flags.for_certification() {
-            return Err(anyhow::anyhow!("key rotation must be performed with the Primary key"));
-        }
-    } else {
-        return Err(anyhow::anyhow!("key rotation must be performed with the Primary key"));
+    if prim_metadata.key_flags.as_ref().map_or(true, |flags| !flags.for_certification()) {
+        return Err(anyhow::anyhow!("Invalid key for rotation: only certification-capable keys (Primary keys) can perform this operation."));
     }
 
     let mut cert = Cert::from_str(
@@ -1302,22 +1298,15 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
     // Generate new sub keys based on old keys roles
     for (subkey, role) in old_subkeys{
         let mut sobject_request = SobjectRequest{
-            aes: subkey.aes,
             custom_metadata: subkey.custom_metadata,
             deactivation_date: subkey.deactivation_date,
-            des: subkey.des,
-            des3: subkey.des3,
             description: subkey.description,
             deterministic_signatures: subkey.deterministic_signatures,
-            dsa: subkey.dsa,
             elliptic_curve: subkey.elliptic_curve,
             enabled: Some(subkey.enabled),
-            fpe: subkey.fpe,
-            kcv: subkey.kcv,
             key_ops: Some(subkey.key_ops),
             key_size: subkey.key_size,
             links: subkey.links,
-            lms: subkey.lms,
             name: subkey.name,
             obj_type:  Some(subkey.obj_type),
             publish_public_key: subkey.publish_public_key,
@@ -1430,12 +1419,12 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
 
     for (subkey, _) in &new_signing_subkeys {
         dsm_client.__update_sobject(
-            &subkey.uid()?, &link_update_req, "bind new subkey to primary key"
+            &subkey.uid()?, &link_update_req, "bind new signing subkey to primary key"
         )?;
     }
     for (subkey, _) in &new_encryption_subkeys {
         dsm_client.__update_sobject(
-            &subkey.uid()?, &link_update_req, "bind new subkey to primary key"
+            &subkey.uid()?, &link_update_req, "bind new encryption subkey to primary key"
         )?;
     }
 
