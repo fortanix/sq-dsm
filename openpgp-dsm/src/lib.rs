@@ -511,8 +511,9 @@ impl DsmAgent {
 
         // In some cases, decryption may require using a rotated (previous) encryption subkey.
         // The PKESK packet includes the recipient Key ID that identifies the key originally used for encryption.
-        // Since DSM subkeys are named using their Key IDs, we can look up the corresponding subkey in DSM.
-        // This subkey is then added as a fallback decryptor to handle messages encrypted with old rotated keys.
+        // Since DSM subkeys contains recipient Key IDs in their custom metadata [sq_dsm], we can look up the 
+        // corresponding subkey in DSM based on custom metadata. This subkey is then added as a fallback decryptor
+        // to handle messages encrypted with old rotated keys.
         let recipient_key_id = pkesk.recipient().to_hex();
         let search_filter = serde_json::to_string(&json!({
             "custom_attributes.sq_dsm": {
