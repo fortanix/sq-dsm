@@ -208,7 +208,7 @@ pub struct Credentials {
 trait OperateOrAskApproval<S: Into<Cow<'static, str>> + Display> {
     fn __retry_until_resolved<O: Operation>(&self, pa: &PendingApproval<O>, desc: S)
         -> Result<O::Output>;
-    
+
     fn __update_sobject(&self, uuid: &Uuid, req: &SobjectRequest, desc: S)
         -> Result<Sobject>;
 
