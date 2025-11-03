@@ -405,6 +405,7 @@
 //!     password                 Changes password protecting secrets
 //!     extract-cert             Converts a key to a cert
 //!     extract-dsm-secret       Extracts a secret key from Fortanix DSM
+//!     rotate                   Rotate the PGP Key for the specified key ID
 //!     dsm-import
 //!             Imports a Transferable Secret Key (TSK) or a Transferable Public Key
 //!             (TPK) into Fortanix DSM
@@ -678,6 +679,52 @@
 //!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
 //!             Passphrase for unlocking the PKCS12 identity file (cert-based
 //!             authentication)
+//! ```
+//!
+//! ### Subcommand key rotate
+//!
+//! ```text
+//! Rotates PGP Key.
+//!
+//! During PGP key rotation, the following operations are performed:
+//! - Unlinks old subkeys from the primary key and deactivates them in DSM.
+//! - Adds subkey revocation signature packets for the old subkeys to the PGP
+//! certificate.
+//! - Generates new subkeys to replace the old subkeys and links them to the primary
+//! key in DSM.
+//! - Adds subkey binding signature packets for the newly created subkeys to the PGP
+//! certificate.
+//!
+//! USAGE:
+//!     sq key rotate [OPTIONS]
+//!
+//! FLAGS:
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --api-key <API-KEY>
+//!             Authenticates to Fortanix DSM using the given API key
+//!
+//!         --app-uuid <APP-UUID>
+//!             Authenticates to Fortanix DSM with the given App  (cert-based
+//!             authentication)
+//!         --client-cert <P12-FILE>
+//!             Authenticates to Fortanix DSM with the given client certificate
+//!
+//!         --dsm-key-id <DSM-KEY-ID>
+//!             DSM key ID of key to rotate
+//!
+//!         --pkcs12-passphrase <PKCS12-PASSPHRASE>
+//!             Passphrase for unlocking the PKCS12 identity file (cert-based
+//!             authentication)
+//!
+//! EXAMPLES:
+//! sq-dsm key rotate --dsm-key-id <DSM-KEY-ID>
 //! ```
 //!
 //! ### Subcommand key dsm-import

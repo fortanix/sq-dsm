@@ -2985,7 +2985,7 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 [[package]]
 name = "sdkms"
 version = "0.2.1"
-source = "git+https://github.com/zugzwang/sdkms-client-rust.git?branch=keylinks#12836c70df98b7be4c49b45b31182f0f9d5abcb5"
+source = "git+https://github.com/zugzwang/sdkms-client-rust.git?branch=keylinks#58d46cc725055c9589794a70ef1551902acd1940"
 dependencies = [
  "bitflags 1.3.2",
  "chrono",

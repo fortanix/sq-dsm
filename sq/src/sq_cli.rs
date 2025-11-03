@@ -845,6 +845,41 @@ command exfiltrates secrets from DSM and outputs a Key.
                                  .short("B").long("binary")
                                  .help("Emits binary data"))
                             )
+                .subcommand(SubCommand::with_name("rotate")
+                            .display_order(111)
+                            .about("Rotate the PGP Key for the specified key ID")
+                            .long_about(
+"Rotates PGP Key.
+
+During PGP key rotation, the following operations are performed:
+- Unlinks old subkeys from the primary key and deactivates them in DSM.
+- Adds subkey revocation signature packets for the old subkeys to the PGP certificate.
+- Generates new subkeys to replace the old subkeys and links them to the primary key in DSM.
+- Adds subkey binding signature packets for the newly created subkeys to the PGP certificate.
+")
+.after_help(
+                                "EXAMPLES:
+sq-dsm key rotate --dsm-key-id <DSM-KEY-ID>")
+                            .arg(Arg::with_name("api-key")
+                                .long("api-key").value_name("API-KEY")
+                                .help("Authenticates to Fortanix DSM using the \
+                                       given API key"))
+                            .arg(Arg::with_name("client-cert")
+                                .long("client-cert").value_name("P12-FILE")
+                                .help("Authenticates to Fortanix DSM with the given client \
+                                   certificate"))
+                            .arg(Arg::with_name("app-uuid")
+                                .long("app-uuid").value_name("APP-UUID")
+                                .help("Authenticates to Fortanix DSM with the given App  \
+                                       (cert-based authentication)"))
+                            .arg(Arg::with_name("pkcs12-passphrase")
+                                .long("pkcs12-passphrase").value_name("PKCS12-PASSPHRASE")
+                                .help("Passphrase for unlocking the PKCS12 identity file \
+                                       (cert-based authentication)"))
+                            .arg(Arg::with_name("dsm-key-id")
+                              .long("dsm-key-id").value_name("DSM-KEY-ID")
+                              .help("DSM key ID of key to rotate"))
+                            )
                 .subcommand(SubCommand::with_name("dsm-import")
                             .display_order(112)
                             .about("Imports a Transferable Secret Key (TSK) or a Transferable Public Key (TPK) into Fortanix DSM")

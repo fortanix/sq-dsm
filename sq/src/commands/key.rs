@@ -4,6 +4,7 @@ use itertools::Itertools;
 use std::time::{SystemTime, Duration};
 use std::collections::{HashMap, HashSet};
 use std::process;
+use std::io::{self, Write};
 
 use crate::openpgp::KeyHandle;
 use crate::openpgp::Packet;
@@ -33,6 +34,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("dsm-import", Some(m)) => dsm_import(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
+        ("rotate", Some(m)) => rotate(config, m)?,
         ("info", Some(m)) => print_dsm_key_info(config, m)?,
         ("list-dsm-keys", Some(m)) => list_dsm_keys(config, m)?,
         ("list-dsm-groups", Some(m)) => list_dsm_groups(config, m)?,
@@ -43,6 +45,40 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         _ => unreachable!(),
         }
     Ok(())
+}
+
+fn rotate(_config: Config, m: &ArgMatches) -> Result<()> {
+    let dsm_auth = dsm_auth(m)?;    
+
+    println!(
+        "You are about to rotate the PGP key\n\
+        This operation will:\n\
+        • Deactivate and unlink old subkeys\n\
+        • Generate and link new subkeys\n\
+        • Update the PGP certificate with subkey bindings\n\
+        This action is irreversible.",
+    );
+    print!("\nContinue with rotation? [y/N]: ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    let user_option = matches!(input.trim().to_lowercase().as_str(), "y" | "yes");
+
+    if user_option {
+        match m.value_of("dsm-key-id") {
+            Some(key_id) => {
+                dsm::rotate_tsk(dsm::KeyIdentifier::KeyId(key_id.to_string()), dsm_auth)?
+            }
+            None => return Err(anyhow::anyhow!("Error: No key ID provided for key rotation."))
+        };
+        println!("OK");
+        Ok(())
+    }else{
+        println!("\nAborted.");
+        Ok(())
+    }
 }
 
 fn generate(config: Config, m: &ArgMatches) -> Result<()> {
@@ -134,7 +170,7 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
                                 process::exit(1);
                             }
                             // Check for duplicate keys
-                            if !seen_keys.insert(key.clone()) {
+                            if !seen_keys.insert(key) {
                                 eprintln!("Error: Duplicate key '{}' found in given custom metadata.", key);
                                 process::exit(1);
                             }
@@ -538,7 +574,7 @@ fn dsm_import(config: Config, m: &ArgMatches) -> Result<()> {
                             process::exit(1);
                         }
                         // Check for duplicate keys
-                        if !seen_keys.insert(key.clone()) {
+                        if !seen_keys.insert(key) {
                             eprintln!("Error: Duplicate key '{}' found in given custom metadata.", key);
                             process::exit(1);
                         }
