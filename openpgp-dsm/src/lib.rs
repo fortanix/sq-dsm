@@ -1220,6 +1220,12 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
                 .get_sobject(None, &SobjectDescriptor::Kid(*uid))
                 .context(format!("could not get subkey {:?}", &SobjectDescriptor::Kid(*uid)))?;
             
+            if let Some(links) = &sub_key.links {
+                if links.replacement.is_some() {
+                    continue;
+                }
+            }
+
             let key_metadata = KeyMetadata::from_sobject(&sub_key)?;
             let role = key_metadata
                 .key_flags
