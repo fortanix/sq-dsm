@@ -389,6 +389,13 @@ enum Role {
 }
 
 impl DsmAgent {
+    fn is_key_replaced(sobject: &Sobject) -> bool {
+        if let Some(links) = &sobject.links {
+            return links.replacement.is_some();
+        }
+        return false;
+    }
+
     /// Returns a DsmAgent with certifying capabilities, corresponding to the
     /// primary key (flag "C").
     fn new_certifier(credentials: Credentials, key_name: &str) -> Result<Self> {
@@ -438,6 +445,9 @@ impl DsmAgent {
             let descriptor = SobjectDescriptor::Kid(uid);
             let sub_sob = dsm_client
                 .get_sobject(None, &descriptor)?;
+            if Self::is_key_replaced(&sub_sob) {
+                continue;
+            }
             if let Some(flags) = KeyMetadata::from_sobject(&sub_sob)?.key_flags {
                 if flags.for_signing() {
                     // Initialize Signer with subkey
@@ -1220,10 +1230,8 @@ pub fn rotate_tsk(identifier: KeyIdentifier, cred: Credentials) -> Result<()> {
                 .get_sobject(None, &SobjectDescriptor::Kid(*uid))
                 .context(format!("could not get subkey {:?}", &SobjectDescriptor::Kid(*uid)))?;
             
-            if let Some(links) = &sub_key.links {
-                if links.replacement.is_some() {
-                    continue;
-                }
+            if DsmAgent::is_key_replaced(&sub_key) {
+                continue;
             }
 
             let key_metadata = KeyMetadata::from_sobject(&sub_key)?;
