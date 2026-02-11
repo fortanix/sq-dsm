@@ -3,7 +3,7 @@
 //! An OpenPGP message is a sequence of OpenPGP packets that
 //! corresponds to an optionally signed, optionally encrypted,
 //! optionally compressed literal data packet.  The exact format of an
-//! OpenPGP message is described in [Section 11.3 of RFC 4880].
+//! OpenPGP message is described in [Section 10.3 of RFC 9580].
 //!
 //! This module provides support for validating and working with
 //! OpenPGP messages.
@@ -19,12 +19,12 @@
 //! -----END PGP MESSAGE-----
 //! ```
 //!
-//! [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+//! [Section 10.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
 
 use std::convert::TryFrom;
 use std::fmt;
-use std::io;
-use std::path::Path;
+
+use buffered_reader::BufferedReader;
 
 use crate::Result;
 use crate::Error;
@@ -32,25 +32,22 @@ use crate::Packet;
 use crate::PacketPile;
 use crate::packet::Literal;
 use crate::packet::Tag;
-use crate::parse::Parse;
+use crate::parse::{Cookie, Parse};
 
 mod lexer;
 lalrpop_util::lalrpop_mod!(#[allow(clippy::all)] grammar, "/message/grammar.rs");
 
 use self::lexer::{Lexer, LexicalError};
-pub use self::lexer::Token;
+pub(crate) use self::lexer::Token;
 
 use lalrpop_util::ParseError;
 
 use self::grammar::MessageParser;
 
 /// Errors that MessageValidator::check may return.
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
-pub enum MessageParserError {
+pub (crate) enum MessageParserError {
     /// A parser error.
     Parser(ParseError<usize, Token, LexicalError>),
     /// An OpenPGP error.
@@ -191,7 +188,7 @@ impl MessageValidator {
     /// Unlike `push_token`, this function does not automatically
     /// account for changes in the depth.  If you use this function
     /// directly, you must push any required `Token::Pop` tokens.
-    pub fn push(&mut self, tag: Tag, path: &[usize]) {
+    pub fn push(&mut self, tag: Tag, version: Option<u8>, path: &[usize]) {
         if self.error.is_some() {
             return;
         }
@@ -201,7 +198,8 @@ impl MessageValidator {
             Tag::CompressedData => Token::CompressedData,
             Tag::SKESK => Token::SKESK,
             Tag::PKESK => Token::PKESK,
-            Tag::SEIP => Token::SEIP,
+            Tag::SEIP if version == Some(1) => Token::SEIPv1,
+            Tag::SEIP if version == Some(2) => Token::SEIPv2,
             Tag::MDC => Token::MDC,
             Tag::AED => Token::AED,
             Tag::OnePassSig => Token::OPS,
@@ -209,6 +207,16 @@ impl MessageValidator {
             Tag::Marker => {
                 // "[Marker packets] MUST be ignored when received.",
                 // section 5.8 of RFC4880.
+                return;
+            },
+            Tag::Padding => {
+                // "[Padding packets] MUST be ignored when received.",
+                // section 5.14 of RFC 9580.
+                return;
+            },
+            t if ! t.is_critical() => {
+                // "Unknown, non-critical packets MUST be ignored when
+                // received.", section 4.3 of RFC 9580.
                 return;
             },
             _ => {
@@ -271,7 +279,7 @@ impl MessageValidator {
         } else {
             match r {
                 Ok(_) => MessageValidity::MessagePrefix,
-                Err(ParseError::UnrecognizedEOF { .. }) =>
+                Err(ParseError::UnrecognizedEof { .. }) =>
                     MessageValidity::MessagePrefix,
                 Err(ref err) =>
                     MessageValidity::Error(
@@ -285,10 +293,10 @@ impl MessageValidator {
 ///
 /// An OpenPGP message is a structured sequence of OpenPGP packets.
 /// Basically, it's an optionally encrypted, optionally signed literal
-/// data packet.  The exact structure is defined in [Section 11.3 of RFC
-/// 4880].
+/// data packet.  The exact structure is defined in [Section 10.3 of RFC
+/// 9580].
 ///
-///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+///   [Section 10.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
 ///
 /// [ASCII Armored Messages] are wrapped in `-----BEGIN PGP MESSAGE-----` header
 /// and `-----END PGP MESSAGE-----` tail lines:
@@ -304,7 +312,7 @@ impl MessageValidator {
 /// -----END PGP MESSAGE-----
 /// ```
 ///
-/// [ASCII Armored Messages]: https://tools.ietf.org/html/rfc4880#section-6.6
+/// [ASCII Armored Messages]: https://www.rfc-editor.org/rfc/rfc9580.html#section-!
 ///
 /// # Examples
 ///
@@ -345,26 +353,11 @@ impl<'a> Parse<'a, Message> for Message {
     /// See [`Message::try_from`] for more details.
     ///
     ///   [`Message::try_from`]: Message::try_from()
-    fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<Self> {
-        Self::try_from(PacketPile::from_reader(reader)?)
-    }
-
-    /// Reads a `Message` from the specified file.
-    ///
-    /// See [`Message::try_from`] for more details.
-    ///
-    ///   [`Message::try_from`]: Message::try_from()
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Self::try_from(PacketPile::from_file(path)?)
-    }
-
-    /// Reads a `Message` from `buf`.
-    ///
-    /// See [`Message::try_from`] for more details.
-    ///
-    ///   [`Message::try_from`]: Message::try_from()
-    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<Self> {
-        Self::try_from(PacketPile::from_bytes(data)?)
+    fn from_buffered_reader<R>(reader: R) -> Result<Message>
+    where
+        R: BufferedReader<Cookie> + 'a,
+    {
+        Self::try_from(PacketPile::from_buffered_reader(reader.into_boxed())?)
     }
 }
 
@@ -396,7 +389,7 @@ impl Message {
     /// let data = "yxJiAAAAAABIZWxsbyB3b3JsZCE="; // base64 over literal data packet
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, ReaderMode::VeryTolerant);
+    /// let mut reader = Reader::from_reader(&mut cursor, ReaderMode::VeryTolerant);
     ///
     /// let mut buf = Vec::new();
     /// reader.read_to_end(&mut buf)?;
@@ -416,6 +409,11 @@ impl Message {
         // No literal data packet found.
         None
     }
+
+    /// Returns a reference to the message's packets.
+    pub fn packets(&self) -> &PacketPile {
+        &self.pile
+    }
 }
 
 impl TryFrom<PacketPile> for Message {
@@ -426,13 +424,13 @@ impl TryFrom<PacketPile> for Message {
     /// Converting a `PacketPile` to a `Message` doesn't change the
     /// packets; it asserts that the packet sequence is an optionally
     /// encrypted, optionally signed, optionally compressed literal
-    /// data packet.  The exact grammar is defined in [Section 11.3 of
-    /// RFC 4880].
+    /// data packet.  The exact grammar is defined in [Section 10.3 of
+    /// RFC 9580].
     ///
     /// Caveats: this function assumes that any still encrypted parts
     /// or still compressed parts are valid messages.
     ///
-    ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+    ///   [Section 10.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
     fn try_from(pile: PacketPile) -> Result<Self> {
         let mut v = MessageValidator::new();
         for (mut path, packet) in pile.descendants().paths() {
@@ -444,11 +442,11 @@ impl TryFrom<PacketPile> for Message {
                                      {:?} packet (at {:?}) not expected: {}",
                                     u.tag(), path, u.error())))
                                .into()),
-                _ => v.push(packet.tag(), &path),
+                _ => v.push(packet.tag(), packet.version(), &path),
             }
 
             match packet {
-                Packet::CompressedData(_) | Packet::SEIP(_) | Packet::AED(_) =>
+                Packet::CompressedData(_) | Packet::SEIP(_) =>
                 {
                     // If a container's content is not unpacked, then
                     // we treat the content as an opaque message.
@@ -493,19 +491,11 @@ impl From<Message> for PacketPile {
     }
 }
 
-impl ::std::ops::Deref for Message {
-    type Target = PacketPile;
-
-    fn deref(&self) -> &Self::Target {
-        &self.pile
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::types::DataFormat::Text;
+    use crate::types::DataFormat::Unicode;
     use crate::HashAlgorithm;
     use crate::types::CompressionAlgorithm;
     use crate::SymmetricAlgorithm;
@@ -541,62 +531,62 @@ mod tests {
                 result: true,
             },
             TestVector {
-                s: &[SEIP, Literal, MDC, Pop],
+                s: &[SEIPv1, Literal, MDC, Pop],
                 result: true,
             },
             TestVector {
-                s: &[CompressedData, SEIP, Literal, MDC, Pop, Pop],
+                s: &[CompressedData, SEIPv1, Literal, MDC, Pop, Pop],
                 result: true,
             },
             TestVector {
-                s: &[CompressedData, SEIP, CompressedData, Literal,
+                s: &[CompressedData, SEIPv1, CompressedData, Literal,
                      Pop, MDC, Pop, Pop],
                 result: true,
             },
             TestVector {
-                s: &[SEIP, MDC, Pop],
+                s: &[SEIPv1, MDC, Pop],
                 result: false,
             },
             TestVector {
-                s: &[SKESK, SEIP, Literal, MDC, Pop],
+                s: &[SKESK, SEIPv1, Literal, MDC, Pop],
                 result: true,
             },
             TestVector {
-                s: &[PKESK, SEIP, Literal, MDC, Pop],
+                s: &[PKESK, SEIPv1, Literal, MDC, Pop],
                 result: true,
             },
             TestVector {
-                s: &[SKESK, SKESK, SEIP, Literal, MDC, Pop],
+                s: &[SKESK, SKESK, SEIPv1, Literal, MDC, Pop],
                 result: true,
             },
 
             TestVector {
-                s: &[AED, Literal, Pop],
+                s: &[SEIPv2, Literal, Pop],
                 result: true,
             },
             TestVector {
-                s: &[CompressedData, AED, Literal, Pop, Pop],
+                s: &[CompressedData, SEIPv2, Literal, Pop, Pop],
                 result: true,
             },
             TestVector {
-                s: &[CompressedData, AED, CompressedData, Literal,
+                s: &[CompressedData, SEIPv2, CompressedData, Literal,
                      Pop, Pop, Pop],
                 result: true,
             },
             TestVector {
-                s: &[AED, Pop],
+                s: &[SEIPv2, Pop],
                 result: false,
             },
             TestVector {
-                s: &[SKESK, AED, Literal, Pop],
+                s: &[SKESK, SEIPv2, Literal, Pop],
                 result: true,
             },
             TestVector {
-                s: &[PKESK, AED, Literal, Pop],
+                s: &[PKESK, SEIPv2, Literal, Pop],
                 result: true,
             },
             TestVector {
-                s: &[SKESK, SKESK, AED, Literal, Pop],
+                s: &[SKESK, SKESK, SEIPv2, Literal, Pop],
                 result: true,
             },
 
@@ -613,7 +603,7 @@ mod tests {
                 result: false,
             },
             TestVector {
-                s: &[OPS, OPS, SEIP, OPS, SEIP, Literal, MDC, Pop,
+                s: &[OPS, OPS, SEIPv1, OPS, SEIPv1, Literal, MDC, Pop,
                      SIG, MDC, Pop, SIG, SIG],
                 result: true,
             },
@@ -631,11 +621,11 @@ mod tests {
                 result: true,
             },
             TestVector {
-                s: &[SEIP, CompressedData, OpaqueContent, Pop, MDC, Pop],
+                s: &[SEIPv1, CompressedData, OpaqueContent, Pop, MDC, Pop],
                 result: true,
             },
             TestVector {
-                s: &[SEIP, OpaqueContent, Pop],
+                s: &[SEIPv1, OpaqueContent, Pop],
                 result: true,
             },
         ];
@@ -664,86 +654,101 @@ mod tests {
         use crate::packet::Tag::*;
 
         struct TestVector<'a> {
-            s: &'a [(Tag, isize)],
+            s: &'a [(Tag, Option<u8>, isize)],
             result: bool,
         }
 
         let test_vectors = [
             TestVector {
-                s: &[(Literal, 0)][..],
+                s: &[(Literal, None, 0)][..],
                 result: true,
             },
             TestVector {
-                s: &[(CompressedData, 0), (Literal, 1)],
+                s: &[(CompressedData, None, 0), (Literal, None, 1)],
                 result: true,
             },
             TestVector {
-                s: &[(CompressedData, 0), (CompressedData, 1), (Literal, 2)],
+                s: &[(CompressedData, None, 0), (CompressedData, None, 1),
+                     (Literal, None, 2)],
                 result: true,
             },
             TestVector {
-                s: &[(SEIP, 0), (Literal, 1), (MDC, 1)],
+                s: &[(SEIP, Some(1), 0), (Literal, None, 1), (MDC, None, 1)],
                 result: true,
             },
             TestVector {
-                s: &[(CompressedData, 0), (SEIP, 1), (Literal, 2), (MDC, 2)],
+                s: &[(CompressedData, None, 0), (SEIP, Some(1), 1),
+                     (Literal, None, 2), (MDC, None, 2)],
                 result: true,
             },
             TestVector {
-                s: &[(CompressedData, 0), (SEIP, 1),
-                     (CompressedData, 2), (Literal, 3), (MDC, 2)],
+                s: &[(CompressedData, None, 0), (SEIP, Some(1), 1),
+                     (CompressedData, None, 2), (Literal, None, 3),
+                     (MDC, None, 2)],
                 result: true,
             },
             TestVector {
-                s: &[(CompressedData, 0), (SEIP, 1),
-                     (CompressedData, 2), (Literal, 3), (MDC, 3)],
+                s: &[(CompressedData, None, 0), (SEIP, Some(1), 1),
+                     (CompressedData, None, 2), (Literal, None, 3),
+                     (MDC, None, 3)],
                 result: false,
             },
             TestVector {
-                s: &[(SEIP, 0), (MDC, 0)],
+                s: &[(SEIP, Some(1), 0), (MDC, None, 0)],
                 result: false,
             },
             TestVector {
-                s: &[(SKESK, 0), (SEIP, 0), (Literal, 1), (MDC, 1)],
+                s: &[(SKESK, None, 0), (SEIP, Some(1), 0), (Literal, None, 1),
+                     (MDC, None, 1)],
                 result: true,
             },
             TestVector {
-                s: &[(PKESK, 0), (SEIP, 0), (Literal, 1), (MDC, 1)],
+                s: &[(PKESK, None, 0), (SEIP, Some(1), 0), (Literal, None, 1),
+                     (MDC, None, 1)],
                 result: true,
             },
             TestVector {
-                s: &[(PKESK, 0), (SEIP, 0), (CompressedData, 1), (Literal, 2),
-                     (MDC, 1)],
+                s: &[(PKESK, None, 0), (SEIP, Some(1), 0),
+                     (CompressedData, None, 1), (Literal, None, 2),
+                     (MDC, None, 1)],
                 result: true,
             },
             TestVector {
-                s: &[(SKESK, 0), (SKESK, 0), (SEIP, 0), (Literal, 1), (MDC, 1)],
+                s: &[(SKESK, None, 0), (SKESK, None, 0), (SEIP, Some(1), 0),
+                     (Literal, None, 1), (MDC, None, 1)],
                 result: true,
             },
 
             TestVector {
-                s: &[(OnePassSig, 0), (Literal, 0), (Signature, 0)],
+                s: &[(OnePassSig, None, 0), (Literal, None, 0),
+                     (Signature, None, 0)],
                 result: true,
             },
             TestVector {
-                s: &[(OnePassSig, 0), (CompressedData, 0), (Literal, 1),
-                     (Signature, 0)],
+                s: &[(OnePassSig, None, 0), (CompressedData, None, 0),
+                     (Literal, None, 1),
+                     (Signature, None, 0)],
                 result: true,
             },
             TestVector {
-                s: &[(OnePassSig, 0), (OnePassSig, 0), (Literal, 0),
-                     (Signature, 0), (Signature, 0)],
+                s: &[(OnePassSig, None, 0), (OnePassSig, None, 0),
+                     (Literal, None, 0),
+                     (Signature, None, 0), (Signature, None, 0)],
                 result: true,
             },
             TestVector {
-                s: &[(OnePassSig, 0), (OnePassSig, 0), (Literal, 0),
-                     (Signature, 0)],
+                s: &[(OnePassSig, None, 0), (OnePassSig, None, 0),
+                     (Literal, None, 0),
+                     (Signature, None, 0)],
                 result: false,
             },
             TestVector {
-                s: &[(OnePassSig, 0), (OnePassSig, 0), (SEIP, 0),
-                     (OnePassSig, 1), (SEIP, 1), (Literal, 2), (MDC, 2),
-                     (Signature, 1), (MDC, 1), (Signature, 0), (Signature, 0)],
+                s: &[(OnePassSig, None, 0), (OnePassSig, None, 0),
+                     (SEIP, Some(1), 0),
+                     (OnePassSig, None, 1), (SEIP, Some(1), 1),
+                     (Literal, None, 2), (MDC, None, 2),
+                     (Signature, None, 1), (MDC, None, 1), (Signature, None, 0),
+                     (Signature, None, 0)],
                 result: true,
             },
 
@@ -753,16 +758,24 @@ mod tests {
             // that version to report that newer software is necessary
             // to process the message.", section 5.8 of RFC4880.
             TestVector {
-                s: &[(Marker, 0),
-                     (OnePassSig, 0), (Literal, 0), (Signature, 0)],
+                s: &[(Marker, None, 0),
+                     (OnePassSig, None, 0), (Literal, None, 0),
+                     (Signature, None, 0)],
+                result: true,
+            },
+            TestVector {
+                s: &[(OnePassSig, None, 0), (Literal, None, 0),
+                     (Signature, None, 0),
+                     (Marker, None, 0)],
                 result: true,
             },
         ];
 
         for v in &test_vectors {
             let mut l = MessageValidator::new();
-            for (token, depth) in v.s.iter() {
+            for (token, version, depth) in v.s.iter() {
                 l.push(*token,
+                       *version,
                        &(0..1 + *depth)
                            .map(|x| x as usize)
                            .collect::<Vec<_>>()[..]);
@@ -791,7 +804,7 @@ mod tests {
         // 0: Literal
         // => good.
         let mut packets = Vec::new();
-        let mut lit = Literal::new(Text);
+        let mut lit = Literal::new(Unicode);
         lit.set_body(b"data".to_vec());
         packets.push(lit.into());
 
@@ -799,10 +812,9 @@ mod tests {
         assert!(message.is_ok(), "{:?}", message);
     }
 
-    #[allow(clippy::vec_init_then_push)]
     #[test]
     fn compressed_part() {
-        let mut lit = Literal::new(Text);
+        let mut lit = Literal::new(Unicode);
         lit.set_body(b"data".to_vec());
 
         // 0: CompressedData
@@ -862,19 +874,20 @@ mod tests {
         assert!(message.is_ok(), "{:?}", message);
     }
 
-    #[allow(clippy::vec_init_then_push)]
     #[test]
     fn one_pass_sig_part() {
-        let mut lit = Literal::new(Text);
+        let mut lit = Literal::new(Unicode);
         lit.set_body(b"data".to_vec());
 
         let hash = crate::types::HashAlgorithm::SHA512;
         let key: key::SecretKey =
-            crate::packet::key::Key4::generate_ecc(true, crate::types::Curve::Ed25519)
+            crate::packet::key::Key6::generate_ecc(true, crate::types::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
+        let ctx =
+            hash.context().unwrap().for_signature(pair.public().version());
         let sig = crate::packet::signature::SignatureBuilder::new(SignatureType::Binary)
-            .sign_hash(&mut pair, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut pair, ctx).unwrap();
 
         // 0: OnePassSig
         // => bad.
@@ -975,19 +988,20 @@ mod tests {
         assert!(message.is_ok(), "{:?}", message);
     }
 
-    #[allow(clippy::vec_init_then_push)]
     #[test]
     fn signature_part() {
-        let mut lit = Literal::new(Text);
+        let mut lit = Literal::new(Unicode);
         lit.set_body(b"data".to_vec());
 
         let hash = crate::types::HashAlgorithm::SHA512;
         let key: key::SecretKey =
-            crate::packet::key::Key4::generate_ecc(true, crate::types::Curve::Ed25519)
+            crate::packet::key::Key6::generate_ecc(true, crate::types::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
+        let ctx =
+            hash.context().unwrap().for_signature(pair.public().version());
         let sig = crate::packet::signature::SignatureBuilder::new(SignatureType::Binary)
-            .sign_hash(&mut pair, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut pair, ctx).unwrap();
 
         // 0: Signature
         // => bad.
@@ -1028,14 +1042,15 @@ mod tests {
         // internal interfaces to progressively build up more
         // complicated messages.
 
-        let mut lit = Literal::new(Text);
+        let mut lit = Literal::new(Unicode);
         lit.set_body(b"data".to_vec());
 
         // 0: SK-ESK
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
         let cipher = SymmetricAlgorithm::AES256;
-        let sk = crate::crypto::SessionKey::new(cipher.key_size().unwrap());
+        let sk =
+            crate::crypto::SessionKey::new(cipher.key_size().unwrap()).unwrap();
         #[allow(deprecated)]
         packets.push(SKESK4::with_password(
             cipher,
@@ -1063,9 +1078,9 @@ mod tests {
         //  1: MDC
         // => good.
         let mut seip = SEIP1::new();
-        seip.children_mut().unwrap().push(
+        seip.container_mut().children_mut().unwrap().push(
             lit.clone().into());
-        seip.children_mut().unwrap().push(
+        seip.container_mut().children_mut().unwrap().push(
             MDC::from([0u8; 20]).into());
         packets[1] = seip.into();
 
@@ -1167,7 +1182,7 @@ mod tests {
         packets.insert(
             1,
             PKESK3::new(
-                "0000111122223333".parse().unwrap(),
+                Some("0000111122223333".parse().unwrap()),
                 PublicKeyAlgorithm::RSAEncrypt,
                 Ciphertext::RSA { c: MPI::new(&[]) }).unwrap().into());
 
@@ -1205,7 +1220,7 @@ mod tests {
         use crate::packet::Tag;
 
         let mut l = MessageValidator::new();
-        l.push(Tag::Literal, &[0]);
+        l.push(Tag::Literal, None, &[0]);
         l.finish();
 
         assert!(matches!(l.check(), MessageValidity::Message));
@@ -1235,7 +1250,7 @@ mod tests {
 
         // Simple one-literal message.
         let mut l = MessageValidator::new();
-        l.push(Tag::Literal, &[0]);
+        l.push(Tag::Literal, None, &[0]);
         assert!(matches!(l.check(), MessageValidity::MessagePrefix));
         l.finish();
 

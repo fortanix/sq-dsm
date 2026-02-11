@@ -1,10 +1,10 @@
 //! Padding for OpenPGP messages.
 //!
 //! To reduce the amount of information leaked via the message length,
-//! encrypted OpenPGP messages (see [Section 11.3 of RFC 4880]) should
+//! encrypted OpenPGP messages (see [Section 10.3 of RFC 9580]) should
 //! be padded.
 //!
-//!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+//!   [Section 10.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
 //!
 //! To pad a message using the streaming serialization interface, the
 //! [`Padder`] needs to be inserted into the writing stack between the
@@ -17,61 +17,33 @@
 //!
 //! # Padding in OpenPGP
 //!
-//! There are a number of ways to pad messages within the boundaries
-//! of the OpenPGP protocol, keeping an eye on backwards-compatibility
-//! with common implementations:
+//! RFC9580 introduced a [padding packet] that will be emitted when
+//! composing an RFC9580 message.  Unfortunately, RFC4880 does not
+//! have a robust way to pad messages.  Therefore, when composing an
+//! RFC4880 message, the message will not be padded.
 //!
-//!   - Add a decoy notation to a signature packet (up to about 60k)
-//!
-//!   - Add a signature with a private algorithm and store the decoy
-//!     traffic in the MPIs (up to 4 GB)
-//!
-//!   - Use a compression container and store the decoy traffic in a
-//!     chunk that decompresses to the empty string (unlimited)
-//!
-//!   - Use a bunch of marker packets, which are ignored (each packet:
-//!     3 bytes for the body, 5 bytes for the header)
-//!
-//!   - Apparently, GnuPG understands a comment packet (tag: 61),
-//!     which is not standardized (up to 64k)
-//!
-//! We believe that padding the compressed data stream is the best
-//! option, because as far as OpenPGP is concerned, it is completely
-//! transparent for the recipient (for example, no weird packets are
-//! inserted).
-//!
-//! Unfortunately, [testing] discovered problems when the resulting
-//! messages are consumed by (at the time of this writing) OpenPGP.js,
-//! RNP, and GnuPG.  If compatibility with these implementations is a
-//! concern, using this padding method is not advisable.
-//!
-//!   [testing]: https://tests.sequoia-pgp.org/#Packet_excess_consumption
+//!   [padding packet]: https://www.rfc-editor.org/rfc/rfc9580.html#name-padding-packet-type-id-21
 //!
 //! To be effective, the padding layer must be placed inside the
 //! encryption container.  To increase compatibility, the padding
 //! layer must not be signed.  That is to say, the message structure
-//! should be `(encryption (padding ops literal signature))`, the
-//! exact structure GnuPG emits by default.
+//! should be `(encryption (ops literal signature padding))`.
 use std::fmt;
-use std::io::{self, Write};
+use std::io;
 
 use crate::{
+    Profile,
     Result,
     packet::prelude::*,
 };
-use crate::packet::header::CTB;
 use crate::serialize::{
     Marshal,
     stream::{
         writer,
         Cookie,
         Message,
-        PartialBodyFilter,
+        Private,
     },
-};
-use crate::types::{
-    CompressionAlgorithm,
-    CompressionLevel,
 };
 
 /// Pads a packet stream.
@@ -86,20 +58,12 @@ use crate::types::{
 ///
 /// # Compatibility
 ///
-/// This implementation uses the [DEFLATE] compression format.  The
-/// packet structure contains a flag signaling the end of the stream
-/// (see [Section 3.2.3 of RFC 1951]), and any data appended after
-/// that is not part of the stream.
+/// RFC9580 introduced a [padding packet] that will be emitted when
+/// composing an RFC9580 message.  Unfortunately, RFC4880 does not
+/// have a robust way to pad messages.  Therefore, when composing an
+/// RFC4880 message, the message will not be padded.
 ///
-/// [DEFLATE]: https://tools.ietf.org/html/rfc1951
-/// [Section 3.2.3 of RFC 1951]: https://tools.ietf.org/html/rfc1951#page-9
-///
-/// [Section 9.3 of RFC 4880] recommends that this algorithm should be
-/// implemented, therefore support across various implementations
-/// should be good.
-///
-/// [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
-///
+///   [padding packet]: https://www.rfc-editor.org/rfc/rfc9580.html#name-padding-packet-type-id-21
 /// # Examples
 ///
 /// This example illustrates the use of `Padder` with the [Padmé]
@@ -136,16 +100,16 @@ use crate::types::{
 ///     message.write_all(b"Hello world.")?;
 ///     message.finalize()?;
 /// }
-/// assert!(unpadded.len() < padded.len());
 /// # Ok(())
 /// # }
-pub struct Padder<'a> {
+pub struct Padder<'a, 'p: 'a> {
     inner: writer::BoxStack<'a, Cookie>,
-    policy: fn(u64) -> u64,
+    policy: Box<dyn Fn(u64) -> u64 + Send + Sync + 'p>,
+    cookie: Cookie,
 }
-assert_send_and_sync!(Padder<'_>);
+assert_send_and_sync!(Padder<'_, '_>);
 
-impl<'a> Padder<'a> {
+impl<'a, 'p> Padder<'a, 'p> {
     /// Creates a new padder with the given policy.
     ///
     /// # Examples
@@ -168,16 +132,21 @@ impl<'a> Padder<'a> {
     /// use openpgp::serialize::stream::padding::Padder;
     ///
     /// # let message = openpgp::serialize::stream::Message::new(vec![]);
+    /// // XXX: Insert Encryptor here.
     /// let message = Padder::new(message).build()?;
-    /// // Optionally add a `Signer` here.
-    /// // Add a `LiteralWriter` here.
+    /// // XXX: Optionally add a `Signer` here.
+    /// // XXX: Add a `LiteralWriter` here.
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
     pub fn new(inner: Message<'a>) -> Self {
+        let level = inner.as_ref().cookie_ref().level;
+        let cookie = Cookie::new(level + 1);
+
         Self {
             inner: writer::BoxStack::from(inner),
-            policy: padme,
+            policy: Box::new(padme),
+            cookie,
         }
     }
 
@@ -193,14 +162,18 @@ impl<'a> Padder<'a> {
     /// use openpgp::serialize::stream::padding::{Padder, padme};
     ///
     /// # let message = openpgp::serialize::stream::Message::new(vec![]);
+    /// // XXX: Insert Encryptor here.
     /// let message = Padder::new(message).with_policy(padme).build()?;
-    /// // Optionally add a `Signer` here.
-    /// // Add a `LiteralWriter` here.
+    /// // XXX: Optionally add a `Signer` here.
+    /// // XXX: Add a `LiteralWriter` here.
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn with_policy(mut self, p: fn(u64) -> u64) -> Self {
-        self.policy = p;
+    pub fn with_policy<P>(mut self, p: P) -> Self
+    where
+        P: Fn(u64) -> u64 + Send + Sync + 'p,
+    {
+        self.policy = Box::new(p);
         self
     }
 
@@ -226,43 +199,28 @@ impl<'a> Padder<'a> {
     /// use openpgp::serialize::stream::padding::Padder;
     ///
     /// # let message = openpgp::serialize::stream::Message::new(vec![]);
+    /// // XXX: Insert Encryptor here.
     /// let message = Padder::new(message).build()?;
-    /// // Optionally add a `Signer` here.
-    /// // Add a `LiteralWriter` here.
+    /// // XXX: Optionally add a `Signer` here.
+    /// // XXX: Add a `LiteralWriter` here.
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn build(mut self) -> Result<Message<'a>> {
-        let mut inner = self.inner;
-        let level = inner.cookie_ref().level + 1;
-
-        // Packet header.
-        CTB::new(Tag::CompressedData).serialize(&mut inner)?;
-        let mut inner: Message<'a>
-            = PartialBodyFilter::new(Message::from(inner),
-                                     Cookie::new(level));
-
-        // Compressed data header.
-        inner.as_mut().write_u8(CompressionAlgorithm::Zip.into())?;
-
-        // Create an appropriate filter.
-        self.inner =
-            writer::ZIP::new(inner, Cookie::new(level),
-                             CompressionLevel::none()).into();
-
+    pub fn build(self) -> Result<Message<'a>> {
         Ok(Message::from(Box::new(self)))
     }
 }
 
-impl<'a> fmt::Debug for Padder<'a> {
+impl<'a, 'p> fmt::Debug for Padder<'a, 'p> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Padder")
             .field("inner", &self.inner)
+            .field("cookie", &self.cookie)
             .finish()
     }
 }
 
-impl<'a> io::Write for Padder<'a> {
+impl<'a, 'p> io::Write for Padder<'a, 'p> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
     }
@@ -272,52 +230,43 @@ impl<'a> io::Write for Padder<'a> {
     }
 }
 
-impl<'a> writer::Stackable<'a, Cookie> for Padder<'a>
+impl<'a, 'p> writer::Stackable<'a, Cookie> for Padder<'a, 'p>
 {
-    fn into_inner(self: Box<Self>)
-                  -> Result<Option<writer::BoxStack<'a, Cookie>>> {
-        // Make a note of the amount of data written to this filter.
-        let uncompressed_size = self.position();
+    fn into_inner(mut self: Box<Self>)
+                  -> Result<Option<writer::BoxStack<'a, Cookie>>>
+    {
+        let enabled = writer::map(
+            self.as_ref(),
+            |w| match w.cookie_ref().private {
+                Private::Encryptor { profile, .. } =>
+                    Some(profile == Profile::RFC9580),
+                _ => None,
+            })
+            .unwrap_or(false);
 
-        // Pop-off us and the compression filter, leaving only our
-        // partial body encoder on the stack.  This finalizes the
-        // compression.
-        let mut pb_writer = Box::new(self.inner).into_inner()?.unwrap();
+        if enabled {
+            // Make a note of the amount of data written to this
+            // filter.
+            let size = self.position();
 
-        // Compressed size is what we've actually written out, modulo
-        // partial body encoding.
-        let compressed_size = pb_writer.position();
+            // Compute the amount of padding required according to the
+            // given policy.
+            let padded_size = (self.policy)(size);
+            if padded_size < size {
+                return Err(crate::Error::InvalidOperation(
+                    format!("Padding policy({}) returned {}: \
+                             smaller than argument",
+                            size, padded_size)).into());
+            }
+            let amount = padded_size - size;
 
-        // Sometimes, the compression step expands the data.  Handle
-        // this by padding the maximum of both sizes.
-        let size = std::cmp::max(uncompressed_size, compressed_size);
-
-        // Compute the amount of padding required according to the
-        // given policy.
-        let padded_size = (self.policy)(size);
-        if padded_size < size {
-            return Err(crate::Error::InvalidOperation(
-                format!("Padding policy({}) returned {}: smaller than argument",
-                        size, padded_size)).into());
-        }
-        let mut amount = padded_size - compressed_size;
-
-        if false {
-            eprintln!("u: {}, c: {}, amount: {}",
-                      uncompressed_size, compressed_size, amount);
-        }
-
-        // Write 'amount' of padding.
-        const BUFFER_SIZE: usize = 4096;
-        let mut padding = vec![0; BUFFER_SIZE];
-        while amount > 0 {
-            let n = std::cmp::min(BUFFER_SIZE as u64, amount) as usize;
-            crate::crypto::random(&mut padding[..n]);
-            pb_writer.write_all(&padding[..n])?;
-            amount -= n as u64;
+            // Write 'amount' of padding.
+            Packet::from(Padding::new(amount.try_into()
+                                      .unwrap_or(usize::MAX))?)
+                .serialize(&mut self)?;
         }
 
-        pb_writer.into_inner()
+        Ok(Some(self.inner))
     }
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         unreachable!("Only implemented by Signer")
@@ -333,13 +282,13 @@ impl<'a> writer::Stackable<'a, Cookie> for Padder<'a>
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
-        self.inner.cookie_set(cookie)
+        std::mem::replace(&mut self.cookie, cookie)
     }
     fn cookie_ref(&self) -> &Cookie {
-        self.inner.cookie_ref()
+        &self.cookie
     }
     fn cookie_mut(&mut self) -> &mut Cookie {
-        self.inner.cookie_mut()
+        &mut self.cookie
     }
     fn position(&self) -> u64 {
         self.inner.position()
@@ -363,7 +312,6 @@ impl<'a> writer::Stackable<'a, Cookie> for Padder<'a>
 /// [example].
 ///
 ///   [example]: Padder#examples
-#[allow(clippy::many_single_char_names)]
 pub fn padme(l: u64) -> u64 {
     if l < 2 {
         return 1; // Avoid cornercase.
@@ -450,11 +398,16 @@ mod test {
     #[test]
     fn roundtrip() {
         use std::io::Write;
+        use crate::crypto::random;
         use crate::parse::Parse;
         use crate::serialize::stream::*;
 
-        let mut msg = vec![0; rand::random::<usize>() % 1024];
-        crate::crypto::random(&mut msg);
+        let mut two_bytes = [0; 2];
+        random(&mut two_bytes).expect("Have RNG");
+        let size: usize = ((two_bytes[0] as usize) << 8) + (two_bytes[1] as usize);
+
+        let mut msg = vec![0; size % 1024];
+        crate::crypto::random(&mut msg).unwrap();
 
         let mut padded = vec![];
         {

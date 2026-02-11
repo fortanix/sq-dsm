@@ -1,11 +1,12 @@
 //! Low-level DSA tests.
 
 use crate::Result;
-use crate::crypto::{mpi, hash::Digest};
+use crate::crypto::mpi;
 use crate::packet::{prelude::*, signature::subpacket::*};
 use crate::types::*;
 
 #[test]
+#[allow(deprecated)]
 fn fips_186_3() -> Result<()> {
     if ! PublicKeyAlgorithm::DSA.is_supported() {
         eprintln!("Skipping because DSA is not supported.");
@@ -38,10 +39,10 @@ fn fips_186_3() -> Result<()> {
                           g: mpi::MPI::new(g),
                           y: mpi::MPI::new(y),
                       })?.into();
-        let mut h = hash.context()?;
+        let mut h = hash.context()?.for_digest();
         h.update(msg);
         let mut d = h.into_digest()?;
-        let mut sig: Signature =
+        let sig: Signature =
             Signature4::new(SignatureType::Binary,
                             PublicKeyAlgorithm::DSA,
                             hash,

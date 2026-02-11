@@ -39,10 +39,10 @@ impl<T: BufferedReader<()>> Reserve<T, ()> {
 }
 
 impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> Reserve<T, C> {
-    /// Like `new()`, but sets a cookie.
+    /// Like [`Self::new`], but sets a cookie.
     ///
-    /// The cookie can be retrieved using the `cookie_ref` and
-    /// `cookie_mut` methods, and set using the `cookie_set` method.
+    /// The cookie can be retrieved using the [`BufferedReader::cookie_ref`] and
+    /// [`BufferedReader::cookie_mut`] methods, and set using the [`BufferedReader::cookie_set`] method.
     pub fn with_cookie(reader: T, reserve: usize, cookie: C)
             -> Reserve<T, C> {
         Reserve {
@@ -132,7 +132,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C> for Re
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
         where Self: 'b {
-        Some(self.reader.as_boxed())
+        Some(self.reader.into_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {

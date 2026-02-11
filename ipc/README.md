@@ -1,2 +1,2 @@
-This crate implements IPC mechanisms to communicate with Sequoia and
-GnuPG background services.
+This crate implements IPC mechanisms to communicate with Sequoia
+background services.

@@ -43,7 +43,7 @@ use crate::{
 /// #
 /// # fn main() -> openpgp::Result<()> {
 /// #     let (cert, _) =
-/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         CertBuilder::general_purpose(Some("alice@example.org"))
 /// #         .generate()?;
 /// #     let fpr = cert.fingerprint();
 /// // Iterate over all User IDs.
@@ -65,7 +65,7 @@ use crate::{
 /// let p = &StandardPolicy::new();
 ///
 /// #     let (cert, _) =
-/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         CertBuilder::general_purpose(Some("alice@example.org"))
 /// #         .generate()?;
 /// #     let fpr = cert.fingerprint();
 /// // Iterate over all valid User IDs.
@@ -158,7 +158,7 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// #     let fpr = cert.fingerprint();
     /// // Iterate over all valid User Attributes.
@@ -192,7 +192,7 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
 /// This allows it to filter the returned components based on
 /// information available in the components' binding signatures.  For
 /// instance, [`ValidComponentAmalgamationIter::revoked`] filters the
-/// returned components by whether or not they are revoked.
+/// returned components by whether they are revoked.
 ///
 /// `ValidComponentAmalgamationIter` follows the builder pattern.
 /// There is no need to explicitly finalize it: it already implements
@@ -212,7 +212,7 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
 /// let p = &StandardPolicy::new();
 ///
 /// #     let (cert, _) =
-/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         CertBuilder::general_purpose(Some("alice@example.org"))
 /// #         .generate()?;
 /// #     let fpr = cert.fingerprint();
 /// // Iterate over all valid User Attributes.
@@ -264,7 +264,8 @@ impl<'a, C> fmt::Debug for ValidComponentAmalgamationIter<'a, C> {
 }
 
 impl<'a, C> Iterator for ValidComponentAmalgamationIter<'a, C>
-    where C: std::fmt::Debug
+where
+    C: std::fmt::Debug + Send + Sync,
 {
     type Item = ValidComponentAmalgamation<'a, C>;
 
@@ -338,7 +339,7 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     /// let p = &StandardPolicy::new();
     ///
     /// # let (cert, _) =
-    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
     /// #     .generate()?;
     /// # let timestamp = None;
     /// let non_revoked_uas = cert

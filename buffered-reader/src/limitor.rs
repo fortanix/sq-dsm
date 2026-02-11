@@ -35,10 +35,10 @@ impl<T: BufferedReader<()>> Limitor<T, ()> {
 }
 
 impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> Limitor<T, C> {
-    /// Like `new()`, but sets a cookie.
+    /// Like [`Self::new`], but sets a cookie.
     ///
-    /// The cookie can be retrieved using the `cookie_ref` and
-    /// `cookie_mut` methods, and set using the `cookie_set` method.
+    /// The cookie can be retrieved using the [`BufferedReader::cookie_ref`] and
+    /// [`BufferedReader::cookie_mut`] methods, and set using the [`BufferedReader::cookie_set`] method.
     pub fn with_cookie(reader: T, limit: u64, cookie: C)
             -> Limitor<T, C> {
         Limitor {
@@ -131,7 +131,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
         where Self: 'b {
-        Some(self.reader.as_boxed())
+        Some(self.reader.into_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -242,7 +242,7 @@ mod test {
     #[test]
     fn buffer_test() {
         // Test vector.
-        let size = 10 * DEFAULT_BUF_SIZE;
+        let size = 10 * default_buf_size();
         let mut input = Vec::with_capacity(size);
         let mut v = 0u8;
         for _ in 0..size {
@@ -261,11 +261,11 @@ mod test {
 
         // Gather some stats to make it easier to figure out whether
         // this test is working.
-        let stats_count =  2 * DEFAULT_BUF_SIZE;
+        let stats_count =  2 * default_buf_size();
         let mut stats = vec![0usize; stats_count];
 
         for i in 0..input.len() {
-            let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
+            let data = reader.data(default_buf_size() + 1).unwrap().to_vec();
             assert!(!data.is_empty());
             assert_eq!(data, reader.buffer());
             // And, we may as well check to make sure we read the

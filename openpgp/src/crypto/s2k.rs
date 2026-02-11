@@ -2,16 +2,17 @@
 //!
 //! String-to-key (S2K) specifiers are used to convert password
 //! strings into symmetric-key encryption/decryption keys.  See
-//! [Section 3.7 of RFC 4880].
+//! [Section 3.7 of RFC 9580].
 //!
-//!   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
+//!   [Section 3.7 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.7
+
+use std::convert::TryInto;
 
 use crate::Error;
 use crate::Result;
 use crate::HashAlgorithm;
 use crate::crypto::Password;
 use crate::crypto::SessionKey;
-use crate::crypto::hash::Digest;
 
 use std::fmt;
 
@@ -22,19 +23,28 @@ use quickcheck::{Arbitrary, Gen};
 ///
 /// String-to-key (S2K) specifiers are used to convert password
 /// strings into symmetric-key encryption/decryption keys.  See
-/// [Section 3.7 of RFC 4880].  This is used to encrypt messages with
+/// [Section 3.7 of RFC 9580].  This is used to encrypt messages with
 /// a password (see [`SKESK`]), and to protect secret keys (see
 /// [`key::Encrypted`]).
 ///
-///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
+///   [Section 3.7 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.7
 ///   [`SKESK`]: crate::packet::SKESK
 ///   [`key::Encrypted`]: crate::packet::key::Encrypted
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
 #[non_exhaustive]
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
+    /// Argon2 Memory-Hard Password Hashing Function.
+    Argon2 {
+        /// The salt.
+        salt: [u8; 16],
+        /// Number of passes.
+        t: u8,
+        /// Degree of parallelism.
+        p: u8,
+        /// Exponent of memory size.
+        m: u8,
+    },
+
     /// Repeatently hashes the password with a public `salt` value.
     Iterated {
         /// Hash used for key derivation.
@@ -77,6 +87,18 @@ pub enum S2K {
         /// Hash used for key derivation.
         hash: HashAlgorithm
     },
+
+    /// Simply hashes the password using MD5
+    ///
+    /// This mechanism uses neither iteration to increase the time it
+    /// takes to derive the key from the password nor does it salt the
+    /// password, as well as using a very weak and fast hash
+    /// algorithm.  This makes dictionary attacks more feasible.
+    ///
+    /// This mechanism has been deprecated in RFC 2440. Do not use
+    /// this variant.
+    #[deprecated(note = "Use `S2K::Iterated`.")]
+    Implicit,
 
     /// Private S2K algorithm.
     Private {
@@ -137,7 +159,7 @@ impl S2K {
     /// Usually, you should use `S2K`s [`Default`] implementation to
     /// create `S2K` objects with sane default parameters.  The
     /// parameters are chosen with contemporary machines in mind, and
-    /// should also be usable on lower-end devices like smart phones.
+    /// should also be usable on lower-end devices like smartphones.
     ///
     ///   [`Default`]: std::default::Default
     ///
@@ -152,7 +174,7 @@ impl S2K {
                 approx_hash_bytes)).into())
         } else {
             let mut salt = [0u8; 8];
-            crate::crypto::random(&mut salt);
+            crate::crypto::random(&mut salt)?;
             Ok(S2K::Iterated {
                 hash,
                 salt,
@@ -167,9 +189,41 @@ impl S2K {
     -> Result<SessionKey> {
         #[allow(deprecated)]
         match self {
+            &S2K::Argon2 { salt, t, p, m, } => {
+                let mut config = argon2::ParamsBuilder::new();
+                config.t_cost(t.into());
+                config.p_cost(p.into());
+                config.m_cost(
+                    2u32.checked_pow(m.into())
+                        .ok_or_else(|| Error::InvalidArgument(
+                            format!("Argon2 memory parameter out of bounds: {}",
+                                    m)))?);
+                config.output_len(
+                    key_size.try_into()
+                        .map_err(|_| Error::InvalidArgument(
+                            format!("key size parameter out of bounds: {}",
+                                    key_size)))?);
+                let params = config.build()
+                    .map_err(|e| Error::InvalidOperation(e.to_string()))?;
+
+                // Allocate the blocks for the Argon2 computation.
+                let mut blocks = Blocks::new(&params)?;
+
+                let argon2 = argon2::Argon2::new(
+                    argon2::Algorithm::Argon2id,
+                    argon2::Version::V0x13,
+                    params);
+                let mut sk: SessionKey = vec![0; key_size].into();
+                password.map(|password| {
+                    argon2.hash_password_into_with_memory(
+                        password, &salt, &mut sk, blocks.as_mut())
+                }).map_err(|e| Error::InvalidOperation(e.to_string()))?;
+
+                Ok(sk)
+            },
             &S2K::Simple { hash } | &S2K::Salted { hash, .. }
             | &S2K::Iterated { hash, .. } => password.map(|string| {
-                let mut hash = hash.context()?;
+                let mut hash = hash.context()?.for_digest();
 
                 // If the digest length is shorter than the key length,
                 // then we need to concatenate multiple hashes, each
@@ -183,6 +237,7 @@ impl S2K {
                     hash.update(&zeros[..]);
 
                     match self {
+                        &S2K::Argon2 { .. } => unreachable!("handled above"),
                         &S2K::Simple { .. } => {
                             hash.update(string);
                         }
@@ -224,6 +279,7 @@ impl S2K {
                                 hash.update(&data[0..tail]);
                             }
                         }
+                        S2K::Implicit |
                         S2K::Unknown { .. } | &S2K::Private { .. } =>
                             unreachable!(),
                     }
@@ -234,6 +290,9 @@ impl S2K {
 
                 Ok(ret.into())
             }),
+            S2K::Implicit => S2K::Simple {
+                hash: HashAlgorithm::MD5,
+            }.derive_key(password, key_size),
             S2K::Unknown { tag, .. } | S2K::Private { tag, .. } =>
                 Err(Error::MalformedPacket(
                         format!("Unknown S2K type {:#x}", tag)).into()),
@@ -243,8 +302,17 @@ impl S2K {
     /// Returns whether this S2K mechanism is supported.
     pub fn is_supported(&self) -> bool {
         use self::S2K::*;
-        #[allow(deprecated)] {
-            matches!(self, Simple { .. } | Salted { .. } | Iterated { .. })
+        #[allow(deprecated)]
+        match self {
+            Simple { .. }
+            | Salted { .. }
+            | Iterated { .. }
+            | Implicit
+            | Argon2 { .. }
+            => true,
+            S2K::Private { .. }
+            | S2K::Unknown { .. }
+            => false,
         }
     }
 
@@ -346,6 +414,12 @@ impl fmt::Display for S2K {
                     salt[4], salt[5], salt[6], salt[7],
                     hash_bytes))
             }
+            S2K::Implicit => f.write_str("Implicit S2K"),
+            S2K::Argon2 { salt, t, p, m, } => {
+                write!(f,
+                       "Argon2id with t: {}, p: {}, m: 2^{}, salt: {}",
+                       t, p, m, crate::fmt::hex::encode(salt))
+            },
             S2K::Private { tag, parameters } =>
                 if let Some(p) = parameters.as_ref() {
                     write!(f, "Private/Experimental S2K {}:{:?}", tag, p)
@@ -365,37 +439,109 @@ impl fmt::Display for S2K {
 #[cfg(test)]
 impl Arbitrary for S2K {
     fn arbitrary(g: &mut Gen) -> Self {
-        use crate::arbitrary_helper::gen_arbitrary_from_range;
+        use crate::arbitrary_helper::*;
 
         #[allow(deprecated)]
-        match gen_arbitrary_from_range(0..7, g) {
+        match gen_arbitrary_from_range(0..8, g) {
             0 => S2K::Simple{ hash: HashAlgorithm::arbitrary(g) },
             1 => S2K::Salted{
                 hash: HashAlgorithm::arbitrary(g),
-                salt: [<u8>::arbitrary(g); 8],
+                salt: {
+                    let mut salt = [0u8; 8];
+                    arbitrary_slice(g, &mut salt);
+                    salt
+                },
             },
             2 => S2K::Iterated{
                 hash: HashAlgorithm::arbitrary(g),
-                salt: [<u8>::arbitrary(g); 8],
+                salt: {
+                    let mut salt = [0u8; 8];
+                    arbitrary_slice(g, &mut salt);
+                    salt
+                },
                 hash_bytes: S2K::nearest_hash_count(Arbitrary::arbitrary(g)),
+            },
+            7 => S2K::Argon2 {
+                salt: {
+                    let mut salt = [0u8; 16];
+                    arbitrary_slice(g, &mut salt);
+                    salt
+                },
+                t: Arbitrary::arbitrary(g),
+                p: Arbitrary::arbitrary(g),
+                m: Arbitrary::arbitrary(g),
             },
             3 => S2K::Private {
                 tag: gen_arbitrary_from_range(100..111, g),
-                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+                parameters: Some(arbitrary_bounded_vec(g, 200).into()),
             },
             4 => S2K::Unknown {
                 tag: 2,
-                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+                parameters: Some(arbitrary_bounded_vec(g, 200).into()),
             },
             5 => S2K::Unknown {
-                tag: gen_arbitrary_from_range(4..100, g),
-                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+                tag: gen_arbitrary_from_range(5..100, g),
+                parameters: Some(arbitrary_bounded_vec(g, 200).into()),
             },
             6 => S2K::Unknown {
                 tag: gen_arbitrary_from_range(111..256, g) as u8,
-                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+                parameters: Some(arbitrary_bounded_vec(g, 200).into()),
             },
             _ => unreachable!(),
+        }
+    }
+}
+
+/// Memory for the Argon2 computation.
+///
+/// We use fallible allocation to gracefully fail if we cannot
+/// allocate the required space.
+struct Blocks {
+    blocks: *mut argon2::Block,
+    count: usize,
+}
+
+impl Blocks {
+    fn new(p: &argon2::Params) -> Result<Self> {
+        use std::alloc::Layout;
+
+        let error = || anyhow::Error::from(
+            Error::InvalidOperation(
+                "failed to allocate memory for key derivation"
+                    .into()));
+
+        let count = p.block_count();
+        let l = Layout::array::<argon2::Block>(count)
+            .map_err(|_| error())?;
+        let blocks = unsafe {
+            std::alloc::alloc_zeroed(l)
+                as *mut argon2::Block
+        };
+        if blocks.is_null() {
+            Err(error())
+        } else {
+            Ok(Blocks { blocks, count, })
+        }
+    }
+}
+
+impl Drop for Blocks {
+    fn drop(&mut self) {
+        use std::alloc::Layout;
+
+        let l = Layout::array::<argon2::Block>(self.count)
+            .expect("was valid before");
+        unsafe {
+            std::alloc::dealloc(self.blocks as *mut _, l)
+        };
+    }
+}
+
+impl AsMut<[argon2::Block]> for Blocks {
+    fn as_mut(&mut self) -> &mut [argon2::Block] {
+        unsafe {
+            std::slice::from_raw_parts_mut(
+                self.blocks, self.count)
         }
     }
 }
@@ -430,14 +576,14 @@ mod tests {
         #[allow(deprecated)]
         let tests = [
             Test {
-                filename: "mode-0-password-1234.gpg",
+                filename: "mode-0-password-1234.pgp",
                 cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Simple{ hash: HashAlgorithm::SHA1, },
                 password: "1234".into(),
                 key_hex: "7110EDA4D09E062AA5E4A390B0A572AC0D2C0220F352B0D292B65164C2A67301",
             },
             Test {
-                filename: "mode-1-password-123456-1.gpg",
+                filename: "mode-1-password-123456-1.pgp",
                 cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Salted{
                     hash: HashAlgorithm::SHA1,
@@ -447,7 +593,7 @@ mod tests {
                 key_hex: "8B79077CA448F6FB3D3AD2A264D3B938D357C9FB3E41219FD962DF960A9AFA08",
             },
             Test {
-                filename: "mode-1-password-foobar-2.gpg",
+                filename: "mode-1-password-foobar-2.pgp",
                 cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Salted{
                     hash: HashAlgorithm::SHA1,
@@ -457,7 +603,7 @@ mod tests {
                 key_hex: "B7D48AAE9B943B22A4D390083E8460B5EDFA118FE1688BF0C473B8094D1A8D10",
             },
             Test {
-                filename: "mode-3-password-qwerty-1.gpg",
+                filename: "mode-3-password-qwerty-1.pgp",
                 cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
@@ -468,7 +614,7 @@ mod tests {
                 key_hex: "575AD156187A3F8CEC11108309236EB499F1E682F0D1AFADFAC4ECF97613108A",
             },
             Test {
-                filename: "mode-3-password-9876-2.gpg",
+                filename: "mode-3-password-9876-2.pgp",
                 cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
@@ -479,7 +625,7 @@ mod tests {
                 key_hex: "736C226B8C64E4E6D0325C6C552EF7C0738F98F48FED65FD8C93265103EFA23A",
             },
             Test {
-                filename: "mode-3-aes192-password-123.gpg",
+                filename: "mode-3-aes192-password-123.pgp",
                 cipher_algo: SymmetricAlgorithm::AES192,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
@@ -490,7 +636,7 @@ mod tests {
                 key_hex: "915E96FC694E7F90A6850B740125EA005199C725F3BD27E3",
             },
             Test {
-                filename: "mode-3-twofish-password-13-times-0123456789.gpg",
+                filename: "mode-3-twofish-password-13-times-0123456789.pgp",
                 cipher_algo: SymmetricAlgorithm::Twofish,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
@@ -501,7 +647,7 @@ mod tests {
                 key_hex: "EA264FADA5A859C40D88A159B344ECF1F51FF327FDB3C558B0A7DC299777173E",
             },
             Test {
-                filename: "mode-3-aes128-password-13-times-0123456789.gpg",
+                filename: "mode-3-aes128-password-13-times-0123456789.pgp",
                 cipher_algo: SymmetricAlgorithm::AES128,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,

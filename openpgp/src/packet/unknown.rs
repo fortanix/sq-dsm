@@ -56,7 +56,33 @@ impl Clone for Unknown {
         Unknown {
             common: self.common.clone(),
             tag: self.tag,
-            error: anyhow::anyhow!("{}", self.error),
+            error: {
+                // anyhow::Error isn't Clone, so we cannot, in
+                // general, duplicate the error without losing
+                // information.  We can try to downcast to the most
+                // likely errors, and clone them, but this can never
+                // cover all possibilities.
+                use std::io;
+
+                if let Some(e) = self.error.downcast_ref::<crate::Error>() {
+                    e.clone().into()
+                } else if let Some(e) = self.error.downcast_ref::<io::Error>() {
+                    if let Some(wrapped) = e.get_ref() {
+                        // The wrapped error isn't clone, so this
+                        // loses information here.  This will always
+                        // be lossy, even once we changed this crate
+                        // to return concrete errors.
+                        io::Error::new(e.kind(), wrapped.to_string()).into()
+                    } else {
+                        io::Error::from(e.kind()).into()
+                    }
+                } else {
+                    // Here, we lose information, but the conversion
+                    // was lossy before.
+                    crate::Error::InvalidOperation(self.error.to_string())
+                        .into()
+                }
+            },
             container: self.container.clone(),
         }
     }
@@ -127,6 +153,11 @@ impl Unknown {
         ::std::mem::replace(&mut self.error, error)
     }
 
+    /// Returns the error.
+    pub fn into_error(self) -> anyhow::Error {
+        self.error
+    }
+
     /// Best effort Ord implementation.
     ///
     /// The Cert canonicalization needs to order Unknown packets.
@@ -139,10 +170,119 @@ impl Unknown {
     }
 }
 
-impl_body_forwards!(Unknown);
+impl_unprocessed_body_forwards!(Unknown);
 
 impl From<Unknown> for Packet {
     fn from(s: Unknown) -> Self {
         Packet::Unknown(s)
+    }
+}
+
+impl std::convert::TryFrom<Packet> for Unknown {
+    type Error = crate::Error;
+
+    /// Tries to convert a packet to an `Unknown`.  Returns an error
+    /// if the given packet is a container packet (i.e. a compressed
+    /// data packet or an encrypted data packet of any kind).
+    fn try_from(p: Packet) -> std::result::Result<Self, Self::Error> {
+        use packet::{Any, Body, Common, Container};
+        use crate::serialize::MarshalInto;
+
+        let tag = p.tag();
+
+        // First, short-circuit happy and unhappy paths so that we
+        // avoid copying the potentially large packet parser maps in
+        // common.
+        match &p {
+            // Happy path.
+            Packet::Unknown(_) =>
+                return Ok(p.downcast().expect("is an unknown")),
+
+            // The container packets we flat-out refuse to convert.
+            // The Unknown packet has an unprocessed body, and we
+            // cannot recreate that from processed or structured
+            // bodies.
+            Packet::CompressedData(_)
+                | Packet::SEIP(_) =>
+                return Err(Self::Error::InvalidOperation(
+                    format!("Cannot convert {} to unknown packets", tag))),
+
+            _ => (),
+        }
+
+        // Now we copy the common bits that we'll need.
+        let common = p.common().clone();
+
+        fn convert<V>(tag: Tag, common: Common, body: V)
+                      -> Result<Unknown, crate::Error>
+        where
+            V: MarshalInto,
+        {
+            let container = {
+                let mut c = Container::default_unprocessed();
+                c.set_body(Body::Unprocessed(
+                    body.to_vec().expect("infallible serialization")));
+                c
+            };
+
+            Ok(Unknown {
+                container,
+                common,
+                tag,
+                error: crate::Error::MalformedPacket(
+                    format!("Implicit conversion from {} to unknown packet",
+                            tag)).into(),
+            })
+        }
+
+        match p {
+            // Happy path.
+            Packet::Unknown(_) => unreachable!("handled above"),
+
+            // These packets convert infallibly.
+            Packet::Signature(v) => convert(tag, common, v),
+            Packet::OnePassSig(v) => convert(tag, common, v),
+            Packet::PublicKey(v) => convert(tag, common, v),
+            Packet::PublicSubkey(v) => convert(tag, common, v),
+            Packet::SecretKey(v) => convert(tag, common, v),
+            Packet::SecretSubkey(v) => convert(tag, common, v),
+            Packet::Marker(v) => convert(tag, common, v),
+            Packet::Trust(v) => convert(tag, common, v),
+            Packet::UserID(v) => convert(tag, common, v),
+            Packet::UserAttribute(v) => convert(tag, common, v),
+            Packet::PKESK(v) => convert(tag, common, v),
+            Packet::SKESK(v) => convert(tag, common, v),
+            #[allow(deprecated)]
+            Packet::MDC(v) => convert(tag, common, v),
+            Packet::Padding(v) => convert(tag, common, v), // XXX: can we do better like for the Literal?
+
+            // Here we can avoid copying the body.
+            Packet::Literal(mut v) => {
+                let container = {
+                    let mut c = Container::default_unprocessed();
+                    // Get v's body out without copying.
+                    c.set_body(Body::Unprocessed(v.set_body(
+                        Vec::with_capacity(0))));
+                    c
+                };
+                let common = v.common.clone(); // XXX why can't I decompose `p`?
+
+                Ok(Unknown {
+                    container,
+                    common,
+                    tag,
+                    error: crate::Error::MalformedPacket(
+                        format!("Implicit conversion from {} to unknown packet",
+                                tag)).into(),
+                })
+            },
+
+            // The container packets we flat-out refuse to convert.
+            // The Unknown packet has an unprocessed body, and we
+            // cannot recreate that from processed or structured
+            // bodies.
+            Packet::CompressedData(_)
+                | Packet::SEIP(_) => unreachable!("handled above"),
+        }
     }
 }

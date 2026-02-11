@@ -103,7 +103,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
     {
         // Try each PKESK until we succeed.
         for pkesk in pkesks {
-            if let Some(key) = self.keys.get(pkesk.recipient()) {
+            if let Some(key) = self.keys.get(&KeyID::from(pkesk.recipient())) {
                 let mut pair = KeyPair::new(self.ctx, key)?;
                 if pkesk.decrypt(&mut pair, sym_algo)
                     .map(|(algo, session_key)| decrypt(algo, &session_key))

@@ -8,11 +8,44 @@ use crate::{
     KeyHandle,
     types::RevocationStatus,
     packet::key,
-    packet::key::SecretKeyMaterial,
     types::KeyFlags,
     cert::prelude::*,
     policy::Policy,
 };
+
+/// Evaluates whether to skip the use of a secret key when filtering.
+///
+/// This function takes three optional boolean values, indicating whether
+/// an encrypted secret is present,
+/// whether to filter for encrypted secret keys
+/// and whether to filter for unencrypted secret keys.
+///
+/// An optional string provides context in the case where a key is skipped.
+fn skip_secret(
+    have_secret_encrypted: Option<bool>,
+    want_encrypted_key: Option<bool>,
+    want_unencrypted_secret: Option<bool>,
+) -> Option<&'static str> {
+    match (have_secret_encrypted, want_encrypted_key, want_unencrypted_secret) {
+        (Some(_), Some(true), Some(true))
+        | (_, None, None)
+        | (Some(true), Some(true), _)
+        | (Some(true), None, Some(false))
+        | (Some(false), _, Some(true))
+        | (Some(false), Some(false), None) => None,  // do not skip the key
+        (Some(true), Some(false), _) | (Some(true), None, Some(true)) => {
+            Some("Encrypted secret... skipping.")
+        }
+        (Some(false), _, Some(false)) | (Some(false), Some(true), None) => {
+            Some("Unencrypted secret... skipping.")
+        }
+        (None, Some(_), None)
+        | (None, None, Some(_))
+        | (None, Some(_), Some(_)) => {
+            Some("No secret... skipping.")
+        }
+    }
+}
 
 /// An iterator over `Key`s.
 ///
@@ -32,7 +65,8 @@ use crate::{
 ///
 /// `KeyAmalgamationIter` supports other filters.  For instance
 /// [`KeyAmalgamationIter::secret`] filters on whether secret key
-/// material is present, and
+/// material is present, [`KeyAmalgamationIter::encrypted_secret`]
+/// filters on whether secret key material is present and encrypted, and
 /// [`KeyAmalgamationIter::unencrypted_secret`] filters on whether
 /// secret key material is present and unencrypted.  Of course, since
 /// `KeyAmalgamationIter` implements `Iterator`, it is possible to use
@@ -61,15 +95,15 @@ pub struct KeyAmalgamationIter<'a, P, R>
     subkey_iter: slice::Iter<'a, KeyBundle<key::PublicParts,
                                            key::SubordinateRole>>,
 
-    // If not None, filters by whether a key has a secret.
-    secret: Option<bool>,
+    // If not None, filters by whether a key has an encrypted secret.
+    encrypted_secret: Option<bool>,
 
     // If not None, filters by whether a key has an unencrypted
     // secret.
     unencrypted_secret: Option<bool>,
 
-    // Only return keys in this set.
-    key_handles: Option<Vec<KeyHandle>>,
+    /// Only return keys in this set.
+    key_handles: Vec<KeyHandle>,
 
     // If not None, filters by whether we support the key's asymmetric
     // algorithm.
@@ -89,7 +123,7 @@ impl<'a, P, R> fmt::Debug for KeyAmalgamationIter<'a, P, R>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("KeyAmalgamationIter")
-            .field("secret", &self.secret)
+            .field("encrypted_secret", &self.encrypted_secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
             .field("key_handles", &self.key_handles)
             .field("supported", &self.supported)
@@ -157,15 +191,13 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 
             t!("Considering key: {:?}", ka.key());
 
-            if let Some(key_handles) = self.key_handles.as_ref() {
-                if !key_handles
-                    .iter()
+            if ! self.key_handles.is_empty()
+                && ! self.key_handles.iter()
                     .any(|h| h.aliases(ka.key().key_handle()))
-                {
-                    t!("{} is not one of the keys that we are looking for ({:?})",
-                       ka.key().fingerprint(), self.key_handles);
-                    continue;
-                }
+            {
+                t!("{} is not one of the keys that we are looking for ({:?})",
+                   ka.key().fingerprint(), self.key_handles);
+                continue;
             }
 
             if let Some(want_supported) = self.supported {
@@ -181,35 +213,13 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
                 }
             }
 
-            if let Some(want_secret) = self.secret {
-                if ka.key().has_secret() {
-                    // We have a secret.
-                    if ! want_secret {
-                        t!("Have a secret... skipping.");
-                        continue;
-                    }
-                } else if want_secret {
-                    t!("No secret... skipping.");
-                    continue;
-                }
-            }
-
-            if let Some(want_unencrypted_secret) = self.unencrypted_secret {
-                if let Some(secret) = ka.key().optional_secret() {
-                    if let SecretKeyMaterial::Unencrypted { .. } = secret {
-                        if ! want_unencrypted_secret {
-                            t!("Unencrypted secret... skipping.");
-                            continue;
-                        }
-                    } else if want_unencrypted_secret {
-                        t!("Encrypted secret... skipping.");
-                        continue;
-                    }
-                } else {
-                    // No secret.
-                    t!("No secret... skipping.");
-                    continue;
-                }
+            if let Some(msg) = skip_secret(
+                ka.key().optional_secret().map(|x| x.is_encrypted()),
+                self.encrypted_secret,
+                self.unencrypted_secret,
+            ) {
+                t!(msg);
+                continue;
             }
 
             return Some(ka);
@@ -229,9 +239,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             subkey_iter: cert.subkeys.iter(),
 
             // The filters.
-            secret: None,
+            encrypted_secret: None,
             unencrypted_secret: None,
-            key_handles: None,
+            key_handles: Default::default(),
             supported: None,
 
             _p: std::marker::PhantomData,
@@ -250,11 +260,15 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::new().set_password(Some("password".into()))
     /// #         .generate()?;
     /// for ka in cert.keys().secret() {
     ///     // Use it.
     /// }
+    /// #     assert!(cert.keys().secret().count() == 1);
+    /// #
+    /// #     let (cert, _) = CertBuilder::new().generate()?;
+    /// #     assert!(cert.keys().secret().count() == 1);
     /// #     Ok(())
     /// # }
     /// ```
@@ -265,7 +279,46 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             subkey_iter: self.subkey_iter,
 
             // The filters.
-            secret: Some(true),
+            encrypted_secret: Some(true),
+            unencrypted_secret: Some(true),
+            key_handles: self.key_handles,
+            supported: self.supported,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
+    }
+
+    /// Changes the iterator to only return keys with encrypted secret key
+    /// material.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::cert::prelude::*;
+    /// # fn main() -> Result<()> {
+    /// #     let (cert, _) =
+    /// #         CertBuilder::new().set_password(Some("password".into()))
+    /// #         .generate()?;
+    /// for ka in cert.keys().encrypted_secret() {
+    ///     // Use it.
+    /// }
+    /// #     assert!(cert.keys().encrypted_secret().count() == 1);
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn encrypted_secret(
+        self,
+    ) -> KeyAmalgamationIter<'a, key::SecretParts, R> {
+        KeyAmalgamationIter {
+            cert: self.cert,
+            primary: self.primary,
+            subkey_iter: self.subkey_iter,
+
+            // The filters.
+            encrypted_secret: Some(true),
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
             supported: self.supported,
@@ -286,11 +339,11 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
-    /// #         .generate()?;
+    /// #         CertBuilder::new().generate()?;
     /// for ka in cert.keys().unencrypted_secret() {
     ///     // Use it.
     /// }
+    /// #     assert!(cert.keys().secret().unencrypted_secret().count() == 1);
     /// #     Ok(())
     /// # }
     /// ```
@@ -301,7 +354,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             subkey_iter: self.subkey_iter,
 
             // The filters.
-            secret: self.secret,
+            encrypted_secret: self.encrypted_secret,
             unencrypted_secret: Some(true),
             key_handles: self.key_handles,
             supported: self.supported,
@@ -329,9 +382,9 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
-    /// # let key_handle = cert.primary_key().key_handle();
+    /// # let key_handle = cert.primary_key().key().key_handle();
     /// # let mut i = 0;
     /// for ka in cert.keys().key_handle(key_handle) {
     ///     // Use it.
@@ -348,15 +401,15 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     pub fn key_handle<H>(mut self, h: H) -> Self
         where H: Into<KeyHandle>
     {
-        if self.key_handles.is_none() {
-            self.key_handles = Some(Vec::new());
-        }
-        self.key_handles.as_mut().unwrap().push(h.into());
+        self.key_handles.push(h.into());
         self
     }
 
     /// Changes the iterator to only return a key if it matches one of
     /// the specified `KeyHandle`s.
+    ///
+    /// If the given `handles` iterator is empty, the set of returned
+    /// keys is not constrained.
     ///
     /// This function is cumulative.  If you call this function (or
     /// [`key_handle`]) multiple times, then the iterator returns a key
@@ -373,11 +426,11 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
-    /// # let key_handles = &[cert.primary_key().key_handle()][..];
+    /// # let key_handles = &[cert.primary_key().key().key_handle()][..];
     /// # let mut i = 0;
-    /// for ka in cert.keys().key_handles(key_handles.iter()) {
+    /// for ka in cert.keys().key_handles(key_handles) {
     ///     // Use it.
     /// #   i += 1;
     /// }
@@ -389,14 +442,16 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// [`KeyHandle`s]: super::super::super::KeyHandle
     /// [`key_handle`]: KeyAmalgamationIter::key_handle()
     /// [`KeyHandle::aliases`]: super::super::super::KeyHandle::aliases()
-    pub fn key_handles<'b>(mut self, h: impl Iterator<Item=&'b KeyHandle>)
-        -> Self
-        where 'a: 'b
+    pub fn key_handles<H, K>(mut self, handles: H) -> Self
+    where
+        H: IntoIterator<Item=K>,
+        K: Borrow<KeyHandle>,
     {
-        if self.key_handles.is_none() {
-            self.key_handles = Some(Vec::new());
-        }
-        self.key_handles.as_mut().unwrap().extend(h.cloned());
+        let mut handles = handles.into_iter()
+            .map(|h| h.borrow().clone())
+            .collect::<Vec<_>>();
+
+        self.key_handles.append(&mut handles);
         self
     }
 
@@ -414,7 +469,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// # let mut i = 0;
     /// for ka in cert.keys().supported() {
@@ -468,7 +523,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             subkey_iter: self.subkey_iter,
 
             // The filters.
-            secret: self.secret,
+            encrypted_secret: self.encrypted_secret,
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
             supported: self.supported,
@@ -499,7 +554,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// #     let fpr = cert.fingerprint();
     /// // Iterate over all valid User Attributes.
@@ -527,7 +582,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             time: time.into().unwrap_or_else(crate::now),
 
             // The filters.
-            secret: self.secret,
+            encrypted_secret: self.encrypted_secret,
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
             supported: self.supported,
@@ -553,7 +608,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 /// A `ValidKeyAmalgamationIter` also provides additional
 /// filters based on information available in the `Key`s' binding
 /// signatures.  For instance, [`ValidKeyAmalgamationIter::revoked`]
-/// filters the returned `Key`s by whether or not they are revoked.
+/// filters the returned `Key`s by whether they are revoked.
 /// And, [`ValidKeyAmalgamationIter::alive`] changes the iterator to
 /// only return `Key`s that are live.
 ///
@@ -578,7 +633,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 /// let p = &StandardPolicy::new();
 ///
 /// #     let (cert, _) =
-/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         CertBuilder::general_purpose(Some("alice@example.org"))
 /// #         .generate()?;
 /// # let mut i = 0;
 /// // The certificate *and* keys need to be valid.
@@ -635,15 +690,15 @@ pub struct ValidKeyAmalgamationIter<'a, P, R>
     // The time.
     time: SystemTime,
 
-    // If not None, filters by whether a key has a secret.
-    secret: Option<bool>,
+    // If not None, filters by whether a key has an encrypted secret.
+    encrypted_secret: Option<bool>,
 
     // If not None, filters by whether a key has an unencrypted
     // secret.
     unencrypted_secret: Option<bool>,
 
-    // Only return keys in this set.
-    key_handles: Option<Vec<KeyHandle>>,
+    /// Only return keys in this set.
+    key_handles: Vec<KeyHandle>,
 
     // If not None, filters by whether we support the key's asymmetric
     // algorithm.
@@ -675,7 +730,7 @@ impl<'a, P, R> fmt::Debug for ValidKeyAmalgamationIter<'a, P, R>
         f.debug_struct("ValidKeyAmalgamationIter")
             .field("policy", &self.policy)
             .field("time", &self.time)
-            .field("secret", &self.secret)
+            .field("encrypted_secret", &self.encrypted_secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
             .field("key_handles", &self.key_handles)
             .field("supported", &self.supported)
@@ -773,15 +828,13 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             let key = ka.key();
             t!("Considering key: {:?}", key);
 
-            if let Some(key_handles) = self.key_handles.as_ref() {
-                if !key_handles
-                    .iter()
+            if ! self.key_handles.is_empty()
+                && ! self.key_handles.iter()
                     .any(|h| h.aliases(key.key_handle()))
-                {
-                    t!("{} is not one of the keys that we are looking for ({:?})",
-                       key.key_handle(), self.key_handles);
-                    continue;
-                }
+            {
+                t!("{} is not one of the keys that we are looking for ({:?})",
+                   key.key_handle(), self.key_handles);
+                continue;
             }
 
             if let Some(want_supported) = self.supported {
@@ -800,7 +853,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             if let Some(flags) = self.flags.as_ref() {
                 if !ka.has_any_key_flag(flags) {
                     t!("Have flags: {:?}, want flags: {:?}... skipping.",
-                      flags, flags);
+                       ka.key_flags(), flags);
                     continue;
                 }
             }
@@ -828,35 +881,13 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
                 }
             }
 
-            if let Some(want_secret) = self.secret {
-                if key.has_secret() {
-                    // We have a secret.
-                    if ! want_secret {
-                        t!("Have a secret... skipping.");
-                        continue;
-                    }
-                } else if want_secret {
-                    t!("No secret... skipping.");
-                    continue;
-                }
-            }
-
-            if let Some(want_unencrypted_secret) = self.unencrypted_secret {
-                if let Some(secret) = key.optional_secret() {
-                    if let SecretKeyMaterial::Unencrypted { .. } = secret {
-                        if ! want_unencrypted_secret {
-                            t!("Unencrypted secret... skipping.");
-                            continue;
-                        }
-                    } else if want_unencrypted_secret {
-                        t!("Encrypted secret... skipping.");
-                        continue;
-                    }
-                } else {
-                    // No secret.
-                    t!("No secret... skipping.");
-                    continue;
-                }
+            if let Some(msg) = skip_secret(
+                ka.key().optional_secret().map(|x| x.is_encrypted()),
+                self.encrypted_secret,
+                self.unencrypted_secret,
+            ) {
+                t!(msg);
+                continue;
             }
 
             return Some(ka);
@@ -875,7 +906,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// `for_signing`, etc.) multiple times, the *union* of
     /// the values is used.
     ///
-    /// Note: [Section 12.1 of RFC 4880] says that the primary key is
+    /// Note: [Section 10.1 of RFC 9580] says that the primary key is
     /// certification capable independent of the `Key Flags`
     /// subpacket:
     ///
@@ -926,7 +957,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Ok(()) }
     /// ```
     ///
-    ///   [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
+    ///   [Section 10.1 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.29
     ///   [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn key_flags<F>(mut self, flags: F) -> Self
         where F: Borrow<KeyFlags>
@@ -946,7 +977,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// `for_signing`, etc.) multiple times, the *union* of
     /// the values is used.
     ///
-    /// Note: [Section 12.1 of RFC 4880] says that the primary key is
+    /// Note: [Section 10.1 of RFC 9580] says that the primary key is
     /// certification capable independent of the `Key Flags`
     /// subpacket:
     ///
@@ -995,7 +1026,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// ```
     ///
     ///   [`ValidKeyAmalgamation::for_certification`]: ValidKeyAmalgamation::for_certification()
-    ///   [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
+    ///   [Section 10.1 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.29
     ///   [`ValidKeyAmalgamation::key_flags`]: ValidKeyAmalgamation::key_flags()
     pub fn for_certification(self) -> Self {
         self.key_flags(KeyFlags::empty().set_certification())
@@ -1269,7 +1300,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///
     /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// let p = &StandardPolicy::new();
     ///
@@ -1285,7 +1316,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///             RevocationStatus::CouldBe(_) =>
     ///                 // There is a designated revoker that we
     ///                 // could check, but don't (or can't).  To
-    ///                 // avoid a denial of service attack arising from
+    ///                 // avoid a denial-of-service attack arising from
     ///                 // fake revocations, we assume that the key has
     ///                 // not been revoked and return it.
     ///                 true,
@@ -1328,11 +1359,15 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::new().set_password(Some("password".into()))
     /// #         .generate()?;
     /// for ka in cert.keys().with_policy(p, None).secret() {
     ///     // Use it.
     /// }
+    /// #     assert!(cert.keys().with_policy(p, None).secret().count() == 1);
+    /// #
+    /// #     let (cert, _) = CertBuilder::new().generate()?;
+    /// #     assert!(cert.keys().with_policy(p, None).secret().count() == 1);
     /// #     Ok(())
     /// # }
     /// ```
@@ -1346,7 +1381,56 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             policy: self.policy,
 
             // The filters.
-            secret: Some(true),
+            encrypted_secret: Some(true),
+            unencrypted_secret: Some(true),
+            key_handles: self.key_handles,
+            supported: self.supported,
+            flags: self.flags,
+            alive: self.alive,
+            revoked: self.revoked,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
+    }
+
+    /// Changes the iterator to only return keys with encrypted secret key
+    /// material.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::new().set_password(Some("password".into()))
+    /// #         .generate()?;
+    /// for ka in cert.keys().with_policy(p, None).encrypted_secret() {
+    ///     // Use it.
+    /// }
+    /// #     assert!(cert.keys().with_policy(p, None).encrypted_secret().count() == 1);
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn encrypted_secret(
+        self,
+    ) -> ValidKeyAmalgamationIter<'a, key::SecretParts, R> {
+        ValidKeyAmalgamationIter {
+            cert: self.cert,
+            primary: self.primary,
+            subkey_iter: self.subkey_iter,
+
+            time: self.time,
+            policy: self.policy,
+
+            // The filters.
+            encrypted_secret: Some(true),
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
             supported: self.supported,
@@ -1373,12 +1457,11 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
-    /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
-    /// #         .generate()?;
+    /// #     let (cert, _) = CertBuilder::new().generate()?;
     /// for ka in cert.keys().with_policy(p, None).unencrypted_secret() {
     ///     // Use it.
     /// }
+    /// #     assert!(cert.keys().with_policy(p, None).unencrypted_secret().count() == 1);
     /// #     Ok(())
     /// # }
     /// ```
@@ -1392,7 +1475,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             policy: self.policy,
 
             // The filters.
-            secret: self.secret,
+            encrypted_secret: self.encrypted_secret,
             unencrypted_secret: Some(true),
             key_handles: self.key_handles,
             supported: self.supported,
@@ -1427,9 +1510,9 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
-    /// # let key_handle = cert.primary_key().key_handle();
+    /// # let key_handle = cert.primary_key().key().key_handle();
     /// # let mut i = 0;
     /// for ka in cert.keys().with_policy(p, None).key_handle(key_handle) {
     ///     // Use it.
@@ -1446,15 +1529,15 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     pub fn key_handle<H>(mut self, h: H) -> Self
         where H: Into<KeyHandle>
     {
-        if self.key_handles.is_none() {
-            self.key_handles = Some(Vec::new());
-        }
-        self.key_handles.as_mut().unwrap().push(h.into());
+        self.key_handles.push(h.into());
         self
     }
 
     /// Changes the iterator to only return a key if it matches one of
     /// the specified `KeyHandle`s.
+    ///
+    /// If the given `handles` iterator is empty, the set of returned
+    /// keys is not constrained.
     ///
     /// This function is cumulative.  If you call this function (or
     /// [`key_handle`]) multiple times, then the iterator returns a key
@@ -1475,11 +1558,11 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
-    /// # let key_handles = &[cert.primary_key().key_handle()][..];
+    /// # let key_handles = &[cert.primary_key().key().key_handle()][..];
     /// # let mut i = 0;
-    /// for ka in cert.keys().with_policy(p, None).key_handles(key_handles.iter()) {
+    /// for ka in cert.keys().with_policy(p, None).key_handles(key_handles) {
     ///     // Use it.
     /// #   i += 1;
     /// }
@@ -1489,16 +1572,18 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// ```
     ///
     /// [`KeyHandle`s]: super::super::super::KeyHandle
-    /// [`key_handle`]: ValidKeyAmalgamationIter::key_handle()
+    /// [`key_handle`]: KeyAmalgamationIter::key_handle()
     /// [`KeyHandle::aliases`]: super::super::super::KeyHandle::aliases()
-    pub fn key_handles<'b>(mut self, h: impl Iterator<Item=&'b KeyHandle>)
-        -> Self
-        where 'a: 'b
+    pub fn key_handles<H, K>(mut self, handles: H) -> Self
+    where
+        H: IntoIterator<Item=K>,
+        K: Borrow<KeyHandle>,
     {
-        if self.key_handles.is_none() {
-            self.key_handles = Some(Vec::new());
-        }
-        self.key_handles.as_mut().unwrap().extend(h.cloned());
+        let mut handles = handles.into_iter()
+            .map(|h| h.borrow().clone())
+            .collect::<Vec<_>>();
+
+        self.key_handles.append(&mut handles);
         self
     }
 
@@ -1516,7 +1601,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// # let mut i = 0;
     /// use openpgp::policy::StandardPolicy;
@@ -1578,7 +1663,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             policy: self.policy,
 
             // The filters.
-            secret: self.secret,
+            encrypted_secret: self.encrypted_secret,
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
             supported: self.supported,
@@ -1753,6 +1838,7 @@ mod test {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn select_supported() -> crate::Result<()> {
         use crate::types::PublicKeyAlgorithm;
         if ! PublicKeyAlgorithm::DSA.is_supported()
@@ -1765,7 +1851,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("dsa2048-elgamal3072.pgp"))?;
         assert_eq!(cert.keys().count(), 2);
         assert_eq!(cert.keys().supported().count(), 1);
-        let p = &crate::policy::NullPolicy::new();
+        let p = unsafe { &crate::policy::NullPolicy::new() };
         assert_eq!(cert.keys().with_policy(p, None).count(), 2);
         assert_eq!(cert.keys().with_policy(p, None).supported().count(), 1);
         Ok(())

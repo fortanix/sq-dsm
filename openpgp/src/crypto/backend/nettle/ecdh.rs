@@ -1,6 +1,6 @@
 //! Elliptic Curve Diffie-Hellman.
 
-use nettle::{curve25519, ecc, ecdh, random::Yarrow};
+use nettle::{ecc, ecdh, random::Yarrow};
 
 use crate::{Error, Result};
 use crate::crypto::SessionKey;
@@ -23,28 +23,9 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
         ref curve, ref q,..
     } = recipient.mpis() {
         match curve {
-            Curve::Cv25519 => {
-                // Obtain the authenticated recipient public key R
-                let R = q.decode_point(curve)?.0;
+            Curve::Cv25519 =>
+                Err(Error::InvalidArgument("implemented elsewhere".into()).into()),
 
-                // Generate an ephemeral key pair {v, V=vG}
-                let v: Protected =
-                    curve25519::private_key(&mut rng).into();
-
-                // Compute the public key.
-                let mut VB = [0; curve25519::CURVE25519_SIZE];
-                curve25519::mul_g(&mut VB, &v)
-                    .expect("buffers are of the wrong size");
-                let VB = MPI::new_compressed_point(&VB);
-
-                // Compute the shared point S = vR;
-                let mut S: Protected =
-                    vec![0; curve25519::CURVE25519_SIZE].into();
-                curve25519::mul(&mut S, &v, R)
-                    .expect("buffers are of the wrong size");
-
-                encrypt_wrap(recipient, session_key, VB, &S)
-            }
             Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
                 // Obtain the authenticated recipient public key R and
                 // generate an ephemeral private key v.
@@ -99,11 +80,12 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
                     Sx.insert(0, 0);
                 }
 
-                encrypt_wrap(recipient, session_key, VB, &Sx.into())
+                encrypt_wrap(recipient.role_as_subordinate(),
+                             session_key, VB, &Sx.into())
             }
 
             // Not implemented in Nettle
-            Curve::BrainpoolP256 | Curve::BrainpoolP512 =>
+            Curve::BrainpoolP256 | Curve::BrainpoolP384 | Curve::BrainpoolP512 =>
                 Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
 
             // N/A
@@ -119,7 +101,8 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
 #[allow(non_snake_case)]
 pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                   recipient_sec: &SecretKeyMaterial,
-                  ciphertext: &Ciphertext)
+                  ciphertext: &Ciphertext,
+                  plaintext_len: Option<usize>)
     -> Result<SessionKey>
     where R: key::KeyRole
 {
@@ -129,30 +112,8 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
          Ciphertext::ECDH { ref e, .. }) =>
         {
             let S: Protected = match curve {
-                Curve::Cv25519 => {
-                    // Get the public part V of the ephemeral key.
-                    let V = e.decode_point(curve)?.0;
-
-                    // Nettle expects the private key to be exactly
-                    // CURVE25519_SIZE bytes long but OpenPGP allows leading
-                    // zeros to be stripped.
-                    // Padding has to be unconditional; otherwise we have a
-                    // secret-dependent branch.
-                    let mut r =
-                        scalar.value_padded(curve25519::CURVE25519_SIZE);
-
-                    // Reverse the scalar.  See
-                    // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
-                    r.reverse();
-
-                    // Compute the shared point S = rV = rvG, where (r, R)
-                    // is the recipient's key pair.
-                    let mut S: Protected =
-                        vec![0; curve25519::CURVE25519_SIZE].into();
-                    curve25519::mul(&mut S, &r[..], V)
-                        .expect("buffers are of the wrong size");
-                    S
-                }
+                Curve::Cv25519 => return
+                    Err(Error::InvalidArgument("implemented elsewhere".into()).into()),
 
                 Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
                     // Get the public part V of the ephemeral key and
@@ -203,7 +164,7 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                 }
 
                 // Not implemented in Nettle
-                Curve::BrainpoolP256 | Curve::BrainpoolP512 =>
+                Curve::BrainpoolP256 | Curve::BrainpoolP384 | Curve::BrainpoolP512 =>
                     return
                     Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
 
@@ -213,7 +174,8 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                     Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
             };
 
-            decrypt_unwrap(recipient, &S, ciphertext)
+            decrypt_unwrap(recipient.role_as_unspecified(), &S, ciphertext,
+                           plaintext_len)
         }
 
         _ =>

@@ -8,9 +8,9 @@ use crate::Packet;
 /// Holds an MDC packet.
 ///
 /// A modification detection code packet.  This packet appears after a
-/// SEIP packet.  See [Section 5.14 of RFC 4880] for details.
+/// SEIP packet.  See [Section 5.13.1 of RFC 9580] for details.
 ///
-/// [Section 5.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.14
+/// [Section 5.13.1 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.13.1
 ///
 /// # A note on equality
 ///
@@ -77,6 +77,7 @@ impl MDC {
 
 impl From<MDC> for Packet {
     fn from(s: MDC) -> Self {
+        #[allow(deprecated)]
         Packet::MDC(s)
     }
 }
@@ -92,8 +93,8 @@ impl From<[u8; 20]> for MDC {
     }
 }
 
-impl From<Box<dyn crypto::hash::Digest>> for MDC {
-    fn from(mut hash: Box<dyn crypto::hash::Digest>) -> Self {
+impl From<crypto::hash::Context> for MDC {
+    fn from(mut hash: crypto::hash::Context) -> Self {
         let mut value : [u8; 20] = Default::default();
         let _ = hash.digest(&mut value[..]);
         value.into()

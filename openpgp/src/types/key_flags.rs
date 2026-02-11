@@ -1,6 +1,5 @@
 use std::fmt;
 use std::ops::{BitAnd, BitOr};
-
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -10,11 +9,9 @@ use crate::types::Bitfield;
 
 /// Describes how a key may be used, and stores additional information.
 ///
-/// Key flags are described in [Section 5.2.3.21 of RFC 4880] and [Section 5.2.3.22
-/// of RFC 4880bis].
+/// Key flags are described in [Section 5.2.3.29 of RFC 9580].
 ///
-/// [Section 5.2.3.21 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
-/// [Section 5.2.3.22 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-5.2.3.22
+/// [Section 5.2.3.29 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.29
 ///
 /// # A note on equality
 ///
@@ -78,7 +75,7 @@ impl fmt::Debug for KeyFlags {
         }
 
         let mut need_comma = false;
-        for i in self.0.iter() {
+        for i in self.0.iter_set() {
             match i {
                 KEY_FLAG_CERTIFY
                     | KEY_FLAG_SIGN
@@ -97,8 +94,7 @@ impl fmt::Debug for KeyFlags {
         }
 
         // Mention any padding, as equality is sensitive to this.
-        let padding = self.0.padding_len();
-        if padding > 0 {
+        if let Some(padding) = self.0.padding_bytes() {
             if need_comma { f.write_str(", ")?; }
             write!(f, "+padding({} bytes)", padding)?;
         }
@@ -111,8 +107,8 @@ impl BitAnd for &KeyFlags {
     type Output = KeyFlags;
 
     fn bitand(self, rhs: Self) -> KeyFlags {
-        let l = self.as_slice();
-        let r = rhs.as_slice();
+        let l = self.as_bitfield().as_bytes();
+        let r = rhs.as_bitfield().as_bytes();
 
         let mut c = Vec::with_capacity(std::cmp::min(l.len(), r.len()));
         for (l, r) in l.iter().zip(r.iter()) {
@@ -127,8 +123,8 @@ impl BitOr for &KeyFlags {
     type Output = KeyFlags;
 
     fn bitor(self, rhs: Self) -> KeyFlags {
-        let l = self.as_slice();
-        let r = rhs.as_slice();
+        let l = self.as_bitfield().as_bytes();
+        let r = rhs.as_bitfield().as_bytes();
 
         // Make l the longer one.
         let (l, r) = if l.len() > r.len() {
@@ -163,14 +159,19 @@ impl KeyFlags {
         KeyFlags::new(&[])
     }
 
-    /// Returns a slice containing the raw values.
-    pub(crate) fn as_slice(&self) -> &[u8] {
-        self.0.as_slice()
+    /// Returns a reference to the underlying [`Bitfield`].
+    pub fn as_bitfield(&self) -> &Bitfield {
+        &self.0
+    }
+
+    /// Returns a mutable reference to the underlying [`Bitfield`].
+    pub fn as_bitfield_mut(&mut self) -> &mut Bitfield {
+        &mut self.0
     }
 
     /// Compares two key flag sets for semantic equality.
     ///
-    /// `KeyFlags`' implementation of `PartialEq` compares two key
+    /// `KeyFlags` implementation of `PartialEq` compares two key
     /// flag sets for serialized equality.  That is, the `PartialEq`
     /// implementation considers two key flag sets to *not* be equal
     /// if they have different amounts of padding.  This comparison
@@ -239,8 +240,10 @@ impl KeyFlags {
     /// # assert!(kf.for_certification());
     /// # Ok(()) }
     /// ```
-    pub fn set(self, bit: usize) -> Self {
-        Self(self.0.set(bit))
+    pub fn set(mut self, bit: usize) -> Self {
+        self.0.set(bit);
+        self.0.canonicalize();
+        self
     }
 
     /// Clears the specified key flag.
@@ -263,13 +266,20 @@ impl KeyFlags {
     /// # assert!(kf.for_certification());
     /// # Ok(()) }
     /// ```
-    pub fn clear(self, bit: usize) -> Self {
-        Self(self.0.clear(bit))
+    pub fn clear(mut self, bit: usize) -> Self {
+        self.0.clear(bit);
+        self.0.canonicalize();
+        self
     }
 
     /// This key may be used to certify other keys.
     pub fn for_certification(&self) -> bool {
         self.get(KEY_FLAG_CERTIFY)
+    }
+
+    /// Returns a KeyFlags where the certificate flag is set.
+    pub fn certification() -> Self {
+        KeyFlags::empty().set_certification()
     }
 
     /// Declares that this key may be used to certify other keys.
@@ -282,9 +292,23 @@ impl KeyFlags {
         self.clear(KEY_FLAG_CERTIFY)
     }
 
+    /// Declares whether this key may be used to certify other keys.
+    pub fn set_certification_to(self, value: bool) -> Self {
+        if value {
+            self.set(KEY_FLAG_CERTIFY)
+        } else {
+            self.clear(KEY_FLAG_CERTIFY)
+        }
+    }
+
     /// This key may be used to sign data.
     pub fn for_signing(&self) -> bool {
         self.get(KEY_FLAG_SIGN)
+    }
+
+    /// Returns a KeyFlags where the signing flag is set.
+    pub fn signing() -> Self {
+        KeyFlags::empty().set_signing()
     }
 
     /// Declares that this key may be used to sign data.
@@ -297,9 +321,23 @@ impl KeyFlags {
         self.clear(KEY_FLAG_SIGN)
     }
 
+    /// Declares whether this key may be used to sign data.
+    pub fn set_signing_to(self, value: bool) -> Self {
+        if value {
+            self.set(KEY_FLAG_SIGN)
+        } else {
+            self.clear(KEY_FLAG_SIGN)
+        }
+    }
+
     /// This key may be used to encrypt communications.
     pub fn for_transport_encryption(&self) -> bool {
         self.get(KEY_FLAG_ENCRYPT_FOR_TRANSPORT)
+    }
+
+    /// Returns a KeyFlags where the transport encryption flag is set.
+    pub fn transport_encryption() -> Self {
+        KeyFlags::empty().set_transport_encryption()
     }
 
     /// Declares that this key may be used to encrypt communications.
@@ -312,9 +350,23 @@ impl KeyFlags {
         self.clear(KEY_FLAG_ENCRYPT_FOR_TRANSPORT)
     }
 
+    /// Declares whether this key may be used to encrypt communications.
+    pub fn set_transport_encryption_to(self, value: bool) -> Self {
+        if value {
+            self.set(KEY_FLAG_ENCRYPT_FOR_TRANSPORT)
+        } else {
+            self.clear(KEY_FLAG_ENCRYPT_FOR_TRANSPORT)
+        }
+    }
+
     /// This key may be used to encrypt storage.
     pub fn for_storage_encryption(&self) -> bool {
         self.get(KEY_FLAG_ENCRYPT_AT_REST)
+    }
+
+    /// Returns a KeyFlags where the storage encryption flag is set.
+    pub fn storage_encryption() -> Self {
+        KeyFlags::empty().set_storage_encryption()
     }
 
     /// Declares that this key may be used to encrypt storage.
@@ -327,9 +379,23 @@ impl KeyFlags {
         self.clear(KEY_FLAG_ENCRYPT_AT_REST)
     }
 
+    /// Declares whether this key may be used to encrypt storage.
+    pub fn set_storage_encryption_to(self, value: bool) -> Self {
+        if value {
+            self.set(KEY_FLAG_ENCRYPT_AT_REST)
+        } else {
+            self.clear(KEY_FLAG_ENCRYPT_AT_REST)
+        }
+    }
+
     /// This key may be used for authentication.
     pub fn for_authentication(&self) -> bool {
         self.get(KEY_FLAG_AUTHENTICATE)
+    }
+
+    /// Returns a KeyFlags where the authentication flag is set.
+    pub fn authentication() -> Self {
+        KeyFlags::empty().set_authentication()
     }
 
     /// Declares that this key may be used for authentication.
@@ -342,10 +408,24 @@ impl KeyFlags {
         self.clear(KEY_FLAG_AUTHENTICATE)
     }
 
+    /// Declares whether this key may be used for authentication.
+    pub fn set_authentication_to(self, value: bool) -> Self {
+        if value {
+            self.set(KEY_FLAG_AUTHENTICATE)
+        } else {
+            self.clear(KEY_FLAG_AUTHENTICATE)
+        }
+    }
+
     /// The private component of this key may have been split
     /// using a secret-sharing mechanism.
     pub fn is_split_key(&self) -> bool {
         self.get(KEY_FLAG_SPLIT_KEY)
+    }
+
+    /// Returns a KeyFlags where the split key flag is set.
+    pub fn split_key() -> Self {
+        KeyFlags::empty().set_split_key()
     }
 
     /// Declares that the private component of this key may have been
@@ -360,10 +440,25 @@ impl KeyFlags {
         self.clear(KEY_FLAG_SPLIT_KEY)
     }
 
+    /// Declares whether the private component of this key may have been
+    /// split using a secret-sharing mechanism.
+    pub fn set_split_key_to(self, value: bool) -> Self {
+        if value {
+            self.set(KEY_FLAG_SPLIT_KEY)
+        } else {
+            self.clear(KEY_FLAG_SPLIT_KEY)
+        }
+    }
+
     /// The private component of this key may be in possession of more
     /// than one person.
     pub fn is_group_key(&self) -> bool {
         self.get(KEY_FLAG_GROUP_KEY)
+    }
+
+    /// Returns a KeyFlags where the group flag is set.
+    pub fn group_key() -> Self {
+        KeyFlags::empty().set_group_key()
     }
 
     /// Declares that the private component of this key is in
@@ -378,9 +473,19 @@ impl KeyFlags {
         self.clear(KEY_FLAG_GROUP_KEY)
     }
 
+    /// Declares whether the private component of this key is in
+    /// possession of more than one person.
+    pub fn set_group_key_to(self, value: bool) -> Self {
+        if value {
+            self.set(KEY_FLAG_GROUP_KEY)
+        } else {
+            self.clear(KEY_FLAG_GROUP_KEY)
+        }
+    }
+
     /// Returns whether no flags are set.
     pub fn is_empty(&self) -> bool {
-        self.as_slice().iter().all(|b| *b == 0)
+        self.as_bitfield().as_bytes().iter().all(|b| *b == 0)
     }
 }
 
@@ -420,20 +525,49 @@ mod tests {
 
     quickcheck! {
         fn roundtrip(val: KeyFlags) -> bool {
-            let mut q = KeyFlags::new(&val.as_slice());
+            let mut q_bytes = val.as_bitfield().as_bytes().to_vec();
+            let q = KeyFlags::new(&q_bytes);
             assert_eq!(val, q);
             assert!(val.normalized_eq(&q));
 
             // Add some padding to q.  Make sure they are still equal.
-            q.0.raw.push(0);
+            q_bytes.push(0);
+            let q = KeyFlags::new(&q_bytes);
             assert!(val != q);
             assert!(val.normalized_eq(&q));
 
-            q.0.raw.push(0);
+            q_bytes.push(0);
+            let q = KeyFlags::new(&q_bytes);
             assert!(val != q);
             assert!(val.normalized_eq(&q));
 
             true
         }
+    }
+
+    #[test]
+    fn test_set_to() {
+        macro_rules! t {
+            ($set:ident, $set2:ident) => {
+                // Set using set2.
+                assert_eq!(KeyFlags::empty().$set(),
+                           KeyFlags::empty().$set2(true));
+
+                // Clear using set2.
+                assert_eq!(KeyFlags::empty().$set2(false),
+                           KeyFlags::empty());
+
+                // Set using set, then clear using set2.
+                assert_eq!(KeyFlags::empty().$set().$set2(false),
+                           KeyFlags::empty());
+            }
+        }
+
+        t!(set_certification, set_certification_to);
+        t!(set_signing, set_signing_to);
+        t!(set_transport_encryption, set_transport_encryption_to);
+        t!(set_storage_encryption, set_storage_encryption_to);
+        t!(set_split_key, set_split_key_to);
+        t!(set_group_key, set_group_key_to);
     }
 }

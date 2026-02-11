@@ -1,18 +1,24 @@
 // -*- mode: Rust; -*-
 
+use std::convert::TryInto;
+use std::sync::Arc;
+
 use crate::Error;
+use crate::packet::Any;
 use crate::packet::Signature;
 use crate::packet::UserID;
 use crate::packet::UserAttribute;
 use crate::packet::{key, Key};
 use crate::packet::Unknown;
 use crate::Packet;
+use crate::policy::HashAlgoSecurity::CollisionResistance;
 use crate::cert::prelude::*;
 
 use crate::cert::parser::low_level::lexer;
 use crate::cert::parser::low_level::lexer::{Token, Component};
+use crate::cert::parser::low_level::grammar_util::*;
 use crate::cert::ComponentBundles;
-use crate::cert::bundle::{
+use crate::cert::parser::low_level::bundle::{
     PrimaryKeyBundle,
     SubkeyBundle,
     UserIDBundle,
@@ -46,47 +52,59 @@ pub Cert: Option<Cert> = {
                 let c = c.unwrap();
                 let sec = key.hash_algo_security();
 
+                let pk = Arc::new(key.clone().take_secret().0);
                 let mut cert = Cert {
-                    primary: PrimaryKeyBundle {
-                        component: key,
-                        hash_algo_security: sec,
-                        self_signatures: vec![],
-                        certifications: sigs,
-                        attestations: vec![],
-                        self_revocations: vec![],
-                        other_revocations: vec![],
-                    },
-                    subkeys: ComponentBundles::new(),
-                    userids: ComponentBundles::new(),
-                    user_attributes: ComponentBundles::new(),
-                    unknowns: ComponentBundles::new(),
+                    primary: PrimaryKeyBundle::new(key, sec, sigs)
+                        .with_context(pk.clone()),
+                    subkeys: ComponentBundles::default(),
+                    userids: ComponentBundles::default(),
+                    user_attributes: ComponentBundles::default(),
+                    unknowns: ComponentBundles::default(),
                     bad: vec![],
                 };
 
                 for c in c.into_iter() {
                     match c {
                         Component::SubkeyBundle(b) =>
-                            cert.subkeys.push(b),
+                            cert.subkeys.push(b.with_subkey_context(pk.clone())),
                         Component::UserIDBundle(b) =>
-                            cert.userids.push(b),
+                            cert.userids.push(b.with_context(pk.clone())),
                         Component::UserAttributeBundle(b) =>
-                            cert.user_attributes.push(b),
+                            cert.user_attributes.push(b.with_context(pk.clone())),
                         Component::UnknownBundle(b) =>
-                            cert.unknowns.push(b),
+                            cert.unknowns.push(b.with_context(pk.clone())),
                     }
                 }
 
                 Ok(Some(cert))
             }
-            Some((Packet::Unknown(unknown), _sigs)) => {
+            Some((Packet::Unknown(unknown), sigs)) => {
+                let msg = unknown.error().to_string();
+                let mut packets: Vec<Packet> = Default::default();
+                packets.push(unknown.into());
+                for sig in sigs {
+                    packets.push(sig.into());
+                }
+                for c in c.unwrap_or_default().into_iter() {
+                    match c {
+                        Component::SubkeyBundle(b) =>
+                            b.into_packets().for_each(|p| packets.push(p)),
+                        Component::UserIDBundle(b) =>
+                            b.into_packets().for_each(|p| packets.push(p)),
+                        Component::UserAttributeBundle(b) =>
+                            b.into_packets().for_each(|p| packets.push(p)),
+                        Component::UnknownBundle(b) =>
+                            b.into_packets().for_each(|p| packets.push(p)),
+                    }
+                }
                 Err(ParseError::User {
-                    error: Error::UnsupportedCert(format!(
-                        "Unsupported primary key: Unparsable {} ({:?}).",
-                        unknown.tag(), unknown).into())
+                    error: Error::UnsupportedCert(
+                        format!("Unsupported primary key: {}", msg),
+                        packets),
                 })
             }
             None => {
-                // Just validating a message...
+                // Just validating a cert...
                 assert!(c.is_none() || c.unwrap().len() == 0);
                 Ok(None)
             }
@@ -101,7 +119,7 @@ Primary: Option<(Packet, Vec<Signature>)> = {
         if let Some(pk) = pk {
             Some((pk, sigs.unwrap()))
         } else {
-            // Just validating a message...
+            // Just validating a cert...
             assert!(sigs.is_none() || sigs.unwrap().len() == 0);
             None
         }
@@ -129,7 +147,7 @@ OptionalSignatures: Option<Vec<Signature>> = {
                 assert!(sigs.is_some());
                 sigs
             }
-            // Just validating a message...
+            // Just validating a cert...
             Token::Signature(None) => return None,
             tok => unreachable!("Expected signature token, got {:?}", tok),
         }
@@ -148,7 +166,7 @@ OptionalComponents: Option<Vec<Component>> = {
             cs.push(c);
             Some(cs)
         } else {
-            // Just validating a message...
+            // Just validating a cert...
             None
         }
     },
@@ -157,61 +175,49 @@ OptionalComponents: Option<Vec<Component>> = {
 Component: Option<Component> = {
     <key:Subkey> <sigs:OptionalSignatures> => {
         match key {
-            Some(key) => {
+            Some(Ok(key)) => {
                 let sigs = sigs.unwrap();
                 let sec = key.hash_algo_security();
 
-                Some(Component::SubkeyBundle(SubkeyBundle {
-                    component: key,
-                    hash_algo_security: sec,
-                    self_signatures: vec![],
-                    certifications: sigs,
-                    attestations: vec![],
-                    self_revocations: vec![],
-                    other_revocations: vec![],
-                }))
+                Some(Component::SubkeyBundle(
+                    SubkeyBundle::new(key, sec, sigs)))
             },
-            // Just validating a message...
+            Some(Err(u)) => Some(Component::UnknownBundle(
+                UnknownBundle::new(u, CollisionResistance,
+                                   sigs.unwrap_or_default()))),
+            // Just validating a cert...
             None => None,
         }
     },
     <u:UserID> <sigs:OptionalSignatures> => {
         match u {
-            Some(u) => {
+            Some(Ok(u)) => {
                 let sigs = sigs.unwrap();
                 let sec = u.hash_algo_security();
 
-                Some(Component::UserIDBundle(UserIDBundle {
-                    component: u,
-                    hash_algo_security: sec,
-                    self_signatures: vec![],
-                    certifications: sigs,
-                    attestations: vec![],
-                    self_revocations: vec![],
-                    other_revocations: vec![],
-                }))
+                Some(Component::UserIDBundle(
+                    UserIDBundle::new(u, sec, sigs)))
             },
-            // Just validating a message...
+            Some(Err(u)) => Some(Component::UnknownBundle(
+                UnknownBundle::new(u, CollisionResistance,
+                                   sigs.unwrap_or_default()))),
+            // Just validating a cert...
             None => None,
         }
     },
     <u:UserAttribute> <sigs:OptionalSignatures> => {
         match u {
-            Some(u) => {
+            Some(Ok(u)) => {
                 let sigs = sigs.unwrap();
                 let sec = u.hash_algo_security();
 
-                Some(Component::UserAttributeBundle(UserAttributeBundle {
-                    component: u,
-                    hash_algo_security: sec,
-                    self_signatures: vec![],
-                    certifications: sigs,
-                    attestations: vec![],
-                    self_revocations: vec![],
-                    other_revocations: vec![],
-                }))
+                Some(Component::UserAttributeBundle(
+                    UserAttributeBundle::new(u, sec, sigs)))
             },
-            // Just validating a message...
+            Some(Err(u)) => Some(Component::UnknownBundle(
+                UnknownBundle::new(u, CollisionResistance,
+                                   sigs.unwrap_or_default()))),
+            // Just validating a cert...
             None => None,
         }
     },
@@ -221,75 +227,64 @@ Component: Option<Component> = {
                 let sigs = sigs.unwrap();
                 let sec = u.hash_algo_security();
 
-                Some(Component::UnknownBundle(UnknownBundle {
-                    component: u,
-                    hash_algo_security: sec,
-                    self_signatures: vec![],
-                    certifications: sigs,
-                    attestations: vec![],
-                    self_revocations: vec![],
-                    other_revocations: vec![],
-                }))
+                Some(Component::UnknownBundle(
+                    UnknownBundle::new(u, sec, sigs)))
             },
-            // Just validating a message...
+            // Just validating a cert...
             None => None,
         }
     },
 }
 
-Subkey: Option<Key<key::PublicParts, key::SubordinateRole>> = {
+Subkey: Option<PacketOrUnknown<Key<key::PublicParts, key::SubordinateRole>>> = {
     <t:PUBLIC_SUBKEY> => {
-        match t.into() {
-            Some(Packet::PublicSubkey(key)) => Some(key),
-            // Just validating a message...
+        match Option::<Packet>::from(t) {
+            Some(p) => Some(p.downcast().map_err(
+                |p| p.try_into().expect("infallible for unknown and this packet"))),
+            // Just validating a cert...
             None => None,
-            Some(pkt) =>
-              unreachable!("Expected public subkey packet, got {:?}", pkt),
         }
     },
     <t:SECRET_SUBKEY> => {
-        match t.into() {
-            Some(Packet::SecretSubkey(key)) => Some(key.parts_into_public()),
-            // Just validating a message...
+        match Option::<Packet>::from(t) {
+            Some(p) => Some(Any::<key::SecretSubkey>::downcast(p)
+                .map_err(
+                    |p| p.try_into().expect("infallible for unknown and this packet"))
+                .map(|sk| sk.parts_into_public())),
+            // Just validating a cert...
             None => None,
-            Some(pkt) =>
-              unreachable!("Expected secret subkey packet, got {:?}", pkt),
         }
     },
 }
 
-UserID: Option<UserID> = {
+UserID: Option<PacketOrUnknown<UserID>> = {
     <t:USERID> => {
-        match t.into() {
-            Some(Packet::UserID(u)) => Some(u),
-            // Just validating a message...
+        match Option::<Packet>::from(t) {
+            Some(p) => Some(p.downcast().map_err(
+                |p| p.try_into().expect("infallible for unknown and this packet"))),
+            // Just validating a cert...
             None => None,
-            Some(pkt) =>
-              unreachable!("Expected user id packet, got {:?}", pkt),
         }
     },
 }
 
-UserAttribute: Option<UserAttribute> = {
+UserAttribute: Option<PacketOrUnknown<UserAttribute>> = {
     <t:USER_ATTRIBUTE> => {
-        match t.into() {
-            Some(Packet::UserAttribute(u)) => Some(u),
-            // Just validating a message...
+        match Option::<Packet>::from(t) {
+            Some(p) => Some(p.downcast().map_err(
+                |p| p.try_into().expect("infallible for unknown and this packet"))),
+            // Just validating a cert...
             None => None,
-            Some(pkt) =>
-              unreachable!("Expected user attribute packet, got {:?}", pkt),
         }
     },
 }
 
 Unknown: Option<Unknown> = {
     <t:UNKNOWN> => {
-        match t.into() {
-            Some(Packet::Unknown(u)) => Some(u),
-            // Just validating a message...
+        match Option::<Packet>::from(t) {
+            Some(p) => p.try_into().ok(),
+            // Just validating a cert...
             None => None,
-            Some(pkt) =>
-              unreachable!("Expected unknown packet, got {:?}", pkt),
         }
     },
 }

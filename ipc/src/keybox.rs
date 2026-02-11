@@ -3,18 +3,18 @@
 //! This implementation is based on keybox files created by GnuPG 2.2.23 and
 //! the way they are handled by the `kbxutil` program from that version of GnuPG.
 
-use buffered_reader::BufferedReader;
+use anyhow::Context;
+
+use openpgp::parse::buffered_reader::{self, BufferedReader};
 
 use openpgp::cert::Cert;
-use openpgp::crypto::hash::Digest;
-use openpgp::parse::Parse;
+use openpgp::parse::{Cookie, Parse};
 use openpgp::types::HashAlgorithm::SHA1;
 use openpgp::Result;
 use sequoia_openpgp as openpgp;
 
 use std::convert::TryInto;
 use std::fmt::Display;
-use std::io::Read;
 
 /// GnuPG Keybox
 ///
@@ -25,6 +25,7 @@ use std::io::Read;
 /// records:
 ///
 /// ```rust
+/// # use sequoia_openpgp::parse::buffered_reader;
 /// # fn parse_keybox(reader: &mut dyn buffered_reader::BufferedReader<()>)
 /// #    -> sequoia_openpgp::Result<Vec<sequoia_openpgp::Cert>> {
 /// use sequoia_ipc::keybox::{Keybox, KeyboxRecord};
@@ -46,6 +47,9 @@ use std::io::Read;
 /// # }
 /// ```
 pub struct Keybox<'a> {
+    /// Offset into the Keybox file.
+    offset: usize,
+
     reader: Box<dyn BufferedReader<()> + 'a>,
 }
 
@@ -61,17 +65,65 @@ impl<'a> Keybox<'a> {
         let len = u32::from_be_bytes(input[..4].try_into().unwrap()) as usize;
 
         let content = self.reader.data_consume_hard(len)?;
-        let kbx_record = KeyboxRecord::new((&content[..len]).to_vec())?;
+
+        // The length includes the four byte length itself.
+        let offset = self.offset;
+        self.offset += len;
+
+        let kbx_record = KeyboxRecord::new(offset, (&content[..len]).to_vec())?;
         Ok(kbx_record)
     }
-}
 
-impl<'a> Parse<'a, Keybox<'a>> for Keybox<'a> {
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-        let bio = buffered_reader::Generic::new(reader, None);
+    /// Reads from the given buffered reader.
+    ///
+    /// Implementations of this function should be short.  Ideally,
+    /// they should hand of the reader to a private function erasing
+    /// the readers type by invoking [`BufferedReader::into_boxed`].
+    pub fn from_buffered_reader<R>(reader: R) -> Result<Self>
+    where
+        R: BufferedReader<Cookie> + 'a,
+    {
         Ok(Keybox {
-            reader: Box::new(bio),
+            offset: 0,
+            reader: buffered_reader::Adapter::new(reader).into_boxed(),
         })
+    }
+
+    /// Reads from the given reader.
+    ///
+    /// The default implementation just uses
+    /// [`Parse::from_buffered_reader`], but implementations can
+    /// provide their own specialized version.
+    pub fn from_reader<R: 'a + std::io::Read + Send + Sync>(reader: R) -> Result<Self> {
+        Self::from_buffered_reader(
+            buffered_reader::Generic::with_cookie(reader,
+                                                  None,
+                                                  Default::default())
+                .into_boxed())
+    }
+
+    /// Reads from the given file.
+    ///
+    /// The default implementation just uses
+    /// [`Parse::from_buffered_reader`], but implementations can
+    /// provide their own specialized version.
+    pub fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self>
+    {
+        Self::from_buffered_reader(
+            buffered_reader::File::with_cookie(path.as_ref(),
+                                               Default::default())?
+                .into_boxed())
+    }
+
+    /// Reads from the given slice.
+    ///
+    /// The default implementation just uses
+    /// [`Parse::from_buffered_reader`], but implementations can
+    /// provide their own specialized version.
+    pub fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<Self> {
+        Self::from_buffered_reader(
+            buffered_reader::Memory::with_cookie(data.as_ref(), Default::default())
+                .into_boxed())
     }
 }
 
@@ -132,7 +184,17 @@ impl KeyboxRecord {
             KeyboxRecord::Header(h) => &h.bytes,
             KeyboxRecord::OpenPGP(o) => &o.bytes,
             KeyboxRecord::X509(x) => &x.bytes,
-            KeyboxRecord::Unknown(bytes) => bytes,
+            KeyboxRecord::Unknown(_, bytes) => bytes,
+        }
+    }
+
+    /// Returns the offset in the Keybox file.
+    pub fn offset(&self) -> usize {
+        match self {
+            KeyboxRecord::Header(h) => h.offset(),
+            KeyboxRecord::OpenPGP(o) => o.offset(),
+            KeyboxRecord::X509(x) => x.offset(),
+            KeyboxRecord::Unknown(offset, _bytes) => *offset,
         }
     }
 
@@ -151,7 +213,7 @@ impl KeyboxRecord {
         self.bytes()[5]
     }
 
-    fn new(bytes: Vec<u8>) -> Result<Self> {
+    fn new(offset: usize, bytes: Vec<u8>) -> Result<Self> {
         if bytes.len() < 6 {
             return Err(Error::NotEnoughData(
                 "A keybox record requires at least 6 bytes.".to_string(),
@@ -159,16 +221,16 @@ impl KeyboxRecord {
             .into());
         }
 
-        let record = KeyboxRecord::Unknown(bytes.clone());
+        let record = KeyboxRecord::Unknown(offset, bytes.clone());
         match record.typ() {
             KeyboxRecordType::Header => {
-                HeaderRecord::new(bytes).map(KeyboxRecord::Header)
+                HeaderRecord::new(offset, bytes).map(KeyboxRecord::Header)
             }
             KeyboxRecordType::OpenPGP => {
-                OpenPGPRecordV1::new(&record).map(KeyboxRecord::OpenPGP)
+                OpenPGPRecordV1::new(offset, &record).map(KeyboxRecord::OpenPGP)
             }
             KeyboxRecordType::X509 => {
-                X509Record::new(bytes).map(KeyboxRecord::X509)
+                X509Record::new(offset, bytes).map(KeyboxRecord::X509)
             }
             KeyboxRecordType::Unknown(_) => Ok(record),
         }
@@ -191,7 +253,7 @@ pub enum KeyboxRecord {
     /// X.509 record.
     X509(X509Record),
     /// Catchall.
-    Unknown(Vec<u8>),
+    Unknown(usize, Vec<u8>),
 }
 
 /// Keybox header record.
@@ -199,13 +261,21 @@ pub enum KeyboxRecord {
 /// Contains general metadata of the keybox.
 #[derive(PartialEq, Eq, Debug)]
 pub struct HeaderRecord {
+    /// Offset into the Keybox file.
+    offset: usize,
+
     bytes: Vec<u8>,
 }
 
 impl HeaderRecord {
-    fn new(bytes: Vec<u8>) -> Result<Self> {
+    fn new(offset: usize, bytes: Vec<u8>) -> Result<Self> {
         //TODO at least check length?
-        Ok(Self { bytes })
+        Ok(Self { offset, bytes })
+    }
+
+    /// Returns the offset in the Keybox file.
+    pub fn offset(&self) -> usize {
+        self.offset
     }
 
     /// Flags field.
@@ -238,24 +308,35 @@ impl HeaderRecord {
 /// Unhandled, only exists for completeness.
 #[derive(PartialEq, Eq, Debug)]
 pub struct X509Record {
+    /// Offset into the Keybox file.
+    offset: usize,
+
     bytes: Vec<u8>,
 }
 
 impl X509Record {
-    fn new(bytes: Vec<u8>) -> Result<Self> {
+    fn new(offset: usize, bytes: Vec<u8>) -> Result<Self> {
         //TODO at least check length?
-        Ok(Self { bytes })
+        Ok(Self { offset, bytes })
+    }
+
+    /// Returns the offset in the Keybox file.
+    pub fn offset(&self) -> usize {
+        self.offset
     }
 }
 
 /// Keybox OpenPGP record
 #[derive(PartialEq, Eq, Debug)]
 pub struct OpenPGPRecordV1 {
+    /// Offset into the Keybox file.
+    offset: usize,
+
     bytes: Vec<u8>,
 }
 
 impl OpenPGPRecordV1 {
-    fn new(record: &KeyboxRecord) -> Result<Self> {
+    fn new(offset: usize, record: &KeyboxRecord) -> Result<Self> {
         // Check type and version
         if record.typ() != KeyboxRecordType::OpenPGP || record.version() != 1 {
             return Err(
@@ -273,6 +354,7 @@ impl OpenPGPRecordV1 {
         };
 
         let record = OpenPGPRecordV1 {
+            offset,
             bytes: record.bytes().to_vec(),
         };
 
@@ -282,6 +364,11 @@ impl OpenPGPRecordV1 {
         }
 
         Ok(record)
+    }
+
+    /// Returns the offset in the Keybox file.
+    pub fn offset(&self) -> usize {
+        self.offset
     }
 
     /// Flags field.
@@ -339,7 +426,7 @@ impl OpenPGPRecordV1 {
     pub fn compute_checksum(&self) -> Result<Vec<u8>> {
         let hash_offset = self.data_offset() + self.data_length();
         let (hashed_data, _hash) = &self.bytes.split_at(hash_offset);
-        let mut ctx = SHA1.context()?;
+        let mut ctx = SHA1.context()?.for_digest();
         ctx.update(hashed_data);
         ctx.into_digest()
     }
@@ -348,17 +435,11 @@ impl OpenPGPRecordV1 {
     /// Ignores metadata and flags stored in the record, but
     /// checks the checksum.
     pub fn cert(&self) -> Result<Cert> {
-        // At the end of the data section, there are 8 bytes following
-        // the cert that I don't understand.
-        // In my samples, there are two versions:
-        // "0xb006_0000_6770_6700" and
-        // "0xb006_0003_6770_6700".
-        // Note that b"gpg" == 0x677067.  Maybe some kind of salt?
-        // Anyway, ignore those bytes.
-        let (cert_data, _trailer) = &self
-            .data_section()?
-            .split_at(self.data_section()?.len() - 8);
+        let cert_data = &self.data_section()?;
         Cert::from_bytes(cert_data)
+            .with_context(
+                || format!("Parsing keybox record at offset {}",
+                           self.offset()))
     }
 }
 
@@ -399,26 +480,26 @@ mod tests {
     #[test]
     fn keybox_record() -> Result<()> {
         let header_bytes = crate::tests::keybox("header_sample");
-        let header_kbx = KeyboxRecord::new(header_bytes.to_vec())?;
+        let header_kbx = KeyboxRecord::new(0, header_bytes.to_vec())?;
         assert_eq!(header_kbx.typ(), header_bytes[4].into());
 
         let openpgp_bytes = crate::tests::keybox("testy_openpgp");
-        let openpgp_kbx = KeyboxRecord::new(openpgp_bytes.to_vec())?;
+        let openpgp_kbx = KeyboxRecord::new(0, openpgp_bytes.to_vec())?;
         assert_eq!(openpgp_kbx.typ(), openpgp_bytes[4].into());
 
         let x509_bytes = crate::tests::keybox("testy_x509");
-        let x509_kbx = KeyboxRecord::new(x509_bytes.to_vec())?;
+        let x509_kbx = KeyboxRecord::new(0, x509_bytes.to_vec())?;
         assert_eq!(x509_kbx.typ(), x509_bytes[4].into());
 
         let too_short = &[1u8; 5];
-        assert!(KeyboxRecord::new(too_short.to_vec()).is_err());
+        assert!(KeyboxRecord::new(0, too_short.to_vec()).is_err());
         Ok(())
     }
 
     #[test]
     fn cert_from_openpgp_record() -> Result<()> {
         let openpgp_bytes = crate::tests::keybox("testy_openpgp");
-        let kbx_record = KeyboxRecord::new(openpgp_bytes.to_vec())?;
+        let kbx_record = KeyboxRecord::new(0, openpgp_bytes.to_vec())?;
         let openpgp_record = match kbx_record {
             KeyboxRecord::OpenPGP(r) => r,
             _ => unreachable!(),
@@ -442,7 +523,7 @@ mod tests {
     #[test]
     fn openpgp_record() -> Result<()> {
         let openpgp_bytes = crate::tests::keybox("testy_openpgp");
-        let kbx_record = KeyboxRecord::new(openpgp_bytes.to_vec())?;
+        let kbx_record = KeyboxRecord::new(0, openpgp_bytes.to_vec())?;
         assert_eq!(kbx_record.length_field(), 1428u32);
         assert_eq!(kbx_record.typ(), KeyboxRecordType::OpenPGP);
         assert_eq!(kbx_record.version(), 1u8);
@@ -471,24 +552,24 @@ mod tests {
     #[test]
     fn openpgp_errors() -> Result<()> {
         let openpgp_too_short = [0u8, 7u8, 1u8, 1u8, 2u8, 1u8, 1u8];
-        assert!(KeyboxRecord::new(openpgp_too_short.to_vec()).is_err());
+        assert!(KeyboxRecord::new(0, openpgp_too_short.to_vec()).is_err());
 
         let openpgp_unknown_version = [0u8, 7u8, 1u8, 1u8, 2u8, 7u8, 1u8];
-        assert!(KeyboxRecord::new(openpgp_unknown_version.to_vec()).is_err());
+        assert!(KeyboxRecord::new(0, openpgp_unknown_version.to_vec()).is_err());
 
         let mut openpgp_wrong_checksum = crate::tests::keybox("testy_openpgp").to_vec();
         // set last byte (= last byte of checksum) to 0
         if let Some(last) = openpgp_wrong_checksum.last_mut() {
             *last = 0u8;
         };
-        assert!(KeyboxRecord::new(openpgp_wrong_checksum.to_vec()).is_err());
+        assert!(KeyboxRecord::new(0, openpgp_wrong_checksum.to_vec()).is_err());
         Ok(())
     }
 
     #[test]
     fn header_record() -> Result<()> {
         let header_bytes = crate::tests::keybox("header_sample");
-        let kbx_record = KeyboxRecord::new(header_bytes.to_vec())?;
+        let kbx_record = KeyboxRecord::new(0, header_bytes.to_vec())?;
         assert_eq!(kbx_record.length_field(), 32u32);
         assert_eq!(kbx_record.typ(), KeyboxRecordType::Header);
         assert_eq!(kbx_record.version(), 1u8);
@@ -506,7 +587,7 @@ mod tests {
     #[test]
     fn x509_record() -> Result<()> {
         let x509_bytes = crate::tests::keybox("testy_x509");
-        let kbx_record = KeyboxRecord::new(x509_bytes.to_vec())?;
+        let kbx_record = KeyboxRecord::new(0, x509_bytes.to_vec())?;
         assert_eq!(kbx_record.length_field(), 1704u32);
         assert_eq!(kbx_record.typ(), KeyboxRecordType::X509);
         assert_eq!(kbx_record.version(), 1u8);

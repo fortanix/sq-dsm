@@ -14,6 +14,7 @@
 //! let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
 //! let pp = PacketParserBuilder::from_bytes(message_data)?
 //!     .map(true) // Enable mapping.
+//!     .buffer_unread_content() // For the packet body.
 //!     .build()?
 //!     .expect("One packet, not EOF");
 //! let map = pp.map().expect("Mapping is enabled");
@@ -83,6 +84,7 @@ impl Map {
     /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
     /// let pp = PacketParserBuilder::from_bytes(message_data)?
     ///     .map(true) // Enable mapping.
+    ///     .buffer_unread_content() // For the packet body.
     ///     .build()?
     ///     .expect("One packet, not EOF");
     /// let map = pp.map().expect("Mapping is enabled");
@@ -117,10 +119,14 @@ assert_send_and_sync!(Field<'_>);
 
 impl<'a> Field<'a> {
     fn new(map: &'a Map, i: usize) -> Option<Field<'a>> {
+        // Synthetic packets have no CTB.
+        let has_ctb = ! map.header.is_empty();
+
         // Old-style CTB with indeterminate length emits no length
         // field.
         let has_length = map.header.len() > 1;
-        if i == 0 {
+
+        if i == 0 && has_ctb {
             Some(Field {
                 offset: 0,
                 name: "CTB",
@@ -133,8 +139,11 @@ impl<'a> Field<'a> {
                 data: &map.header.as_slice()[1..]
             })
         } else {
-            let offset_length = if has_length { 1 } else { 0 };
-            map.entries.get(i - 1 - offset_length).map(|e| {
+            let offset =
+                if has_ctb { 1 } else { 0 }
+                + if has_length { 1 } else { 0 };
+
+            map.entries.get(i - offset).map(|e| {
                 let len = map.data.len();
                 let start = cmp::min(len, e.offset);
                 let end = cmp::min(len, e.offset + e.length);
@@ -162,6 +171,7 @@ impl<'a> Field<'a> {
     /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
     /// let pp = PacketParserBuilder::from_bytes(message_data)?
     ///     .map(true) // Enable mapping.
+    ///     .buffer_unread_content() // For the packet body.
     ///     .build()?
     ///     .expect("One packet, not EOF");
     /// let map = pp.map().expect("Mapping is enabled");
@@ -169,6 +179,10 @@ impl<'a> Field<'a> {
     /// assert_eq!(map.iter().nth(0).unwrap().name(), "CTB");
     /// assert_eq!(map.iter().nth(1).unwrap().name(), "length");
     /// assert_eq!(map.iter().nth(2).unwrap().name(), "format");
+    /// assert_eq!(map.iter().nth(3).unwrap().name(), "filename_len");
+    /// assert_eq!(map.iter().nth(4).unwrap().name(), "date");
+    /// assert_eq!(map.iter().nth(5).unwrap().name(), "body");
+    /// assert!(map.iter().nth(6).is_none());
     /// # Ok(()) }
     /// ```
     pub fn name(&self) -> &'a str {
@@ -187,6 +201,7 @@ impl<'a> Field<'a> {
     /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
     /// let pp = PacketParserBuilder::from_bytes(message_data)?
     ///     .map(true) // Enable mapping.
+    ///     .buffer_unread_content() // For the packet body.
     ///     .build()?
     ///     .expect("One packet, not EOF");
     /// let map = pp.map().expect("Mapping is enabled");
@@ -194,6 +209,10 @@ impl<'a> Field<'a> {
     /// assert_eq!(map.iter().nth(0).unwrap().offset(), 0);
     /// assert_eq!(map.iter().nth(1).unwrap().offset(), 1);
     /// assert_eq!(map.iter().nth(2).unwrap().offset(), 2);
+    /// assert_eq!(map.iter().nth(3).unwrap().offset(), 3);
+    /// assert_eq!(map.iter().nth(4).unwrap().offset(), 4);
+    /// assert_eq!(map.iter().nth(5).unwrap().offset(), 8);
+    /// assert!(map.iter().nth(6).is_none());
     /// # Ok(()) }
     /// ```
     pub fn offset(&self) -> usize {
@@ -212,6 +231,7 @@ impl<'a> Field<'a> {
     /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
     /// let pp = PacketParserBuilder::from_bytes(message_data)?
     ///     .map(true) // Enable mapping.
+    ///     .buffer_unread_content() // For the packet body.
     ///     .build()?
     ///     .expect("One packet, not EOF");
     /// let map = pp.map().expect("Mapping is enabled");
@@ -219,6 +239,12 @@ impl<'a> Field<'a> {
     /// assert_eq!(map.iter().nth(0).unwrap().as_bytes(), &[0xcb]);
     /// assert_eq!(map.iter().nth(1).unwrap().as_bytes(), &[0x12]);
     /// assert_eq!(map.iter().nth(2).unwrap().as_bytes(), "t".as_bytes());
+    /// assert_eq!(map.iter().nth(3).unwrap().as_bytes(), &[0x00]);
+    /// assert_eq!(map.iter().nth(4).unwrap().as_bytes(),
+    ///            &[0x00, 0x00, 0x00, 0x00]);
+    /// assert_eq!(map.iter().nth(5).unwrap().as_bytes(),
+    ///            "Hello world.".as_bytes());
+    /// assert!(map.iter().nth(6).is_none());
     /// # Ok(()) }
     /// ```
     pub fn as_bytes(&self) -> &'a [u8] {

@@ -7,25 +7,25 @@ use std::collections::BTreeMap;
 
 /// Returns the content of the given file below `ipc/tests/data`.
 pub fn file(name: &str) -> &'static [u8] {
-    lazy_static::lazy_static! {
-        static ref FILES: BTreeMap<&'static str, &'static [u8]> = {
-            let mut m: BTreeMap<&'static str, &'static [u8]> =
-                Default::default();
+    use std::sync::OnceLock;
 
-            macro_rules! add {
-                ( $key: expr, $path: expr ) => {
-                    m.insert($key, include_bytes!($path))
-                }
+    static FILES: OnceLock<BTreeMap<&'static str, &'static [u8]>>
+        = OnceLock::new();
+    FILES.get_or_init(|| {
+        let mut m: BTreeMap<&'static str, &'static [u8]> =
+            Default::default();
+
+        macro_rules! add {
+            ( $key: expr, $path: expr ) => {
+                m.insert($key, include_bytes!($path))
             }
-            include!(concat!(env!("OUT_DIR"), "/tests.index.rs.inc"));
+        }
+        include!(concat!(env!("OUT_DIR"), "/tests.index.rs.inc"));
 
-            // Sanity checks.
-            assert!(m.contains_key("sexp/rsa-signature.sexp"));
-            m
-        };
-    }
-
-    FILES.get(name).unwrap_or_else(|| panic!("No such file {:?}", name))
+        // Sanity checks.
+        assert!(m.contains_key("sexp/rsa-signature.sexp"));
+        m
+    }).get(name).unwrap_or_else(|| panic!("No such file {:?}", name))
 }
 
 /// Returns the content of the given file below `ipc/tests/data/keys`.

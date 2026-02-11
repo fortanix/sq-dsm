@@ -22,10 +22,15 @@ use sequoia_openpgp as openpgp;
 use openpgp::packet::Key;
 use openpgp::packet::key::{PublicParts, UnspecifiedRole};
 use openpgp::crypto::{Password, Decryptor, Signer, mpi, SessionKey, ecdh};
-
-use hyper::{Body, Client, Uri, client::HttpConnector, Request};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as base64std;
+use bytes::Bytes;
+use http::Request;
+use hyper::Uri;
 use hyper_tls::HttpsConnector;
-
+use hyper_util::client::legacy::{Client,connect::HttpConnector};
+use hyper_util::rt::TokioExecutor;
+use http_body_util::{BodyExt, Full};
 use super::Result;
 use url::Url;
 
@@ -38,12 +43,13 @@ fn create_uri(store_uri: &str, key: &Key<PublicParts, UnspecifiedRole>,
     let mut url = Url::parse(store_uri)?;
     let auth = if !url.username().is_empty() {
         let credentials = format!("{}:{}", url.username(), url.password().unwrap_or_default());
-        Some(format!("Basic {}", base64::encode(credentials)))
+        Some(format!("Basic {}", base64std.encode(credentials)))
     } else {
         None
     };
 
-    let client = Client::builder().build(HttpsConnector::new());
+    let client: Client<HttpsConnector<HttpConnector>, Full<Bytes>> = Client::builder(TokioExecutor::new())
+            .build(HttpsConnector::new());
 
     url.query_pairs_mut().append_pair("capability", capability);
 
@@ -56,12 +62,17 @@ fn create_uri(store_uri: &str, key: &Key<PublicParts, UnspecifiedRole>,
         request = request.header(hyper::header::AUTHORIZATION, auth);
     }
 
+    let body = Full::new(Bytes::from(
+        p.map(|p| p.as_ref().to_vec()),
+    ));
+
+    let request = request.body(body)?;
+
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
         .build()?;
 
-    let request = request.body(Body::from(p.map(|p|p.as_ref().to_vec())))?;
     let response = rt.block_on(client.request(request))?;
 
     if !response.status().is_success() {
@@ -136,17 +147,13 @@ pub fn unlock_decryptor(store_uri: impl AsRef<str>, key: Key<PublicParts, Unspec
 struct PksClient {
     location: Uri,
     public: Key<PublicParts, UnspecifiedRole>,
-    client: hyper::client::Client<HttpsConnector<HttpConnector>>,
+    client: Client<HttpsConnector<HttpConnector>, Full<Bytes>>,
     rt: tokio::runtime::Runtime,
 }
 
 impl PksClient {
-    fn new(
-           public: Key<PublicParts, UnspecifiedRole>,
-           location: Uri,
-    ) -> Result<Self> {
-        let client = Client::builder().build(HttpsConnector::new());
-
+    fn new(public: Key<PublicParts, UnspecifiedRole>, location: Uri) -> Result<Self> {
+        let client = Client::builder(TokioExecutor::new()).build(HttpsConnector::new());
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_io()
             .enable_time()
@@ -160,14 +167,14 @@ impl PksClient {
             .method("POST")
             .uri(&self.location)
             .header("Content-Type", content_type)
-            .body(Body::from(body))?;
+            .body(Full::new(Bytes::from(body)))?;
         let response = self.rt.block_on(self.client.request(request))?;
 
         if !response.status().is_success() {
             return Err(anyhow::anyhow!("PKS operation failed: {}", response.status()));
         }
 
-        let response = self.rt.block_on(hyper::body::to_bytes(response))?.to_vec();
+        let response = self.rt.block_on(response.into_body().collect())?.to_bytes().to_vec();
         Ok(response)
     }
 }
@@ -189,7 +196,7 @@ impl Decryptor for PksClient {
             (mpi::Ciphertext::ECDH { e, .. }, mpi::PublicKey::ECDH { .. }) => {
                 #[allow(non_snake_case)]
                 let S = self.make_request(e.value().to_vec(), "application/vnd.pks.ecdh.point")?.into();
-                Ok(ecdh::decrypt_unwrap(&self.public, &S, ciphertext)?)
+                Ok(ecdh::decrypt_unwrap(&self.public, &S, ciphertext, _plaintext_len)?)
             },
             (ciphertext, public) => Err(anyhow::anyhow!(
                 "Unsupported combination of ciphertext {:?} \
@@ -210,9 +217,8 @@ impl Signer for PksClient {
         &mut self,
         hash_algo: openpgp::types::HashAlgorithm,
         digest: &[u8],
-    ) -> openpgp::Result<openpgp::crypto::mpi::Signature> {
-        use openpgp::types::PublicKeyAlgorithm;
-        use openpgp::types::HashAlgorithm;
+    ) -> openpgp::Result<mpi::Signature> {
+        use openpgp::types::{HashAlgorithm, PublicKeyAlgorithm};
 
         let content_type = match hash_algo {
             HashAlgorithm::SHA1 => "application/vnd.pks.digest.sha1",
@@ -221,7 +227,7 @@ impl Signer for PksClient {
             _ => "application/octet-stream",
         };
 
-        let sig = self.make_request(digest.into(), content_type)?;
+        let sig = self.make_request(digest.to_vec(), content_type)?;
 
         match (self.public.pk_algo(), self.public.mpis()) {
             #[allow(deprecated)]

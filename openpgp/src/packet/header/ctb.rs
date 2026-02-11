@@ -2,9 +2,9 @@
 //!
 //! The CTB encodes the packet's type and some length information.  It
 //! has two variants: the so-called old format and the so-called new
-//! format.  See [Section 4.2 of RFC 4880] for more details.
+//! format.  See [Section 4.2 of RFC 9580] for more details.
 //!
-//!   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+//!   [Section 4.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
 
 use std::convert::TryFrom;
 
@@ -20,9 +20,9 @@ use crate::packet::header::BodyLength;
 /// OpenPGP defines two packet formats: an old format and a new
 /// format.  They both include the packet's so-called tag.
 ///
-/// See [Section 4.2 of RFC 4880] for more details.
+/// See [Section 4.2 of RFC 9580] for more details.
 ///
-///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+///   [Section 4.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
 #[derive(Clone, Debug)]
 struct CTBCommon {
     /// RFC4880 Packet tag
@@ -31,9 +31,9 @@ struct CTBCommon {
 
 /// A CTB using the new format encoding.
 ///
-/// See [Section 4.2 of RFC 4880] for more details.
+/// See [Section 4.2 of RFC 9580] for more details.
 ///
-///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+///   [Section 4.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
 #[derive(Clone, Debug)]
 pub struct CTBNew {
     /// Packet CTB fields
@@ -62,10 +62,10 @@ impl CTBNew {
 /// The `PacketLengthType` is only part of the [old CTB], and is
 /// partially used to determine the packet's size.
 ///
-/// See [Section 4.2.1 of RFC 4880] for more details.
+/// See [Section 4.2.2 of RFC 9580] for more details.
 ///
 ///   [old CTB]: CTBOld
-///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
+///   [Section 4.2.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.2
 #[derive(Debug)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PacketLengthType {
@@ -121,9 +121,9 @@ impl From<PacketLengthType> for u8 {
 
 /// A CTB using the old format encoding.
 ///
-/// See [Section 4.2 of RFC 4880] for more details.
+/// See [Section 4.2 of RFC 9580] for more details.
 ///
-///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+///   [Section 4.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
 #[derive(Clone, Debug)]
 pub struct CTBOld {
     /// Common CTB fields.
@@ -138,10 +138,8 @@ impl CTBOld {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::InvalidArgument`] if the tag or the body
-    /// length cannot be expressed using an old-style CTB.
-    ///
-    /// [`Error::InvalidArgument`]: super::super::Error::InvalidArgument
+    /// Returns [`crate::Error::InvalidArgument`] if the tag or the
+    /// body length cannot be expressed using an old-style CTB.
     pub fn new(tag: Tag, length: BodyLength) -> Result<Self> {
         let n: u8 = tag.into();
 
@@ -227,10 +225,10 @@ impl CTB {
 impl TryFrom<u8> for CTB {
     type Error = anyhow::Error;
 
-    /// Parses a CTB as described in [Section 4.2 of RFC 4880].  This
+    /// Parses a CTB as described in [Section 4.2 of RFC 9580].  This
     /// function parses both new and old format CTBs.
     ///
-    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+    ///   [Section 4.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
     fn try_from(ptag: u8) -> Result<CTB> {
         // The top bit of the ptag must be set.
         if ptag & 0b1000_0000 == 0 {

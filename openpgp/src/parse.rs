@@ -2,13 +2,13 @@
 //!
 //! OpenPGP defines a binary representation suitable for storing and
 //! communicating OpenPGP data structures (see [Section 3 ff. of RFC
-//! 4880]).  Parsing is the process of interpreting the binary
+//! 9580]).  Parsing is the process of interpreting the binary
 //! representation.
 //!
-//!   [Section 3 ff. of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3
+//!   [Section 3 ff. of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3
 //!
 //! An OpenPGP stream represents a sequence of packets.  Some of the
-//! packets contain other packets.  These so called containers include
+//! packets contain other packets.  These so-called containers include
 //! encrypted data packets (the SED and [SEIP] packets), and
 //! [compressed data] packets.  This structure results in a tree,
 //! which is laid out in depth-first order.
@@ -118,11 +118,11 @@
 //! # ASCII armored data
 //!
 //! The [`PacketParser`] will by default automatically detect and
-//! remove any ASCII armor encoding (see [Section 6 of RFC 4880]).
+//! remove any ASCII armor encoding (see [Section 6 of RFC 9580]).
 //! This automatism can be disabled and fine-tuned using
 //! [`PacketParserBuilder::dearmor`].
 //!
-//!   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+//!   [Section 6 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6
 //!   [`PacketParserBuilder::dearmor`]: PacketParserBuilder::dearmor()
 //!
 //! # Security Considerations
@@ -145,7 +145,7 @@
 //!    verified.  On the other hand, buffering an unbounded amount of
 //!    data is problematic and can lead to out-of-memory situations
 //!    resulting in denial of service.  The streaming message
-//!    processing interfaces address this problem by buffering an
+//!    processing interfaces address this problem by buffering a
 //!    configurable amount of data before releasing any data to the
 //!    caller, and only revert to streaming unverified data if the
 //!    message exceeds the buffer.  See [`DEFAULT_BUFFER_SIZE`] for
@@ -158,20 +158,24 @@
 //!    as well as parts of the [`Signature`] are not covered by the
 //!    signatures.
 //!
-//!  - Ciphertext integrity is provided by the [`SEIP`] packet's
-//!    [`MDC`] mechanism, but the integrity can only be checked after
-//!    decrypting the whole container.  Proper authenticated
-//!    encryption is provided by the [`AED`] container, but as of this
-//!    writing it is not standardized.
+//!  - Ciphertext integrity is provided by the [version 2 SEIP]
+//!    packet's use of authenticated encryption.
+//!
+//!  - In messages compatible with [RFC 4880], ciphertext integrity is
+//!    provided by the [`version 1 SEIP`] packet's [`MDC`] mechanism,
+//!    but the integrity can only be checked after decrypting the whole
+//!    container.
 //!
 //!   [`DEFAULT_BUFFER_SIZE`]: stream::DEFAULT_BUFFER_SIZE
 //!   [`PKESK`]: crate::packet::PKESK
 //!   [`SKESK`]: crate::packet::PKESK
 //!   [`Literal`]: crate::packet::Literal
 //!   [`Signature`]: crate::packet::Signature
+//!   [`version 2 SEIP`]: crate::packet::seip::SEIP2
+//!   [RFC 4880]: https://datatracker.ietf.org/doc/html/rfc4880
+//!   [`version 1 SEIP`]: crate::packet::seip::SEIP1
 //!   [`SEIP`]: crate::packet::SEIP
 //!   [`MDC`]: crate::packet::MDC
-//!   [`AED`]: crate::packet::AED
 
 use std::io;
 use std::io::prelude::*;
@@ -185,6 +189,12 @@ use std::result::Result as StdResult;
 
 use xxhash_rust::xxh3::Xxh3;
 
+// Re-export buffered_reader.
+//
+// We use this in our API, and re-exporting it here makes it easy to
+// use the correct version of the crate in downstream code without
+// having to explicitly depend on it.
+pub use buffered_reader;
 use ::buffered_reader::*;
 
 use crate::{
@@ -205,7 +215,9 @@ use crate::{
         Container,
         Header,
     },
+    packet::signature::Signature3,
     packet::signature::Signature4,
+    packet::signature::Signature6,
     packet::prelude::*,
     Packet,
     Fingerprint,
@@ -225,8 +237,8 @@ use crate::types::{
     SymmetricAlgorithm,
     Timestamp,
 };
-use crate::crypto::{self, mpi::{PublicKey, MPI}};
-use crate::crypto::symmetric::{Decryptor, BufferedReaderDecryptor};
+use crate::crypto::{self, mpi::{PublicKey, MPI, ProtectedMPI}};
+use crate::crypto::symmetric::{Decryptor, InternalDecryptor};
 use crate::message;
 use crate::message::MessageValidator;
 
@@ -249,7 +261,10 @@ mod packet_pile_parser;
 pub use self::packet_pile_parser::PacketPileParser;
 
 mod hashed_reader;
-pub(crate) use self::hashed_reader::{HashedReader, hash_update_text};
+pub(crate) use self::hashed_reader::{
+    HashingMode,
+    HashedReader,
+};
 
 mod packet_parser_builder;
 pub use self::packet_parser_builder::{Dearmor, PacketParserBuilder};
@@ -261,7 +276,7 @@ pub mod stream;
 
 // Whether to trace execution by default (on stderr).
 const TRACE : bool = false;
-
+
 // How much junk the packet parser is willing to skip when recovering.
 // This is an internal implementation detail and hence not exported.
 pub(crate) const RECOVERY_THRESHOLD: usize = 32 * 1024;
@@ -270,46 +285,83 @@ pub(crate) const RECOVERY_THRESHOLD: usize = 32 * 1024;
 ///
 /// This is a uniform interface to parse packets, messages, keys, and
 /// related data structures.
-pub trait Parse<'a, T> {
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait Parse<'a, T>: crate::seal::Sealed {
+    /// Reads from the given buffered reader.
+    ///
+    /// Implementations of this function should be short.  Ideally,
+    /// they should hand of the reader to a private function erasing
+    /// the readers type by invoking [`BufferedReader::into_boxed`].
+    fn from_buffered_reader<R>(reader: R) -> Result<T>
+    where
+        R: BufferedReader<Cookie> + 'a;
+
     /// Reads from the given reader.
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<T>;
+    ///
+    /// The default implementation just uses
+    /// [`Parse::from_buffered_reader`], but implementations can
+    /// provide their own specialized version.
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<T> {
+        Self::from_buffered_reader(
+            buffered_reader::Generic::with_cookie(reader,
+                                                  None,
+                                                  Default::default())
+                .into_boxed())
+    }
 
     /// Reads from the given file.
     ///
-    /// The default implementation just uses [`from_reader(..)`], but
-    /// implementations can provide their own specialized version.
-    ///
-    /// [`from_reader(..)`]: Parse::from_reader
+    /// The default implementation just uses
+    /// [`Parse::from_buffered_reader`], but implementations can
+    /// provide their own specialized version.
     fn from_file<P: AsRef<Path>>(path: P) -> Result<T>
     {
-        Self::from_reader(::std::fs::File::open(path)?)
+        Self::from_buffered_reader(
+            buffered_reader::File::with_cookie(path.as_ref(),
+                                               Default::default())?
+                .into_boxed())
     }
 
     /// Reads from the given slice.
     ///
-    /// The default implementation just uses [`from_reader(..)`], but
-    /// implementations can provide their own specialized version.
-    ///
-    /// [`from_reader(..)`]: Parse::from_reader
+    /// The default implementation just uses
+    /// [`Parse::from_buffered_reader`], but implementations can
+    /// provide their own specialized version.
     fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<T> {
-        Self::from_reader(io::Cursor::new(data))
+        Self::from_buffered_reader(
+            buffered_reader::Memory::with_cookie(data.as_ref(), Default::default())
+                .into_boxed())
     }
 }
 
-macro_rules! impl_parse_generic_packet {
+// Implement type::from_buffered_reader and the Parse trait in terms
+// of type::from_buffered_reader for a particular packet type.  If the
+// generic from_buffered_reader implementation is inappropriate, then
+// it can be overridden.
+macro_rules! impl_parse_with_buffered_reader {
     ($typ: ident) => {
-        impl<'a> Parse<'a, $typ> for $typ {
-            fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-                let bio = buffered_reader::Generic::with_cookie(
-                    reader, None, Cookie::default());
-                let parser = PacketHeaderParser::new_naked(bio);
+        impl_parse_with_buffered_reader!(
+            $typ,
+            |br: Box<dyn BufferedReader<Cookie>>| -> Result<$typ> {
+                let parser = PacketHeaderParser::new_naked(br);
 
                 let mut pp = Self::parse(parser)?;
                 pp.buffer_unread_content()?;
 
                 match pp.next()? {
+                    #[allow(deprecated)]
                     (Packet::$typ(o), PacketParserResult::EOF(_))
                         => Ok(o),
+                    (Packet::Unknown(u), PacketParserResult::EOF(_)) =>
+                        Err(u.into_error()),
                     (p, PacketParserResult::EOF(_)) =>
                         Err(Error::InvalidOperation(
                             format!("Not a {} packet: {:?}", stringify!($typ),
@@ -318,16 +370,28 @@ macro_rules! impl_parse_generic_packet {
                         Err(Error::InvalidOperation(
                             "Excess data after packet".into()).into()),
                 }
+            });
+    };
+
+    // from_buffered_reader should be a closure that takes a
+    // BufferedReader and returns a Result<Self>.
+    ($typ: ident, $from_buffered_reader: expr) => {
+        impl<'a> Parse<'a, $typ> for $typ {
+            fn from_buffered_reader<R>(reader: R) -> Result<Self>
+            where
+                R: BufferedReader<Cookie> + 'a,
+            {
+                Ok($from_buffered_reader(reader.into_boxed())?)
             }
         }
-    };
+    }
 }
-
+
 /// The default amount of acceptable nesting.
 ///
 /// The default is `16`.
 ///
-/// Typically, we expect a message to looking like:
+/// Typically, we expect a message to look like:
 ///
 /// ```text
 /// [ encryption container: [ compression container: [ signature: [ literal data ]]]]
@@ -365,11 +429,11 @@ pub const DEFAULT_MAX_PACKET_SIZE: u32 = 1 << 20; // 1 MiB
 //
 // This struct is not exposed to the user.  Instead, when a header has
 // been successfully parsed, a `PacketParser` is returned.
-pub(crate) struct PacketHeaderParser<T: BufferedReader<Cookie>> {
+pub(crate) struct PacketHeaderParser<'a> {
     // The reader stack wrapped in a buffered_reader::Dup so that if
     // there is a parse error, we can abort and still return an
     // Unknown packet.
-    reader: buffered_reader::Dup<T, Cookie>,
+    reader: buffered_reader::Dup<Box<dyn BufferedReader<Cookie> + 'a>, Cookie>,
 
     // The current packet's header.
     header: Header,
@@ -400,6 +464,7 @@ macro_rules! make_php_try {
                         Ok(b)
                     },
                     Err(e) => {
+                        t!("parsing failed at {}:{}: {}", file!(), line!(), e);
                         let e = match e.downcast::<io::Error>() {
                             Ok(e) =>
                                 if let io::ErrorKind::UnexpectedEof = e.kind() {
@@ -422,7 +487,7 @@ macro_rules! make_php_try {
     };
 }
 
-impl<T: BufferedReader<Cookie>> std::fmt::Debug for PacketHeaderParser<T> {
+impl std::fmt::Debug for PacketHeaderParser<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("PacketHeaderParser")
             .field("header", &self.header)
@@ -434,11 +499,11 @@ impl<T: BufferedReader<Cookie>> std::fmt::Debug for PacketHeaderParser<T> {
     }
 }
 
-impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
+impl<'a> PacketHeaderParser<'a> {
     // Returns a `PacketHeaderParser` to parse an OpenPGP packet.
     // `inner` points to the start of the OpenPGP framing information,
     // i.e., the CTB.
-    fn new(inner: T,
+    fn new(inner: Box<dyn BufferedReader<Cookie> + 'a>,
            state: PacketParserState,
            path: Vec<usize>, header: Header,
            header_bytes: Vec<u8>) -> Self
@@ -469,7 +534,7 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
     // framing has already been processed, and `inner` already
     // includes any required filters (e.g., a
     // `BufferedReaderPartialBodyFilter`, etc.).
-    fn new_naked(inner: T) -> Self {
+    fn new_naked(inner: Box<dyn BufferedReader<Cookie> + 'a>) -> Self {
         PacketHeaderParser::new(inner,
                                 PacketParserState::new(Default::default()),
                                 vec![ 0 ],
@@ -486,37 +551,29 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
     // completely and correctly parsed.  If a failure occurs while
     // parsing the header, use `fail()` instead.
     fn ok(mut self, packet: Packet) -> Result<PacketParser<'a>> {
+        tracer!(TRACE, "PacketHeaderParser::ok",
+                self.reader.cookie_ref().level.unwrap_or(0));
         let total_out = self.reader.total_out();
+        t!("total_out = {}", total_out);
 
-        let mut reader = if self.state.settings.map {
-            // Read the body for the map.  Note that
-            // `total_out` does not account for the body.
-            //
-            // XXX avoid the extra copy.
-            let body = self.reader.steal_eof()?;
-            if !body.is_empty() {
-                self.field("body", body.len());
+        if self.state.settings.map {
+            // Steal the body for the map.
+            self.reader.rewind();
+            let body = if self.state.settings.buffer_unread_content {
+                self.reader.steal_eof()?
+            } else {
+                self.reader.steal(total_out)?
+            };
+            t!("got {} bytes of body for the map", body.len());
+            if body.len() > total_out {
+                self.field("body", body.len() - total_out);
             }
+            self.map.as_mut().unwrap().finalize(body);
+        }
 
-            // This is a buffered_reader::Dup, so this always has an
-            // inner.
-            let inner = Box::new(self.reader).into_inner().unwrap();
-
-            // Combine the header with the body for the map.
-            let mut data = Vec::with_capacity(total_out + body.len());
-            // We know that the inner reader must have at least
-            // `total_out` bytes buffered, otherwise we could never
-            // have read that much from the `buffered_reader::Dup`.
-            data.extend_from_slice(&inner.buffer()[..total_out]);
-            data.extend(body);
-            self.map.as_mut().unwrap().finalize(data);
-
-            inner
-        } else {
-            // This is a buffered_reader::Dup, so this always has an
-            // inner.
-            Box::new(self.reader).into_inner().unwrap()
-        };
+        // This is a buffered_reader::Dup, so this always has an
+        // inner.
+        let mut reader = Box::new(self.reader).into_inner().unwrap();
 
         if total_out > 0 {
             // We know the data has been read, so this cannot fail.
@@ -530,7 +587,7 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
             last_path: vec![],
             reader,
             content_was_read: false,
-            encrypted: false,
+            processed: true,
             finished: false,
             map: self.map,
             body_hash: Some(Container::make_body_hash()),
@@ -563,6 +620,10 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
         Ok(r)
     }
 
+    fn parse_u8_len(&mut self, name: &'static str) -> Result<usize> {
+        self.parse_u8(name).map(Into::into)
+    }
+
     fn parse_be_u16(&mut self, name: &'static str) -> Result<u16> {
         let r = self.reader.read_be_u16()?;
         self.field(name, 2);
@@ -593,6 +654,13 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
         Ok(r)
     }
 
+    fn parse_bytes_into(&mut self, name: &'static str, buf: &mut [u8])
+                   -> Result<()> {
+        self.reader.read_exact(buf)?;
+        self.field(name, buf.len());
+        Ok(())
+    }
+
     fn parse_bytes_eof(&mut self, name: &'static str) -> Result<Vec<u8>> {
         let r = self.reader.steal_eof()?;
         self.field(name, r.len());
@@ -602,12 +670,69 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
     fn recursion_depth(&self) -> isize {
         self.path.len() as isize - 1
     }
+
+    /// Marks the start of a variable-sized field `name` of length
+    /// `len`.
+    ///
+    /// After parsing the variable-sized field, hand the returned
+    /// object to [`PacketHeaderParser::variable_sized_field_end`].
+    fn variable_sized_field_start<L>(&self, name: &'static str, len: L)
+                                     -> VariableSizedField
+    where
+        L: Into<u32>,
+    {
+        VariableSizedField {
+            name,
+            start: self.reader.total_out().try_into()
+                .expect("offsets in packet headers cannot exceed u32"),
+            length: len.into(),
+        }
+    }
+
+    /// Returns the remaining bytes in a variable-sized field.
+    fn variable_sized_field_remaining(&self, f: &VariableSizedField) -> usize {
+        let current: u32 = self.reader.total_out().try_into()
+            .expect("offsets in packet headers cannot exceed u32");
+        f.length.saturating_sub(current - f.start) as usize
+    }
+
+    /// Marks the start of a variable-sized field and checks whether
+    /// the correct amount of data has been consumed.
+    fn variable_sized_field_end(&self, f: VariableSizedField) -> Result<()>
+    {
+        let l = u32::try_from(self.reader.total_out())
+            .expect("offsets in packet headers cannot exceed u32")
+            - f.start;
+
+        use std::cmp::Ordering;
+        match l.cmp(&f.length) {
+            Ordering::Less => Err(Error::MalformedPacket(format!(
+                "{}: length {} but only consumed {} bytes",
+                f.name, f.length, l)).into()),
+            Ordering::Equal => Ok(()),
+            Ordering::Greater => Err(Error::MalformedPacket(format!(
+                "{}: length {} but consumed {} bytes",
+                f.name, f.length, l)).into()),
+        }
+    }
 }
 
+/// Represents a variable-sized field in a packet header.
+#[must_use]
+struct VariableSizedField {
+    /// Name of the field.
+    name: &'static str,
+
+    /// The amount of bytes consumed in self.reader at the start of
+    /// the field.
+    start: u32,
+
+    /// The expected length of the variable-sized field.
+    length: u32,
+}
 
 /// What the hash in the Cookie is for.
 #[derive(Copy, Clone, PartialEq, Debug)]
-#[allow(clippy::upper_case_acronyms)]
 pub(crate) enum HashesFor {
     Nothing,
     MDC,
@@ -615,7 +740,7 @@ pub(crate) enum HashesFor {
     CleartextSignature,
 }
 
-/// Controls whether or not a hashed reader hashes data.
+/// Controls whether a hashed reader hashes data.
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum Hashing {
     /// Hashing is enabled.
@@ -736,95 +861,25 @@ pub(crate) struct SignatureGroup {
     ops_count: usize,
 
     /// The hash contexts.
-    pub(crate) hashes: Vec<HashingMode<Box<dyn crypto::hash::Digest>>>,
-}
-
-/// Controls line-ending normalization during hashing.
-///
-/// OpenPGP normalizes line endings when signing or verifying text
-/// signatures.
-pub(crate) enum HashingMode<T> {
-    /// Hash for a binary signature.
     ///
-    /// The data is hashed as-is.
-    Binary(T),
-
-    /// Hash for a text signature.
+    /// We store a salt and the hash context as tuples.
     ///
-    /// The data is hashed with line endings normalized to `\r\n`.
-    Text(T),
-}
-
-impl<T: Clone> Clone for HashingMode<T> {
-    fn clone(&self) -> Self {
-        use self::HashingMode::*;
-        match self {
-            Binary(t) => Binary(t.clone()),
-            Text(t) => Text(t.clone()),
-        }
-    }
-}
-
-impl<T: std::fmt::Debug> std::fmt::Debug for HashingMode<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use self::HashingMode::*;
-        match self {
-            Binary(t) => write!(f, "Binary({:?})", t),
-            Text(t) => write!(f, "Text({:?})", t),
-        }
-    }
-}
-
-impl<T: PartialEq> PartialEq for HashingMode<T> {
-    fn eq(&self, other: &Self) -> bool {
-        use self::HashingMode::*;
-        match (self, other) {
-            (Binary(s), Binary(o)) => s.eq(o),
-            (Text(s), Text(o)) => s.eq(o),
-            _ => false,
-        }
-    }
-}
-
-impl<T: Eq> Eq for HashingMode<T> { }
-
-impl<T> HashingMode<T> {
-    fn map<U, F: Fn(&T) -> U>(&self, f: F) -> HashingMode<U> {
-        use self::HashingMode::*;
-        match self {
-            Binary(t) => Binary(f(t)),
-            Text(t) => Text(f(t)),
-        }
-    }
-
-    pub(crate) fn as_ref(&self) -> &T {
-        use self::HashingMode::*;
-        match self {
-            Binary(t) => t,
-            Text(t) => t,
-        }
-    }
-
-    pub(crate) fn as_mut(&mut self) -> &mut T {
-        use self::HashingMode::*;
-        match self {
-            Binary(t) => t,
-            Text(t) => t,
-        }
-    }
-
-    fn for_signature(t: T, typ: SignatureType) -> Self {
-        if typ == SignatureType::Text {
-            HashingMode::Text(t)
-        } else {
-            HashingMode::Binary(t)
-        }
-    }
+    /// In v6, the hash is salted.  We store the salt here so that we
+    /// can find the right hash context again when we encounter the
+    /// signature packet.
+    ///
+    /// In v4, the hash is not salted.  Hence, salt is the zero-length
+    /// vector.  The fact that the hash is not salted allows for an
+    /// optimization: to verify two signatures using the same hash
+    /// algorithm, the hash must be computed just once.  We implement
+    /// this optimization for v4 signatures.
+    pub(crate) hashes: Vec<HashingMode<crypto::hash::Context>>,
 }
 
 impl fmt::Debug for SignatureGroup {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let algos = self.hashes.iter().map(|mode| mode.map(|ctx| ctx.algo()))
+        let algos = self.hashes.iter()
+            .map(|mode| mode.map(|ctx| ctx.algo()))
             .collect::<Vec<_>>();
 
         f.debug_struct("Cookie")
@@ -1049,8 +1104,12 @@ struct PacketParserSettings {
     // the next packet is retrieved.
     buffer_unread_content: bool,
 
-    // Whether or not to create a map.
+    // Whether to create a map.
     map: bool,
+
+    // Whether to implicitly start hashing upon parsing OnePassSig
+    // packets.
+    automatic_hashing: bool,
 }
 
 // The default `PacketParser` settings.
@@ -1061,43 +1120,106 @@ impl Default for PacketParserSettings {
             max_packet_size: DEFAULT_MAX_PACKET_SIZE,
             buffer_unread_content: false,
             map: false,
+            automatic_hashing: true,
         }
     }
 }
-
+
 impl S2K {
     /// Reads an S2K from `php`.
-    fn parse<T: BufferedReader<Cookie>>(php: &mut PacketHeaderParser<T>) -> Result<Self>
+    fn parse_v4(php: &mut PacketHeaderParser<'_>)
+                                           -> Result<Self> {
+        Self::parse_common(php, None)
+    }
+
+    /// Reads an S2K from `php` with explicit S2K length.
+    fn parse_v6(php: &mut PacketHeaderParser, s2k_len: u8) -> Result<Self> {
+        Self::parse_common(php, Some(s2k_len))
+    }
+
+    /// Reads an S2K from `php` with optional explicit S2K length.
+    fn parse_common(php: &mut PacketHeaderParser<'_>,
+                                               s2k_len: Option<u8>)
+                                               -> Result<Self>
     {
+        if s2k_len == Some(0) {
+            return Err(Error::MalformedPacket(
+                "Invalid size for S2K object: 0 octets".into()).into());
+        }
+
+        let check_size = |expected| {
+            if let Some(got) = s2k_len {
+                if got != expected {
+                    return Err(Error::MalformedPacket(format!(
+                        "Invalid size for S2K object: {} octets, expected {}",
+                        got, expected)));
+                }
+            }
+            Ok(())
+        };
+
         let s2k = php.parse_u8("s2k_type")?;
         #[allow(deprecated)]
         let ret = match s2k {
-            0 => S2K::Simple {
-                hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
+            0 => {
+                check_size(2)?;
+                S2K::Simple {
+                    hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
+                }
             },
-            1 => S2K::Salted {
-                hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
-                salt: Self::read_salt(php)?,
+            1 => {
+                check_size(10)?;
+                S2K::Salted {
+                    hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
+                    salt: Self::read_salt(php)?,
+                }
             },
-            3 => S2K::Iterated {
-                hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
-                salt: Self::read_salt(php)?,
-                hash_bytes: S2K::decode_count(php.parse_u8("s2k_count")?),
+            3 => {
+                check_size(11)?;
+                S2K::Iterated {
+                    hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
+                    salt: Self::read_salt(php)?,
+                    hash_bytes: S2K::decode_count(php.parse_u8("s2k_count")?),
+                }
+            },
+            4 => S2K::Argon2 {
+                salt: {
+                    let mut b = [0u8; 16];
+                    let b_len = b.len();
+                    b.copy_from_slice(
+                        &php.parse_bytes("argon2_salt", b_len)?);
+                    b
+                },
+                t: php.parse_u8("argon2_t")?,
+                p: php.parse_u8("argon2_p")?,
+                m: php.parse_u8("argon2_m")?,
             },
             100..=110 => S2K::Private {
                 tag: s2k,
-                parameters: None,
+                parameters: if let Some(l) = s2k_len {
+                    Some(
+                        php.parse_bytes("parameters", l as usize - 1 /* Tag */)?
+                            .into())
+                } else {
+                    None
+                },
             },
             u => S2K::Unknown {
                 tag: u,
-                parameters: None,
+                parameters: if let Some(l) = s2k_len {
+                    Some(
+                        php.parse_bytes("parameters", l as usize - 1 /* Tag */)?
+                            .into())
+                } else {
+                    None
+                },
             },
         };
 
         Ok(ret)
     }
 
-    fn read_salt<'a, T: 'a + BufferedReader<Cookie>>(php: &mut PacketHeaderParser<T>) -> Result<[u8; 8]> {
+    fn read_salt(php: &mut PacketHeaderParser<'_>) -> Result<[u8; 8]> {
         let mut b = [0u8; 8];
         b.copy_from_slice(&php.parse_bytes("s2k_salt", 8)?);
 
@@ -1105,15 +1227,12 @@ impl S2K {
     }
 }
 
-impl<'a> Parse<'a, S2K> for S2K {
-    /// Reads an S2K from `reader`.
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-        let bio = buffered_reader::Generic::with_cookie(
-            reader, None, Cookie::default());
-        let mut parser = PacketHeaderParser::new_naked(bio);
-        Self::parse(&mut parser)
-    }
-}
+impl_parse_with_buffered_reader!(
+    S2K,
+    |bio: Box<dyn BufferedReader<Cookie>>| -> Result<Self> {
+        let mut parser = PacketHeaderParser::new_naked(bio.into_boxed());
+        Self::parse_v4(&mut parser)
+    });
 
 impl Header {
     pub(crate) fn parse<R: BufferedReader<C>, C: fmt::Debug + Send + Sync> (bio: &mut R)
@@ -1129,24 +1248,17 @@ impl Header {
     }
 }
 
-impl<'a> Parse<'a, Header> for Header {
-    /// Parses an OpenPGP packet's header as described in [Section 4.2
-    /// of RFC 4880].
-    ///
-    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self>
-    {
-        let mut reader = buffered_reader::Generic::with_cookie(
-            reader, None, Cookie::default());
+impl_parse_with_buffered_reader!(
+    Header,
+    |mut reader| -> Result<Self> {
         Header::parse(&mut reader)
-    }
-}
+    });
 
 impl BodyLength {
     /// Decodes a new format body length as described in [Section
-    /// 4.2.2 of RFC 4880].
+    /// 4.2.1 of RFC 9580].
     ///
-    ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
+    ///   [Section 4.2.1 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.1
     pub(crate) fn parse_new_format<T: BufferedReader<C>, C: fmt::Debug + Send + Sync> (bio: &mut T)
         -> io::Result<BodyLength>
     {
@@ -1167,9 +1279,9 @@ impl BodyLength {
     }
 
     /// Decodes an old format body length as described in [Section
-    /// 4.2.1 of RFC 4880].
+    /// 4.2.2 of RFC 9580].
     ///
-    ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
+    ///   [Section 4.2.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.2
     pub(crate) fn parse_old_format<T: BufferedReader<C>, C: fmt::Debug + Send + Sync>
         (bio: &mut T, length_type: PacketLengthType)
          -> Result<BodyLength>
@@ -1238,12 +1350,11 @@ fn body_length_old_format() {
 
 impl Unknown {
     /// Parses the body of any packet and returns an Unknown.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(php: PacketHeaderParser<T>, error: anyhow::Error)
-                 -> Result<PacketParser<'a>>
+    fn parse(php: PacketHeaderParser, error: anyhow::Error)
+             -> Result<PacketParser>
     {
         let tag = php.header.ctb().tag();
         php.ok(Packet::Unknown(Unknown::new(tag, error)))
-            .map(|pp| pp.set_encrypted(true))
     }
 }
 
@@ -1289,8 +1400,8 @@ pub(crate) fn to_unknown_packet<R: Read + Send + Sync>(reader: R) -> Result<Unkn
 
 impl Signature {
     // Parses a signature packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>)
-        -> Result<PacketParser<'a>>
+    fn parse(mut php: PacketHeaderParser)
+             -> Result<PacketParser>
     {
         let indent = php.recursion_depth();
         tracer!(TRACE, "Signature::parse", indent);
@@ -1300,7 +1411,9 @@ impl Signature {
         let version = php_try!(php.parse_u8("version"));
 
         match version {
+            3 => Signature3::parse(php),
             4 => Signature4::parse(php),
+            6 => Signature6::parse(php),
             _ => {
                 t!("Ignoring version {} packet.", version);
                 php.fail("unknown version")
@@ -1309,17 +1422,179 @@ impl Signature {
     }
 
     /// Returns whether the data appears to be a signature (no promises).
-    fn plausible<T: BufferedReader<Cookie>>(
-        bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
-                 -> Result<()> {
+    fn plausible(bio: &mut dyn BufferedReader<Cookie>, header: &Header)
+        -> Result<()>
+    {
+        // XXX: Support other versions.
         Signature4::plausible(bio, header)
+    }
+
+    /// When parsing an inline-signed message, attaches the digest to
+    /// the signature.
+    fn parse_finish(indent: isize, mut pp: PacketParser,
+                    hash_algo: HashAlgorithm)
+        -> Result<PacketParser>
+    {
+        tracer!(TRACE, "Signature::parse_finish", indent);
+
+        let sig: &Signature = pp.packet.downcast_ref()
+            .ok_or_else(
+                || Error::InvalidOperation(
+                    format!("Called Signature::parse_finish on a {:?}",
+                            pp.packet)))?;
+
+        // If we are not parsing an inline-signed message, we are
+        // done.
+        if sig.typ() != SignatureType::Binary
+            && sig.typ() != SignatureType::Text
+        {
+            return Ok(pp);
+        }
+
+        let need_hash = HashingMode::for_signature(hash_algo, sig);
+        t!("Need a {:?}", need_hash);
+        if TRACE {
+            pp.reader.dump(&mut std::io::stderr())?;
+        }
+
+        // Locate the corresponding HashedReader and extract the
+        // computed hash.
+        let mut computed_digest = None;
+        {
+            let recursion_depth = pp.recursion_depth();
+
+            // We know that the top reader is not a HashedReader (it's
+            // a buffered_reader::Dup).  So, start with its child.
+            let mut r = (&mut pp.reader).get_mut();
+            while let Some(tmp) = r {
+                {
+                    let cookie = tmp.cookie_mut();
+
+                    assert!(cookie.level.unwrap_or(-1)
+                            <= recursion_depth);
+                    // The HashedReader has to be at level
+                    // 'recursion_depth - 1'.
+                    if cookie.level.is_none()
+                        || cookie.level.unwrap() < recursion_depth - 1 {
+                            t!("Abandoning search for suitable \
+                                hashed reader at {:?}.", cookie.level);
+                            break
+                        }
+
+                    if cookie.hashes_for == HashesFor::Signature {
+                        // When verifying cleartext signed messages,
+                        // we may have more signatures than
+                        // one-pass-signature packets, but are
+                        // guaranteed to only have one signature
+                        // group.
+                        //
+                        // Only decrement the count when hashing for
+                        // signatures, not when hashing for cleartext
+                        // signatures.
+                        cookie.sig_group_mut().ops_count -= 1;
+                    }
+
+                    if cookie.hashes_for == HashesFor::Signature
+                        || cookie.hashes_for == HashesFor::CleartextSignature
+                    {
+                        t!("Have: {:?}",
+                           cookie.sig_group().hashes.iter()
+                           .map(|h| h.map(|h| h.algo()))
+                           .collect::<Vec<_>>());
+                        if let Some(hash) =
+                            cookie.sig_group().hashes.iter().find_map(
+                                |mode|
+                                if mode.map(|ctx| ctx.algo()) == need_hash
+                                {
+                                    Some(mode.as_ref())
+                                } else {
+                                    None
+                                })
+                        {
+                            t!("found a {:?} HashedReader", need_hash);
+                            computed_digest = Some((cookie.signature_level(),
+                                                    hash.clone()));
+                        }
+
+                        if cookie.sig_group_unused() {
+                            cookie.sig_group_pop();
+                        }
+                        break;
+                    }
+                }
+
+                r = tmp.get_mut();
+            }
+        }
+
+        if let Some((level, mut hash)) = computed_digest {
+            if let Packet::Signature(ref mut sig) = pp.packet {
+                sig.hash(&mut hash)?;
+
+                let mut digest = vec![0u8; hash.digest_size()];
+                let _ = hash.digest(&mut digest);
+
+                sig.set_computed_digest(Some(digest));
+                sig.set_level(level);
+            } else {
+                unreachable!()
+            }
+        }
+
+        Ok(pp)
+    }
+}
+
+impl Signature6 {
+    // Parses a signature packet.
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        let indent = php.recursion_depth();
+        tracer!(TRACE, "Signature6::parse", indent);
+
+        make_php_try!(php);
+
+        let typ = php_try!(php.parse_u8("type"));
+        let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
+        let hash_algo: HashAlgorithm =
+            php_try!(php.parse_u8("hash_algo")).into();
+        let hashed_area_len = php_try!(php.parse_be_u32("hashed_area_len"));
+        let hashed_area
+            = php_try!(SubpacketArea::parse(&mut php,
+                                            hashed_area_len as usize,
+                                            hash_algo));
+        let unhashed_area_len = php_try!(php.parse_be_u32("unhashed_area_len"));
+        let unhashed_area
+            = php_try!(SubpacketArea::parse(&mut php,
+                                            unhashed_area_len as usize,
+                                            hash_algo));
+        let digest_prefix1 = php_try!(php.parse_u8("digest_prefix1"));
+        let digest_prefix2 = php_try!(php.parse_u8("digest_prefix2"));
+        if ! pk_algo.for_signing() {
+            return php.fail("not a signature algorithm");
+        }
+        let salt_len = php_try!(php.parse_u8("salt_len")) as usize;
+        let salt = php_try!(php.parse_bytes("salt", salt_len));
+        let mpis = php_try!(
+            crypto::mpi::Signature::_parse(pk_algo, &mut php));
+
+        let typ = typ.into();
+        let sig = php_try!(Signature6::new(
+            typ, pk_algo, hash_algo,
+            hashed_area,
+            unhashed_area,
+            [digest_prefix1, digest_prefix2],
+            salt,
+            mpis));
+        let pp = php.ok(sig.into())?;
+
+        Signature::parse_finish(indent, pp, hash_algo)
     }
 }
 
 impl Signature4 {
     // Parses a signature packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>)
-        -> Result<PacketParser<'a>>
+    fn parse(mut php: PacketHeaderParser)
+             -> Result<PacketParser>
     {
         let indent = php.recursion_depth();
         tracer!(TRACE, "Signature4::parse", indent);
@@ -1349,98 +1624,20 @@ impl Signature4 {
             crypto::mpi::Signature::_parse(pk_algo, &mut php));
 
         let typ = typ.into();
-        let need_hash = HashingMode::for_signature(hash_algo, typ);
-        let mut pp = php.ok(Packet::Signature(Signature4::new(
+        let pp = php.ok(Packet::Signature(Signature4::new(
             typ, pk_algo, hash_algo,
             hashed_area,
             unhashed_area,
             [digest_prefix1, digest_prefix2],
             mpis).into()))?;
 
-        // Locate the corresponding HashedReader and extract the
-        // computed hash.
-        let mut computed_digest = None;
-        {
-            let recursion_depth = pp.recursion_depth();
-
-            // We know that the top reader is not a HashedReader (it's
-            // a buffered_reader::Dup).  So, start with it's child.
-            let mut r = (&mut pp.reader).get_mut();
-            while let Some(tmp) = r {
-                {
-                    let cookie = tmp.cookie_mut();
-
-                    assert!(cookie.level.unwrap_or(-1)
-                            <= recursion_depth);
-                    // The HashedReader has to be at level
-                    // 'recursion_depth - 1'.
-                    if cookie.level.is_none()
-                        || cookie.level.unwrap() < recursion_depth - 1 {
-                            break
-                        }
-
-                    if cookie.hashes_for == HashesFor::Signature {
-                        // When verifying cleartext signed messages,
-                        // we may have more signatures than
-                        // one-pass-signature packets, but are
-                        // guaranteed to only have one signature
-                        // group.
-                        //
-                        // Only decrement the count when hashing for
-                        // signatures, not when hashing for cleartext
-                        // signatures.
-                        cookie.sig_group_mut().ops_count -= 1;
-                    }
-
-                    if cookie.hashes_for == HashesFor::Signature
-                        || cookie.hashes_for == HashesFor::CleartextSignature
-                    {
-                        if let Some(hash) =
-                            cookie.sig_group().hashes.iter().find_map(
-                                |mode|
-                                if mode.map(|ctx| ctx.algo()) == need_hash {
-                                    Some(mode.as_ref())
-                                } else {
-                                    None
-                                })
-                        {
-                            t!("found a {:?} HashedReader", need_hash);
-                            computed_digest = Some((cookie.signature_level(),
-                                                    hash.clone()));
-                        }
-
-                        if cookie.sig_group_unused() {
-                            cookie.sig_group_pop();
-                        }
-                        break;
-                    }
-                }
-
-                r = tmp.get_mut();
-            }
-        }
-
-        if let Some((level, mut hash)) = computed_digest {
-            if let Packet::Signature(ref mut sig) = pp.packet {
-                sig.hash(&mut hash);
-
-                let mut digest = vec![0u8; hash.digest_size()];
-                let _ = hash.digest(&mut digest);
-
-                sig.set_computed_digest(Some(digest));
-                sig.set_level(level);
-            } else {
-                unreachable!()
-            }
-        }
-
-        Ok(pp)
+        Signature::parse_finish(indent, pp, hash_algo)
     }
 
     /// Returns whether the data appears to be a signature (no promises).
-    fn plausible<T: BufferedReader<Cookie>>(
-        bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
-                 -> Result<()> {
+    fn plausible(bio: &mut dyn BufferedReader<Cookie>, header: &Header)
+        -> Result<()>
+    {
         // The absolute minimum size for the header is 11 bytes (this
         // doesn't include the signature MPIs).
 
@@ -1483,12 +1680,54 @@ impl Signature4 {
     }
 }
 
-impl_parse_generic_packet!(Signature);
+impl Signature3 {
+    // Parses a v3 signature packet.
+    fn parse(mut php: PacketHeaderParser)
+             -> Result<PacketParser>
+    {
+        let indent = php.recursion_depth();
+        tracer!(TRACE, "Signature3::parse", indent);
+
+        make_php_try!(php);
+
+        let len = php_try!(php.parse_u8("hashed length"));
+        if len != 5 {
+            return php.fail("invalid length \
+                             (a v3 sig has 5 bytes of hashed data)");
+        }
+        let typ = php_try!(php.parse_u8("type"));
+        let creation_time: Timestamp
+            = php_try!(php.parse_be_u32("creation_time")).into();
+        let issuer: KeyID
+            = KeyID::from_bytes(&php_try!(php.parse_bytes("issuer", 8))[..]);
+        let pk_algo: PublicKeyAlgorithm
+            = php_try!(php.parse_u8("pk_algo")).into();
+        let hash_algo: HashAlgorithm =
+            php_try!(php.parse_u8("hash_algo")).into();
+        let digest_prefix1 = php_try!(php.parse_u8("digest_prefix1"));
+        let digest_prefix2 = php_try!(php.parse_u8("digest_prefix2"));
+        if ! pk_algo.for_signing() {
+            return php.fail("not a signature algorithm");
+        }
+        let mpis = php_try!(
+            crypto::mpi::Signature::_parse(pk_algo, &mut php));
+
+        let typ = typ.into();
+        let pp = php.ok(Packet::Signature(Signature3::new(
+            typ, creation_time, issuer, pk_algo, hash_algo,
+            [digest_prefix1, digest_prefix2],
+            mpis).into()))?;
+
+        Signature::parse_finish(indent, pp, hash_algo)
+    }
+}
+
+impl_parse_with_buffered_reader!(Signature);
 
 #[test]
 fn signature_parser_test () {
     use crate::serialize::MarshalInto;
-    let data = crate::tests::message("sig.gpg");
+    let data = crate::tests::message("sig.pgp");
 
     {
         let pp = PacketParser::from_bytes(data).unwrap().unwrap();
@@ -1510,11 +1749,10 @@ fn signature_parser_test () {
 
 impl SubpacketArea {
     // Parses a subpacket area.
-    fn parse<'a, T>(php: &mut PacketHeaderParser<T>,
-                    mut limit: usize,
-                    hash_algo: HashAlgorithm)
-                    -> Result<Self>
-    where T: 'a + BufferedReader<Cookie>,
+    fn parse(php: &mut PacketHeaderParser,
+             mut limit: usize,
+             hash_algo: HashAlgorithm)
+             -> Result<Self>
     {
         let indent = php.recursion_depth();
         tracer!(TRACE, "SubpacketArea::parse", indent);
@@ -1536,11 +1774,10 @@ impl SubpacketArea {
 
 impl Subpacket {
     // Parses a raw subpacket.
-    fn parse<'a, T>(php: &mut PacketHeaderParser<T>,
-                    limit: usize,
-                    hash_algo: HashAlgorithm)
-                    -> Result<Self>
-    where T: 'a + BufferedReader<Cookie>,
+    fn parse(php: &mut PacketHeaderParser,
+             limit: usize,
+             hash_algo: HashAlgorithm)
+             -> Result<Self>
     {
         let length = SubpacketLength::parse(&mut php.reader)?;
         php.field("subpacket length", length.serialized_len());
@@ -1568,6 +1805,7 @@ impl Subpacket {
         // Then clear it from the type and convert it.
         let tag: SubpacketTag = (tag & !(1 << 7)).into();
 
+        #[allow(deprecated)]
         let value = match tag {
             SubpacketTag::SignatureCreationTime =>
                 SubpacketValue::SignatureCreationTime(
@@ -1604,7 +1842,7 @@ impl Subpacket {
                         .iter().map(|o| (*o).into()).collect()),
             SubpacketTag::RevocationKey => {
                 // 1 octet of class, 1 octet of pk algorithm, 20 bytes
-                // for a v4 fingerprint and 32 bytes for a v5
+                // for a v4 fingerprint and 32 bytes for a v6
                 // fingerprint.
                 if len < 22 {
                     return Err(Error::MalformedPacket(
@@ -1613,8 +1851,9 @@ impl Subpacket {
                 }
                 let class = php.parse_u8("class")?;
                 let pk_algo = php.parse_u8("pk algo")?.into();
-                let fp = Fingerprint::from_bytes(
-                    &php.parse_bytes("fingerprint", len - 2)?);
+                let fp = Fingerprint::from_bytes_intern(
+                    None,
+                    &php.parse_bytes("fingerprint", len - 2)?)?;
                 SubpacketValue::RevocationKey(
                     RevocationKey::from_bits(pk_algo, fp, class)?)
             },
@@ -1707,7 +1946,7 @@ impl Subpacket {
                 let version = php.parse_u8("version")?;
                 if let Some(expect_len) = match version {
                     4 => Some(1 + 20),
-                    5 => Some(1 + 32),
+                    6 => Some(1 + 32),
                     _ => None,
                 } {
                     if len != expect_len {
@@ -1719,17 +1958,8 @@ impl Subpacket {
                 }
                 let bytes = php.parse_bytes("issuer fp", len - 1)?;
                 SubpacketValue::IssuerFingerprint(
-                    match version {
-                        4 => Fingerprint::from_bytes(&bytes),
-                        // XXX: Fix once we dig V5.
-                        5 => Fingerprint::Invalid(bytes.into()),
-                        _ => Fingerprint::Invalid(bytes.into()),
-                    })
+                    Fingerprint::from_bytes(version, &bytes)?)
             },
-            SubpacketTag::PreferredAEADAlgorithms =>
-                SubpacketValue::PreferredAEADAlgorithms(
-                    php.parse_bytes("pref aead algos", len)?
-                        .iter().map(|o| (*o).into()).collect()),
             SubpacketTag::IntendedRecipient => {
                 if len == 0 {
                     return Err(Error::MalformedPacket(
@@ -1738,7 +1968,7 @@ impl Subpacket {
                 let version = php.parse_u8("version")?;
                 if let Some(expect_len) = match version {
                     4 => Some(1 + 20),
-                    5 => Some(1 + 32),
+                    6 => Some(1 + 32),
                     _ => None,
                 } {
                     if len != expect_len {
@@ -1750,25 +1980,20 @@ impl Subpacket {
                 }
                 let bytes = php.parse_bytes("intended rcpt", len - 1)?;
                 SubpacketValue::IntendedRecipient(
-                    match version {
-                        4 => Fingerprint::from_bytes(&bytes),
-                        // XXX: Fix once we dig V5.
-                        5 => Fingerprint::Invalid(bytes.into()),
-                        _ => Fingerprint::Invalid(bytes.into()),
-                    })
+                    Fingerprint::from_bytes(version, &bytes)?)
             },
-            SubpacketTag::AttestedCertifications => {
+            SubpacketTag::ApprovedCertifications => {
                 // If we don't know the hash algorithm, put all digest
                 // into one bucket.  That way, at least it will
                 // roundtrip.  It will never verify, because we don't
                 // know the hash.
                 let digest_size =
-                    hash_algo.context().map(|c| c.digest_size())
+                    hash_algo.context().map(|c| c.for_digest().digest_size())
                     .unwrap_or(len);
 
                 if digest_size == 0 {
                     // Empty body with unknown hash algorithm.
-                    SubpacketValue::AttestedCertifications(
+                    SubpacketValue::ApprovedCertifications(
                         Vec::with_capacity(0))
                 } else {
                     if len % digest_size != 0 {
@@ -1777,12 +2002,28 @@ impl Subpacket {
                                 .into()).into());
                     }
                     let bytes = php.parse_bytes("attested crts", len)?;
-                    SubpacketValue::AttestedCertifications(
+                    SubpacketValue::ApprovedCertifications(
                         bytes.chunks(digest_size).map(Into::into).collect())
                 }
             },
+
+            SubpacketTag::PreferredAEADCiphersuites => {
+                if len % 2 != 0 {
+                    return Err(Error::BadSignature(
+                        "Wrong number of bytes in preferred AEAD \
+                         Ciphersuites subpacket"
+                            .into()).into());
+                }
+
+                SubpacketValue::PreferredAEADCiphersuites(
+                    php.parse_bytes("pref aead ciphersuites", len)?
+                        .chunks(2).map(|o| (o[0].into(),
+                                            o[1].into())).collect())
+            },
+
             SubpacketTag::Reserved(_)
                 | SubpacketTag::PlaceholderForBackwardCompatibility
+                | SubpacketTag::PreferredAEADAlgorithms
                 | SubpacketTag::Private(_)
                 | SubpacketTag::Unknown(_) =>
                 SubpacketValue::Unknown {
@@ -1861,32 +2102,34 @@ quickcheck! {
 }
 
 impl OnePassSig {
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(php: PacketHeaderParser<T>)
-        -> Result<PacketParser<'a>>
-    {
-        OnePassSig3::parse(php)
-    }
-}
-
-impl_parse_generic_packet!(OnePassSig);
-
-impl OnePassSig3 {
-    #[allow(clippy::blocks_in_if_conditions)]
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>)
-        -> Result<PacketParser<'a>>
-    {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
         let indent = php.recursion_depth();
         tracer!(TRACE, "OnePassSig", indent);
 
         make_php_try!(php);
 
         let version = php_try!(php.parse_u8("version"));
-        if version != 3 {
-            t!("Ignoring version {} packet", version);
+        match version {
+            3 => OnePassSig3::parse(php),
+            6 => OnePassSig6::parse(php),
+            _ => {
+                t!("Ignoring version {} packet", version);
 
-            // Unknown version.  Return an unknown packet.
-            return php.fail("unknown version");
+                // Unknown version.  Return an unknown packet.
+                php.fail("unknown version")
+            },
         }
+    }
+}
+
+impl_parse_with_buffered_reader!(OnePassSig);
+
+impl OnePassSig3 {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        let indent = php.recursion_depth();
+        tracer!(TRACE, "OnePassSig3", indent);
+
+        make_php_try!(php);
 
         let typ = php_try!(php.parse_u8("type"));
         let hash_algo = php_try!(php.parse_u8("hash_algo"));
@@ -1902,7 +2145,7 @@ impl OnePassSig3 {
         sig.set_pk_algo(pk_algo.into());
         sig.set_issuer(KeyID::from_bytes(&issuer));
         sig.set_last_raw(last);
-        let need_hash = HashingMode::for_signature(hash_algo, typ);
+        let need_hash = HashingMode::for_salt_and_type(hash_algo, &[], typ);
 
         let recursion_depth = php.recursion_depth();
 
@@ -1938,14 +2181,313 @@ impl OnePassSig3 {
 
                                 // Make sure that it uses the required
                                 // hash algorithm.
-                                if ! cookie.sig_group().hashes.iter()
+                                if php.state.settings.automatic_hashing
+                                    && ! cookie.sig_group().hashes.iter()
                                     .any(|mode| {
                                         mode.map(|ctx| ctx.algo()) == need_hash
                                     })
                                 {
                                     if let Ok(ctx) = hash_algo.context() {
+                                        let ctx = ctx.for_signature(4);
                                         cookie.sig_group_mut().hashes.push(
-                                            HashingMode::for_signature(Box::new(ctx), typ)
+                                            HashingMode::for_salt_and_type(
+                                                ctx, &[], typ)
+                                        );
+                                    }
+                                }
+
+                                // Account for this OPS packet.
+                                cookie.sig_group_mut().ops_count += 1;
+
+                                // Keep track of the last flag.
+                                cookie.saw_last = last > 0;
+
+                                // We're done.
+                                done = true;
+                                break;
+                            }
+                    } else {
+                        break;
+                    }
+                }
+                reader = r.get_mut();
+            }
+            done
+        };
+        // Commit here after potentially pushing a signature group.
+        let mut pp = php.ok(Packet::OnePassSig(sig.into()))?;
+        if done {
+            return Ok(pp);
+        }
+
+        // We create an empty hashed reader even if we don't support
+        // the hash algorithm so that we have something to match
+        // against when we get to the Signature packet.  Or, automatic
+        // hashing may be disabled, and we want to be able to enable
+        // it explicitly.
+        let mut algos = Vec::new();
+        if pp.state.settings.automatic_hashing && hash_algo.is_supported() {
+            algos.push(HashingMode::for_salt_and_type(hash_algo, &[], typ));
+        }
+
+        // We can't push the HashedReader on the BufferedReader stack:
+        // when we finish processing this OnePassSig packet, it will
+        // be popped.  Instead, we need to insert it at the next
+        // higher level.  Unfortunately, this isn't possible.  But,
+        // since we're done reading the current packet, we can pop the
+        // readers associated with it, and then push the HashedReader.
+        // This is a bit of a layering violation, but I (Neal) can't
+        // think of a more elegant solution.
+
+        assert!(pp.reader.cookie_ref().level <= Some(recursion_depth));
+        let (fake_eof, reader)
+            = buffered_reader_stack_pop(Box::new(pp.take_reader()),
+                                        recursion_depth)?;
+        // We only pop the buffered readers for the OPS, and we
+        // (currently) never use a fake eof for OPS packets.
+        assert!(! fake_eof);
+
+        let mut reader = HashedReader::new(
+            reader, want_hashes_for, algos)?;
+        reader.cookie_mut().level = Some(recursion_depth - 1);
+        // Account for this OPS packet.
+        reader.cookie_mut().sig_group_mut().ops_count += 1;
+        // Keep track of the last flag.
+        reader.cookie_mut().saw_last = last > 0;
+
+        t!("Pushed a hashed reader, level {:?}", reader.cookie_mut().level);
+
+        // We add an empty limitor on top of the hashed reader,
+        // because when we are done processing a packet,
+        // PacketParser::finish discards any unread data from the top
+        // reader.  Since the top reader is the HashedReader, this
+        // discards any following packets.  To prevent this, we push a
+        // Limitor on the reader stack.
+        let mut reader = buffered_reader::Limitor::with_cookie(
+            reader, 0, Cookie::default());
+        reader.cookie_mut().level = Some(recursion_depth);
+
+        pp.reader = Box::new(reader);
+
+        Ok(pp)
+    }
+}
+
+impl PacketParser<'_> {
+    /// Starts hashing for the current [`OnePassSig`] packet.
+    ///
+    /// If automatic hashing is disabled using
+    /// [`PacketParserBuilder::automatic_hashing`], then hashing can
+    /// be explicitly enabled while parsing a [`OnePassSig`] packet.
+    ///
+    /// If this function is called on a packet other than a
+    /// [`OnePassSig`] packet, it returns [`Error::InvalidOperation`].
+    ///
+    ///   [`Error::InvalidOperation`]: crate::Error::InvalidOperation
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::{Cert, Packet};
+    /// # use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+    /// // Parse a signed message, verify using the signer's key.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/signed-1-eddsa-ed25519.pgp");
+    /// # let cert: Cert = // ...
+    /// #    Cert::from_bytes(include_bytes!("../tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))?;
+    /// let signer = // ...
+    /// #    cert.primary_key().key();
+    /// let mut good = false;
+    /// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
+    ///     .automatic_hashing(false)
+    ///     .build()?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     if let Packet::OnePassSig(_) = &pp.packet {
+    ///         pp.start_hashing()?;
+    ///     }
+    ///     if let Packet::Signature(sig) = &mut pp.packet {
+    ///         good |= sig.verify_document(signer).is_ok();
+    ///     }
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// assert!(good);
+    /// # Ok(()) }
+    /// ```
+    pub fn start_hashing(&mut self) -> Result<()> {
+        let ops: &OnePassSig = self.packet.downcast_ref()
+            .ok_or_else(|| Error::InvalidOperation(
+                "Must only be invoked on one-pass-signature packets".into())
+            )?;
+
+        let sig_version = match ops.version() {
+            3 => 4,
+            n => return Err(Error::InvalidOperation(
+                format!("don't know how to hash for v{} one pass sig",
+                        n)).into()),
+        };
+
+        let hash_algo = ops.hash_algo();
+        let typ = ops.typ();
+        let salt = ops.salt().unwrap_or(&[]);
+        let need_hash = HashingMode::for_salt_and_type(hash_algo, salt, typ);
+        let recursion_depth = self.recursion_depth();
+        let want_hashes_for = if Cookie::processing_csf_message(&self.reader) {
+            HashesFor::CleartextSignature
+        } else {
+            HashesFor::Signature
+        };
+
+        // Walk up the reader chain to find the hashed reader on level
+        // recursion_depth - 1.
+        let mut reader : Option<&mut dyn BufferedReader<Cookie>>
+            = Some(&mut self.reader);
+        while let Some(r) = reader {
+            {
+                let cookie = r.cookie_mut();
+                if let Some(br_level) = cookie.level {
+                    if br_level < recursion_depth - 1 {
+                        break;
+                    }
+                    if br_level == recursion_depth - 1
+                        && cookie.hashes_for == want_hashes_for {
+                            // We found a suitable hashed reader.
+                            // Make sure that it uses the required
+                            // hash algorithm.
+                            if ! cookie.sig_group().hashes.iter()
+                                .any(|mode| {
+                                    mode.map(|ctx| ctx.algo()) == need_hash
+                                })
+                            {
+                                let mut ctx = hash_algo.context()?
+                                    .for_signature(sig_version);
+
+                                ctx.update(&salt);
+                                cookie.sig_group_mut().hashes.push(
+                                    HashingMode::for_salt_and_type(
+                                        ctx, salt, typ));
+                            }
+                            break;
+                        }
+                } else {
+                    break;
+                }
+            }
+            reader = r.get_mut();
+        }
+
+        Ok(())
+    }
+}
+
+#[test]
+fn one_pass_sig3_parser_test () {
+    use crate::SignatureType;
+    use crate::PublicKeyAlgorithm;
+
+    // This test assumes that the first packet is a OnePassSig packet.
+    let data = crate::tests::message("signed-1.pgp");
+    let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
+    let p = pp.finish().unwrap();
+    // eprintln!("packet: {:?}", p);
+
+    if let &Packet::OnePassSig(ref p) = p {
+        assert_eq!(p.version(), 3);
+        assert_eq!(p.typ(), SignatureType::Binary);
+        assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
+        assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(format!("{:X}", p.issuer()), "7223B56678E02528");
+        assert_eq!(p.last_raw(), 1);
+    } else {
+        panic!("Wrong packet!");
+    }
+}
+
+impl_parse_with_buffered_reader!(
+    OnePassSig3,
+    |reader| -> Result<Self> {
+        OnePassSig::from_buffered_reader(reader).and_then(|p| match p {
+            OnePassSig::V3(p) => Ok(p),
+            p => Err(Error::InvalidOperation(
+                format!("Not a OnePassSig::V3 packet: {:?}", p)).into()),
+        })
+    });
+
+impl OnePassSig6 {
+    #[allow(clippy::blocks_in_conditions)]
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        let indent = php.recursion_depth();
+        tracer!(TRACE, "OnePassSig6", indent);
+
+        make_php_try!(php);
+
+        let typ = php_try!(php.parse_u8("type"));
+        let hash_algo = php_try!(php.parse_u8("hash_algo"));
+        let pk_algo = php_try!(php.parse_u8("pk_algo"));
+        let salt_len = php_try!(php.parse_u8("salt_len"));
+        let salt = php_try!(php.parse_bytes("salt", salt_len.into()));
+        let mut issuer = [0u8; 32];
+        issuer.copy_from_slice(&php_try!(php.parse_bytes("issuer", 32)));
+        let last = php_try!(php.parse_u8("last"));
+
+        let hash_algo = hash_algo.into();
+        let typ = typ.into();
+        let mut sig =
+            OnePassSig6::new(typ, Fingerprint::from_bytes(6, &issuer)?);
+        sig.set_salt(salt.clone());
+        sig.set_hash_algo(hash_algo);
+        sig.set_pk_algo(pk_algo.into());
+        sig.set_last_raw(last);
+        let need_hash = HashingMode::for_salt_and_type(hash_algo, &salt, typ);
+
+        let recursion_depth = php.recursion_depth();
+
+        // Check if we are processing a cleartext signed message.
+        let want_hashes_for = if Cookie::processing_csf_message(&php.reader) {
+            HashesFor::CleartextSignature
+        } else {
+            HashesFor::Signature
+        };
+
+        // Walk up the reader chain to see if there is already a
+        // hashed reader on level recursion_depth - 1.
+        let done = {
+            let mut done = false;
+            let mut reader : Option<&mut dyn BufferedReader<Cookie>>
+                = Some(&mut php.reader);
+            while let Some(r) = reader {
+                {
+                    let cookie = r.cookie_mut();
+                    if let Some(br_level) = cookie.level {
+                        if br_level < recursion_depth - 1 {
+                            break;
+                        }
+                        if br_level == recursion_depth - 1
+                            && cookie.hashes_for == want_hashes_for {
+                                // We found a suitable hashed reader.
+                                if cookie.saw_last {
+                                    cookie.sig_group_push();
+                                    cookie.saw_last = false;
+                                    cookie.hash_stash =
+                                        Some(php.header_bytes.clone());
+                                }
+
+                                // Make sure that it uses the required
+                                // hash algorithm.
+                                if php.state.settings.automatic_hashing
+                                    && ! cookie.sig_group().hashes.iter()
+                                    .any(|mode| {
+                                        mode.map(|ctx| ctx.algo()) == need_hash
+                                    })
+                                {
+                                    if let Ok(ctx) = hash_algo.context() {
+                                        let mut ctx = ctx.for_signature(6);
+                                        ctx.update(&salt);
+                                        cookie.sig_group_mut().hashes.push(
+                                            HashingMode::for_salt_and_type(
+                                                ctx, &salt, typ)
                                         );
                                     }
                                 }
@@ -1978,8 +2520,8 @@ impl OnePassSig3 {
         // the hash algorithm so that we have something to match
         // against when we get to the Signature packet.
         let mut algos = Vec::new();
-        if hash_algo.is_supported() {
-            algos.push(HashingMode::for_signature(hash_algo, typ));
+        if pp.state.settings.automatic_hashing && hash_algo.is_supported() {
+            algos.push(HashingMode::for_salt_and_type(hash_algo, &salt, typ));
         }
 
         // We can't push the HashedReader on the BufferedReader stack:
@@ -2000,7 +2542,7 @@ impl OnePassSig3 {
         assert!(! fake_eof);
 
         let mut reader = HashedReader::new(
-            reader, want_hashes_for, algos);
+            reader, want_hashes_for, algos)?;
         reader.cookie_mut().level = Some(recursion_depth - 1);
         // Account for this OPS packet.
         reader.cookie_mut().sig_group_mut().ops_count += 1;
@@ -2025,40 +2567,15 @@ impl OnePassSig3 {
     }
 }
 
-#[test]
-fn one_pass_sig_parser_test () {
-    use crate::SignatureType;
-    use crate::PublicKeyAlgorithm;
-
-    // This test assumes that the first packet is a OnePassSig packet.
-    let data = crate::tests::message("signed-1.gpg");
-    let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
-    let p = pp.finish().unwrap();
-    // eprintln!("packet: {:?}", p);
-
-    if let &Packet::OnePassSig(ref p) = p {
-        assert_eq!(p.version(), 3);
-        assert_eq!(p.typ(), SignatureType::Binary);
-        assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
-        assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(format!("{:X}", p.issuer()), "7223B56678E02528");
-        assert_eq!(p.last_raw(), 1);
-    } else {
-        panic!("Wrong packet!");
-    }
-}
-
-impl<'a> Parse<'a, OnePassSig3> for OnePassSig3 {
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-        OnePassSig::from_reader(reader).map(|p| match p {
-            OnePassSig::V3(p) => p,
-            // XXX: Once we have a second variant.
-            //
-            // p => Err(Error::InvalidOperation(
-            //     format!("Not a OnePassSig::V3 packet: {:?}", p)).into()),
+impl_parse_with_buffered_reader!(
+    OnePassSig6,
+    |reader| -> Result<Self> {
+        OnePassSig::from_buffered_reader(reader).and_then(|p| match p {
+            OnePassSig::V6(p) => Ok(p),
+            p => Err(Error::InvalidOperation(
+                format!("Not a OnePassSig::V6 packet: {:?}", p)).into()),
         })
-    }
-}
+    });
 
 #[test]
 fn one_pass_sig_test () {
@@ -2069,15 +2586,15 @@ fn one_pass_sig_test () {
 
     let tests = [
             Test {
-                filename: "signed-1.gpg",
+                filename: "signed-1.pgp",
                 digest_prefix: vec![ [ 0x83, 0xF5 ] ],
             },
             Test {
-                filename: "signed-2-partial-body.gpg",
+                filename: "signed-2-partial-body.pgp",
                 digest_prefix: vec![ [ 0x2F, 0xBE ] ],
             },
             Test {
-                filename: "signed-3-partial-body-multiple-sigs.gpg",
+                filename: "signed-3-partial-body-multiple-sigs.pgp",
                 digest_prefix: vec![ [ 0x29, 0x64 ], [ 0xff, 0x7d ] ],
             },
     ];
@@ -2132,7 +2649,8 @@ impl Key<key::UnspecifiedParts, key::UnspecifiedRole>
 {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "Key::parse", php.recursion_depth());
         make_php_try!(php);
         let tag = php.header.ctb().tag();
         assert!(tag == Tag::Reserved
@@ -2144,15 +2662,44 @@ impl Key<key::UnspecifiedParts, key::UnspecifiedRole>
 
         match version {
             4 => Key4::parse(php),
+            6 => Key6::parse(php),
             _ => php.fail("unknown version"),
         }
     }
 
     /// Returns whether the data appears to be a key (no promises).
-    fn plausible<T: BufferedReader<Cookie>>(
-        bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
-                 -> Result<()> {
-        Key4::plausible(bio, header)
+    fn plausible(bio: &mut dyn BufferedReader<Cookie>, header: &Header)
+        -> Result<()>
+    {
+        // The packet's header is 6 bytes.
+        if let BodyLength::Full(len) = header.length() {
+            if *len < 6 {
+                // Much too short.
+                return Err(Error::MalformedPacket(
+                    format!("Packet too short ({} bytes)", len)).into());
+            }
+        } else {
+            return Err(
+                Error::MalformedPacket(
+                    format!("Unexpected body length encoding: {:?}",
+                            header.length())).into());
+        }
+
+        // Make sure we have a minimum header.
+        let data = bio.data(6)?;
+        if data.len() < 6 {
+            return Err(
+                Error::MalformedPacket("Short read".into()).into());
+        }
+
+        // Assume unknown == bad.
+        let version = data[0];
+        match version {
+            4 => Key4::plausible(bio, header),
+            6 => Key6::plausible(bio, header),
+            n => Err(Error::MalformedPacket(
+                format!("Unknown version {}", n)).into()),
+        }
     }
 }
 
@@ -2163,7 +2710,8 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
 {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "Key4::parse", php.recursion_depth());
         make_php_try!(php);
         let tag = php.header.ctb().tag();
         assert!(tag == Tag::Reserved
@@ -2186,14 +2734,48 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                             Some(mpi::SecretKeyChecksum::Sum16)));
                     sec.into()
                 }
-                // Encrypted & MD5 for key derivation: unsupported
-                1..=253 => {
-                    return php.fail("unsupported secret key encryption");
-                }
-                // Encrypted, S2K & SHA-1 checksum
-                254 | 255 => {
-                    let sk: SymmetricAlgorithm = php_try!(php.parse_u8("sym_algo")).into();
-                    let s2k = php_try!(S2K::parse(&mut php));
+
+                // AEAD encrypted secrets.
+                253 => {
+                    let sym_algo: SymmetricAlgorithm =
+                        php_try!(php.parse_u8("sym_algo")).into();
+
+                    let aead_algo: AEADAlgorithm =
+                        php_try!(php.parse_u8("aead_algo")).into();
+
+                    let s2k = php_try!(S2K::parse_v4(&mut php));
+
+                    let aead_iv = php_try!(php.parse_bytes(
+                        "aead_iv",
+                        // If we don't know the AEAD mode, we won't
+                        // know the nonce size, and all the IV will
+                        // end up in the ciphertext.  This is an
+                        // inherent limitation of the v4 packet
+                        // format.
+                        aead_algo.nonce_size().unwrap_or(0)))
+                        .into();
+
+                    let cipher =
+                        php_try!(php.parse_bytes_eof("encrypted_mpis"))
+                        .into_boxed_slice();
+
+                    crate::packet::key::Encrypted::new_aead(
+                        s2k, sym_algo, aead_algo, aead_iv, cipher).into()
+                },
+
+                // Encrypted, whether we support the S2K method or not.
+                _ => {
+                    let sk: SymmetricAlgorithm = match s2k_usage {
+                        254 | 255 =>
+                            php_try!(php.parse_u8("sym_algo")).into(),
+                        _ => s2k_usage.into(),
+                    };
+                    let s2k = match s2k_usage {
+                        254 | 255 => php_try!(S2K::parse_v4(&mut php)),
+                        _ => {
+                            #[allow(deprecated)] S2K::Implicit
+                        },
+                    };
                     let s2k_supported = s2k.is_supported();
                     let cipher =
                         php_try!(php.parse_bytes_eof("encrypted_mpis"))
@@ -2201,13 +2783,13 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
 
                     crate::packet::key::Encrypted::new_raw(
                         s2k, sk,
-                        if s2k_usage == 254 {
-                            Some(mpi::SecretKeyChecksum::SHA1)
-                        } else {
-                            Some(mpi::SecretKeyChecksum::Sum16)
+                        match s2k_usage {
+                            254 => Some(mpi::SecretKeyChecksum::SHA1),
+                            255 => Some(mpi::SecretKeyChecksum::Sum16),
+                            _ => Some(mpi::SecretKeyChecksum::Sum16),
                         },
                         if s2k_supported {
-                            Ok(cipher)
+                            Ok((0, cipher))
                         } else {
                             Err(cipher)
                         },
@@ -2239,8 +2821,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             -> Result<Key4<key::PublicParts, R>>
             where R: key::KeyRole
         {
-            Key4::new(Timestamp::from(creation_time),
-                      pk_algo, mpis)
+            Key4::make(creation_time.into(), pk_algo, mpis, None)
         }
         fn s<R>(creation_time: u32,
                 pk_algo: PublicKeyAlgorithm,
@@ -2249,8 +2830,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             -> Result<Key4<key::SecretParts, R>>
             where R: key::KeyRole
         {
-            Key4::with_secret(Timestamp::from(creation_time),
-                              pk_algo, mpis, secret)
+            Key4::make(creation_time.into(), pk_algo, mpis, Some(secret))
         }
 
         let tag = php.header.ctb().tag();
@@ -2281,24 +2861,13 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
         php.ok(p)
     }
 
-    /// Returns whether the data appears to be a key (no promises).
-    fn plausible<T: BufferedReader<Cookie>>(
-        bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
-                 -> Result<()> {
-        // The packet's header is 6 bytes.
-        if let BodyLength::Full(len) = header.length() {
-            if *len < 6 {
-                // Much too short.
-                return Err(Error::MalformedPacket(
-                    format!("Packet too short ({} bytes)", len)).into());
-            }
-        } else {
-            return Err(
-                Error::MalformedPacket(
-                    format!("Unexpected body length encoding: {:?}",
-                            header.length())).into());
-        }
-
+    /// Returns whether the data appears to be a version 4 key (no
+    /// promises).
+    fn plausible<C>(bio: &mut dyn BufferedReader<C>, _: &Header)
+                    -> Result<()>
+    where
+        C: fmt::Debug + Send + Sync,
+    {
         // Make sure we have a minimum header.
         let data = bio.data(6)?;
         if data.len() < 6 {
@@ -2319,11 +2888,238 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
     }
 }
 
-impl<'a> Parse<'a, key::UnspecifiedKey> for key::UnspecifiedKey {
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-        let bio = buffered_reader::Generic::with_cookie(
-            reader, None, Cookie::default());
-        let parser = PacketHeaderParser::new_naked(bio);
+// Key6::parse doesn't actually use the Key6 type parameters.  So, we
+// can just set them to anything.  This avoids the caller having to
+// set them to something.
+impl Key6<key::UnspecifiedParts, key::UnspecifiedRole>
+{
+    /// Parses the body of a public key, public subkey, secret key or
+    /// secret subkey packet.
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "Key6::parse", php.recursion_depth());
+        make_php_try!(php);
+        let tag = php.header.ctb().tag();
+        assert!(tag == Tag::Reserved
+                || tag == Tag::PublicKey
+                || tag == Tag::PublicSubkey
+                || tag == Tag::SecretKey
+                || tag == Tag::SecretSubkey);
+
+        let creation_time = php_try!(php.parse_be_u32("creation_time"));
+        let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
+
+        let public_len = php_try!(php.parse_be_u32("public_len"));
+        let public_mpis =
+            php.variable_sized_field_start("public_mpis", public_len);
+        let mpis = php_try!(PublicKey::_parse(pk_algo, &mut php));
+        php_try!(php.variable_sized_field_end(public_mpis));
+
+        let secret = if let Ok(s2k_usage) = php.parse_u8("s2k_usage") {
+            use crypto::mpi;
+            let sec = match s2k_usage {
+                // Unencrypted secrets.
+                0 => {
+                    let sec = php_try!(
+                        mpi::SecretKeyMaterial::_parse(
+                            pk_algo, &mut php, None));
+                    sec.into()
+                },
+
+                // Encrypted & MD5 for key derivation: unsupported.
+                //
+                // XXX: Technically, we could/should parse them, then
+                // fail later.  But, this limitation has been with us
+                // since the beginning, and no-one complained.
+                1..=252 => {
+                    return php.fail("unsupported secret key encryption");
+                },
+
+                // AEAD encrypted secrets.
+                253 => {
+                    let parameters_len =
+                        php_try!(php.parse_u8("parameters_len"));
+                    let parameters =
+                        php.variable_sized_field_start("parameters",
+                                                       parameters_len);
+                    let sym_algo: SymmetricAlgorithm =
+                        php_try!(php.parse_u8("sym_algo")).into();
+
+                    let aead_algo: AEADAlgorithm =
+                        php_try!(php.parse_u8("aead_algo")).into();
+
+                    let s2k_len = php_try!(php.parse_u8("s2k_len"));
+                    let s2k_params =
+                        php.variable_sized_field_start("s2k_params", s2k_len);
+                    let s2k = php_try!(S2K::parse_v6(&mut php, s2k_len as _));
+                    php_try!(php.variable_sized_field_end(s2k_params));
+
+                    let aead_iv = php_try!(php.parse_bytes(
+                        "aead_iv",
+                        php.variable_sized_field_remaining(&parameters)))
+                        .into();
+                    php_try!(php.variable_sized_field_end(parameters));
+
+                    let cipher =
+                        php_try!(php.parse_bytes_eof("encrypted_mpis"))
+                        .into_boxed_slice();
+
+                    crate::packet::key::Encrypted::new_aead(
+                        s2k, sym_algo, aead_algo, aead_iv, cipher).into()
+                },
+
+                // Encrypted secrets.
+                254 | 255 => {
+                    let parameters_len =
+                        php_try!(php.parse_u8("parameters_len"));
+                    let parameters =
+                        php.variable_sized_field_start("parameters",
+                                                       parameters_len);
+                    let sym_algo: SymmetricAlgorithm =
+                        php_try!(php.parse_u8("sym_algo")).into();
+
+                    let s2k_len = php_try!(php.parse_u8("s2k_len"));
+                    let s2k_params =
+                        php.variable_sized_field_start("s2k_params", s2k_len);
+                    let s2k = php_try!(S2K::parse_v6(&mut php, s2k_len as _));
+                    php_try!(php.variable_sized_field_end(s2k_params));
+
+                    // The "IV" is part of the sized parameter field.
+                    let cfb_iv = php_try!(php.parse_bytes(
+                        "cfb_iv",
+                        php.variable_sized_field_remaining(&parameters)));
+                    php_try!(php.variable_sized_field_end(parameters));
+
+                    let cipher =
+                        php_try!(php.parse_bytes_eof("encrypted_mpis"));
+
+                    // But we store "IV" and ciphertext as one.
+                    let cfb_iv_len = cfb_iv.len();
+                    let mut combined_ciphertext = cfb_iv;
+                    combined_ciphertext.extend_from_slice(&cipher);
+
+                    crate::packet::key::Encrypted::new_raw(
+                        s2k, sym_algo,
+                        if s2k_usage == 254 {
+                            Some(mpi::SecretKeyChecksum::SHA1)
+                        } else {
+                            Some(mpi::SecretKeyChecksum::Sum16)
+                        },
+                        Ok((cfb_iv_len, combined_ciphertext.into())))
+                        .into()
+                },
+            };
+
+            Some(sec)
+        } else {
+            None
+        };
+
+        let have_secret = secret.is_some();
+        if have_secret {
+            if tag == Tag::PublicKey || tag == Tag::PublicSubkey {
+                return php.error(Error::MalformedPacket(
+                    format!("Unexpected secret key found in {:?} packet", tag)
+                ).into());
+            }
+        } else if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
+            return php.error(Error::MalformedPacket(
+                format!("Expected secret key in {:?} packet", tag)
+            ).into());
+        }
+
+        fn k<R>(creation_time: u32,
+                pk_algo: PublicKeyAlgorithm,
+                mpis: PublicKey)
+            -> Result<Key6<key::PublicParts, R>>
+            where R: key::KeyRole
+        {
+            Key6::make(creation_time.into(), pk_algo, mpis, None)
+        }
+        fn s<R>(creation_time: u32,
+                pk_algo: PublicKeyAlgorithm,
+                mpis: PublicKey,
+                secret: SecretKeyMaterial)
+            -> Result<Key6<key::SecretParts, R>>
+            where R: key::KeyRole
+        {
+            Key6::make(creation_time.into(), pk_algo, mpis, Some(secret))
+        }
+
+        let tag = php.header.ctb().tag();
+
+        let p : Packet = match tag {
+            // For the benefit of Key::from_bytes.
+            Tag::Reserved => if have_secret {
+                Packet::SecretKey(
+                    php_try!(s(creation_time, pk_algo, mpis, secret.unwrap()))
+                        .into())
+            } else {
+                Packet::PublicKey(
+                    php_try!(k(creation_time, pk_algo, mpis)).into())
+            },
+            Tag::PublicKey => Packet::PublicKey(
+                php_try!(k(creation_time, pk_algo, mpis)).into()),
+            Tag::PublicSubkey => Packet::PublicSubkey(
+                php_try!(k(creation_time, pk_algo, mpis)).into()),
+            Tag::SecretKey => Packet::SecretKey(
+                php_try!(s(creation_time, pk_algo, mpis, secret.unwrap()))
+                    .into()),
+            Tag::SecretSubkey => Packet::SecretSubkey(
+                php_try!(s(creation_time, pk_algo, mpis, secret.unwrap()))
+                    .into()),
+            _ => unreachable!(),
+        };
+
+        php.ok(p)
+    }
+
+    /// Returns whether the data appears to be a version 6 key (no
+    /// promises).
+    fn plausible<C>(bio: &mut dyn BufferedReader<C>, header: &Header)
+                    -> Result<()>
+    where
+        C: fmt::Debug + Send + Sync,
+    {
+        // Make sure we have a minimum header.
+        const MIN: usize = 10;
+        let data = bio.data(MIN)?;
+        if data.len() < MIN {
+            return Err(
+                Error::MalformedPacket("Short read".into()).into());
+        }
+
+        // Assume unknown == bad.
+        let version = data[0];
+        let creation_time =
+            u32::from_be_bytes(data[1..5].try_into().unwrap());
+        let pk_algo: PublicKeyAlgorithm = data[5].into();
+        let public_len =
+            u32::from_be_bytes(data[6..10].try_into().unwrap());
+
+        /// The unix time at which RFC9580 was published, 2024-07-31.
+        const RFC9580_PUBLICATION_TIME: u32 = 1722376800;
+
+        if version == 6
+            && !matches!(pk_algo, PublicKeyAlgorithm::Unknown(_))
+            && creation_time >= RFC9580_PUBLICATION_TIME
+            && match header.length() {
+                BodyLength::Full(len) => public_len < *len,
+                _ => false,
+            }
+        {
+            Ok(())
+        } else {
+            Err(Error::MalformedPacket("Invalid or unsupported data".into())
+                .into())
+        }
+    }
+}
+
+use key::UnspecifiedKey;
+impl_parse_with_buffered_reader!(
+    UnspecifiedKey,
+    |br| -> Result<Self> {
+        let parser = PacketHeaderParser::new_naked(br);
 
         let mut pp = Self::parse(parser)?;
         pp.buffer_unread_content()?;
@@ -2333,6 +3129,8 @@ impl<'a> Parse<'a, key::UnspecifiedKey> for key::UnspecifiedKey {
             (Packet::PublicSubkey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
             (Packet::SecretKey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
             (Packet::SecretSubkey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
+            (Packet::Unknown(u), PacketParserResult::EOF(_)) =>
+                Err(u.into_error()),
             (p, PacketParserResult::EOF(_)) =>
                 Err(Error::InvalidOperation(
                     format!("Not a Key packet: {:?}", p)).into()),
@@ -2340,23 +3138,24 @@ impl<'a> Parse<'a, key::UnspecifiedKey> for key::UnspecifiedKey {
                 Err(Error::InvalidOperation(
                     "Excess data after packet".into()).into()),
         }
-    }
-}
+    });
 
 impl Trust {
     /// Parses the body of a trust packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "Trust::parse", php.recursion_depth());
         make_php_try!(php);
         let value = php_try!(php.parse_bytes_eof("value"));
         php.ok(Packet::Trust(Trust::from(value)))
     }
 }
 
-impl_parse_generic_packet!(Trust);
+impl_parse_with_buffered_reader!(Trust);
 
 impl UserID {
     /// Parses the body of a user id packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "UserID::parse", php.recursion_depth());
         make_php_try!(php);
 
         let value = php_try!(php.parse_bytes_eof("value"));
@@ -2365,11 +3164,12 @@ impl UserID {
     }
 }
 
-impl_parse_generic_packet!(UserID);
+impl_parse_with_buffered_reader!(UserID);
 
 impl UserAttribute {
     /// Parses the body of a user attribute packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "UserAttribute::parse", php.recursion_depth());
         make_php_try!(php);
 
         let value = php_try!(php.parse_bytes_eof("value"));
@@ -2378,12 +3178,13 @@ impl UserAttribute {
     }
 }
 
-impl_parse_generic_packet!(UserAttribute);
+impl_parse_with_buffered_reader!(UserAttribute);
 
 impl Marker {
     /// Parses the body of a marker packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>>
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser>
     {
+        tracer!(TRACE, "Marker::parse", php.recursion_depth());
         make_php_try!(php);
         let marker = php_try!(php.parse_bytes("marker", Marker::BODY.len()));
         if &marker[..] == Marker::BODY {
@@ -2394,9 +3195,8 @@ impl Marker {
     }
 
     /// Returns whether the data is a marker packet.
-    fn plausible<T>(bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
+    fn plausible(bio: &mut dyn BufferedReader<Cookie>, header: &Header)
                     -> Result<()>
-        where T: BufferedReader<Cookie>,
     {
         if let BodyLength::Full(len) = header.length() {
             let len = *len;
@@ -2425,14 +3225,15 @@ impl Marker {
     }
 }
 
-impl_parse_generic_packet!(Marker);
+impl_parse_with_buffered_reader!(Marker);
 
 impl Literal {
     /// Parses the body of a literal packet.
     ///
     /// Condition: Hashing has been disabled by the callee.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>>
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser>
     {
+        tracer!(TRACE, "Literal::parse", php.recursion_depth());
         make_php_try!(php);
 
         // Directly hashing a literal data packet is... strange.
@@ -2470,13 +3271,13 @@ impl Literal {
     }
 }
 
-impl_parse_generic_packet!(Literal);
+impl_parse_with_buffered_reader!(Literal);
 
 #[test]
 fn literal_parser_test () {
     use crate::types::DataFormat;
     {
-        let data = crate::tests::message("literal-mode-b.gpg");
+        let data = crate::tests::message("literal-mode-b.pgp");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length(), &BodyLength::Full(18));
         let content = pp.steal_eof().unwrap();
@@ -2493,13 +3294,15 @@ fn literal_parser_test () {
     }
 
     {
-        let data = crate::tests::message("literal-mode-t-partial-body.gpg");
+        let data = crate::tests::message("literal-mode-t-partial-body.pgp");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length(), &BodyLength::Partial(4096));
         let content = pp.steal_eof().unwrap();
         let p = pp.finish().unwrap();
         if let &Packet::Literal(ref p) = p {
-            assert_eq!(p.format(), DataFormat::Text);
+            #[allow(deprecated)] {
+                assert_eq!(p.format(), DataFormat::Text);
+            }
             assert_eq!(p.filename().unwrap()[..],
                        b"manifesto.txt"[..]);
             assert_eq!(p.date().unwrap(), Timestamp::from(1508000649).into());
@@ -2515,13 +3318,16 @@ fn literal_parser_test () {
 
 impl CompressedData {
     /// Parses the body of a compressed data packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
         let recursion_depth = php.recursion_depth();
         tracer!(TRACE, "CompressedData::parse", recursion_depth);
 
         make_php_try!(php);
         let algo: CompressionAlgorithm =
             php_try!(php.parse_u8("algo")).into();
+
+        let recursion_depth = php.recursion_depth();
+        let mut pp = php.ok(Packet::CompressedData(CompressedData::new(algo)))?;
 
         #[allow(unreachable_patterns)]
         match algo {
@@ -2531,15 +3337,14 @@ impl CompressedData {
                 | CompressionAlgorithm::Zlib => (),
             #[cfg(feature = "compression-bzip2")]
             CompressionAlgorithm::BZip2 => (),
-            CompressionAlgorithm::Unknown(_)
-            | CompressionAlgorithm::Private(_) =>
-                return php.fail("unknown compression algorithm"),
-            _ =>
-                return php.fail("unsupported compression algorithm"),
+            _ => {
+                // We don't know or support this algorithm.  Return a
+                // CompressedData packet without pushing a filter, so
+                // that it has an opaque body.
+                t!("Algorithm {} unknown or unsupported.", algo);
+                return Ok(pp.set_processed(false));
+            },
         }
-
-        let recursion_depth = php.recursion_depth();
-        let mut pp = php.ok(Packet::CompressedData(CompressedData::new(algo)))?;
 
         t!("Pushing a decompressor for {}, recursion depth = {:?}.",
            algo, recursion_depth);
@@ -2575,7 +3380,7 @@ impl CompressedData {
     }
 }
 
-impl_parse_generic_packet!(CompressedData);
+impl_parse_with_buffered_reader!(CompressedData);
 
 #[cfg(any(feature = "compression-deflate", feature = "compression-bzip2"))]
 #[test]
@@ -2593,7 +3398,7 @@ fn compressed_data_parser_test () {
             _ => continue,
         }
         let pp = PacketParser::from_bytes(crate::tests::message(
-            &format!("compressed-data-algo-{}.gpg", i))).unwrap().unwrap();
+            &format!("compressed-data-algo-{}.pgp", i))).unwrap().unwrap();
 
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
@@ -2632,92 +3437,101 @@ fn compressed_data_parser_test () {
 
 impl SKESK {
     /// Parses the body of an SK-ESK packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser)
+             -> Result<PacketParser>
+    {
+        tracer!(TRACE, "SKESK::parse", php.recursion_depth());
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
-        let skesk = match version {
-            4 => {
-                let sym_algo = php_try!(php.parse_u8("sym_algo"));
-                let s2k = php_try!(S2K::parse(&mut php));
-                let s2k_supported = s2k.is_supported();
-                let esk = php_try!(php.parse_bytes_eof("esk"));
-
-                SKESK::V4(php_try!(SKESK4::new_raw(
-                    sym_algo.into(),
-                    s2k,
-                    if s2k_supported || esk.is_empty() {
-                        Ok(if ! esk.is_empty() {
-                            Some(esk.into())
-                        } else {
-                            None
-                        })
-                    } else {
-                        Err(esk.into())
-                    },
-                )))
-            },
-
-            5 => {
-                let sym_algo: SymmetricAlgorithm =
-                    php_try!(php.parse_u8("sym_algo")).into();
-                let aead_algo: AEADAlgorithm =
-                    php_try!(php.parse_u8("aead_algo")).into();
-                let s2k = php_try!(S2K::parse(&mut php));
-                let s2k_supported = s2k.is_supported();
-                let iv_size = php_try!(aead_algo.iv_size());
-                let digest_size = php_try!(aead_algo.digest_size());
-
-                // The rest of the packet is (potentially) the S2K
-                // parameters, the AEAD IV, the ESK, and the AEAD
-                // digest.  We don't know the size of the S2K
-                // parameters if the S2K method is not supported, and
-                // we don't know the size of the ESK.
-                let mut esk = php_try!(php.reader.steal_eof()
-                                       .map_err(anyhow::Error::from));
-                let aead_iv = if s2k_supported && esk.len() >= iv_size {
-                    // We know the S2K method, so the parameters have
-                    // been parsed into the S2K object.  So, `esk`
-                    // starts with iv_size bytes of IV.
-                    let mut iv = esk;
-                    esk = iv.split_off(iv_size);
-                    iv
-                } else {
-                    Vec::with_capacity(0) // A dummy value.
-                };
-
-                let l = esk.len();
-                let aead_digest = esk.split_off(l.saturating_sub(digest_size));
-                // Now fix the map.
-                if s2k_supported {
-                    php.field("aead_iv", iv_size);
-                }
-                php.field("esk", esk.len());
-                php.field("aead_digest", aead_digest.len());
-
-                SKESK::V5(php_try!(SKESK5::new_raw(
-                    sym_algo,
-                    aead_algo,
-                    s2k,
-                    if s2k_supported {
-                        Ok((aead_iv.into(), esk.into()))
-                    } else {
-                        Err(esk.into())
-                    },
-                    aead_digest.into_boxed_slice(),
-                )))
-            },
-
-            _ => {
-                // We only support version 4 and 5 SKESK packets.
-                return php.fail("unknown version");
-            }
-        };
-
-        php.ok(Packet::SKESK(skesk))
+        match version {
+            4 => SKESK4::parse(php),
+            6 => SKESK6::parse(php),
+            _ => php.fail("unknown version"),
+        }
     }
 }
 
-impl_parse_generic_packet!(SKESK);
+impl SKESK4 {
+    /// Parses the body of an SK-ESK packet.
+    fn parse(mut php: PacketHeaderParser)
+             -> Result<PacketParser>
+    {
+        tracer!(TRACE, "SKESK4::parse", php.recursion_depth());
+        make_php_try!(php);
+        let sym_algo = php_try!(php.parse_u8("sym_algo"));
+        let s2k = php_try!(S2K::parse_v4(&mut php));
+        let s2k_supported = s2k.is_supported();
+        let esk = php_try!(php.parse_bytes_eof("esk"));
+
+        let skesk = php_try!(SKESK4::new_raw(
+            sym_algo.into(),
+            s2k,
+            if s2k_supported || esk.is_empty() {
+                Ok(if ! esk.is_empty() {
+                    Some(esk.into())
+                } else {
+                    None
+                })
+            } else {
+                Err(esk.into())
+            },
+        ));
+
+        php.ok(skesk.into())
+    }
+}
+
+impl SKESK6 {
+    /// Parses the body of an SK-ESK packet.
+    fn parse(mut php: PacketHeaderParser)
+             -> Result<PacketParser>
+    {
+        tracer!(TRACE, "SKESK6::parse", php.recursion_depth());
+        make_php_try!(php);
+
+        // Octet count of the following 5 fields.
+        let parameter_len = php_try!(php.parse_u8_len("parameter_len"));
+        if parameter_len < 1 + 1 + 1 + 1 /* S2K */ + 12 /* IV */ {
+            return php.fail("expected at least 16 parameter octets");
+        }
+
+        let sym_algo: SymmetricAlgorithm =
+            php_try!(php.parse_u8("sym_algo")).into();
+        let aead_algo: AEADAlgorithm =
+            php_try!(php.parse_u8("aead_algo")).into();
+
+        // The S2K object's length and the S2K.
+        let s2k_len = php_try!(php.parse_u8_len("s2k_len"));
+        if parameter_len < 1 + 1 + 1 + s2k_len + 12 /* IV */ {
+            return php.fail("S2K overflows parameter count");
+        }
+
+        let s2k = php_try!(S2K::parse_v6(&mut php, s2k_len as u8));
+
+        // And the IV.
+        let iv =
+            if let Some(iv_len) = parameter_len.checked_sub(1 + 1 + 1 + s2k_len) {
+                php_try!(php.parse_bytes("iv", iv_len as usize)).into()
+            } else {
+                return php.fail("IV overflows parameter count");
+            };
+
+        // Finally, the ESK including the AEAD tag.
+        let esk = php_try!(php.parse_bytes_eof("esk")).into();
+
+        let skesk = php_try!(SKESK6::new(
+            sym_algo,
+            aead_algo,
+            s2k,
+            iv,
+            esk,
+        ));
+
+        php.ok(skesk.into())
+    }
+}
+
+impl_parse_with_buffered_reader!(SKESK);
 
 #[test]
 fn skesk_parser_test() {
@@ -2732,7 +3546,7 @@ fn skesk_parser_test() {
 
     let tests = [
         Test {
-            filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
+            filename: "s2k/mode-3-encrypted-key-password-bgtyhn.pgp",
             cipher_algo: SymmetricAlgorithm::AES128,
             s2k: S2K::Iterated {
                 hash: HashAlgorithm::SHA1,
@@ -2770,27 +3584,63 @@ fn skesk_parser_test() {
 
 impl SEIP {
     /// Parses the body of a SEIP packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "SEIP::parse", php.recursion_depth());
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
-        if version != 1 {
-            return php.fail("unknown version");
+        match version {
+            1 => SEIP1::parse(php),
+            2 => SEIP2::parse(php),
+            _ => php.fail("unknown version"),
         }
-
-        php.ok(SEIP1::new().into())
-            .map(|pp| pp.set_encrypted(true))
     }
 }
 
-impl_parse_generic_packet!(SEIP);
+impl_parse_with_buffered_reader!(SEIP);
+
+impl SEIP1 {
+    /// Parses the body of a SEIP1 packet.
+    fn parse(php: PacketHeaderParser) -> Result<PacketParser> {
+        php.ok(SEIP1::new().into())
+            .map(|pp| pp.set_processed(false))
+    }
+}
+
+impl SEIP2 {
+    /// Parses the body of a SEIP2 packet.
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "SEIP2::parse", php.recursion_depth());
+        make_php_try!(php);
+        let cipher: SymmetricAlgorithm =
+            php_try!(php.parse_u8("sym_algo")).into();
+        let aead: AEADAlgorithm =
+            php_try!(php.parse_u8("aead_algo")).into();
+        let chunk_size = php_try!(php.parse_u8("chunk_size"));
+
+        // An implementation MUST accept chunk size octets with values
+        // from 0 to 16. An implementation MUST NOT create data with a
+        // chunk size octet value larger than 16 (4 MiB chunks).
+        if chunk_size > 16 {
+            return php.fail("unsupported chunk size");
+        }
+        let chunk_size: u64 = 1 << (chunk_size + 6);
+        let salt_v = php_try!(php.parse_bytes("salt", 32));
+        let mut salt = [0u8; 32];
+        salt.copy_from_slice(&salt_v);
+
+        let seip2 = php_try!(Self::new(cipher, aead, chunk_size, salt));
+        php.ok(seip2.into()).map(|pp| pp.set_processed(false))
+    }
+}
 
 impl MDC {
     /// Parses the body of an MDC packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "MDC::parse", php.recursion_depth());
         make_php_try!(php);
 
         // Find the HashedReader pushed by the containing SEIP packet.
-        // In a well-formed message, this will be the outer most
+        // In a well-formed message, this will be the outermost
         // HashedReader on the BufferedReader stack: we pushed it
         // there when we started decrypting the SEIP packet, and an
         // MDC packet is the last packet in a SEIP container.
@@ -2809,8 +3659,8 @@ impl MDC {
                             let h = state.sig_group_mut().hashes
                                 .iter_mut().find_map(
                                     |mode|
-                                    if mode.map(|ctx| ctx.algo()) ==
-                                        HashingMode::Binary(HashAlgorithm::SHA1)
+                                    if matches!(mode.map(|ctx| ctx.algo()),
+                                        HashingMode::Binary(_, HashAlgorithm::SHA1))
                                     {
                                         Some(mode.as_mut())
                                     } else {
@@ -2819,7 +3669,7 @@ impl MDC {
                             let _ = h.digest(&mut computed_digest);
                         }
 
-                        // If the outer most HashedReader is not the
+                        // If the outermost HashedReader is not the
                         // matching HashedReader, then the message is
                         // malformed.
                         break;
@@ -2833,67 +3683,73 @@ impl MDC {
         let mut digest: [u8; 20] = Default::default();
         digest.copy_from_slice(&php_try!(php.parse_bytes("digest", 20)));
 
+        #[allow(deprecated)]
         php.ok(Packet::MDC(MDC::new(digest, computed_digest)))
     }
 }
 
-impl_parse_generic_packet!(MDC);
+impl_parse_with_buffered_reader!(MDC);
 
-impl AED {
-    /// Parses the body of a AED packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+impl Padding {
+    /// Parses the body of a padding packet.
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "Padding::parse", php.recursion_depth());
         make_php_try!(php);
-        let version = php_try!(php.parse_u8("version"));
-
-        match version {
-            1 => AED1::parse(php),
-            _ => php.fail("unknown version"),
-        }
+        // XXX: I don't think we should capture the body.
+        let value = php_try!(php.parse_bytes_eof("value"));
+        php.ok(Packet::Padding(Padding::from(value)))
     }
 }
 
-impl_parse_generic_packet!(AED);
-
-impl AED1 {
-    /// Parses the body of a AED packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
-        make_php_try!(php);
-        let cipher: SymmetricAlgorithm =
-            php_try!(php.parse_u8("sym_algo")).into();
-        let aead: AEADAlgorithm =
-            php_try!(php.parse_u8("aead_algo")).into();
-        let chunk_size = php_try!(php.parse_u8("chunk_size"));
-
-        // DRAFT 4880bis-08, section 5.16: "An implementation MUST
-        // support chunk size octets with values from 0 to 56.  Chunk
-        // size octets with other values are reserved for future
-        // extensions."
-        if chunk_size > 56 {
-            return php.fail("unsupported chunk size");
-        }
-        let chunk_size: u64 = 1 << (chunk_size + 6);
-
-        let iv_size = php_try!(aead.iv_size());
-        let iv = php_try!(php.parse_bytes("iv", iv_size));
-
-        let aed = php_try!(Self::new(
-            cipher, aead, chunk_size, iv.into_boxed_slice()
-        ));
-        php.ok(aed.into()).map(|pp| pp.set_encrypted(true))
-    }
-}
+impl_parse_with_buffered_reader!(Padding);
 
 impl MPI {
     /// Parses an OpenPGP MPI.
     ///
-    /// See [Section 3.2 of RFC 4880] for details.
+    /// See [Section 3.2 of RFC 9580] for details.
     ///
-    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(
+    ///   [Section 3.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.2
+    fn parse(name_len: &'static str,
+             name: &'static str,
+             php: &mut PacketHeaderParser<'_>) -> Result<Self> {
+        Ok(MPI::parse_common(name_len, name, false, false, php)?.into())
+    }
+
+    /// Parses an OpenPGP MPI.
+    ///
+    /// If `parsing_secrets` is `true`, errors are normalized as not
+    /// to reveal parts of the plaintext to the caller.
+    ///
+    /// If `lenient_parsing` is `true`, this function will accept MPIs
+    /// that are not well-formed (notably, issues related to leading
+    /// zeros).
+    fn parse_common(
         name_len: &'static str,
         name: &'static str,
-        php: &mut PacketHeaderParser<T>)
-                 -> Result<Self> {
+        parsing_secrets: bool,
+        lenient_parsing: bool,
+        php: &mut PacketHeaderParser<'_>)
+                 -> Result<Vec<u8>> {
+        // When we are parsing secrets, we don't want to leak it
+        // accidentally by revealing it in error messages, or indeed
+        // by the kind of error.
+        //
+        // All errors returned by this function that are depend on
+        // secret data must be uniform and return the following error.
+        // We make an exception for i/o errors, which may reveal
+        // truncation, because swallowing i/o errors may be very
+        // confusing when diagnosing errors, and we don't consider the
+        // length of the value to be confidential as it can also be
+        // inferred from the size of the ciphertext.
+        let uniform_error_for_secrets = |e: Error| {
+            if parsing_secrets {
+                Err(Error::MalformedMPI("Details omitted, \
+                                         parsing secret".into()).into())
+            } else {
+                Err(e.into())
+            }
+        };
+
         // This function is used to parse MPIs from unknown
         // algorithms, which may use an encoding unknown to us.
         // Therefore, we need to be extra careful only to consume the
@@ -2905,7 +3761,7 @@ impl MPI {
         if bits == 0 {
             // Now consume the data.
             php.parse_be_u16(name_len).expect("worked before");
-            return Ok(vec![].into());
+            return Ok(vec![]);
         }
 
         let bytes = (bits + 7) / 8;
@@ -2922,86 +3778,168 @@ impl MPI {
             let mask = !((1 << (8 - unused_bits)) - 1);
             let unused_value = value[0] & mask;
 
-            if unused_value != 0 {
-                return Err(Error::MalformedMPI(
+            if unused_value != 0 && ! lenient_parsing {
+                return uniform_error_for_secrets(
+                    Error::MalformedMPI(
                         format!("{} unused bits not zeroed: ({:x})",
-                        unused_bits, unused_value)).into());
+                                unused_bits, unused_value)
+                    ));
             }
         }
 
         let first_used_bit = 8 - unused_bits;
-        if value[0] & (1 << (first_used_bit - 1)) == 0 {
-            return Err(Error::MalformedMPI(
+        if value[0] & (1 << (first_used_bit - 1)) == 0 && ! lenient_parsing {
+            return uniform_error_for_secrets(
+                Error::MalformedMPI(
                     format!("leading bit is not set: \
                              expected bit {} to be set in {:8b} ({:x})",
-                             first_used_bit, value[0], value[0])).into());
+                            first_used_bit, value[0], value[0])
+                ));
         }
 
-        // Now consume the data.
-        php.parse_be_u16(name_len).expect("worked before");
-        php.parse_bytes(name, bytes).expect("worked before");
-        Ok(value.into())
+        // Now consume the data.  Note: we avoid using parse_bytes
+        // here because MPIs may contain secrets, and we don't want to
+        // casually leak them into the heap.  Also, we avoid doing a
+        // heap allocation.
+        php.reader.consume(2 + bytes);
+        // Now fix the map.
+        php.field(name_len, 2);
+        php.field(name, bytes);
+
+        Ok(value)
     }
 }
 
-impl<'a> Parse<'a, MPI> for MPI {
-    // Reads an MPI from `reader`.
-    fn from_reader<R: io::Read + Send + Sync>(reader: R) -> Result<Self> {
-        let bio = buffered_reader::Generic::with_cookie(
-            reader, None, Cookie::default());
-        let mut parser = PacketHeaderParser::new_naked(bio);
+impl_parse_with_buffered_reader!(
+    MPI,
+    |bio: Box<dyn BufferedReader<Cookie>>| -> Result<Self> {
+        let mut parser = PacketHeaderParser::new_naked(bio.into_boxed());
         Self::parse("(none_len)", "(none)", &mut parser)
+    });
+
+impl ProtectedMPI {
+    /// Parses an OpenPGP MPI containing secrets.
+    ///
+    /// See [Section 3.2 of RFC 9580] for details.
+    ///
+    ///   [Section 3.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.2
+    fn parse(name_len: &'static str,
+             name: &'static str,
+             php: &mut PacketHeaderParser<'_>) -> Result<Self> {
+        // XXX: While lenient parsing seemed like the right thing to
+        // do, this breaks equality and round-tripping: we normalize
+        // the non-canonical encoding, so two distinct wire
+        // representations are folded into one in-core representation.
+        Ok(MPI::parse_common(name_len, name, true, false, php)?.into())
     }
 }
-
 impl PKESK {
     /// Parses the body of an PK-ESK packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "PKESK::parse", php.recursion_depth());
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
         match version {
             3 => PKESK3::parse(php),
+            6 => PKESK6::parse(php),
             _ => php.fail("unknown version"),
         }
     }
 }
 
-impl_parse_generic_packet!(PKESK);
+impl_parse_with_buffered_reader!(PKESK);
 
 impl PKESK3 {
     /// Parses the body of an PK-ESK packet.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "PKESK3::parse", php.recursion_depth());
         make_php_try!(php);
-        let mut keyid = [0u8; 8];
-        keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
+
+        let keyid = {
+            let mut keyid = [0u8; 8];
+            keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
+
+            let keyid = KeyID::from_bytes(&keyid);
+            if keyid.is_wildcard() {
+                None
+            } else {
+                Some(keyid)
+            }
+        };
+
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
         if ! pk_algo.for_encryption() {
             return php.fail("not an encryption algorithm");
         }
         let mpis = crypto::mpi::Ciphertext::_parse(pk_algo, &mut php)?;
 
-        let pkesk = php_try!(PKESK3::new(KeyID::from_bytes(&keyid),
-                                         pk_algo, mpis));
+        let pkesk = php_try!(PKESK3::new(keyid, pk_algo, mpis));
         php.ok(pkesk.into())
     }
 }
 
-impl<'a> Parse<'a, PKESK3> for PKESK3 {
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
-        PKESK::from_reader(reader).map(|p| match p {
-            PKESK::V3(p) => p,
-            // XXX: Once we have a second variant.
-            //
-            // p => Err(Error::InvalidOperation(
-            //     format!("Not a PKESKv3 packet: {:?}", p)).into()),
+impl_parse_with_buffered_reader!(
+    PKESK3,
+    |reader| -> Result<Self> {
+        PKESK::from_buffered_reader(reader).and_then(|p| match p {
+            PKESK::V3(p) => Ok(p),
+            p => Err(Error::InvalidOperation(
+                 format!("Not a PKESKv3 packet: {:?}", p)).into()),
         })
+    });
+
+impl PKESK6 {
+    /// Parses the body of an PKESKv6 packet.
+    fn parse(mut php: PacketHeaderParser) -> Result<PacketParser> {
+        tracer!(TRACE, "PKESK6::parse", php.recursion_depth());
+        make_php_try!(php);
+        let fp_len = php_try!(php.parse_u8("recipient_len"));
+        let fingerprint = if fp_len == 0 {
+            None
+        } else {
+            // Get the version and sanity check the length.
+            let fp_version = php_try!(php.parse_u8("recipient_version"));
+            if let Some(expected_length) = match fp_version {
+                4 => Some(20),
+                6 => Some(32),
+                _ => None,
+            } {
+                if fp_len - 1 != expected_length {
+                    return php.fail("bad fingerprint length");
+                }
+            }
+            Some(Fingerprint::from_bytes(
+                fp_version,
+                &php_try!(php.parse_bytes("recipient", (fp_len - 1).into())))?)
+        };
+
+        let pk_algo: PublicKeyAlgorithm =
+            php_try!(php.parse_u8("pk_algo")).into();
+        if ! pk_algo.for_encryption() { // XXX
+            return php.fail("not an encryption algorithm");
+        }
+        let mpis = crypto::mpi::Ciphertext::_parse(pk_algo, &mut php)?;
+
+        let pkesk = php_try!(PKESK6::new(fingerprint, pk_algo, mpis));
+        php.ok(pkesk.into())
     }
 }
 
-impl<'a> Parse<'a, Packet> for Packet {
-    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
+impl_parse_with_buffered_reader!(
+    PKESK6,
+    |reader| -> Result<Self> {
+        PKESK::from_buffered_reader(reader).and_then(|p| match p {
+            PKESK::V6(p) => Ok(p),
+            p => Err(Error::InvalidOperation(
+                 format!("Not a PKESKv6 packet: {:?}", p)).into()),
+        })
+    });
+
+impl_parse_with_buffered_reader!(
+    Packet,
+    |br| -> Result<Self> {
         let ppr =
-            PacketParserBuilder::from_reader(reader)
+            PacketParserBuilder::from_buffered_reader(br)
             ?.buffer_unread_content().build()?;
 
         let (p, ppr) = match ppr {
@@ -3020,9 +3958,8 @@ impl<'a> Parse<'a, Packet> for Packet {
                 Err(Error::InvalidOperation(
                     "Excess data after packet".into()).into()),
         }
-    }
-}
-
+    });
+
 // State that lives for the life of the packet parser, not the life of
 // an individual packet.
 #[derive(Debug)]
@@ -3041,6 +3978,9 @@ struct PacketParserState {
 
     // Whether this is the first packet in the packet sequence.
     first_packet: bool,
+
+    // Whether PacketParser::parse encountered an unrecoverable error.
+    pending_error: Option<anyhow::Error>,
 }
 
 impl PacketParserState {
@@ -3051,6 +3991,7 @@ impl PacketParserState {
             keyring_validator: Default::default(),
             cert_validator: Default::default(),
             first_packet: true,
+            pending_error: None,
         }
     }
 }
@@ -3236,7 +4177,7 @@ impl PacketParserState {
 /// allow the caller to choose the behavior by either calling the
 /// [`PacketParser::recurse`] method or the [`PacketParser::next`]
 /// method, as appropriate.  OpenPGP doesn't impose any restrictions
-/// on the amount of nesting.  So, to prevent a denial of service
+/// on the amount of nesting.  So, to prevent a denial-of-service
 /// attack, the parsers don't recurse more than
 /// [`DEFAULT_MAX_RECURSION_DEPTH`] times, by default.
 ///
@@ -3298,8 +4239,8 @@ pub struct PacketParser<'a> {
     // Whether PacketParser::finish has been called.
     finished: bool,
 
-    // Whether the content is encrypted.
-    encrypted: bool,
+    // Whether the content has been processed.
+    processed: bool,
 
     /// A map of this packet.
     map: Option<map::Map>,
@@ -3325,7 +4266,7 @@ impl<'a> std::fmt::Debug for PacketParser<'a> {
             .field("packet", &self.packet)
             .field("path", &self.path)
             .field("last_path", &self.last_path)
-            .field("encrypted", &self.encrypted)
+            .field("processed", &self.processed)
             .field("content_was_read", &self.content_was_read)
             .field("settings", &self.state.settings)
             .field("map", &self.map)
@@ -3334,7 +4275,6 @@ impl<'a> std::fmt::Debug for PacketParser<'a> {
 }
 
 /// The return value of PacketParser::parse.
-#[allow(clippy::upper_case_acronyms)]
 enum ParserResult<'a> {
     Success(PacketParser<'a>),
     EOF((Box<dyn BufferedReader<Cookie> + 'a>, PacketParserState, Vec<usize>)),
@@ -3346,7 +4286,7 @@ enum ParserResult<'a> {
 /// Once the [`PacketParser`] reaches the end of the input stream, it
 /// returns a [`PacketParserResult::EOF`] with a `PacketParserEOF`.
 /// This object provides information about the parsed stream, notably
-/// whether or not the packet stream was a well-formed [`Message`],
+/// whether the packet stream was a well-formed [`Message`],
 /// [`Cert`] or keyring.
 ///
 ///   [`Message`]: super::Message
@@ -3364,7 +4304,7 @@ enum ParserResult<'a> {
 /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 ///
 /// let openpgp_data: &[u8] = // ...
-/// #    include_bytes!("../tests/data/keys/public-key.gpg");
+/// #    include_bytes!("../tests/data/keys/public-key.pgp");
 /// let mut ppr = PacketParser::from_bytes(openpgp_data)?;
 /// while let PacketParserResult::Some(mut pp) = ppr {
 ///     // Start parsing the next packet, recursing.
@@ -3414,7 +4354,7 @@ impl<'a> PacketParserEOF<'a> {
         Self::new(
             PacketParserState::new(Default::default()),
             buffered_reader::Memory::with_cookie(b"", Default::default())
-                .as_boxed())
+                .into_boxed())
     }
 
     /// Returns whether the stream is an OpenPGP Message.
@@ -3439,7 +4379,7 @@ impl<'a> PacketParserEOF<'a> {
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// let openpgp_data: &[u8] = // ...
-    /// #    include_bytes!("../tests/data/keys/public-key.gpg");
+    /// #    include_bytes!("../tests/data/keys/public-key.pgp");
     /// let mut ppr = PacketParser::from_bytes(openpgp_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Start parsing the next packet, recursing.
@@ -3484,7 +4424,7 @@ impl<'a> PacketParserEOF<'a> {
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// let openpgp_data: &[u8] = // ...
-    /// #    include_bytes!("../tests/data/keys/public-key.gpg");
+    /// #    include_bytes!("../tests/data/keys/public-key.pgp");
     /// let mut ppr = PacketParser::from_bytes(openpgp_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Start parsing the next packet, recursing.
@@ -3528,7 +4468,7 @@ impl<'a> PacketParserEOF<'a> {
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// let openpgp_data: &[u8] = // ...
-    /// #    include_bytes!("../tests/data/keys/public-key.gpg");
+    /// #    include_bytes!("../tests/data/keys/public-key.pgp");
     /// let mut ppr = PacketParser::from_bytes(openpgp_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Start parsing the next packet, recursing.
@@ -3566,7 +4506,7 @@ impl<'a> PacketParserEOF<'a> {
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// let openpgp_data: &[u8] = // ...
-    /// #    include_bytes!("../tests/data/keys/public-key.gpg");
+    /// #    include_bytes!("../tests/data/keys/public-key.pgp");
     /// let mut ppr = PacketParser::from_bytes(openpgp_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Start parsing the next packet, recursing.
@@ -3600,7 +4540,7 @@ impl<'a> PacketParserEOF<'a> {
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// let openpgp_data: &[u8] = // ...
-    /// #    include_bytes!("../tests/data/keys/public-key.gpg");
+    /// #    include_bytes!("../tests/data/keys/public-key.pgp");
     /// let mut ppr = PacketParser::from_bytes(openpgp_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Start parsing the next packet, recursing.
@@ -3740,33 +4680,19 @@ impl<'a> PacketParserResult<'a> {
 }
 
 impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
-    /// Starts parsing an OpenPGP message stored in a `std::io::Read` object.
+    /// Starts parsing an OpenPGP object stored in a `BufferedReader` object.
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    fn from_reader<R: io::Read + 'a + Send + Sync>(reader: R)
-            -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_reader(reader)?.build()
-    }
-
-    /// Starts parsing an OpenPGP message stored in a file named `path`.
-    ///
-    /// This function returns a `PacketParser` for the first packet in
-    /// the stream.
-    fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_file(path)?.build()
-    }
-
-    /// Starts parsing an OpenPGP message stored in a buffer.
-    ///
-    /// This function returns a `PacketParser` for the first packet in
-    /// the stream.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D)
-            -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_bytes(data)?.build()
+    fn from_buffered_reader<R>(reader: R) -> Result<PacketParserResult<'a>>
+    where
+        R: BufferedReader<Cookie> + 'a,
+    {
+        PacketParserBuilder::from_buffered_reader(reader.into_boxed())?.build()
     }
 }
+
+impl<'a> crate::seal::Sealed for PacketParser<'a> {}
 
 impl <'a> PacketParser<'a> {
     /// Starts parsing an OpenPGP message stored in a `BufferedReader`
@@ -3774,9 +4700,9 @@ impl <'a> PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>)
+    pub(crate) fn from_cookie_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_buffered_reader(bio)?.build()
+        PacketParserBuilder::from_cookie_reader(bio)?.build()
     }
 
     /// Returns the reader stack, replacing it with a
@@ -3804,13 +4730,13 @@ impl <'a> PacketParser<'a> {
         &mut self.reader
     }
 
-    /// Marks the packet's contents as encrypted or not.
-    fn set_encrypted(mut self, v: bool) -> Self {
-        self.encrypted = v;
+    /// Marks the packet's contents as processed or not.
+    fn set_processed(mut self, v: bool) -> Self {
+        self.processed = v;
         self
     }
 
-    /// Returns whether the packet's contents are encrypted.
+    /// Returns whether the packet's contents have been processed.
     ///
     /// This function returns `true` while processing an encryption
     /// container before it is decrypted using
@@ -3831,16 +4757,16 @@ impl <'a> PacketParser<'a> {
     ///
     /// // Parse an encrypted message.
     /// let message_data: &[u8] = // ...
-    /// #    include_bytes!("../tests/data/messages/encrypted-aes256-password-123.gpg");
+    /// #    include_bytes!("../tests/data/messages/encrypted-aes256-password-123.pgp");
     /// let mut ppr = PacketParser::from_bytes(message_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     if let Packet::SEIP(_) = pp.packet {
-    ///         assert!(pp.encrypted());
+    ///         assert!(!pp.processed());
     ///         pp.decrypt(SymmetricAlgorithm::AES256,
     ///                    &hex::decode("7EF4F08C44F780BEA866961423306166\
     ///                                  B8912C43352F3D9617F745E4E3939710")?
     ///                        .into())?;
-    ///         assert!(! pp.encrypted());
+    ///         assert!(pp.processed());
     ///     }
     ///
     ///     // Start parsing the next packet, recursing.
@@ -3848,8 +4774,8 @@ impl <'a> PacketParser<'a> {
     /// }
     /// # Ok(()) }
     /// ```
-    pub fn encrypted(&self) -> bool {
-        self.encrypted
+    pub fn processed(&self) -> bool {
+        self.processed
     }
 
     /// Returns the path of the last packet.
@@ -4117,7 +5043,7 @@ impl <'a> PacketParser<'a> {
         }
     }
 
-    /// Returns Ok if the data appears to be a legal packet.
+    /// Tests whether the data appears to be a legal cert packet.
     ///
     /// This is just a heuristic.  It can be used for recovering from
     /// garbage.
@@ -4134,9 +5060,10 @@ impl <'a> PacketParser<'a> {
     ///
     /// Currently, we only try to recover the most interesting
     /// packets.
-    fn plausible<T: BufferedReader<Cookie>>(
-        bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
-                 -> Result<()> {
+    pub(crate) fn plausible_cert(bio: &mut dyn BufferedReader<Cookie>,
+                                 header: &Header)
+        -> Result<()>
+    {
         let bad = Err(
             Error::MalformedPacket("Can't make an educated case".into()).into());
 
@@ -4146,6 +5073,16 @@ impl <'a> PacketParser<'a> {
                 Err(Error::MalformedPacket("Looks like garbage".into()).into()),
 
             Tag::Marker => Marker::plausible(bio, header),
+            Tag::Padding => {
+                // Even though a padding packet may occur here, it has
+                // so little structure, that we're likely better off
+                // trying to find the next packet.
+                //
+                // XXX: We could optimize that though, by using the
+                // potential padding packet's length to see if the
+                // next packet is plausible.
+                bad
+            },
             Tag::Signature => Signature::plausible(bio, header),
 
             Tag::SecretKey => Key::plausible(bio, header),
@@ -4177,7 +5114,7 @@ impl <'a> PacketParser<'a> {
     /// stream.  If there are no packets left, this function returns
     /// `bio`.
     fn parse(mut bio: Box<dyn BufferedReader<Cookie> + 'a>,
-             state: PacketParserState,
+             mut state: PacketParserState,
              path: Vec<usize>)
         -> Result<ParserResult<'a>>
     {
@@ -4185,6 +5122,11 @@ impl <'a> PacketParser<'a> {
 
         let indent = path.len() as isize - 1;
         tracer!(TRACE, "PacketParser::parse", indent);
+
+        if let Some(err) = state.pending_error.take() {
+            t!("Returning pending error: {}", err);
+            return Err(err);
+        }
         t!("Parsing packet at {:?}", path);
 
         let recursion_depth = path.len() as isize - 1;
@@ -4213,14 +5155,24 @@ impl <'a> PacketParser<'a> {
         // extract the hash context.
 
         let mut bio = buffered_reader::Dup::with_cookie(bio, Cookie::default());
-        let mut header;
+        let header;
 
         // Read the header.
         let mut skip = 0;
         let mut orig_error : Option<anyhow::Error> = None;
         loop {
             bio.rewind();
-            bio.data_consume_hard(skip)?;
+            if let Err(_err) = bio.data_consume_hard(skip) {
+                // EOF.  We checked for EOF above when skip was 0, so
+                // we must have skipped something.
+                assert!(skip > 0);
+
+                // Fabricate a header.
+                header = Header::new(CTB::new(Tag::Reserved),
+                                     BodyLength::Full(skip as u32));
+
+                break;
+            }
 
             match Header::parse(&mut bio) {
                 Ok(header_) => {
@@ -4229,24 +5181,41 @@ impl <'a> PacketParser<'a> {
                         break;
                     }
 
-                    match Self::plausible(&mut bio, &header_) {
+                    match Self::plausible_cert(&mut bio, &header_) {
                         Ok(()) => {
-                            header = header_;
+                            header = Header::new(CTB::new(Tag::Reserved),
+                                                 BodyLength::Full(skip as u32));
                             break;
                         }
-                        Err(_err) => (),
+                        Err(err_) => {
+                            t!("{} not plausible @ {}: {}",
+                               header_.ctb().tag(), skip, err_);
+                        },
                     }
                 }
                 Err(err) => {
+                    t!("Failed to read a header after skipping {} bytes: {}",
+                       skip, err);
                     if orig_error.is_none() {
                         orig_error = Some(err);
                     }
 
-                    if state.first_packet || skip > RECOVERY_THRESHOLD {
+                    if state.first_packet {
+                        // We don't try to recover if we haven't seen
+                        // any packets.
+                        return Err(orig_error.unwrap());
+                    }
+
+                    if skip > RECOVERY_THRESHOLD {
                         // Limit the search space.  This should be
                         // enough to find a reasonable recovery point
                         // in a Cert.
-                        return Err(orig_error.unwrap());
+                        state.pending_error = orig_error;
+
+                        // Fabricate a header.
+                        header = Header::new(CTB::new(Tag::Reserved),
+                                             BodyLength::Full(skip as u32));
+                        break;
                     }
                 }
             }
@@ -4259,14 +5228,12 @@ impl <'a> PacketParser<'a> {
             bio.total_out()
         } else {
             t!("turning {} bytes of junk into an Unknown packet", skip);
-
-            // Fabricate a header.
-            header = Header::new(CTB::new(Tag::Reserved),
-                                 BodyLength::Full(skip as u32));
+            bio.rewind();
             0
         };
 
         let tag = header.ctb().tag();
+        t!("Packet's tag is {}", tag);
 
         // A buffered_reader::Dup always has an inner.
         let mut bio = Box::new(bio).into_inner().unwrap();
@@ -4375,7 +5342,7 @@ impl <'a> PacketParser<'a> {
             Tag::SEIP =>                SEIP::parse(parser),
             Tag::MDC =>                 MDC::parse(parser),
             Tag::PKESK =>               PKESK::parse(parser),
-            Tag::AED =>                 AED::parse(parser),
+            Tag::Padding =>             Padding::parse(parser),
             _ => Unknown::parse(parser,
                                 Error::UnsupportedPacketType(tag).into()),
         }?;
@@ -4501,7 +5468,7 @@ impl <'a> PacketParser<'a> {
         // Now read the next packet.
         loop {
             // Parse the next packet.
-            t!("Reading packet at {:?} from: {:?}", self.path, reader);
+            t!("Reading packet at {:?}", self.path);
 
             let recursion_depth = self.recursion_depth();
 
@@ -4544,7 +5511,9 @@ impl <'a> PacketParser<'a> {
                 },
                 ParserResult::Success(mut pp) => {
                     let path = pp.path().to_vec();
-                    pp.state.message_validator.push(pp.packet.tag(), &path);
+                    pp.state.message_validator.push(
+                        pp.packet.tag(), pp.packet.version(),
+                        &path);
                     pp.state.keyring_validator.push(pp.packet.tag());
                     pp.state.cert_validator.push(pp.packet.tag());
 
@@ -4598,8 +5567,8 @@ impl <'a> PacketParser<'a> {
 
         match self.packet {
             // Packets that recurse.
-            Packet::CompressedData(_) | Packet::SEIP(_) | Packet::AED(_)
-                if ! self.encrypted =>
+            Packet::CompressedData(_) | Packet::SEIP(_)
+                if self.processed =>
             {
                 if self.recursion_depth() as u8
                     >= self.state.settings.max_recursion_depth
@@ -4632,7 +5601,9 @@ impl <'a> PacketParser<'a> {
                                self.packet.tag(), pp.packet.tag());
 
                             pp.state.message_validator.push(
-                                pp.packet.tag(), &path);
+                                pp.packet.tag(),
+                                pp.packet.version(),
+                                &path);
                             pp.state.keyring_validator.push(pp.packet.tag());
                             pp.state.cert_validator.push(pp.packet.tag());
 
@@ -4648,16 +5619,17 @@ impl <'a> PacketParser<'a> {
                     }
                 }
             },
-            // decrypted should always be true.
-            Packet::CompressedData(_) => unreachable!(),
             // Packets that don't recurse.
+            #[allow(deprecated)]
             Packet::Unknown(_) | Packet::Signature(_) | Packet::OnePassSig(_)
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::Marker(_) | Packet::Trust(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
                 | Packet::Literal(_) | Packet::PKESK(_) | Packet::SKESK(_)
-                | Packet::SEIP(_) | Packet::MDC(_) | Packet::AED(_) => {
+                | Packet::SEIP(_) | Packet::MDC(_)
+                | Packet::CompressedData(_)
+                | Packet::Padding(_) => {
                 // Drop through.
                 t!("A {:?} packet is not a container, not recursing.",
                    self.packet.tag());
@@ -4685,7 +5657,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// // Parse a message.
     /// let message_data: &[u8] = // ...
-    /// #   include_bytes!("../tests/data/messages/literal-mode-t-partial-body.gpg");
+    /// #   include_bytes!("../tests/data/messages/literal-mode-t-partial-body.pgp");
     /// let mut ppr = PacketParser::from_bytes(message_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Process the packet.
@@ -4749,16 +5721,15 @@ impl <'a> PacketParser<'a> {
             }
         }
 
-        use std::ops::DerefMut;
         match &mut self.packet {
             Packet::Literal(p) => set_or_extend(rest, p.container_mut(), false),
             Packet::Unknown(p) => set_or_extend(rest, p.container_mut(), false),
             Packet::CompressedData(p) =>
-                set_or_extend(rest, p.deref_mut(), true),
-            Packet::SEIP(p) =>
-                set_or_extend(rest, p.deref_mut(), ! self.encrypted),
-            Packet::AED(p) =>
-                set_or_extend(rest, p.deref_mut(), ! self.encrypted),
+                set_or_extend(rest, p.container_mut(), self.processed),
+            Packet::SEIP(SEIP::V1(p)) =>
+                set_or_extend(rest, p.container_mut(), self.processed),
+            Packet::SEIP(SEIP::V2(p)) =>
+                set_or_extend(rest, p.container_mut(), self.processed),
             p => {
                 if !rest.is_empty() {
                     Err(Error::MalformedPacket(
@@ -4934,6 +5905,12 @@ impl <'a> PacketParser<'a> {
     pub fn take_map(&mut self) -> Option<map::Map> {
         self.map.take()
     }
+
+    /// Checks if we are processing a signed message using the
+    /// Cleartext Signature Framework.
+    pub(crate) fn processing_csf_message(&self) -> bool {
+        Cookie::processing_csf_message(&self.reader)
+    }
 }
 
 /// This interface allows a caller to read the content of a
@@ -5076,7 +6053,7 @@ fn packet_parser_reader_interface() {
     // A message containing a compressed packet that contains a
     // literal packet.
     let pp = PacketParser::from_bytes(
-        crate::tests::message("compressed-data-algo-1.gpg")).unwrap().unwrap();
+        crate::tests::message("compressed-data-algo-1.pgp")).unwrap().unwrap();
 
     // The message has the form:
     //
@@ -5119,7 +6096,7 @@ fn packet_parser_reader_interface() {
     // is just EOF).
     let (packet, ppr) = pp.recurse().unwrap();
     assert!(ppr.is_eof());
-    // Since we read all of the data, we expect content to be None.
+    // Since we read all the data, we expect content to be None.
     assert_eq!(packet.unprocessed_body().unwrap().len(), 0);
 }
 
@@ -5127,10 +6104,10 @@ impl<'a> PacketParser<'a> {
     /// Tries to decrypt the current packet.
     ///
     /// On success, this function pushes one or more readers onto the
-    /// `PacketParser`'s reader stack, and clears the packet parser's
-    /// `encrypted` flag (see [`PacketParser::encrypted`]).
+    /// `PacketParser`'s reader stack, and sets the packet parser's
+    /// `processed` flag (see [`PacketParser::processed`]).
     ///
-    ///   [`PacketParser::encrypted`]: PacketParser::encrypted()
+    ///   [`PacketParser::processed`]: PacketParser::processed()
     ///
     /// If this function is called on a packet that does not contain
     /// encrypted data, or some of the data was already read, then it
@@ -5150,7 +6127,7 @@ impl<'a> PacketParser<'a> {
     ///
     /// // Parse an encrypted message.
     /// let message_data: &[u8] = // ...
-    /// #    include_bytes!("../tests/data/messages/encrypted-aes256-password-123.gpg");
+    /// #    include_bytes!("../tests/data/messages/encrypted-aes256-password-123.pgp");
     /// let mut ppr = PacketParser::from_bytes(message_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     if let Packet::SEIP(_) = pp.packet {
@@ -5170,14 +6147,38 @@ impl<'a> PacketParser<'a> {
     ///
     /// This functions returns rich errors in case the decryption
     /// fails.  In combination with certain asymmetric algorithms
-    /// (RSA), this may lead to compromise of secret key material.
-    /// See [Section 14 of RFC 4880].  Do not relay these errors in
-    /// situations where an attacker can request decryption of
-    /// messages in an automated fashion.
+    /// (RSA), this may lead to compromise of secret key material or
+    /// (partial) recovery of the message's plain text.  See [Section
+    /// 13 of RFC 9580].
     ///
-    ///   [Section 14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-14
-    pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &SessionKey)
-        -> Result<()>
+    ///   [Section 13 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-13
+    ///
+    /// DO NOT relay these errors in situations where an attacker can
+    /// request decryption of messages in an automated fashion.  The
+    /// API of the streaming [`Decryptor`] prevents leaking rich
+    /// decryption errors.
+    ///
+    ///   [`Decryptor`]: stream::Decryptor
+    ///
+    /// Nevertheless, decrypting messages that do not use an
+    /// authenticated encryption mode in an automated fashion that
+    /// relays or leaks information to a third party is NEVER SAFE due
+    /// to unavoidable format oracles, see [Format Oracles on
+    /// OpenPGP].
+    ///
+    ///   [Format Oracles on OpenPGP]: https://www.ssi.gouv.fr/uploads/2015/05/format-Oracles-on-OpenPGP.pdf
+    pub fn decrypt<A>(&mut self, algo: A, key: &SessionKey)
+                      -> Result<()>
+    where
+        A: Into<Option<SymmetricAlgorithm>>,
+    {
+        self.decrypt_(algo.into(), key)
+    }
+
+    fn decrypt_(&mut self,
+                algo: Option<SymmetricAlgorithm>,
+                key: &SessionKey)
+                -> Result<()>
     {
         let indent = self.recursion_depth();
         tracer!(TRACE, "PacketParser::decrypt", indent);
@@ -5186,37 +6187,51 @@ impl<'a> PacketParser<'a> {
             return Err(Error::InvalidOperation(
                 "Packet's content has already been read.".to_string()).into());
         }
-        if ! self.encrypted {
+        if self.processed {
             return Err(Error::InvalidOperation(
                 "Packet not encrypted.".to_string()).into());
         }
 
-        if algo.key_size()? != key.len () {
-            return Err(Error::InvalidOperation(
-                format!("Bad key size: {} expected: {}",
-                        key.len(), algo.key_size()?)).into());
-        }
-
         match self.packet.clone() {
-            Packet::SEIP(_) => {
+            Packet::SEIP(SEIP::V1(_)) => {
+                use crate::crypto::symmetric::{
+                    BlockCipherMode,
+                    UnpaddingMode,
+                };
+
+                let algo = if let Some(a) = algo {
+                    a
+                } else {
+                    return Err(Error::InvalidOperation(
+                        "Trying to decrypt a SEIPDv1 packet: \
+                         no symmetric algorithm given".into()).into());
+                };
+
+                if algo.key_size()? != key.len () {
+                    return Err(Error::InvalidOperation(
+                        format!("Bad key size: {} expected: {}",
+                                key.len(), algo.key_size()?)).into());
+                }
+
                 // Get the first blocksize plus two bytes and check
                 // whether we can decrypt them using the provided key.
                 // Don't actually consume them in case we can't.
                 let bl = algo.block_size()?;
 
                 {
-                    let mut dec = Decryptor::new(
-                        algo, key, &self.data_hard(bl + 2)?[..bl + 2])?;
+                    let cur = buffered_reader::Memory::with_cookie(
+                        &self.data_hard(bl + 2)?[..bl + 2],
+                        Default::default());
+                    let mut dec = InternalDecryptor::new(
+                        algo, BlockCipherMode::CFB, UnpaddingMode::None,
+                        key, None, cur)?;
                     let mut header = vec![ 0u8; bl + 2 ];
                     dec.read_exact(&mut header)?;
 
                     if !(header[bl - 2] == header[bl]
                          && header[bl - 1] == header[bl + 1]) {
                         return Err(Error::InvalidSessionKey(
-                            format!(
-                                "Last two 16-bit quantities don't match: {}",
-                                crate::fmt::to_hex(&header[..], false)))
-                                   .into());
+                            "Decryption failed".into()).into());
                     }
                 }
 
@@ -5226,8 +6241,9 @@ impl<'a> PacketParser<'a> {
                 // This can't fail, because we create a decryptor
                 // above with the same parameters.
                 let reader = self.take_reader();
-                let mut reader = BufferedReaderDecryptor::with_cookie(
-                    algo, key, reader, Cookie::default()).unwrap();
+                let mut reader = Decryptor::with_cookie(
+                    algo, BlockCipherMode::CFB, UnpaddingMode::None,
+                    key, None, reader, Cookie::default())?;
                 reader.cookie_mut().level = Some(self.recursion_depth());
 
                 t!("Pushing Decryptor, level {:?}.", reader.cookie_ref().level);
@@ -5235,7 +6251,7 @@ impl<'a> PacketParser<'a> {
                 // And the hasher.
                 let mut reader = HashedReader::new(
                     reader, HashesFor::MDC,
-                    vec![HashingMode::Binary(HashAlgorithm::SHA1)]);
+                    vec![HashingMode::Binary(vec![], HashAlgorithm::SHA1)])?;
                 reader.cookie_mut().level = Some(self.recursion_depth());
 
                 t!("Pushing HashedReader, level {:?}.",
@@ -5268,14 +6284,21 @@ impl<'a> PacketParser<'a> {
                 reader.data_consume_hard(bl + 2).unwrap();
 
                 self.reader = Box::new(reader);
-                self.encrypted = false;
+                self.processed = true;
 
                 Ok(())
             },
 
-            Packet::AED(AED::V1(aed)) => {
+            Packet::SEIP(SEIP::V2(seip)) => {
                 let chunk_size =
-                    aead::chunk_size_usize(aed.chunk_size())?;
+                    aead::chunk_size_usize(seip.chunk_size())?;
+
+                let schedule = aead::SEIPv2Schedule::new(
+                    key,
+                    seip.symmetric_algo(),
+                    seip.aead(),
+                    chunk_size,
+                    seip.salt())?;
 
                 // Read the first chunk and check whether we can
                 // decrypt it using the provided key.  Don't actually
@@ -5286,34 +6309,36 @@ impl<'a> PacketParser<'a> {
                     // it has a partial block and it needs to verify
                     // the final chunk.
                     let amount = aead::chunk_size_usize(
-                        aed.chunk_digest_size()?
-                        + aed.aead().digest_size()? as u64)?;
+                        seip.chunk_digest_size()?
+                        + seip.aead().digest_size()? as u64)?;
 
                     let data = self.data(amount)?;
-                    let dec = aead::Decryptor::new(
-                        1, aed.symmetric_algo(), aed.aead(), chunk_size,
-                        aed.iv(), key,
-                        &data[..cmp::min(data.len(), amount)])?;
+                    let cur = buffered_reader::Memory::with_cookie(
+                        &data[..cmp::min(data.len(), amount)],
+                        Default::default());
+
+                    let dec = aead::InternalDecryptor::new(
+                        seip.symmetric_algo(), seip.aead(), chunk_size,
+                        schedule.clone(),
+                        cur)?;
                     let mut chunk = Vec::new();
-                    dec.take(aed.chunk_size() as u64).read_to_end(&mut chunk)?;
+                    dec.take(seip.chunk_size() as u64).read_to_end(&mut chunk)?;
                 }
 
                 // Ok, we can decrypt the data.  Push a Decryptor and
                 // a HashedReader on the `BufferedReader` stack.
 
-                // This can't fail, because we create a decryptor
-                // above with the same parameters.
                 let reader = self.take_reader();
-                let mut reader = aead::BufferedReaderDecryptor::with_cookie(
-                    1, aed.symmetric_algo(), aed.aead(), chunk_size,
-                    aed.iv(), key, reader, Cookie::default()).unwrap();
+                let mut reader = aead::Decryptor::with_cookie(
+                    seip.symmetric_algo(), seip.aead(), chunk_size,
+                    schedule, reader, Cookie::default()).unwrap();
                 reader.cookie_mut().level = Some(self.recursion_depth());
 
                 t!("Pushing aead::Decryptor, level {:?}.",
                    reader.cookie_ref().level);
 
                 self.reader = Box::new(reader);
-                self.encrypted = false;
+                self.processed = true;
 
                 Ok(())
             },
@@ -5329,6 +6354,7 @@ impl<'a> PacketParser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::serialize::Serialize;
 
     enum Data<'a> {
         File(&'a str),
@@ -5347,6 +6373,7 @@ mod test {
     struct DecryptTest<'a> {
         filename: &'a str,
         algo: SymmetricAlgorithm,
+        aead_algo: Option<AEADAlgorithm>,
         key_hex: &'a str,
         plaintext: Data<'a>,
         paths: &'a[ (Tag, &'a[ usize ] ) ],
@@ -5359,8 +6386,9 @@ mod test {
         // And simple length encodings (no indeterminate length
         // encodings).
         DecryptTest {
-            filename: "encrypted-aes256-password-123.gpg",
+            filename: "encrypted-aes256-password-123.pgp",
             algo: SymmetricAlgorithm::AES256,
+            aead_algo: None,
             key_hex: "7EF4F08C44F780BEA866961423306166B8912C43352F3D9617F745E4E3939710",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
             paths: &[
@@ -5371,8 +6399,9 @@ mod test {
             ],
         },
         DecryptTest {
-            filename: "encrypted-aes192-password-123456.gpg",
+            filename: "encrypted-aes192-password-123456.pgp",
             algo: SymmetricAlgorithm::AES192,
+            aead_algo: None,
             key_hex: "B2F747F207EFF198A6C826F1D398DE037986218ED468DB61",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
             paths: &[
@@ -5383,8 +6412,9 @@ mod test {
             ],
         },
         DecryptTest {
-            filename: "encrypted-aes128-password-123456789.gpg",
+            filename: "encrypted-aes128-password-123456789.pgp",
             algo: SymmetricAlgorithm::AES128,
+            aead_algo: None,
             key_hex: "AC0553096429260B4A90B1CEC842D6A0",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
             paths: &[
@@ -5394,9 +6424,61 @@ mod test {
                 (Tag::MDC, &[ 1, 1 ]),
             ],
         },
+
+        // Created using:
+        //
+        //     gpg --compression-algo none \
+        //         --s2k-digest-algo sha256 \
+        //         --cipher-algo camellia256 \
+        //         --s2k-cipher-algo camellia256 \
+        //         --encrypt --symmetric \
+        //         -o encrypted-camellia256-password-123.pgp \
+        //         a-cypherpunks-manifesto.txt
         DecryptTest {
-            filename: "encrypted-twofish-password-red-fish-blue-fish.gpg",
+            filename: "encrypted-camellia256-password-123.pgp",
+            algo: SymmetricAlgorithm::Camellia256,
+            aead_algo: None,
+            key_hex: "FC9644B500B9D0540880CB44B40F8C89\
+                      A7D817F2EF7EF9DA0D34A574377E300A",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
+        },
+        DecryptTest {
+            filename: "encrypted-camellia192-password-123.pgp",
+            algo: SymmetricAlgorithm::Camellia192,
+            aead_algo: None,
+            key_hex: "EC941DB1C5F4D3605E3F3C10B30888DA3287256E55CC978B",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
+        },
+        DecryptTest {
+            filename: "encrypted-camellia128-password-123.pgp",
+            algo: SymmetricAlgorithm::Camellia128,
+            aead_algo: None,
+            key_hex: "E1CF87BF2E030CC89CBC0F03EC2B7DF5",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
+        },
+
+        DecryptTest {
+            filename: "encrypted-twofish-password-red-fish-blue-fish.pgp",
             algo: SymmetricAlgorithm::Twofish,
+            aead_algo: None,
             key_hex: "96AFE1EDFA7C9CB7E8B23484C718015E5159CFA268594180D4DB68B2543393CB",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
             paths: &[
@@ -5416,6 +6498,7 @@ mod test {
         DecryptTest {
             filename: "seip/msg-compression-not-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
+            aead_algo: None,
             key_hex: "86A8C1C7961F55A3BE181A990D0ABB2A",
             plaintext: Data::String(b"compression, not signed\n"),
             paths: &[
@@ -5430,6 +6513,7 @@ mod test {
         DecryptTest {
             filename: "seip/msg-compression-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
+            aead_algo: None,
             key_hex: "1B195CD35CAD4A99D9399B4CDA4CDA4E",
             plaintext: Data::String(b"compression, signed\n"),
             paths: &[
@@ -5445,6 +6529,7 @@ mod test {
         DecryptTest {
             filename: "seip/msg-no-compression-not-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
+            aead_algo: None,
             key_hex: "AFB43B83A4B9D971E4B4A4C53749076A",
             plaintext: Data::String(b"no compression, not signed\n"),
             paths: &[
@@ -5457,6 +6542,7 @@ mod test {
         DecryptTest {
             filename: "seip/msg-no-compression-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
+            aead_algo: None,
             key_hex: "9D5DB92F77F0E4A356EE53813EF2C3DC",
             plaintext: Data::String(b"no compression, signed\n"),
             paths: &[
@@ -5466,30 +6552,6 @@ mod test {
                 (Tag::Literal, &[ 1, 1 ]),
                 (Tag::Signature, &[ 1, 2 ]),
                 (Tag::MDC, &[ 1, 3 ]),
-            ],
-        },
-
-        // AEAD encrypted messages.
-        DecryptTest {
-            filename: "aed/msg-aes128-eax-chunk-size-64-password-123.pgp",
-            algo: SymmetricAlgorithm::AES128,
-            key_hex: "E88151F2B6F6F6F0AE6B56ED247AA61B",
-            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
-            paths: &[
-                (Tag::SKESK, &[ 0 ]),
-                (Tag::AED, &[ 1 ]),
-                (Tag::Literal, &[ 1, 0 ]),
-            ],
-        },
-        DecryptTest {
-            filename: "aed/msg-aes128-eax-chunk-size-4194304-password-123.pgp",
-            algo: SymmetricAlgorithm::AES128,
-            key_hex: "918E6BF5C6CE4320D014735AF27BFA76",
-            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
-            paths: &[
-                (Tag::SKESK, &[ 0 ]),
-                (Tag::AED, &[ 1 ]),
-                (Tag::Literal, &[ 1, 0 ]),
             ],
         },
     ];
@@ -5537,11 +6599,20 @@ mod test {
         decrypt_test_common(true);
     }
 
+    #[allow(deprecated)]
     fn decrypt_test_common(stream: bool) {
         for test in DECRYPT_TESTS.iter() {
             if !test.algo.is_supported() {
                 eprintln!("Algorithm {} unsupported, skipping", test.algo);
                 continue;
+            }
+
+            if let Some(aead_algo) = test.aead_algo {
+                if !aead_algo.is_supported() {
+                    eprintln!("AEAD algorithm {} unsupported by
+                               selected crypto backend, skipping", aead_algo);
+                    continue;
+                }
             }
 
             eprintln!("Decrypting {}, streaming content: {}",
@@ -5560,9 +6631,9 @@ mod test {
                 let key = crate::fmt::from_hex(test.key_hex, false)
                     .unwrap().into();
 
-                pp.decrypt(test.algo, &key).unwrap();
+                pp.decrypt(Some(test.algo), &key).unwrap();
             } else {
-                panic!("Expected a SEIP/AED packet.  Got: {:?}", ppr);
+                panic!("Expected a SEIP packet.  Got: {:?}", ppr);
             }
 
             let mut ppr = consume_until(
@@ -5616,27 +6687,48 @@ mod test {
 
     #[test]
     fn message_validator() {
+      for marker in 0..4 {
+        let marker_before = marker & 1 > 0;
+        let marker_after = marker & 2 > 0;
+
         for test in DECRYPT_TESTS.iter() {
             if !test.algo.is_supported() {
                 eprintln!("Algorithm {} unsupported, skipping", test.algo);
                 continue;
             }
 
-            let mut ppr = PacketParserBuilder::from_bytes(
-                crate::tests::message(test.filename)).unwrap()
+            if let Some(aead_algo) = test.aead_algo {
+                if !aead_algo.is_supported() {
+                    eprintln!("AEAD algorithm {} unsupported by
+                               selected crypto backend, skipping", aead_algo);
+                    continue;
+                }
+            }
+
+            let mut buf = Vec::new();
+            if marker_before {
+                Packet::Marker(Default::default()).serialize(&mut buf).unwrap();
+            }
+            buf.extend_from_slice(crate::tests::message(test.filename));
+            if marker_after {
+                Packet::Marker(Default::default()).serialize(&mut buf).unwrap();
+            }
+
+            let mut ppr = PacketParserBuilder::from_bytes(&buf)
+                .unwrap()
                 .build()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             // Make sure we actually decrypted...
             let mut saw_literal = false;
             while let PacketParserResult::Some(mut pp) = ppr {
-                assert!(pp.possible_message().is_ok());
+                pp.possible_message().unwrap();
 
                 match pp.packet {
-                    Packet::SEIP(_) | Packet::AED(_) => {
+                    Packet::SEIP(_) => {
                         let key = crate::fmt::from_hex(test.key_hex, false)
                             .unwrap().into();
-                        pp.decrypt(test.algo, &key).unwrap();
+                        pp.decrypt(Some(test.algo), &key).unwrap();
                     },
                     Packet::Literal(_) => {
                         assert!(! saw_literal);
@@ -5649,24 +6741,37 @@ mod test {
             }
             assert!(saw_literal);
             if let PacketParserResult::EOF(eof) = ppr {
-                assert!(eof.is_message().is_ok());
+                eof.is_message().unwrap();
             } else {
                 unreachable!();
             }
         }
+      }
     }
 
     #[test]
     fn keyring_validator() {
-        use std::io::Cursor;
+      for marker in 0..4 {
+        let marker_before = marker & 1 > 0;
+        let marker_after = marker & 2 > 0;
+
         for test in &["testy.pgp",
-                      "lutz.gpg",
+                      "lutz.pgp",
                       "testy-new.pgp",
                       "neal.pgp"]
         {
-            let mut ppr = PacketParserBuilder::from_reader(
-                Cursor::new(crate::tests::key("testy.pgp")).chain(
-                    Cursor::new(crate::tests::key(test)))).unwrap()
+            let mut buf = Vec::new();
+            if marker_before {
+                Packet::Marker(Default::default()).serialize(&mut buf).unwrap();
+            }
+            buf.extend_from_slice(crate::tests::key("testy.pgp"));
+            buf.extend_from_slice(crate::tests::key(test));
+            if marker_after {
+                Packet::Marker(Default::default()).serialize(&mut buf).unwrap();
+            }
+
+            let mut ppr = PacketParserBuilder::from_bytes(&buf)
+                .unwrap()
                 .build()
                 .expect(&format!("Error reading {:?}", test));
 
@@ -5681,16 +6786,30 @@ mod test {
                 unreachable!();
             }
         }
+      }
     }
 
     #[test]
     fn cert_validator() {
+      for marker in 0..4 {
+        let marker_before = marker & 1 > 0;
+        let marker_after = marker & 2 > 0;
+
         for test in &["testy.pgp",
-                      "lutz.gpg",
+                      "lutz.pgp",
                       "testy-new.pgp",
                       "neal.pgp"]
         {
-            let mut ppr = PacketParserBuilder::from_bytes(crate::tests::key(test))
+            let mut buf = Vec::new();
+            if marker_before {
+                Packet::Marker(Default::default()).serialize(&mut buf).unwrap();
+            }
+            buf.extend_from_slice(crate::tests::key(test));
+            if marker_after {
+                Packet::Marker(Default::default()).serialize(&mut buf).unwrap();
+            }
+
+            let mut ppr = PacketParserBuilder::from_bytes(&buf)
                 .unwrap()
                 .build()
                 .expect(&format!("Error reading {:?}", test));
@@ -5707,6 +6826,7 @@ mod test {
                 unreachable!();
             }
         }
+      }
     }
 
     // If we don't decrypt the SEIP packet, it shows up as opaque
@@ -5751,6 +6871,13 @@ mod test {
                 continue;
             }
 
+            if let Some(aead_algo) = test.aead_algo {
+                if !aead_algo.is_supported() {
+                    eprintln!("AEAD algorithm {} unsupported, skipping", aead_algo);
+                    continue;
+                }
+            }
+
             eprintln!("Decrypting {}", test.filename);
 
             let mut ppr = PacketParserBuilder::from_bytes(
@@ -5775,7 +6902,7 @@ mod test {
                 eprintln!("  {}: {:?}", pp.packet.tag(), pp.path());
 
                 match pp.packet {
-                    Packet::SEIP(_) | Packet::AED(_) => {
+                    Packet::SEIP(_) => {
                         let key = crate::fmt::from_hex(test.key_hex, false)
                             .unwrap().into();
 
@@ -5821,10 +6948,9 @@ mod test {
                 Packet::PublicSubkey(_) => subkeys += 1,
                 Packet::UserID(_) => userids += 1,
                 Packet::UserAttribute(_) => uas += 1,
-                Packet::Unknown(ref u) => {
+                Packet::Unknown(ref p) => {
+                    dbg!(p);
                     unknown += 1;
-                    assert_match!(Some(&Error::MalformedPacket(_))
-                                  = u.error().downcast_ref());
                 },
                 _ => (),
             }
@@ -5842,7 +6968,7 @@ mod test {
     #[test]
     fn junk_prefix() {
         // Make sure we can read the first packet.
-        let msg = crate::tests::message("sig.gpg");
+        let msg = crate::tests::message("sig.pgp");
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(packet_parser_builder::Dearmor::Disabled)
@@ -5867,8 +6993,8 @@ mod test {
     /// Issue #141.
     #[test]
     fn truncated_packet() {
-        for msg in &[crate::tests::message("literal-mode-b.gpg"),
-                     crate::tests::message("literal-mode-t-partial-body.gpg"),
+        for msg in &[crate::tests::message("literal-mode-b.pgp"),
+                     crate::tests::message("literal-mode-t-partial-body.pgp"),
         ] {
             // Make sure we can read the first packet.
             let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
@@ -5908,7 +7034,7 @@ mod test {
         }
 
         // But if we set the maximum packet size too low, it is parsed
-        // into a unknown packet.
+        // into an unknown packet.
         let ppr = PacketParserBuilder::from_bytes(&buf).unwrap()
             .max_packet_size(5)
             .build().unwrap();
@@ -5943,7 +7069,7 @@ mod test {
         // Decrypt, then call BufferedReader::next().
         eprintln!("Decrypt, then next():\n");
         let mut ppr = PacketParser::from_bytes(
-            crate::tests::message("encrypted-to-testy.gpg"))?;
+            crate::tests::message("encrypted-to-testy.pgp"))?;
         while let PacketParserResult::Some(mut pp) = ppr {
             match &pp.packet {
                 Packet::SEIP(_) => {
@@ -5959,7 +7085,7 @@ mod test {
         // Decrypt, buffer, then call BufferedReader::recurse().
         eprintln!("\nDecrypt, buffer, then recurse():\n");
         let mut ppr = PacketParser::from_bytes(
-            crate::tests::message("encrypted-to-testy.gpg"))?;
+            crate::tests::message("encrypted-to-testy.pgp"))?;
         while let PacketParserResult::Some(mut pp) = ppr {
             match &pp.packet {
                 Packet::SEIP(_) => {
@@ -6014,13 +7140,13 @@ mod test {
         }
     }
 
-    /// Checks that the content hash is correctly computed whether or
-    /// not the content has been (fully) read.
+    /// Checks that the content hash is correctly computed whether
+    /// the content has been (fully) read.
     #[test]
     fn issue_537() -> Result<()> {
         // Buffer unread content.
         let ppr0 = PacketParserBuilder::from_bytes(
-            crate::tests::message("literal-mode-b.gpg"))?
+            crate::tests::message("literal-mode-b.pgp"))?
             .buffer_unread_content()
             .build()?;
         let pp0 = ppr0.unwrap();
@@ -6028,20 +7154,20 @@ mod test {
 
         // Drop unread content.
         let ppr1 = PacketParser::from_bytes(
-            crate::tests::message("literal-mode-b.gpg"))?;
+            crate::tests::message("literal-mode-b.pgp"))?;
         let pp1 = ppr1.unwrap();
         let (packet1, _) = pp1.recurse()?;
 
         // Read content.
         let ppr2 = PacketParser::from_bytes(
-            crate::tests::message("literal-mode-b.gpg"))?;
+            crate::tests::message("literal-mode-b.pgp"))?;
         let mut pp2 = ppr2.unwrap();
         io::copy(&mut pp2, &mut io::sink())?;
         let (packet2, _) = pp2.recurse()?;
 
         // Partially read content.
         let ppr3 = PacketParser::from_bytes(
-            crate::tests::message("literal-mode-b.gpg"))?;
+            crate::tests::message("literal-mode-b.pgp"))?;
         let mut pp3 = ppr3.unwrap();
         let mut buf = [0];
         let nread = pp3.read(&mut buf)?;
@@ -6082,7 +7208,7 @@ mod test {
             let mut message = Signer::with_template(
                 message, signing_keypair,
                 signature::SignatureBuilder::new(SignatureType::Text)
-            ).detached().build()?;
+            )?.detached().build()?;
             message.write_all(data)?;
             message.finalize()?;
         }
@@ -6151,6 +7277,166 @@ mod test {
             } else {
                 break;
             }
+        }
+        Ok(())
+    }
+
+    // Issue 967.
+    #[test]
+    fn packet_before_junk_emitted() -> Result<()> {
+        let bytes = crate::tests::key("testy-new.pgp");
+
+        let mut ppr = match PacketParser::from_bytes(bytes) {
+            Ok(ppr) => ppr,
+            Err(_) => panic!("valid"),
+        };
+        let mut packets_ok = Vec::new();
+        while let PacketParserResult::Some(pp) = ppr {
+            if let Ok((packet, tmp)) = pp.recurse() {
+                packets_ok.push(packet);
+                ppr = tmp;
+            } else {
+                break;
+            }
+        }
+
+        let mut bytes = bytes.to_vec();
+        // Add some junk.
+        bytes.push(0);
+        let mut ppr = match PacketParser::from_bytes(&bytes[..]) {
+            Ok(ppr) => ppr,
+            Err(_) => panic!("valid"),
+        };
+        let mut packets_mangled = Vec::new();
+        while let PacketParserResult::Some(pp) = ppr {
+            if let Ok((packet, tmp)) = pp.recurse() {
+                packets_mangled.push(packet);
+                ppr = tmp;
+            } else {
+                break;
+            }
+        }
+
+        assert_eq!(packets_ok.len(), packets_mangled.len());
+        assert_eq!(packets_ok, packets_mangled);
+
+        Ok(())
+    }
+
+    /// Tests for a panic in the packet parser.
+    fn parse_message(message: &str) {
+        eprintln!("parsing {:?}", message);
+        let mut ppr = match PacketParser::from_bytes(message) {
+            Ok(ppr) => ppr,
+            Err(_) => return,
+        };
+        while let PacketParserResult::Some(pp) = ppr {
+            dbg!(&pp.packet);
+            if let Ok((_, tmp)) = pp.recurse() {
+                ppr = tmp;
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Tests issue 1005.
+    #[test]
+    fn panic_on_short_zip() {
+        parse_message("-----BEGIN PGP SIGNATURE-----
+
+owGjAA0=
+zXvj
+-----END PGP SIGNATURE-----
+");
+    }
+
+    /// Tests issue 957.
+    #[test]
+    fn panic_on_malformed_armor() {
+        parse_message("-----BEGIN PGP MESSAGE-----
+
+heLBX8Pq0kUBwQz2iFAzRwOdgTBvH5KsDU9lmE
+
+-----END PGP MESSAGE-----
+");
+    }
+
+    /// Tests issue 1024.
+    #[test]
+    // XXX: While lenient parsing seemed like the right thing to do,
+    // this breaks equality and round-tripping: we normalize the
+    // non-canonical encoding, so two distinct wire representations
+    // are folded into one in-core representation.
+    #[ignore]
+    fn parse_secret_with_leading_zeros() -> Result<()> {
+        crate::Cert::from_bytes(
+            crate::tests::key("leading-zeros-private.pgp"))?
+            .primary_key().key().clone()
+            .parts_into_secret()?
+            .decrypt_secret(&("hunter22"[..]).into())?
+            .into_keypair()?;
+        Ok(())
+    }
+
+    /// Tests that junk pseudo-packets have a proper map when
+    /// buffering is turned on.
+    #[test]
+    #[cfg(feature = "compression-deflate")]
+    fn parse_junk_with_mapping() -> Result<()> {
+        let silly = "-----BEGIN PGP MESSAGE-----
+
+yCsBO81bKqlfklugX5yRX5qTopuXX6KbWpFZXKJXUlGSetb4dXm+gYFBCRcA
+=IHpt
+-----END PGP MESSAGE-----
+";
+        let mut ppr = PacketParserBuilder::from_bytes(silly)?
+            .map(true).buffer_unread_content().build()?;
+        let mut i = 0;
+        while let PacketParserResult::Some(pp) = ppr {
+            assert!(pp.map().unwrap().iter().count() > 0);
+            for f in pp.map().unwrap().iter() {
+                eprintln!("{:?}", f);
+            }
+            ppr = match pp.recurse() {
+                Ok((_, ppr)) => {
+                    i += 1;
+                    ppr
+                },
+                Err(_) => {
+                    // The third packet is a junk pseudo-packet, and
+                    // recursing will fail.
+                    assert_eq!(i, 2);
+                    break;
+                },
+            }
+        }
+        Ok(())
+    }
+
+    /// Tests for issue 1095, parsing a secret key packet with an
+    /// unknown S2K mechanism.
+    #[test]
+    fn key_unknown_s2k() -> Result<()> {
+        let mut ppr = PacketParser::from_bytes(
+            crate::tests::key("hardware-backed-secret.pgp"))?;
+        let mut i = 0;
+        while let PacketParserResult::Some(pp) = ppr {
+            if i == 0 {
+                assert!(matches!(&pp.packet, Packet::SecretKey(_)));
+            }
+            if i == 3 {
+                assert!(matches!(&pp.packet, Packet::SecretSubkey(_)));
+            }
+
+            // Make sure it roundtrips.
+            let p = &pp.packet;
+            let v = p.to_vec()?;
+            let q = Packet::from_bytes(&v)?;
+            assert_eq!(p, &q);
+
+            ppr = pp.recurse()?.1;
+            i += 1;
         }
         Ok(())
     }

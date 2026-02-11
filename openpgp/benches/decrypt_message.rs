@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
 };
@@ -10,12 +12,13 @@ use crate::common::{decrypt, encrypt};
 
 static PASSWORD: &str = "password";
 
-lazy_static::lazy_static! {
-    static ref TESTY: Cert =
-        Cert::from_bytes(&include_bytes!("../tests/data/keys/testy-private.pgp")[..])
-        .unwrap();
-    static ref ZEROS_1_MB: Vec<u8> = vec![0; 1024 * 1024];
-    static ref ZEROS_10_MB: Vec<u8> = vec![0; 10 * 1024 * 1024];
+fn testy() -> &'static Cert {
+    static CERT: OnceLock<Cert> = OnceLock::new();
+    CERT.get_or_init(|| {
+        Cert::from_bytes(
+            &include_bytes!("../tests/data/keys/testy-private.pgp")[..])
+            .unwrap()
+    })
 }
 
 fn decrypt_cert(bytes: &[u8], cert: &Cert) {
@@ -31,12 +34,8 @@ fn decrypt_password(bytes: &[u8]) {
 fn bench_decrypt(c: &mut Criterion) {
     let mut group = c.benchmark_group("decrypt message");
 
-    // Encrypt a very short, medium and very long message,
-    // and then benchmark decryption.
-    let messages = &[b"Hello world.", &ZEROS_1_MB[..], &ZEROS_10_MB[..]];
-
     // Encrypt and decrypt with password
-    messages.iter().for_each(|m| {
+    encrypt::messages().for_each(|m| {
         let encrypted = encrypt::encrypt_with_password(m, PASSWORD).unwrap();
         group.throughput(Throughput::Bytes(encrypted.len() as u64));
         group.bench_with_input(
@@ -47,13 +46,13 @@ fn bench_decrypt(c: &mut Criterion) {
     });
 
     // Encrypt and decrypt with a cert
-    messages.iter().for_each(|m| {
-        let encrypted = encrypt::encrypt_to_cert(m, &TESTY).unwrap();
+    encrypt::messages().for_each(|m| {
+        let encrypted = encrypt::encrypt_to_cert(m, testy()).unwrap();
         group.throughput(Throughput::Bytes(encrypted.len() as u64));
         group.bench_with_input(
             BenchmarkId::new("cert", m.len()),
             &encrypted,
-            |b, e| b.iter(|| decrypt_cert(e, &TESTY)),
+            |b, e| b.iter(|| decrypt_cert(e, testy())),
         );
     });
 

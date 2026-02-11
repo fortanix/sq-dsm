@@ -1,7 +1,7 @@
 //! Low-level ECDSA tests.
 
 use crate::Result;
-use crate::crypto::{mpi, hash::Digest};
+use crate::crypto::mpi;
 use crate::packet::{prelude::*, signature::subpacket::*};
 use crate::types::*;
 
@@ -34,10 +34,10 @@ fn fips_186_4() -> Result<()> {
                           q: mpi::MPI::new_point(x, y,
                                                  curve.bits().unwrap()),
                       })?.into();
-        let mut h = hash.context()?;
+        let mut h = hash.context()?.for_digest();
         h.update(msg);
         let mut d = h.into_digest()?;
-        let mut sig: Signature =
+        let sig: Signature =
             Signature4::new(SignatureType::Binary,
                             PublicKeyAlgorithm::ECDSA,
                             hash,

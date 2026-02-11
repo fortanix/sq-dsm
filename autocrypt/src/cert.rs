@@ -23,6 +23,7 @@ pub fn cert_builder<'a, V, U>(version: V, userid: Option<U>)
           U: Into<packet::UserID>
 {
     let builder = CertBuilder::new()
+        .set_profile(openpgp::Profile::RFC4880).expect("supported")
         .set_cipher_suite(match version.into().unwrap_or_default() {
             Autocrypt::V1 => CipherSuite::RSA3k,
             Autocrypt::V1_1 => CipherSuite::Cv25519,
@@ -55,7 +56,7 @@ mod tests {
     fn autocrypt_v1() {
         let (cert1, _) = cert_builder(Autocrypt::V1, Some("Foo"))
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
+        assert_eq!(cert1.primary_key().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(cert1.keys().subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -66,7 +67,7 @@ mod tests {
     fn autocrypt_v1_1() {
         let (cert1, _) = cert_builder(Autocrypt::V1_1, Some("Foo"))
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
+        assert_eq!(cert1.primary_key().key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert_eq!(cert1.keys().subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::ECDH);

@@ -2,10 +2,10 @@
 //!
 //! OpenPGP defines a binary representation suitable for storing and
 //! communicating OpenPGP data structures (see [Section 3 ff. of RFC
-//! 4880]).  Serialization is the process of creating the binary
+//! 9580]).  Serialization is the process of creating the binary
 //! representation.
 //!
-//!   [Section 3 ff. of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3
+//!   [Section 3 ff. of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3
 //!
 //! There are two interfaces to serialize OpenPGP data.  Which one is
 //! applicable depends on whether or not the packet structure is
@@ -21,17 +21,17 @@
 //! # Streaming serialization
 //!
 //! The [streaming serialization interface] is the preferred way to
-//! create OpenPGP messages (see [Section 11.3 of RFC 4880]).  It is
+//! create OpenPGP messages (see [Section 10.3 of RFC 9580]).  It is
 //! ergonomic, yet flexible enough to accommodate most use cases.  It
 //! requires little buffering, minimizing the memory footprint of the
 //! operation.
 //!
 //! This example demonstrates how to create the simplest possible
-//! OpenPGP message (see [Section 11.3 of RFC 4880]) containing just a
-//! literal data packet (see [Section 5.9 of RFC 4880]):
+//! OpenPGP message (see [Section 10.3 of RFC 9580]) containing just a
+//! literal data packet (see [Section 5.9 of RFC 9580]):
 //!
-//!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
-//!   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+//!   [Section 10.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
+//!   [Section 5.9 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.9
 //!
 //! ```
 //! # fn main() -> sequoia_openpgp::Result<()> {
@@ -77,7 +77,7 @@
 //!   [`Signature`]: crate::packet::Signature
 //!
 //! This example demonstrates how to serialize a literal data packet
-//! (see [Section 5.9 of RFC 4880]):
+//! (see [Section 5.9 of RFC 9580]):
 //!
 //! ```
 //! # fn main() -> sequoia_openpgp::Result<()> {
@@ -133,7 +133,6 @@
 use std::io::{self, Write};
 use std::cmp;
 use std::convert::{TryFrom, TryInto};
-use std::ops::Deref;
 
 use super::*;
 
@@ -152,6 +151,7 @@ use crate::packet::signature::subpacket::{
     SubpacketArea, Subpacket, SubpacketValue, SubpacketLength
 };
 use crate::packet::prelude::*;
+use crate::packet::signature::Signature3;
 use crate::seal;
 use crate::types::{
     RevocationKey,
@@ -160,7 +160,7 @@ use crate::types::{
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
-
+
 /// Serializes OpenPGP data structures.
 ///
 /// This trait provides the same interface as the [`Marshal`] trait (in
@@ -193,7 +193,7 @@ const TRACE : bool = false;
 ///
 /// # fn main() -> Result<()> {
 /// let (_cert, rev) =
-///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     CertBuilder::general_purpose(Some("alice@example.org"))
 ///     .generate()?;
 /// let rev : Packet = rev.into();
 /// # let output = &mut Vec::new();
@@ -217,7 +217,7 @@ const TRACE : bool = false;
 /// #
 /// # fn main() -> Result<()> {
 /// # let (_cert, rev) =
-/// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #     CertBuilder::general_purpose(Some("alice@example.org"))
 /// #     .generate()?;
 /// # let rev : Packet = rev.into();
 /// # let output = &mut Vec::new();
@@ -596,7 +596,7 @@ fn test_generic_export_into() {
     let e = u.export_into(&mut b[..]).unwrap_err();
     assert_match!(Some(Error::InvalidArgument(_)) = e.downcast_ref());
 }
-
+
 fn write_byte(o: &mut dyn std::io::Write, b: u8) -> io::Result<()> {
     o.write_all(&[b])
 }
@@ -608,7 +608,7 @@ fn write_be_u16(o: &mut dyn std::io::Write, n: u16) -> io::Result<()> {
 fn write_be_u32(o: &mut dyn std::io::Write, n: u32) -> io::Result<()> {
     o.write_all(&n.to_be_bytes())
 }
-
+
 // Compute the log2 of an integer.  (This is simply the most
 // significant bit.)  Note: log2(0) = -Inf, but this function returns
 // log2(0) as 0 (which is the closest number that we can represent).
@@ -631,7 +631,7 @@ fn log2_test() {
         }
     }
 }
-
+
 impl seal::Sealed for BodyLength {}
 impl Marshal for BodyLength {
     /// Emits the length encoded for use with new-style CTBs.
@@ -726,7 +726,7 @@ impl BodyLength {
     ///
     /// [`Error::InvalidArgument`]: Error::InvalidArgument
     /// [`serialize(..)`]: Serialize
-    pub fn serialize_old<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    pub fn serialize_old<W: io::Write + ?Sized>(&self, o: &mut W) -> Result<()> {
         // Assume an optimal encoding is desired.
         let mut buffer = Vec::with_capacity(4);
         match self {
@@ -755,8 +755,25 @@ impl BodyLength {
         o.write_all(&buffer)?;
         Ok(())
     }
+
+    /// Computes the length of the length encoded for use with
+    /// old-style CTBs.
+    fn old_serialized_len(&self) -> usize {
+        // Assume an optimal encoding is desired.
+        match self {
+            BodyLength::Full(l) => {
+                match *l {
+                    0 ..= 0xFF => 1,
+                    0x1_00 ..= 0xFF_FF => 2,
+                    _ => 4,
+                }
+            },
+            BodyLength::Indeterminate => 0,
+            BodyLength::Partial(_) => 0,
+        }
+    }
 }
-
+
 impl seal::Sealed for CTBNew {}
 impl Marshal for CTBNew {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
@@ -815,14 +832,21 @@ impl seal::Sealed for Header {}
 impl Marshal for Header {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.ctb().serialize(o)?;
-        self.length().serialize(o)?;
+        match self.ctb() {
+            CTB::New(_) => self.length().serialize(o)?,
+            CTB::Old(_) => self.length().serialize_old(o)?,
+        }
         Ok(())
     }
 }
 
 impl MarshalInto for Header {
     fn serialized_len(&self) -> usize {
-        self.ctb().serialized_len() + self.length().serialized_len()
+        self.ctb().serialized_len()
+            + match self.ctb() {
+                CTB::New(_) => self.length().serialized_len(),
+                CTB::Old(_) => self.length().old_serialized_len(),
+            }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -830,12 +854,22 @@ impl MarshalInto for Header {
     }
 }
 
+#[test]
+fn legacy_header() -> Result<()> {
+    use crate::serialize::MarshalInto;
+    let len = BodyLength::Indeterminate;
+    let ctb = CTB::Old(CTBOld::new(Tag::Literal, len)?);
+    assert_eq!(&ctb.to_vec()?[..], &[0b1_0_1011_11]);
+    // Bit encoding: OpenPGP_Legacy_Literal_Indeterminate
+    Ok(())
+}
+
 impl Serialize for KeyID {}
 impl seal::Sealed for KeyID {}
 impl Marshal for KeyID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let raw = match self {
-            KeyID::V4(ref fp) => &fp[..],
+            KeyID::Long(ref fp) => &fp[..],
             KeyID::Invalid(ref fp) => &fp[..],
         };
         o.write_all(raw)?;
@@ -847,7 +881,7 @@ impl SerializeInto for KeyID {}
 impl MarshalInto for KeyID {
     fn serialized_len(&self) -> usize {
         match self {
-            KeyID::V4(_) => 8,
+            KeyID::Long(_) => 8,
             KeyID::Invalid(ref fp) => fp.len(),
         }
     }
@@ -869,10 +903,7 @@ impl Marshal for Fingerprint {
 impl SerializeInto for Fingerprint {}
 impl MarshalInto for Fingerprint {
     fn serialized_len(&self) -> usize {
-        match self {
-            Fingerprint::V4(_) => 20,
-            Fingerprint::Invalid(ref fp) => fp.len(),
-        }
+        self.as_bytes().len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -971,6 +1002,11 @@ impl Marshal for crypto::mpi::PublicKey {
                 w.write_all(&[3u8, 1u8, u8::from(*hash), u8::from(*sym)])?;
             }
 
+            X25519 { u } => w.write_all(&u[..])?,
+            X448 { u } => w.write_all(&u[..])?,
+            Ed25519 { a } => w.write_all(&a[..])?,
+            Ed448 { a } => w.write_all(&a[..])?,
+
             Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
@@ -1011,6 +1047,11 @@ impl MarshalInto for crypto::mpi::PublicKey {
             ECDH { ref curve, ref q, hash: _, sym: _ } => {
                 1 + curve.oid().len() + q.serialized_len() + 4
             }
+
+            X25519 { .. } => 32,
+            X448 { .. } => 56,
+            Ed25519 { .. } => 32,
+            Ed448 { .. } => 57,
 
             Unknown { ref mpis, ref rest } => {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
@@ -1057,6 +1098,11 @@ impl Marshal for crypto::mpi::SecretKeyMaterial {
                 scalar.serialize(w)?;
             }
 
+            X25519 { x } => w.write_all(x)?,
+            X448 { x } => w.write_all(x)?,
+            Ed25519 { x } => w.write_all(x)?,
+            Ed448 { x } => w.write_all(x)?,
+
             Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
@@ -1098,6 +1144,11 @@ impl MarshalInto for crypto::mpi::SecretKeyMaterial {
                 scalar.serialized_len()
             }
 
+            X25519 { .. } => 32,
+            X448 { .. } => 56,
+            Ed25519 { .. } => 32,
+            Ed448 { .. } => 57,
+
             Unknown { ref mpis, ref rest } => {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
@@ -1123,7 +1174,8 @@ impl crypto::mpi::SecretKeyMaterial {
         match checksum {
             crypto::mpi::SecretKeyChecksum::SHA1 => {
                 // The checksum is SHA1 over the serialized MPIs.
-                let mut hash = HashAlgorithm::SHA1.context().unwrap();
+                let mut hash =
+                    HashAlgorithm::SHA1.context().unwrap().for_digest();
                 self.serialize(&mut hash)?;
                 let mut digest = [0u8; 20];
                 let _ = hash.digest(&mut digest);
@@ -1160,6 +1212,16 @@ impl Marshal for crypto::mpi::Ciphertext {
                 write_field_with_u8_size(w, "Key", key)?;
             }
 
+            X25519 {  e, key } => {
+                w.write_all(&e[..])?;
+                write_field_with_u8_size(w, "Key", key)?;
+            }
+
+            X448 {  e, key } => {
+                w.write_all(&e[..])?;
+                write_field_with_u8_size(w, "Key", key)?;
+            }
+
             Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
@@ -1186,6 +1248,14 @@ impl MarshalInto for crypto::mpi::Ciphertext {
 
             ECDH{ ref e, ref key } => {
                 e.serialized_len() + 1 + key.len()
+            }
+
+            X25519 { key, .. } => {
+                32 + 1 + key.len()
+            }
+
+            X448 { key, .. } => {
+                56 + 1 + key.len()
             }
 
             Unknown { ref mpis, ref rest } => {
@@ -1226,6 +1296,9 @@ impl Marshal for crypto::mpi::Signature {
                 s.serialize(w)?;
             }
 
+            Ed25519 { s } => w.write_all(&s[..])?,
+            Ed448 { s } => w.write_all(&s[..])?,
+
             Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
                     mpi.serialize(w)?;
@@ -1258,6 +1331,9 @@ impl MarshalInto for crypto::mpi::Signature {
                 r.serialized_len() + s.serialized_len()
             }
 
+            Ed25519 { .. } => 64,
+            Ed448 { .. } => 114,
+
             Unknown { ref mpis, ref rest } => {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
@@ -1269,7 +1345,7 @@ impl MarshalInto for crypto::mpi::Signature {
         generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
-
+
 impl seal::Sealed for S2K {}
 impl Marshal for S2K {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
@@ -1287,6 +1363,12 @@ impl Marshal for S2K {
                 w.write_all(&salt[..])?;
                 w.write_all(&[S2K::encode_count(hash_bytes)?])?;
             }
+            S2K::Implicit => (),
+            S2K::Argon2 { salt, t, p, m, } => {
+                w.write_all(&[4])?;
+                w.write_all(salt)?;
+                w.write_all(&[*t, *p, *m])?;
+            },
             S2K::Private { tag, parameters }
             | S2K::Unknown { tag, parameters} => {
                 w.write_all(&[*tag])?;
@@ -1307,6 +1389,8 @@ impl MarshalInto for S2K {
             &S2K::Simple{ .. } => 2,
             &S2K::Salted{ .. } => 2 + 8,
             &S2K::Iterated{ .. } => 2 + 8 + 1,
+            S2K::Implicit => 0,
+            S2K::Argon2 { .. } => 20,
             S2K::Private { parameters, .. }
             | S2K::Unknown { parameters, .. } =>
                 1 + parameters.as_ref().map(|p| p.len()).unwrap_or(0),
@@ -1393,6 +1477,7 @@ impl seal::Sealed for SubpacketValue {}
 impl Marshal for SubpacketValue {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use self::SubpacketValue::*;
+        #[allow(deprecated)]
         match self {
             SignatureCreationTime(t) =>
                 write_be_u32(o, (*t).into())?,
@@ -1418,7 +1503,7 @@ impl Marshal for SubpacketValue {
             Issuer(ref id) =>
                 o.write_all(id.as_bytes())?,
             NotationData(nd) => {
-                o.write_all(nd.flags().as_slice())?;
+                o.write_all(nd.flags().as_bitfield().as_bytes())?;
                 write_be_u16(o, nd.name().len() as u16)?;
                 write_be_u16(o, nd.value().len() as u16)?;
                 o.write_all(nd.name().as_bytes())?;
@@ -1433,7 +1518,7 @@ impl Marshal for SubpacketValue {
                     o.write_all(&[(*a).into()])?;
                 },
             KeyServerPreferences(ref p) =>
-                o.write_all(p.as_slice())?,
+                o.write_all(p.as_bitfield().as_bytes())?,
             PreferredKeyServer(ref p) =>
                 o.write_all(p)?,
             PrimaryUserID(p) =>
@@ -1441,7 +1526,7 @@ impl Marshal for SubpacketValue {
             PolicyURI(ref p) =>
                 o.write_all(p)?,
             KeyFlags(ref f) =>
-                o.write_all(f.as_slice())?,
+                o.write_all(f.as_bitfield().as_bytes())?,
             SignersUserID(ref uid) =>
                 o.write_all(uid)?,
             ReasonForRevocation { ref code, ref reason } => {
@@ -1449,7 +1534,7 @@ impl Marshal for SubpacketValue {
                 o.write_all(reason)?;
             },
             Features(ref f) =>
-                o.write_all(f.as_slice())?,
+                o.write_all(f.as_bitfield().as_bytes())?,
             SignatureTarget { pk_algo, hash_algo, ref digest } => {
                 o.write_all(&[(*pk_algo).into(), (*hash_algo).into()])?;
                 o.write_all(digest)?;
@@ -1460,26 +1545,36 @@ impl Marshal for SubpacketValue {
                     o.write_all(&[4])?;
                     o.write_all(fp.as_bytes())?;
                 },
-                _ => return Err(Error::InvalidArgument(
-                    "Unknown kind of fingerprint".into()).into()),
-            }
-            PreferredAEADAlgorithms(ref p) =>
-                for a in p {
-                    o.write_all(&[(*a).into()])?;
-                },
-            IntendedRecipient(ref fp) => match fp {
-                Fingerprint::V4(_) => {
-                    o.write_all(&[4])?;
+                Fingerprint::V6(_) => {
+                    o.write_all(&[6])?;
                     o.write_all(fp.as_bytes())?;
                 },
                 _ => return Err(Error::InvalidArgument(
                     "Unknown kind of fingerprint".into()).into()),
             }
-            AttestedCertifications(digests) => {
+            IntendedRecipient(ref fp) => match fp {
+                Fingerprint::V4(_) => {
+                    o.write_all(&[4])?;
+                    o.write_all(fp.as_bytes())?;
+                },
+                Fingerprint::V6(_) => {
+                    o.write_all(&[6])?;
+                    o.write_all(fp.as_bytes())?;
+                },
+                _ => return Err(Error::InvalidArgument(
+                    "Unknown kind of fingerprint".into()).into()),
+            }
+            ApprovedCertifications(digests) => {
                 for digest in digests {
                     o.write_all(digest)?;
                 }
             },
+
+            PreferredAEADCiphersuites(p) =>
+                for (symm, aead) in p {
+                    o.write_all(&[(*symm).into(), (*aead).into()])?;
+                },
+
             Unknown { body, .. } =>
                 o.write_all(body)?,
         }
@@ -1490,6 +1585,7 @@ impl Marshal for SubpacketValue {
 impl MarshalInto for SubpacketValue {
     fn serialized_len(&self) -> usize {
         use self::SubpacketValue::*;
+        #[allow(deprecated)]
         match self {
             SignatureCreationTime(_) => 4,
             SignatureExpirationTime(_) => 4,
@@ -1504,31 +1600,23 @@ impl MarshalInto for SubpacketValue {
             NotationData(nd) => 4 + 2 + 2 + nd.name().len() + nd.value().len(),
             PreferredHashAlgorithms(ref p) => p.len(),
             PreferredCompressionAlgorithms(ref p) => p.len(),
-            KeyServerPreferences(ref p) => p.as_slice().len(),
+            KeyServerPreferences(p) => p.as_bitfield().as_bytes().len(),
             PreferredKeyServer(ref p) => p.len(),
             PrimaryUserID(_) => 1,
             PolicyURI(ref p) => p.len(),
-            KeyFlags(ref f) => f.as_slice().len(),
+            KeyFlags(f) => f.as_bitfield().as_bytes().len(),
             SignersUserID(ref uid) => uid.len(),
             ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
-            Features(ref f) => f.as_slice().len(),
+            Features(f) => f.as_bitfield().as_bytes().len(),
             SignatureTarget { ref digest, .. } => 2 + digest.len(),
             EmbeddedSignature(sig) => sig.serialized_len(),
-            IssuerFingerprint(ref fp) => match fp {
-                Fingerprint::V4(_) =>
-                    1 + (fp as &dyn MarshalInto).serialized_len(),
-                // Educated guess for unknown versions.
-                Fingerprint::Invalid(_) => 1 + fp.as_bytes().len(),
-            },
-            PreferredAEADAlgorithms(ref p) => p.len(),
-            IntendedRecipient(ref fp) => match fp {
-                Fingerprint::V4(_) =>
-                    1 + (fp as &dyn MarshalInto).serialized_len(),
-                // Educated guess for unknown versions.
-                Fingerprint::Invalid(_) => 1 + fp.as_bytes().len(),
-            },
-            AttestedCertifications(digests) =>
+            IssuerFingerprint(ref fp) =>
+                1 + (fp as &dyn MarshalInto).serialized_len(),
+            IntendedRecipient(ref fp) =>
+                1 + (fp as &dyn MarshalInto).serialized_len(),
+            ApprovedCertifications(digests) =>
                 digests.iter().map(|d| d.len()).sum(),
+            PreferredAEADCiphersuites(c) => c.len() * 2,
             Unknown { body, .. } => body.len(),
         }
     }
@@ -1574,7 +1662,7 @@ impl seal::Sealed for RevocationKey {}
 impl Marshal for RevocationKey {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let (pk_algo, fp) = self.revoker();
-        o.write_all(&[self.class(), (pk_algo).into()])?;
+        o.write_all(&[self.class(), pk_algo.into()])?;
         o.write_all(fp.as_bytes())?;
         Ok(())
     }
@@ -1594,13 +1682,17 @@ impl seal::Sealed for Signature {}
 impl Marshal for Signature {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
+            Signature::V3(ref s) => s.serialize(o),
             Signature::V4(ref s) => s.serialize(o),
+            Signature::V6(ref s) => s.serialize(o),
         }
     }
 
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
+            Signature::V3(ref s) => s.export(o),
             Signature::V4(ref s) => s.export(o),
+            Signature::V6(ref s) => s.export(o),
         }
     }
 }
@@ -1608,26 +1700,175 @@ impl Marshal for Signature {
 impl MarshalInto for Signature {
     fn serialized_len(&self) -> usize {
         match self {
+            Signature::V3(ref s) => s.serialized_len(),
             Signature::V4(ref s) => s.serialized_len(),
+            Signature::V6(ref s) => s.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
+            Signature::V3(ref s) => s.serialize_into(buf),
             Signature::V4(ref s) => s.serialize_into(buf),
+            Signature::V6(ref s) => s.serialize_into(buf),
         }
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
+            Signature::V3(ref s) => s.export_into(buf),
             Signature::V4(ref s) => s.export_into(buf),
+            Signature::V6(ref s) => s.export_into(buf),
         }
     }
 
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         match self {
+            Signature::V3(ref s) => s.export_to_vec(),
             Signature::V4(ref s) => s.export_to_vec(),
+            Signature::V6(ref s) => s.export_to_vec(),
         }
+    }
+}
+
+impl NetLength for Signature {
+    fn net_len(&self) -> usize {
+        match self {
+            Signature::V3(sig) => sig.net_len(),
+            Signature::V4(sig) => sig.net_len(),
+            Signature::V6(sig) => sig.net_len(),
+        }
+    }
+}
+
+impl seal::Sealed for Signature3 {}
+impl Marshal for Signature3 {
+    /// Writes a serialized version of the specified `Signature`
+    /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if `self` does not contain
+    /// a valid v3 signature.  Because v3 signature support was added
+    /// late in the 1.x release cycle, `Signature3` is just a thin
+    /// wrapper around a `Signature4`.  As such, it is possible to add
+    /// v4 specific data to a `Signature3`.  In general, this isn't a
+    /// significnat problem as generating v3 is deprecated.
+    ///
+    /// [`Error::InvalidArgument`]: Error::InvalidArgument
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        use crate::packet::signature::subpacket::SubpacketTag;
+
+        assert_eq!(self.version(), 3);
+        write_byte(o, self.version())?;
+        // hashed length.
+        write_byte(o, 5)?;
+        write_byte(o, self.typ().into())?;
+        if let Some(SubpacketValue::SignatureCreationTime(ct))
+            = self.hashed_area().subpacket(
+                SubpacketTag::SignatureCreationTime)
+            .map(|sp| sp.value())
+        {
+            write_be_u32(o, u32::from(*ct))?;
+        } else {
+            return Err(Error::InvalidArgument(
+                "Invalid v3 signature, missing creation time.".into()).into());
+        }
+
+        // Only one signature creation time subpacket is allowed in
+        // the hashed area.
+        let mut iter = self.hashed_area().iter();
+        let _ = iter.next();
+        if iter.next().is_some() {
+            return Err(Error::InvalidArgument(
+                format!("Invalid v3 signature: \
+                         subpackets are not allowed: {}",
+                        self.hashed_area().iter().map(|sp| {
+                            format!("{}: {:?}", sp.tag(), sp.value())
+                        }).collect::<Vec<String>>().join(", "))).into());
+        }
+
+        if let Some(SubpacketValue::Issuer(keyid))
+            = self.unhashed_area().subpacket(SubpacketTag::Issuer)
+            .map(|sp| sp.value())
+        {
+            match keyid {
+                KeyID::Long(bytes) => {
+                    assert_eq!(bytes.len(), 8);
+                    o.write_all(&bytes[..])?;
+                }
+                KeyID::Invalid(_) => {
+                    return Err(Error::InvalidArgument(
+                        "Invalid v3 signature, invalid issuer.".into()).into());
+                }
+            }
+        } else {
+            return Err(Error::InvalidArgument(
+                "Invalid v3 signature, missing issuer.".into()).into());
+        }
+
+        // Only one issuer subpacket is allowed in the unhashed area.
+        let mut iter = self.unhashed_area().iter();
+        let _ = iter.next();
+        if iter.next().is_some() {
+            return Err(Error::InvalidArgument(
+                format!("Invalid v3 signature: \
+                         subpackets are not allowed: {}",
+                        self.unhashed_area().iter().map(|sp| {
+                            format!("{}: {:?}", sp.tag(), sp.value())
+                        }).collect::<Vec<String>>().join(", "))).into());
+        }
+
+        write_byte(o, self.pk_algo().into())?;
+        write_byte(o, self.hash_algo().into())?;
+
+        write_byte(o, self.digest_prefix()[0])?;
+        write_byte(o, self.digest_prefix()[1])?;
+
+        self.mpis().serialize(o)?;
+
+        Ok(())
+    }
+
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        self.exportable()?;
+        self.serialize(o)
+    }
+}
+
+impl NetLength for Signature3 {
+    fn net_len(&self) -> usize {
+        assert_eq!(self.version(), 3);
+
+        1 // Version.
+            + 1 // Hashed length.
+            + 1 // Signature type.
+            + 4 // Creation time.
+            + 8 // Issuer.
+            + 1 // PK algorithm.
+            + 1 // Hash algorithm.
+            + 2 // Hash prefix.
+            + self.mpis().serialized_len()
+    }
+}
+
+impl MarshalInto for Signature3 {
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        self.exportable()?;
+        self.serialize_into(buf)
+    }
+
+    fn export_to_vec(&self) -> Result<Vec<u8>> {
+        self.exportable()?;
+        self.to_vec()
     }
 }
 
@@ -1681,6 +1922,8 @@ impl Marshal for Signature4 {
 
 impl NetLength for Signature4 {
     fn net_len(&self) -> usize {
+        assert_eq!(self.version(), 4);
+
         1 // Version.
             + 1 // Signature type.
             + 1 // PK algorithm.
@@ -1714,11 +1957,101 @@ impl MarshalInto for Signature4 {
     }
 }
 
+impl seal::Sealed for Signature6 {}
+impl Marshal for Signature6 {
+    /// Writes a serialized version of the specified `Signature`
+    /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if either the hashed-area
+    /// or the unhashed-area exceeds the size limit of 2^16.
+    ///
+    /// [`Error::InvalidArgument`]: Error::InvalidArgument
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        assert_eq!(self.version(), 6);
+        write_byte(o, self.version())?;
+        write_byte(o, self.typ().into())?;
+        write_byte(o, self.pk_algo().into())?;
+        write_byte(o, self.hash_algo().into())?;
+
+        let l = self.hashed_area().serialized_len();
+        if l > u32::MAX as usize {
+            return Err(Error::InvalidArgument(
+                "Hashed area too large".into()).into());
+        }
+        write_be_u32(o, l as u32)?;
+        self.hashed_area().serialize(o)?;
+
+        let l = self.unhashed_area().serialized_len();
+        if l > u32::MAX as usize {
+            return Err(Error::InvalidArgument(
+                "Unhashed area too large".into()).into());
+        }
+        write_be_u32(o, l as u32)?;
+        self.unhashed_area().serialize(o)?;
+
+        write_byte(o, self.digest_prefix()[0])?;
+        write_byte(o, self.digest_prefix()[1])?;
+        write_byte(o, self.salt().len() as u8)?;
+        o.write_all(self.salt())?;
+
+        self.mpis().serialize(o)?;
+
+        Ok(())
+    }
+
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        self.exportable()?;
+        self.serialize(o)
+    }
+}
+
+impl NetLength for Signature6 {
+    fn net_len(&self) -> usize {
+        assert_eq!(self.version(), 6);
+
+        1 // Version.
+            + 1 // Signature type.
+            + 1 // PK algorithm.
+            + 1 // Hash algorithm.
+            + 4 // Hashed area size.
+            + self.hashed_area().serialized_len()
+            + 4 // Unhashed area size.
+            + self.unhashed_area().serialized_len()
+            + 2 // Hash prefix.
+            + 1 // Salt length.
+            + self.salt().len()
+            + self.mpis().serialized_len()
+    }
+}
+
+impl MarshalInto for Signature6 {
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        self.exportable()?;
+        self.serialize_into(buf)
+    }
+
+    fn export_to_vec(&self) -> Result<Vec<u8>> {
+        self.exportable()?;
+        self.to_vec()
+    }
+}
+
 impl seal::Sealed for OnePassSig {}
 impl Marshal for OnePassSig {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             OnePassSig::V3(ref s) => s.serialize(o),
+            OnePassSig::V6(ref s) => s.serialize(o),
         }
     }
 }
@@ -1727,12 +2060,23 @@ impl MarshalInto for OnePassSig {
     fn serialized_len(&self) -> usize {
         match self {
             OnePassSig::V3(ref s) => s.serialized_len(),
+            OnePassSig::V6(ref s) => s.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             OnePassSig::V3(ref s) => s.serialize_into(buf),
+            OnePassSig::V6(ref s) => s.serialize_into(buf),
+        }
+    }
+}
+
+impl NetLength for OnePassSig {
+    fn net_len(&self) -> usize {
+        match self {
+            OnePassSig::V3(ref s) => s.net_len(),
+            OnePassSig::V6(ref s) => s.net_len(),
         }
     }
 }
@@ -1772,11 +2116,57 @@ impl MarshalInto for OnePassSig3 {
     }
 }
 
+impl seal::Sealed for OnePassSig6 {}
+impl Marshal for OnePassSig6 {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        write_byte(o, 6)?; // Version.
+        write_byte(o, self.typ().into())?;
+        write_byte(o, self.hash_algo().into())?;
+        write_byte(o, self.pk_algo().into())?;
+        write_byte(o, self.salt().len().try_into().map_err(
+            |_| Error::InvalidArgument("Salt too large".into()))?)?;
+        o.write_all(self.salt())?;
+        if let Fingerprint::V6(bytes) = self.issuer() {
+            o.write_all(bytes)?;
+        } else {
+            return Err(Error::InvalidArgument(
+                "Need a v6 fingerprint as issuer".into()).into());
+        }
+        write_byte(o, self.last_raw())?;
+
+        Ok(())
+    }
+}
+
+impl NetLength for OnePassSig6 {
+    fn net_len(&self) -> usize {
+        1 // Version.
+            + 1 // Signature type.
+            + 1 // Hash algorithm
+            + 1 // PK algorithm.
+            + 1 // The salt length.
+            + self.salt().len() // The salt.
+            + 32 // Issuer fingerprint.
+            + 1 // Last.
+    }
+}
+
+impl MarshalInto for OnePassSig6 {
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
+    }
+}
+
 impl<P: key::KeyParts, R: key::KeyRole> seal::Sealed for Key<P, R> {}
 impl<P: key::KeyParts, R: key::KeyRole> Marshal for Key<P, R> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         match self {
             Key::V4(ref p) => p.serialize(o),
+            Key::V6(ref p) => p.serialize(o),
         }
     }
 }
@@ -1785,16 +2175,26 @@ impl<P: key::KeyParts, R: key::KeyRole> MarshalInto for Key<P, R> {
     fn serialized_len(&self) -> usize {
         match self {
             Key::V4(ref p) => p.serialized_len(),
+            Key::V6(ref p) => p.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             Key::V4(ref p) => p.serialize_into(buf),
+            Key::V6(ref p) => p.serialize_into(buf),
         }
     }
 }
 
+impl<P: key::KeyParts, R: key::KeyRole> NetLength for Key<P, R> {
+    fn net_len(&self) -> usize {
+        match self {
+            Key::V4(ref p) => p.net_len(),
+            Key::V6(ref p) => p.net_len(),
+        }
+    }
+}
 impl<P, R> seal::Sealed for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
@@ -1807,7 +2207,7 @@ impl<P, R> Marshal for Key4<P, R>
         let have_secret_key = P::significant_secrets() && self.has_secret();
 
         write_byte(o, 4)?; // Version.
-        write_be_u32(o, Timestamp::try_from(self.creation_time())?.into())?;
+        write_be_u32(o, self.creation_time_raw().into())?;
         write_byte(o, self.pk_algo().into())?;
         self.mpis().serialize(o)?;
 
@@ -1819,17 +2219,38 @@ impl<P, R> Marshal for Key4<P, R>
                     mpis.serialize_with_checksum(o, SecretKeyChecksum::Sum16)
                 })?,
                 SecretKeyMaterial::Encrypted(ref e) => {
-                    // S2K usage.
-                    write_byte(o, match e.checksum() {
-                        Some(SecretKeyChecksum::SHA1) => 254,
-                        Some(SecretKeyChecksum::Sum16) => 255,
-                        None => return Err(Error::InvalidOperation(
-                            "In Key4 packets, encrypted secret keys must be \
-                             checksummed".into()).into()),
-                    })?;
-                    write_byte(o, e.algo().into())?;
-                    e.s2k().serialize(o)?;
-                    o.write_all(e.raw_ciphertext())?;
+                    if let (Some(aead_algo), Some(aead_iv)) =
+                        (e.aead_algo(), e.aead_iv())
+                    {
+                        o.write_all(&[
+                            253, // S2K usage.
+                            // No Parameter length for v4 packets.
+                            e.algo().into(),
+                            aead_algo.into(),
+                        ])?;
+                        e.s2k().serialize(o)?;
+                        o.write_all(aead_iv)?;
+                        o.write_all(e.raw_ciphertext())?;
+                    } else {
+                        // S2K usage
+                        #[allow(deprecated)]
+                        if let S2K::Implicit = e.s2k() {
+                            // When the legacy implicit S2K mechanism is
+                            // in use, the symmetric algorithm octet below
+                            // takes the place of the S2K usage octet.
+                        } else {
+                            write_byte(o, match e.checksum() {
+                                Some(SecretKeyChecksum::SHA1) => 254,
+                                Some(SecretKeyChecksum::Sum16) => 255,
+                                None => return Err(Error::InvalidOperation(
+                                    "In Key4 packets, CFB encrypted secret keys must be \
+                                     checksummed".into()).into()),
+                            })?;
+                        }
+                        write_byte(o, e.algo().into())?;
+                        e.s2k().serialize(o)?;
+                        o.write_all(e.raw_ciphertext())?;
+                    }
                 },
             }
         }
@@ -1842,6 +2263,7 @@ impl<P, R> NetLength for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
+    #[allow(deprecated)]
     fn net_len(&self) -> usize {
         let have_secret_key = P::significant_secrets() && self.has_secret();
 
@@ -1855,7 +2277,11 @@ impl<P, R> NetLength for Key4<P, R>
                         u.map(|mpis| mpis.serialized_len())
                         + 2, // Two octet checksum.
                     SecretKeyMaterial::Encrypted(ref e) =>
-                        1 + e.s2k().serialized_len()
+                        matches!(e.s2k(), S2K::Implicit)
+                        .then_some(0).unwrap_or(1)
+                        + if e.aead_algo().is_some() { 1 } else { 0 }
+                        + e.s2k().serialized_len()
+                        + e.aead_iv().map(|iv| iv.len()).unwrap_or(0)
                         + e.raw_ciphertext().len(),
                 }
             } else {
@@ -1865,6 +2291,121 @@ impl<P, R> NetLength for Key4<P, R>
 }
 
 impl<P, R> MarshalInto for Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
+    }
+}
+
+impl<P, R> seal::Sealed for Key6<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{}
+
+impl<P, R> Marshal for Key6<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
+    fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
+        let have_secret_key = P::significant_secrets() && self.has_secret();
+
+        write_byte(o, 6)?; // Version.
+        write_be_u32(o, self.creation_time_raw().into())?;
+        write_byte(o, self.pk_algo().into())?;
+        write_be_u32(o, self.mpis().serialized_len() as u32)?;
+        self.mpis().serialize(o)?;
+
+        if have_secret_key {
+            use crypto::mpi::SecretKeyChecksum;
+            match self.optional_secret().unwrap() {
+                SecretKeyMaterial::Unencrypted(u) => u.map(|mpis| {
+                    write_byte(o, 0)?; // S2K usage.
+                    mpis.serialize(o)
+                })?,
+                SecretKeyMaterial::Encrypted(e) => {
+                    if let (Some(aead_algo), Some(aead_iv)) =
+                        (e.aead_algo(), e.aead_iv())
+                    {
+                        o.write_all(&[
+                            253, // S2K usage.
+                            (1 + 1 + 1 + e.s2k().serialized_len() + aead_iv.len())
+                                .try_into().unwrap_or(0),
+                            e.algo().into(),
+                            aead_algo.into(),
+                            e.s2k().serialized_len().try_into().unwrap_or(0),
+                        ])?;
+                        e.s2k().serialize(o)?;
+                        o.write_all(aead_iv)?;
+                        o.write_all(e.raw_ciphertext())?;
+                    } else {
+                        o.write_all(&[
+                            // S2K usage.
+                            match e.checksum() {
+                                Some(SecretKeyChecksum::SHA1) => 254,
+                                Some(SecretKeyChecksum::Sum16) => 255,
+                                None => return Err(Error::InvalidOperation(
+                                    "In Key6 packets, CFB encrypted secret keys \
+                                     must be checksummed".into()).into()),
+                            },
+                            // Parameter length octet.
+                            (1 + 1 + e.s2k().serialized_len()
+                             + e.cfb_iv_len())
+                                .try_into().unwrap_or(0),
+                            // Cipher octet.
+                            e.algo().into(),
+                            // S2k length octet.
+                            e.s2k().serialized_len().try_into().unwrap_or(0),
+                        ])?;
+                        e.s2k().serialize(o)?;
+                        o.write_all(e.raw_ciphertext())?;
+                    }
+                },
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<P, R> NetLength for Key6<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
+    fn net_len(&self) -> usize {
+        let have_secret_key = P::significant_secrets() && self.has_secret();
+
+        1 // Version.
+            + 4 // Creation time.
+            + 1 // PK algo.
+            + 4 // Size of the public key material.
+            + self.mpis().serialized_len()
+            + if have_secret_key {
+                1 // S2K method octet.
+                    + match self.optional_secret().unwrap() {
+                        SecretKeyMaterial::Unencrypted(u) =>
+                            u.map(|mpis| mpis.serialized_len()),
+                        SecretKeyMaterial::Encrypted(e) =>
+                            1 // Parameter length octet.
+                            + 1 // Cipher octet
+                            + if e.aead_algo().is_some() { 1 } else { 0 }
+                            + 1 // S2K length octet
+                            + e.s2k().serialized_len()
+                            + e.aead_iv().map(|iv| iv.len()).unwrap_or(0)
+                            + e.raw_ciphertext().len(),
+                }
+            } else {
+                0
+            }
+    }
+}
+
+impl<P, R> MarshalInto for Key6<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
@@ -2249,6 +2790,16 @@ impl Marshal for PKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             PKESK::V3(ref p) => p.serialize(o),
+            PKESK::V6(p) => p.serialize(o),
+        }
+    }
+}
+
+impl NetLength for PKESK {
+    fn net_len(&self) -> usize {
+        match self {
+            PKESK::V3(p) => p.net_len(),
+            PKESK::V6(p) => p.net_len(),
         }
     }
 }
@@ -2257,12 +2808,15 @@ impl MarshalInto for PKESK {
     fn serialized_len(&self) -> usize {
         match self {
             PKESK::V3(ref p) => p.serialized_len(),
+            PKESK::V6(p) => p.serialized_len(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             PKESK::V3(p) =>
+                generic_serialize_into(p, MarshalInto::serialized_len(p), buf),
+            PKESK::V6(p) =>
                 generic_serialize_into(p, MarshalInto::serialized_len(p), buf),
         }
     }
@@ -2272,7 +2826,8 @@ impl seal::Sealed for PKESK3 {}
 impl Marshal for PKESK3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 3)?; // Version.
-        (self.recipient() as &dyn Marshal).serialize(o)?;
+        let wildcard = KeyID::wildcard();
+        (self.recipient().unwrap_or(&wildcard) as &dyn Marshal).serialize(o)?;
         write_byte(o, self.pk_algo().into())?;
         self.esk().serialize(o)?;
 
@@ -2299,12 +2854,59 @@ impl MarshalInto for PKESK3 {
     }
 }
 
+impl seal::Sealed for PKESK6 {}
+impl Marshal for PKESK6 {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        write_byte(o, 6)?; // Version.
+        if let Some(recipient) = self.recipient() {
+             // Recipient length.
+            write_byte(o, ((recipient as &dyn MarshalInto).serialized_len() + 1) as u8)?;
+            match recipient {
+                Fingerprint::V4(_) => write_byte(o, 4)?,
+                Fingerprint::V6(_) => write_byte(o, 6)?,
+                Fingerprint::Unknown { version, .. } =>
+                    write_byte(o, version.unwrap_or(0xff))?,
+            }
+            (recipient as &dyn Marshal).serialize(o)?;
+        } else {
+            // No recipient.
+            write_byte(o, 0)?;
+        }
+
+        write_byte(o, self.pk_algo().into())?;
+        self.esk().serialize(o)?;
+
+        Ok(())
+    }
+}
+
+impl NetLength for PKESK6 {
+    fn net_len(&self) -> usize {
+        1 // Version.
+            + 1 // Recipient length.
+            // Recipient's versioned fingerprint, if any:
+            + self.recipient().map(|r| r.as_bytes().len() + 1).unwrap_or(0)
+            + 1 // Algo.
+            + self.esk().serialized_len()
+    }
+}
+
+impl MarshalInto for PKESK6 {
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
+    }
+}
+
 impl seal::Sealed for SKESK {}
 impl Marshal for SKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             SKESK::V4(ref s) => s.serialize(o),
-            SKESK::V5(ref s) => s.serialize(o),
+            SKESK::V6(ref s) => s.serialize(o),
         }
     }
 }
@@ -2313,7 +2915,7 @@ impl NetLength for SKESK {
     fn net_len(&self) -> usize {
         match self {
             SKESK::V4(ref s) => s.net_len(),
-            SKESK::V5(ref s) => s.net_len(),
+            SKESK::V6(ref s) => s.net_len(),
         }
     }
 }
@@ -2322,7 +2924,7 @@ impl MarshalInto for SKESK {
     fn serialized_len(&self) -> usize {
         match self {
             SKESK::V4(ref s) => s.serialized_len(),
-            SKESK::V5(ref s) => s.serialized_len(),
+            SKESK::V6(ref s) => s.serialized_len(),
         }
     }
 
@@ -2330,7 +2932,7 @@ impl MarshalInto for SKESK {
         match self {
             SKESK::V4(s) =>
                 generic_serialize_into(s, MarshalInto::serialized_len(s), buf),
-            SKESK::V5(s) =>
+            SKESK::V6(s) =>
                 generic_serialize_into(s, MarshalInto::serialized_len(s), buf),
         }
     }
@@ -2366,36 +2968,44 @@ impl MarshalInto for SKESK4 {
     }
 }
 
-impl seal::Sealed for SKESK5 {}
-impl Marshal for SKESK5 {
+impl seal::Sealed for SKESK6 {}
+impl Marshal for SKESK6 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        write_byte(o, 5)?; // Version.
+        let s2k_len = self.s2k().serialized_len();
+
+        write_byte(o, 6)?; // Version.
+        // Parameter octet count.
+        write_byte(o, (1   // Symmetric algorithm.
+                       + 1 // AEAD mode.
+                       + 1 // S2K octet count.
+                       + s2k_len
+                       + self.aead_iv().len()) as u8)?;
         write_byte(o, self.symmetric_algo().into())?;
         write_byte(o, self.aead_algo().into())?;
+        // S2K octet count.
+        write_byte(o, s2k_len as u8)?;
         self.s2k().serialize(o)?;
-        if let Ok(iv) = self.aead_iv() {
-            o.write_all(iv)?;
-        }
-        o.write_all(self.raw_esk())?;
-        o.write_all(self.aead_digest())?;
+        o.write_all(self.aead_iv())?;
+        o.write_all(self.esk())?;
 
         Ok(())
     }
 }
 
-impl NetLength for SKESK5 {
+impl NetLength for SKESK6 {
     fn net_len(&self) -> usize {
         1 // Version.
+            + 1 // Parameter octet count.
             + 1 // Cipher algo.
             + 1 // AEAD algo.
+            + 1 // S2K octet count.
             + self.s2k().serialized_len()
-            + self.aead_iv().map(|iv| iv.len()).unwrap_or(0)
-            + self.raw_esk().len()
-            + self.aead_digest().len()
+            + self.aead_iv().len()
+            + self.esk().len()
     }
 }
 
-impl MarshalInto for SKESK5 {
+impl MarshalInto for SKESK6 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -2407,7 +3017,36 @@ impl MarshalInto for SKESK5 {
 
 impl seal::Sealed for SEIP {}
 impl Marshal for SEIP {
-    /// Writes a serialized version of the specified `SEIP`
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        match self {
+            SEIP::V1(p) => p.serialize(o),
+            SEIP::V2(p) => p.serialize(o),
+        }
+    }
+}
+
+impl NetLength for SEIP {
+    fn net_len(&self) -> usize {
+        match self {
+            SEIP::V1(p) => p.net_len(),
+            SEIP::V2(p) => p.net_len(),
+        }
+    }
+}
+
+impl MarshalInto for SEIP {
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
+    }
+}
+
+impl seal::Sealed for SEIP1 {}
+impl Marshal for SEIP1 {
+    /// Writes a serialized version of the specified `SEIP1`
     /// packet to `o`.
     ///
     /// # Errors
@@ -2418,7 +3057,7 @@ impl Marshal for SEIP {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self.body() {
             Body::Unprocessed(bytes) => {
-                o.write_all(&[self.version()])?;
+                o.write_all(&[1])?;
                 o.write_all(bytes)?;
                 Ok(())
             },
@@ -2429,7 +3068,7 @@ impl Marshal for SEIP {
     }
 }
 
-impl NetLength for SEIP {
+impl NetLength for SEIP1 {
     fn net_len(&self) -> usize {
         match self.body() {
             Body::Unprocessed(bytes) => 1 /* Version */ + bytes.len(),
@@ -2438,7 +3077,65 @@ impl NetLength for SEIP {
     }
 }
 
-impl MarshalInto for SEIP {
+impl MarshalInto for SEIP1 {
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
+    }
+}
+
+impl SEIP2 {
+    /// Writes the headers of the `SEIP2` data packet to `o`.
+    fn serialize_headers(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        o.write_all(&[2, // Version.
+                      self.symmetric_algo().into(),
+                      self.aead().into(),
+                      self.chunk_size().trailing_zeros() as u8 - 6])?;
+        o.write_all(self.salt())?;
+        Ok(())
+    }
+}
+
+impl seal::Sealed for SEIP2 {}
+impl Marshal for SEIP2 {
+    /// Writes a serialized version of the specified `SEIPv2`
+    /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidOperation` if this packet has children.
+    /// To construct an encrypted message, use
+    /// `serialize::stream::Encryptor`.
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        match self.body() {
+            Body::Unprocessed(bytes) => {
+                self.serialize_headers(o)?;
+                o.write_all(bytes)?;
+                Ok(())
+            },
+            _ => Err(Error::InvalidOperation(
+                "Cannot encrypt, use serialize::stream::Encryptor".into())
+                     .into()),
+        }
+    }
+}
+
+impl NetLength for SEIP2 {
+    fn net_len(&self) -> usize {
+        match self.body() {
+            Body::Unprocessed(bytes) =>
+                4 // Headers.
+                + self.salt().len()
+                + bytes.len(),
+            _ => 0,
+        }
+    }
+}
+
+impl MarshalInto for SEIP2 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -2472,78 +3169,21 @@ impl MarshalInto for MDC {
     }
 }
 
-impl seal::Sealed for AED {}
-impl Marshal for AED {
+impl seal::Sealed for Padding {}
+impl Marshal for Padding {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        match self {
-            AED::V1(ref p) => p.serialize(o),
-        }
-    }
-}
-
-impl MarshalInto for AED {
-    fn serialized_len(&self) -> usize {
-        match self {
-            AED::V1(ref p) => p.serialized_len(),
-        }
-    }
-
-    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        match self {
-            AED::V1(ref p) => p.serialize_into(buf),
-        }
-    }
-}
-
-impl AED1 {
-    /// Writes the headers of the `AED` data packet to `o`.
-    fn serialize_headers(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        o.write_all(&[1, // Version.
-                      self.symmetric_algo().into(),
-                      self.aead().into(),
-                      self.chunk_size().trailing_zeros() as u8 - 6])?;
-        o.write_all(self.iv())?;
+        o.write_all(self.value())?;
         Ok(())
     }
 }
 
-impl seal::Sealed for AED1 {}
-impl Marshal for AED1 {
-    /// Writes a serialized version of the specified `AED`
-    /// packet to `o`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Error::InvalidOperation` if this packet has children.
-    /// To construct an encrypted message, use
-    /// `serialize::stream::Encryptor`.
-    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        match self.body() {
-            Body::Unprocessed(bytes) => {
-                self.serialize_headers(o)?;
-                o.write_all(bytes)?;
-                Ok(())
-            },
-            _ => Err(Error::InvalidOperation(
-                "Cannot encrypt, use serialize::stream::Encryptor".into())
-                     .into()),
-        }
-    }
-}
-
-impl NetLength for AED1 {
+impl NetLength for Padding {
     fn net_len(&self) -> usize {
-        match self.body() {
-            Body::Unprocessed(bytes) =>
-                4 // Headers.
-                + self.iv().len()
-                + bytes.len(),
-            _ => 0,
-        }
+        self.value().len()
     }
 }
 
-impl MarshalInto for AED1 {
+impl MarshalInto for Padding {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -2552,7 +3192,7 @@ impl MarshalInto for AED1 {
         generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
-
+
 impl Serialize for Packet {}
 impl seal::Sealed for Packet {}
 impl Marshal for Packet {
@@ -2592,8 +3232,9 @@ impl Marshal for Packet {
             Packet::PKESK(ref p) => p.serialize(o),
             Packet::SKESK(ref p) => p.serialize(o),
             Packet::SEIP(ref p) => p.serialize(o),
+            #[allow(deprecated)]
             Packet::MDC(ref p) => p.serialize(o),
-            Packet::AED(ref p) => p.serialize(o),
+            Packet::Padding(p) => p.serialize(o),
         }
     }
 
@@ -2633,8 +3274,9 @@ impl Marshal for Packet {
             Packet::PKESK(ref p) => p.export(o),
             Packet::SKESK(ref p) => p.export(o),
             Packet::SEIP(ref p) => p.export(o),
+            #[allow(deprecated)]
             Packet::MDC(ref p) => p.export(o),
-            Packet::AED(ref p) => p.export(o),
+            Packet::Padding(p) => p.export(o),
         }
     }
 }
@@ -2658,8 +3300,9 @@ impl NetLength for Packet {
             Packet::PKESK(ref p) => p.net_len(),
             Packet::SKESK(ref p) => p.net_len(),
             Packet::SEIP(ref p) => p.net_len(),
+            #[allow(deprecated)]
             Packet::MDC(ref p) => p.net_len(),
-            Packet::AED(ref p) => p.net_len(),
+            Packet::Padding(p) => p.net_len(),
         }
     }
 }
@@ -2689,7 +3332,6 @@ impl MarshalInto for Packet {
 /// [`openpgp::Packet`]: super::Packet
 /// [`packet::Signature`]: crate::packet::Signature
 #[allow(dead_code)]
-#[allow(clippy::upper_case_acronyms)]
 enum PacketRef<'a> {
     /// Unknown packet.
     Unknown(&'a packet::Unknown),
@@ -2725,16 +3367,16 @@ enum PacketRef<'a> {
     SEIP(&'a packet::SEIP),
     /// Modification detection code packet.
     MDC(&'a packet::MDC),
-    /// AEAD Encrypted Data Packet.
-    AED(&'a packet::AED),
+    /// Padding packet.
+    Padding(&'a packet::Padding),
 }
 
 impl<'a> PacketRef<'a> {
     /// Returns the `PacketRef's` corresponding OpenPGP tag.
     ///
-    /// Tags are explained in [Section 4.3 of RFC 4880].
+    /// Tags are explained in [Section 5 of RFC 9580].
     ///
-    ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+    ///   [Section 5 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
     fn tag(&self) -> packet::Tag {
         match self {
             PacketRef::Unknown(packet) => packet.tag(),
@@ -2754,7 +3396,7 @@ impl<'a> PacketRef<'a> {
             PacketRef::SKESK(_) => Tag::SKESK,
             PacketRef::SEIP(_) => Tag::SEIP,
             PacketRef::MDC(_) => Tag::MDC,
-            PacketRef::AED(_) => Tag::AED,
+            PacketRef::Padding(_) => Tag::Padding,
         }
     }
 }
@@ -2799,7 +3441,7 @@ impl<'a> Marshal for PacketRef<'a> {
             PacketRef::SKESK(p) => p.serialize(o),
             PacketRef::SEIP(p) => p.serialize(o),
             PacketRef::MDC(p) => p.serialize(o),
-            PacketRef::AED(p) => p.serialize(o),
+            PacketRef::Padding(p) => p.serialize(o),
         }
     }
 
@@ -2840,7 +3482,7 @@ impl<'a> Marshal for PacketRef<'a> {
             PacketRef::SKESK(p) => p.export(o),
             PacketRef::SEIP(p) => p.export(o),
             PacketRef::MDC(p) => p.export(o),
-            PacketRef::AED(p) => p.export(o),
+            PacketRef::Padding(p) => p.export(o),
         }
     }
 }
@@ -2865,7 +3507,7 @@ impl<'a> NetLength for PacketRef<'a> {
             PacketRef::SKESK(p) => p.net_len(),
             PacketRef::SEIP(p) => p.net_len(),
             PacketRef::MDC(p) => p.net_len(),
-            PacketRef::AED(p) => p.net_len(),
+            PacketRef::Padding(p) => p.net_len(),
         }
     }
 }
@@ -2929,25 +3571,25 @@ impl seal::Sealed for Message {}
 impl Marshal for Message {
     /// Writes a serialized version of the specified `Message` to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        (self.deref() as &dyn Marshal).serialize(o)
+        Marshal::serialize(self.packets(), o)
     }
 }
 
 impl SerializeInto for Message {}
 impl MarshalInto for Message {
     fn serialized_len(&self) -> usize {
-        (self.deref() as &dyn MarshalInto).serialized_len()
+        MarshalInto::serialized_len(self.packets())
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        (self.deref() as &dyn MarshalInto).serialize_into(buf)
+        MarshalInto::serialize_into(self.packets(), buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
-        (self.deref() as &dyn MarshalInto).export_into(buf)
+        MarshalInto::export_into(self.packets(), buf)
     }
 }
-
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -3012,25 +3654,25 @@ mod test {
         // forms may be different.
 
         let filenames = [
-            "literal-mode-b.gpg",
-            "literal-mode-t-partial-body.gpg",
+            "literal-mode-b.pgp",
+            "literal-mode-t-partial-body.pgp",
 
-            "sig.gpg",
+            "sig.pgp",
 
-            "public-key-bare.gpg",
-            "public-subkey-bare.gpg",
-            "userid-bare.gpg",
+            "public-key-bare.pgp",
+            "public-subkey-bare.pgp",
+            "userid-bare.pgp",
 
-            "s2k/mode-0-password-1234.gpg",
-            "s2k/mode-0-password-1234.gpg",
-            "s2k/mode-1-password-123456-1.gpg",
-            "s2k/mode-1-password-foobar-2.gpg",
-            "s2k/mode-3-aes128-password-13-times-0123456789.gpg",
-            "s2k/mode-3-aes192-password-123.gpg",
-            "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
-            "s2k/mode-3-password-9876-2.gpg",
-            "s2k/mode-3-password-qwerty-1.gpg",
-            "s2k/mode-3-twofish-password-13-times-0123456789.gpg",
+            "s2k/mode-0-password-1234.pgp",
+            "s2k/mode-0-password-1234.pgp",
+            "s2k/mode-1-password-123456-1.pgp",
+            "s2k/mode-1-password-foobar-2.pgp",
+            "s2k/mode-3-aes128-password-13-times-0123456789.pgp",
+            "s2k/mode-3-aes192-password-123.pgp",
+            "s2k/mode-3-encrypted-key-password-bgtyhn.pgp",
+            "s2k/mode-3-password-9876-2.pgp",
+            "s2k/mode-3-password-qwerty-1.pgp",
+            "s2k/mode-3-twofish-password-13-times-0123456789.pgp",
         ];
 
         for filename in filenames.iter() {
@@ -3068,11 +3710,11 @@ mod test {
         // This is an variant of serialize_test_1 that tests the
         // unknown packet serializer.
         let filenames = [
-            "compressed-data-algo-1.gpg",
-            "compressed-data-algo-2.gpg",
-            "compressed-data-algo-3.gpg",
-            "recursive-2.gpg",
-            "recursive-3.gpg",
+            "compressed-data-algo-1.pgp",
+            "compressed-data-algo-2.pgp",
+            "compressed-data-algo-3.pgp",
+            "recursive-2.pgp",
+            "recursive-3.pgp",
         ];
 
         for filename in filenames.iter() {
@@ -3092,7 +3734,6 @@ mod test {
 
     }
 
-    #[cfg(feature = "compression-deflate")]
     #[test]
     fn serialize_test_2() {
         // Given a packet in serialized form:
@@ -3108,11 +3749,11 @@ mod test {
         // compares the serialized data, but serialize_test_1 doesn't
         // work if the content is non-deterministic.
         let filenames = [
-            "compressed-data-algo-1.gpg",
-            "compressed-data-algo-2.gpg",
-            "compressed-data-algo-3.gpg",
-            "recursive-2.gpg",
-            "recursive-3.gpg",
+            "compressed-data-algo-1.pgp",
+            "compressed-data-algo-2.pgp",
+            "compressed-data-algo-3.pgp",
+            "recursive-2.pgp",
+            "recursive-3.pgp",
         ];
 
         for filename in filenames.iter() {
@@ -3134,6 +3775,12 @@ mod test {
             // 3. Get the first packet.
             let po = pile.descendants().next();
             if let Some(&Packet::CompressedData(ref cd)) = po {
+                if ! cd.algo().is_supported() {
+                    eprintln!("Skipping {} because {} is not supported.",
+                              filename, cd.algo());
+                    continue;
+                }
+
                 // 4. Serialize the container.
                 let buffer =
                     (&Packet::CompressedData(cd.clone()) as &dyn MarshalInto)
@@ -3175,7 +3822,7 @@ mod test {
     // reparse them, and make sure we get the same result.
     #[test]
     fn serialize_test_3() {
-        use crate::types::DataFormat::Text as T;
+        use crate::types::DataFormat::Unicode as T;
 
         // serialize_test_1 and serialize_test_2 parse a byte stream.
         // This tests creates the message, and then serializes and

@@ -365,7 +365,9 @@ fn _password(config: Config, m: &ArgMatches, key: Cert) -> Result<()> {
             ka.key().clone().parts_into_secret()?,
             passwords)?.into());
     }
-    let mut key = key.insert_packets(decrypted)?;
+    // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+    // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+    let mut key = key.insert_packets(decrypted)?.0;
     assert_eq!(key.keys().secret().count(),
                key.keys().unencrypted_secret().count());
 
@@ -401,7 +403,9 @@ fn _password(config: Config, m: &ArgMatches, key: Cert) -> Result<()> {
                 ka.key().clone().parts_into_secret()?
                     .encrypt_secret(&new)?.into());
         }
-        key = key.insert_packets(encrypted)?;
+        // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+        // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+        key = key.insert_packets(encrypted)?.0;
     }
 
     let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
@@ -431,7 +435,9 @@ pub fn unlock(key: Cert) -> Result<Cert> {
             ka.key().clone().parts_into_secret()?,
             passwords)?.into());
     }
-    let key = key.insert_packets(decrypted)?;
+    // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+    // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+    let key = key.insert_packets(decrypted)?.0;
     assert_eq!(key.keys().secret().count(),
                key.keys().unencrypted_secret().count());
 
@@ -622,7 +628,8 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
         wanted.push((h, None));
     }
 
-    let null_policy = &crate::openpgp::policy::NullPolicy::new();
+    // NullPolicy::new is now marked as unsafe
+    let null_policy = unsafe { &crate::openpgp::policy::NullPolicy::new()};
     let adoptee_policy: &dyn Policy =
         if m.values_of("allow-broken-crypto").is_some() {
             null_policy
@@ -648,7 +655,8 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
 
             for key in vc.keys() {
                 for (id, ref mut keyo) in wanted.iter_mut() {
-                    if id.aliases(key.key_handle()) {
+                    // key().key_handle() forwards to the corresponding KeyV4 or KeyV6 key_handle()
+                    if id.aliases(key.key().key_handle()) {
                         match keyo {
                             Some((_, _)) =>
                                 // We already saw this key.
@@ -740,7 +748,7 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
             let backsig = builder.embedded_signatures()
                 .find(|backsig| {
                     (*backsig).clone().verify_primary_key_binding(
-                        &cert.primary_key(),
+                        &cert.primary_key().key(),
                         &key).is_ok()
                 })
                 .map(|sig| SignatureBuilder::from(sig.clone()))
@@ -757,7 +765,7 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
             })?;
         }
 
-        let mut sig = builder.sign_subkey_binding(&mut pk_signer, pk, &key)?;
+        let sig = builder.sign_subkey_binding(&mut pk_signer, pk, &key)?;
 
         // Verify it.
         assert!(sig.verify_subkey_binding(pk_signer.public(), pk, &key)
@@ -767,7 +775,9 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
         packets.push(sig.into());
     }
 
-    let cert = cert.clone().insert_packets(packets.clone())?;
+    // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+    // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+    let cert = cert.clone().insert_packets(packets.clone())?.0;
 
     let mut sink = config.create_or_stdout_safe(m.value_of("output"))?;
     if m.is_present("binary") {
@@ -792,7 +802,8 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
 
         let mut found = false;
         for key in vc.keys() {
-            if key.fingerprint() == newkey.fingerprint() {
+            // key().fingerprint() forwards to the corresponding KeyV4 or KeyV6 fingerprint()
+            if key.key().fingerprint() == newkey.fingerprint() {
                 for sig in key.self_signatures() {
                     if sig == newsig {
                         found = true;
@@ -828,32 +839,54 @@ fn attest_certifications(config: Config, m: &ArgMatches)
     let mut attestation_signatures = Vec::new();
     for uid in key.userids() {
         if all {
+            // ValidUserIDAmalgamation::attest_certifications renamed to approve_of_certifications
             attestation_signatures.append(
-                &mut uid.attest_certifications(&config.policy,
-                                               &mut pk_signer,
-                                               uid.certifications())?);
+                &mut uid.approve_of_certifications(
+                    &config.policy,
+                    None,
+                    &mut pk_signer,
+                    uid.certifications()
+                )?
+            );
         } else {
             attestation_signatures.append(
-                &mut uid.attest_certifications(&config.policy,
-                                               &mut pk_signer, &[])?);
+                &mut uid.approve_of_certifications(
+                    &config.policy,
+                    None,
+                    &mut pk_signer,
+                    &[]
+                )?
+            );
         }
     }
 
     for ua in key.user_attributes() {
         if all {
+            // UserAttributeAmalgamation::attest_certifications renamed to approve_of_certifications
             attestation_signatures.append(
-                &mut ua.attest_certifications(&config.policy,
-                                              &mut pk_signer,
-                                              ua.certifications())?);
+                &mut ua.approve_of_certifications(
+                    &config.policy,
+                    None,
+                    &mut pk_signer,
+                    ua.certifications()
+                )?
+            );
         } else {
             attestation_signatures.append(
-                &mut ua.attest_certifications(&config.policy,
-                                              &mut pk_signer, &[])?);
+                &mut ua.approve_of_certifications(
+                    &config.policy,
+                    None,
+                    &mut pk_signer, 
+                    &[]
+                )?
+            );
         }
     }
 
     // Finally, add the new signatures.
-    let key = key.insert_packets(attestation_signatures)?;
+    // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+    // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+    let key = key.insert_packets(attestation_signatures)?.0;
 
     let mut sink = config.create_or_stdout_safe(m.value_of("output"))?;
     if m.is_present("binary") {

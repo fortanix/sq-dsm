@@ -1,6 +1,3 @@
-use std::io;
-use std::path::Path;
-
 use buffered_reader::BufferedReader;
 
 use crate::Result;
@@ -19,12 +16,13 @@ use crate::packet;
 ///
 /// When parsing OpenPGP data streams, the [`PacketParser`] will by
 /// default automatically detect and remove any ASCII armor encoding
-/// (see [Section 6 of RFC 4880]).  This automatism can be disabled
+/// (see [Section 6 of RFC 9580]).  This automatism can be disabled
 /// and fine-tuned using [`PacketParserBuilder::dearmor`].
 ///
-///   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+///   [Section 6 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6
 ///   [`PacketParserBuilder::dearmor`]: PacketParserBuilder::dearmor()
 #[derive(PartialEq)]
+#[non_exhaustive]
 pub enum Dearmor {
     /// Unconditionally treat the input as if it were an OpenPGP
     /// message encoded using ASCII armor.
@@ -99,29 +97,19 @@ pub struct PacketParserBuilder<'a> {
 assert_send_and_sync!(PacketParserBuilder<'_>);
 
 impl<'a> Parse<'a, PacketParserBuilder<'a>> for PacketParserBuilder<'a> {
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in a `std::io::Read` object.
-    fn from_reader<R: io::Read + 'a + Send + Sync>(reader: R) -> Result<Self> {
-        PacketParserBuilder::from_buffered_reader(
-            Box::new(buffered_reader::Generic::with_cookie(
-                reader, None, Cookie::default())))
-    }
-
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in the file named `path`.
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        PacketParserBuilder::from_buffered_reader(
-            Box::new(buffered_reader::File::with_cookie(path, Cookie::default())?))
-    }
-
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in the specified buffer.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<PacketParserBuilder<'a>> {
-        PacketParserBuilder::from_buffered_reader(
-            Box::new(buffered_reader::Memory::with_cookie(
-                data.as_ref(), Cookie::default())))
+    /// Starts parsing an OpenPGP object stored in a `BufferedReader` object.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
+    fn from_buffered_reader<R>(reader: R) -> Result<PacketParserBuilder<'a>>
+    where
+        R: BufferedReader<Cookie> + 'a,
+    {
+        PacketParserBuilder::from_cookie_reader(reader.into_boxed())
     }
 }
+
+impl<'a> crate::seal::Sealed for PacketParserBuilder<'a> {}
 
 impl<'a> PacketParserBuilder<'a> {
     // Creates a `PacketParserBuilder` for an OpenPGP message stored
@@ -129,7 +117,7 @@ impl<'a> PacketParserBuilder<'a> {
     //
     // Note: this clears the `level` field of the
     // `Cookie` cookie.
-    pub(crate) fn from_buffered_reader(mut bio: Box<dyn BufferedReader<Cookie> + 'a>)
+    pub(crate) fn from_cookie_reader(mut bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<Self> {
         bio.cookie_mut().level = None;
         Ok(PacketParserBuilder {
@@ -205,7 +193,7 @@ impl<'a> PacketParserBuilder<'a> {
     ///
     /// // Parse a signed message.
     /// let message_data: &[u8] = // ...
-    /// #    include_bytes!("../../tests/data/messages/signed-1.gpg");
+    /// #    include_bytes!("../../tests/data/messages/signed-1.pgp");
     /// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
     ///     .max_packet_size(256)    // Only parse 256 bytes of headers.
     ///     .buffer_unread_content() // Used below.
@@ -364,6 +352,38 @@ impl<'a> PacketParserBuilder<'a> {
         self
     }
 
+    /// Controls automatic hashing.
+    ///
+    /// When encountering a [`OnePassSig`] packet, the packet parser
+    /// will, by default, start hashing later packets using the hash
+    /// algorithm specified in the packet.  In some cases, this is not
+    /// needed, and hashing will incur a non-trivial overhead.
+    ///
+    /// If automatic hashing is disabled, then hashing may be
+    /// explicitly enabled using [`PacketParser::start_hashing`] while
+    /// parsing each [`OnePassSig`] packet.
+    ///
+    ///   [`OnePassSig`]: crate::packet::OnePassSig
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::parse::{Parse, PacketParserBuilder};
+    /// #
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .automatic_hashing(false) // Disable automatic hashing.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// # Ok(()) }
+    /// ```
+    pub fn automatic_hashing(mut self, enable: bool) -> Self {
+        self.settings.automatic_hashing = enable;
+        self
+    }
+
     /// Controls transparent transformation of messages using the
     /// cleartext signature framework into signed messages.
     ///
@@ -435,16 +455,17 @@ impl<'a> PacketParserBuilder<'a> {
             // Add a top-level filter so that it is peeled off when
             // the packet parser is finished.  We use level -2 for that.
             self.bio =
-                armor::Reader::from_buffered_reader_csft(self.bio, Some(mode),
+                armor::Reader::from_cookie_reader_csft(self.bio, Some(mode),
                     Cookie::new(ARMOR_READER_LEVEL), self.csf_transformation)
-                .as_boxed();
+                .into_boxed();
         }
 
         // Parse the first packet.
         match PacketParser::parse(Box::new(self.bio), state, vec![ 0 ])? {
             ParserResult::Success(mut pp) => {
                 // We successfully parsed the first packet's header.
-                pp.state.message_validator.push(pp.packet.tag(), &[0]);
+                pp.state.message_validator.push(
+                    pp.packet.tag(), pp.packet.version(), &[0]);
                 pp.state.keyring_validator.push(pp.packet.tag());
                 pp.state.cert_validator.push(pp.packet.tag());
                 Ok(PacketParserResult::Some(pp))
@@ -464,7 +485,7 @@ mod tests {
     #[test]
     fn armor() {
         // Not ASCII armor encoded data.
-        let msg = crate::tests::message("sig.gpg");
+        let msg = crate::tests::message("sig.pgp");
 
         // Make sure we can read the first packet.
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()

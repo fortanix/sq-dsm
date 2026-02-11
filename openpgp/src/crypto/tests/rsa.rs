@@ -1,9 +1,52 @@
 //! Low-level RSA tests.
 
 use crate::Result;
-use crate::crypto::{mpi, hash::Digest};
+use crate::crypto::mpi;
 use crate::packet::{prelude::*, signature::subpacket::*};
 use crate::types::*;
+
+#[test]
+fn p_less_than_q() -> Result<()> {
+    use std::cmp::Ordering;
+    use crate::crypto::raw_bigint_cmp;
+
+    // Repeat four times to increase the sensitivity.
+    for _ in 0..4 {
+        // Check that p < q holds when generating an RSA key.
+        let key0 = Key4::generate_rsa(1024)?;
+        let t = key0.creation_time();
+        let (d0, p, q, u0) = extract(&key0);
+        assert_eq!(raw_bigint_cmp(&p, &q), Ordering::Less);
+
+        // Check that p < q holds when importing an RSA key.
+        //
+        // Note: p and q are swapped, i.e. p < q doesn't hold in the
+        // arguments of import_secret_rsa:
+        let key1 = Key4::import_secret_rsa(&d0, &q, &p, t)?;
+        let (d1, p, q, u1) = extract(&key1);
+        assert_eq!(raw_bigint_cmp(&p, &q), Ordering::Less);
+        assert_eq!(d0, d1);
+        assert_eq!(u0, u1);
+    }
+
+    fn extract(key: &Key4<key::SecretParts, key::PrimaryRole>)
+               -> (Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)
+    {
+        match key.secret() {
+            SecretKeyMaterial::Unencrypted(s) => s.map(|s| match s {
+                mpi::SecretKeyMaterial::RSA { d, p, q, u } =>
+                    (d.value().into(),
+                     p.value().into(),
+                     q.value().into(),
+                     u.value().into()),
+                _ => unreachable!(),
+            }),
+            _ => unreachable!(),
+        }
+    }
+
+    Ok(())
+}
 
 #[test]
 fn fips_186_3_verification() -> Result<()> {
@@ -30,10 +73,10 @@ fn fips_186_3_verification() -> Result<()> {
                           e: mpi::MPI::new(e),
                           n: mpi::MPI::new(n),
                       })?.into();
-        let mut h = hash.context()?;
+        let mut h = hash.context()?.for_digest();
         h.update(msg);
         let mut d = h.into_digest()?;
-        let mut sig: Signature =
+        let sig: Signature =
             Signature4::new(SignatureType::Binary,
                             PublicKeyAlgorithm::RSAEncryptSign,
                             hash,

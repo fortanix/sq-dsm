@@ -1,6 +1,6 @@
-//! Computes the CRC-24, (see [RFC 4880, section 6.1]).
+//! Computes the CRC-24, (see [Section 6.1.1 of RFC 9580]).
 //!
-//! [RFC 4880, section 6.1]: https://tools.ietf.org/html/rfc4880#section-6.1
+//! [Section 6.1.1 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6.1.1
 
 const CRC24_INIT: u32 = 0xB704CE;
 const CRC24_POLY: u32 = 0x864CFB;
@@ -10,9 +10,9 @@ pub struct Crc {
     n: u32,
 }
 
-/// Computes the CRC-24, (see [RFC 4880, section 6.1]).
+/// Computes the CRC-24, (see [Section 6.1.1 of RFC 9580]).
 ///
-/// [RFC 4880, section 6.1]: https://tools.ietf.org/html/rfc4880#section-6.1
+/// [Section 6.1.1 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6.1.1
 impl Crc {
     pub fn new() -> Self {
         Self { n: CRC24_INIT }
@@ -26,33 +26,34 @@ impl Crc {
     /// table look-up." Communications of the ACM 31.8 (1988):
     /// 1008-1013.
     pub fn update(&mut self, buf: &[u8]) -> &Self {
-        lazy_static::lazy_static! {
-            static ref TABLE: Vec<u32> = {
-                let mut t = vec![0u32; 256];
+        use std::sync::OnceLock;
 
-                let mut crc = 0x80_0000; // 24 bit polynomial
-                let mut i = 1;
-                loop {
-                    if crc & 0x80_0000 > 0 {
-                        crc = (crc << 1) ^ CRC24_POLY;
-                    } else {
-                        crc <<= 1;
-                    }
-                    for j in 0..i {
-                        t[i + j] = crc ^ t[j];
-                    }
-                    i <<= 1;
-                    if i == 256 {
-                        break;
-                    }
+        static TABLE: OnceLock<Vec<u32>> = OnceLock::new();
+        let table = TABLE.get_or_init(|| {
+            let mut t = vec![0u32; 256];
+
+            let mut crc = 0x80_0000; // 24 bit polynomial
+            let mut i = 1;
+            loop {
+                if crc & 0x80_0000 > 0 {
+                    crc = (crc << 1) ^ CRC24_POLY;
+                } else {
+                    crc <<= 1;
                 }
-                t
-            };
-        }
+                for j in 0..i {
+                    t[i + j] = crc ^ t[j];
+                }
+                i <<= 1;
+                if i == 256 {
+                    break;
+                }
+            }
+            t
+        });
 
         for octet in buf {
             self.n = (self.n << 8)
-                ^ TABLE[(*octet ^ ((self.n >> 16) as u8)) as usize];
+                ^ table[(*octet ^ ((self.n >> 16) as u8)) as usize];
         }
 
         self

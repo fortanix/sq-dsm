@@ -10,7 +10,8 @@
 //! ignore signatures that rely on these algorithms even though [RFC
 //! 4880] says that "\[i\]mplementations MUST implement SHA-1."  When
 //! trying to decrypt old archives, however, users probably don't want
-//! to ignore keys using MD5, even though [RFC 4880] deprecates MD5.
+//! to ignore keys using MD5, even though [Section 9.5 of RFC 9580]
+//! deprecates MD5.
 //!
 //! Rather than not provide this mid-level functionality, the `Policy`
 //! trait allows callers to specify their preferred policy.  This can be
@@ -23,7 +24,7 @@
 //! to determine whether a given `Signature` is valid, it must always
 //! return the same value.
 //!
-//! [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
+//! [Section 9.5 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-9.5
 //! [pure]: https://en.wikipedia.org/wiki/Pure_function
 use std::fmt;
 use std::time::{SystemTime, Duration};
@@ -60,6 +61,7 @@ use cutofflist::{
     CutoffList,
     REJECT,
     ACCEPT,
+    VersionedCutoffList,
 };
 
 /// A policy for cryptographic operations.
@@ -79,7 +81,8 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// revocations: if you reject a revocation certificate, it may
     /// inadvertently make something else valid!
     fn signature(&self, _sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
-        Err(anyhow::anyhow!("By default all signatures are rejected."))
+        Err(Error::PolicyViolation(
+            "By default all signatures are rejected.".into(), None).into())
     }
 
     /// Returns an error if the key violates the policy.
@@ -97,10 +100,17 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// algorithms, don't have a sufficiently high security margin
     /// (e.g., 1024-bit RSA keys), are on a bad list, etc. from being
     /// used here.
+    ///
+    /// If you implement this function, make sure to consider the Key
+    /// Derivation Function and Key Encapsulation parameters of ECDH
+    /// keys, see [`PublicKey::ECDH`].
+    ///
+    /// [`PublicKey::ECDH`]: crate::crypto::mpi::PublicKey::ECDH
     fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
         -> Result<()>
     {
-        Err(anyhow::anyhow!("By default all keys are rejected."))
+        Err(Error::PolicyViolation(
+            "By default all keys are rejected.".into(), None).into())
     }
 
     /// Returns an error if the symmetric encryption algorithm
@@ -112,7 +122,8 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// With this function, you can prevent the use of insecure
     /// symmetric encryption algorithms.
     fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
-        Err(anyhow::anyhow!("By default all symmetric algorithms are rejected."))
+        Err(Error::PolicyViolation(
+            "By default all symmetric algorithms are rejected.".into(), None).into())
     }
 
     /// Returns an error if the AEAD mode violates the policy.
@@ -125,7 +136,8 @@ pub trait Policy : fmt::Debug + Send + Sync {
     ///
     /// This feature is [experimental](super#experimental-features).
     fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
-        Err(anyhow::anyhow!("By default all AEAD algorithms are rejected."))
+        Err(Error::PolicyViolation(
+            "By default all AEAD algorithms are rejected.".into(), None).into())
     }
 
     /// Returns an error if the packet violates the policy.
@@ -137,7 +149,8 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// encryption containers, notably the *Symmetrically Encrypted
     /// Data Packet*.
     fn packet(&self, _packet: &Packet) -> Result<()> {
-        Err(anyhow::anyhow!("By default all packets are rejected."))
+        Err(Error::PolicyViolation(
+            "By default all packets are rejected.".into(), None).into())
     }
 }
 
@@ -279,8 +292,8 @@ pub trait Policy : fmt::Debug + Send + Sync {
 /// hash(public key || subkey || sig packet || 0x04 || sig packet len)
 /// ```
 ///
-///  [signature packet]: https://tools.ietf.org/html/rfc4880#section-5.2.3
-///  [the following is signed]: https://tools.ietf.org/html/rfc4880#section-5.2.4
+///  [signature packet]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3
+///  [the following is signed]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.4
 ///
 /// Since the signature packet is chosen by the victim's OpenPGP
 /// implementation, the attacker may be able to predict it, but they
@@ -298,7 +311,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
 /// contains the signature packet's length, prevents hiding a
 /// signature in a signature.
 ///
-///   [signature type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+///   [signature type]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.1
 ///
 /// Given this, if we know for a given signature type that an attacker
 /// cannot control any of the data that is signed, then that type of
@@ -309,7 +322,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
 /// case for binding signatures, and direct key signatures.  But, it
 /// is not normally the case for documents (the attacker may be able
 /// to control the content of the document), certifications (the
-/// attacker may be able to control the the key packet, the User ID
+/// attacker may be able to control the key packet, the User ID
 /// packet, or the User Attribute packet), or certificate revocations
 /// (the attacker may be able to control the key packet).
 ///
@@ -366,7 +379,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
 /// hidden to avoid making the victim suspicious.  This is
 /// straightforward for User Attributes, which are currently images,
 /// and have many places to hide this type of data.  However, User IDs
-/// are are normally [UTF-8 encoded RFC 2822 mailbox]es, which makes
+/// are normally [UTF-8 encoded RFC 2822 mailbox]es, which makes
 /// hiding half a kilobyte of binary data impractical.  The attacker
 /// does not control the victim's public key (in V).  But, they do
 /// control the malicious User ID or User Attribute that they want to
@@ -396,7 +409,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
 /// can dramatically increase the workfactor, which can extend the life
 /// of a hash algorithm whose collision resistance has been weakened.
 ///
-///   [UTF-8 encoded RFC 2822 mailbox]: https://tools.ietf.org/html/rfc4880#section-5.11
+///   [UTF-8 encoded RFC 2822 mailbox]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.11
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum HashAlgoSecurity {
     /// The signed data only requires second pre-image resistance.
@@ -443,6 +456,19 @@ impl Default for HashAlgoSecurity {
 /// The standard policy stores when each algorithm in a family of
 /// algorithms is no longer considered safe.  Attempts to use an
 /// algorithm after its cutoff time should fail.
+///
+/// A `StandardPolicy` can be configured using Rust.  Sometimes it is
+/// useful to configure it via a configuration file.  This can be done
+/// using the [`sequoia-policy-config`] crate.
+///
+///   [`sequoia-policy-config`]: https://docs.rs/sequoia-policy-config/latest/sequoia_policy_config/
+///
+/// It is recommended to support using a configuration file when the
+/// program should respect the system's crypto policy.  This is
+/// required on Fedora, for instance.  See the [Fedora Crypto
+/// Policies] project for more information.
+///
+///   [Fedora]: https://gitlab.com/redhat-crypto/fedora-crypto-policies
 ///
 /// When validating a signature, we normally want to know whether the
 /// algorithms used are safe *now*.  That is, we don't use the
@@ -534,7 +560,7 @@ impl Default for HashAlgoSecurity {
 /// "#;
 ///
 /// let mut cursor = Cursor::new(&data);
-/// let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::PublicKey)));
+/// let mut reader = Reader::from_reader(&mut cursor, ReaderMode::Tolerant(Some(Kind::PublicKey)));
 ///
 /// let mut buf = Vec::new();
 /// reader.read_to_end(&mut buf)?;
@@ -601,7 +627,7 @@ impl<'a> From<&'a StandardPolicy<'a>> for Option<&'a dyn Policy> {
 // Signatures that require a hash with collision Resistance and second
 // Pre-image Resistance.  See the documentation for HashAlgoSecurity
 // for more details.
-a_cutoff_list!(CollisionResistantHashCutoffList, HashAlgorithm, 12,
+a_cutoff_list!(CollisionResistantHashCutoffList, HashAlgorithm, 15,
                [
                    REJECT,                   // 0. Not assigned.
                    Some(Timestamp::Y1997M2), // 1. MD5
@@ -615,11 +641,14 @@ a_cutoff_list!(CollisionResistantHashCutoffList, HashAlgorithm, 12,
                    ACCEPT,                   // 9. SHA384
                    ACCEPT,                   // 10. SHA512
                    ACCEPT,                   // 11. SHA224
+                   ACCEPT,                   // 12. SHA3-256
+                   REJECT,                   // 13. Reserved.
+                   ACCEPT,                   // 14. SHA3-512
                ]);
 // Signatures that *only* require a hash with Second Pre-image
 // Resistance.  See the documentation for HashAlgoSecurity for more
 // details.
-a_cutoff_list!(SecondPreImageResistantHashCutoffList, HashAlgorithm, 12,
+a_cutoff_list!(SecondPreImageResistantHashCutoffList, HashAlgorithm, 15,
                [
                    REJECT,                   // 0. Not assigned.
                    Some(Timestamp::Y2004M2), // 1. MD5
@@ -633,9 +662,12 @@ a_cutoff_list!(SecondPreImageResistantHashCutoffList, HashAlgorithm, 12,
                    ACCEPT,                   // 9. SHA384
                    ACCEPT,                   // 10. SHA512
                    ACCEPT,                   // 11. SHA224
+                   ACCEPT,                   // 12. SHA3-256
+                   REJECT,                   // 13. Reserved.
+                   ACCEPT,                   // 14. SHA3-512
                ]);
 
-a_cutoff_list!(SubpacketTagCutoffList, SubpacketTag, 38,
+a_cutoff_list!(SubpacketTagCutoffList, SubpacketTag, 40,
                [
                    REJECT,                 // 0. Reserved.
                    REJECT,                 // 1. Reserved.
@@ -674,40 +706,48 @@ a_cutoff_list!(SubpacketTagCutoffList, SubpacketTag, 38,
                    REJECT,                 // 31. SignatureTarget.
                    ACCEPT,                 // 32. EmbeddedSignature.
                    ACCEPT,                 // 33. IssuerFingerprint.
-                   ACCEPT,                 // 34. PreferredAEADAlgorithms.
+                   REJECT,                 // 34. Reserved (PreferredAEADAlgorithms).
                    ACCEPT,                 // 35. IntendedRecipient.
                    REJECT,                 // 36. Reserved.
-                   ACCEPT,                 // 37. AttestedCertifications.
+                   ACCEPT,                 // 37. ApprovedCertifications.
+                   REJECT,                 // 38. Reserved.
+                   ACCEPT,                 // 39. PreferredAEADCiphersuites.
                ]);
 
-a_cutoff_list!(AsymmetricAlgorithmCutoffList, AsymmetricAlgorithm, 18,
+a_cutoff_list!(AsymmetricAlgorithmCutoffList, AsymmetricAlgorithm, 24,
                [
                    Some(Timestamp::Y2014M2), // 0. RSA1024.
                    ACCEPT,                   // 1. RSA2048.
                    ACCEPT,                   // 2. RSA3072.
                    ACCEPT,                   // 3. RSA4096.
                    Some(Timestamp::Y2014M2), // 4. ElGamal1024.
-                   ACCEPT,                   // 5. ElGamal2048.
-                   ACCEPT,                   // 6. ElGamal3072.
-                   ACCEPT,                   // 7. ElGamal4096.
+                   Some(Timestamp::Y2025M2), // 5. ElGamal2048.
+                   Some(Timestamp::Y2025M2), // 6. ElGamal3072.
+                   Some(Timestamp::Y2025M2), // 7. ElGamal4096.
                    Some(Timestamp::Y2014M2), // 8. DSA1024.
-                   ACCEPT,                   // 9. DSA2048.
-                   ACCEPT,                   // 10. DSA3072.
-                   ACCEPT,                   // 11. DSA4096.
+                   Some(Timestamp::Y2030M2), // 9. DSA2048.
+                   Some(Timestamp::Y2030M2), // 10. DSA3072.
+                   Some(Timestamp::Y2030M2), // 11. DSA4096.
                    ACCEPT,                   // 12. NistP256.
                    ACCEPT,                   // 13. NistP384.
                    ACCEPT,                   // 14. NistP521.
                    ACCEPT,                   // 15. BrainpoolP256.
-                   ACCEPT,                   // 16. BrainpoolP512.
-                   ACCEPT,                   // 17. Cv25519.
+                   ACCEPT,                   // 16. BrainpoolP384.
+                   ACCEPT,                   // 17. BrainpoolP512.
+                   ACCEPT,                   // 18. Cv25519.
+                   ACCEPT,                   // 19. X25519.
+                   ACCEPT,                   // 20. X448.
+                   ACCEPT,                   // 21. Ed25519.
+                   ACCEPT,                   // 22. Ed448.
+                   ACCEPT,                   // 23. EdDSA (i.e., Legacy Ed25519).
                ]);
 
 a_cutoff_list!(SymmetricAlgorithmCutoffList, SymmetricAlgorithm, 14,
                [
                    REJECT,                   // 0. Unencrypted.
-                   ACCEPT,                   // 1. IDEA.
+                   Some(Timestamp::Y2025M2), // 1. IDEA.
                    Some(Timestamp::Y2017M2), // 2. TripleDES.
-                   ACCEPT,                   // 3. CAST5.
+                   Some(Timestamp::Y2025M2), // 3. CAST5.
                    ACCEPT,                   // 4. Blowfish.
                    REJECT,                   // 5. Reserved.
                    REJECT,                   // 6. Reserved.
@@ -720,37 +760,48 @@ a_cutoff_list!(SymmetricAlgorithmCutoffList, SymmetricAlgorithm, 14,
                    ACCEPT,                   // 13. Camellia256.
                ]);
 
-a_cutoff_list!(AEADAlgorithmCutoffList, AEADAlgorithm, 3,
+a_cutoff_list!(AEADAlgorithmCutoffList, AEADAlgorithm, 4,
                [
                    REJECT,                 // 0. Reserved.
                    ACCEPT,                 // 1. EAX.
                    ACCEPT,                 // 2. OCB.
+                   ACCEPT,                 // 3. GCM.
                ]);
 
-a_cutoff_list!(PacketTagCutoffList, Tag, 21,
-               [
-                   REJECT,                   // 0. Reserved.
-                   ACCEPT,                   // 1. PKESK.
-                   ACCEPT,                   // 2. Signature.
-                   ACCEPT,                   // 3. SKESK.
-                   ACCEPT,                   // 4. OnePassSig.
-                   ACCEPT,                   // 5. SecretKey.
-                   ACCEPT,                   // 6. PublicKey.
-                   ACCEPT,                   // 7. SecretSubkey.
-                   ACCEPT,                   // 8. CompressedData.
-                   Some(Timestamp::Y2004M2), // 9. SED.
-                   ACCEPT,                   // 10. Marker.
-                   ACCEPT,                   // 11. Literal.
-                   ACCEPT,                   // 12. Trust.
-                   ACCEPT,                   // 13. UserID.
-                   ACCEPT,                   // 14. PublicSubkey.
-                   REJECT,                   // 15. Not assigned.
-                   REJECT,                   // 16. Not assigned.
-                   ACCEPT,                   // 17. UserAttribute.
-                   ACCEPT,                   // 18. SEIP.
-                   ACCEPT,                   // 19. MDC.
-                   ACCEPT,                   // 20. AED.
-               ]);
+a_versioned_cutoff_list!(PacketTagCutoffList, Tag, 22,
+    [
+        REJECT,                   // 0. Reserved.
+        ACCEPT,                   // 1. PKESK.
+        ACCEPT,                   // 2. Signature.
+        ACCEPT,                   // 3. SKESK.
+        ACCEPT,                   // 4. OnePassSig.
+        ACCEPT,                   // 5. SecretKey.
+        ACCEPT,                   // 6. PublicKey.
+        ACCEPT,                   // 7. SecretSubkey.
+        ACCEPT,                   // 8. CompressedData.
+        Some(Timestamp::Y2004M2), // 9. SED.
+        ACCEPT,                   // 10. Marker.
+        ACCEPT,                   // 11. Literal.
+        ACCEPT,                   // 12. Trust.
+        ACCEPT,                   // 13. UserID.
+        ACCEPT,                   // 14. PublicSubkey.
+        REJECT,                   // 15. Not assigned.
+        REJECT,                   // 16. Not assigned.
+        ACCEPT,                   // 17. UserAttribute.
+        ACCEPT,                   // 18. SEIP.
+        ACCEPT,                   // 19. MDC.
+        REJECT,                   // 20. "v5" AED.
+        ACCEPT,                   // 21. Padding.
+    ],
+    // The versioned list overrides the unversioned list.  So we only
+    // need to tweak the above.
+    //
+    // Note: this list must be sorted and the tag and version must be unique!
+    2,
+    [
+        (Tag::Signature, 3, Some(Timestamp::Y2021M2)),
+        (Tag::Signature, 5, REJECT), // "v5" Signatures.
+    ]);
 
 // We need to convert a `SystemTime` to a `Timestamp` in
 // `StandardPolicy::reject_hash_at`.  Unfortunately, a `SystemTime`
@@ -857,10 +908,28 @@ impl<'a> StandardPolicy<'a> {
     /// A hash algorithm should only be unconditionally accepted if it
     /// has all three of these properties.  See the documentation for
     /// [`HashAlgoSecurity`] for more details.
-    ///
     pub fn accept_hash(&mut self, h: HashAlgorithm) {
-        self.collision_resistant_hash_algos.set(h, ACCEPT);
-        self.second_pre_image_resistant_hash_algos.set(h, ACCEPT);
+        self.accept_hash_property(h, HashAlgoSecurity::CollisionResistance);
+        self.accept_hash_property(h, HashAlgoSecurity::SecondPreImageResistance);
+    }
+
+    /// Considers hash algorithm `h` to be secure for the specified
+    /// security property `sec`.
+    ///
+    /// For instance, an application may choose to allow an algorithm
+    /// like SHA-1 in contexts like User ID binding signatures where
+    /// only [second preimage
+    /// resistance][`HashAlgoSecurity::SecondPreImageResistance`] is
+    /// required but not in contexts like signatures over data where
+    /// [collision
+    /// resistance][`HashAlgoSecurity::CollisionResistance`] is also
+    /// required. Whereas SHA-1's collision resistance is
+    /// [definitively broken](https://shattered.io/), depending on the
+    /// application's threat model, it may be acceptable to continue
+    /// to accept SHA-1 in these specific contexts.
+    pub fn accept_hash_property(&mut self, h: HashAlgorithm, sec: HashAlgoSecurity)
+    {
+        self.reject_hash_property_at(h, sec, None);
     }
 
     /// Considers `h` to be insecure in all security contexts.
@@ -888,6 +957,18 @@ impl<'a> StandardPolicy<'a> {
     pub fn reject_hash(&mut self, h: HashAlgorithm) {
         self.collision_resistant_hash_algos.set(h, REJECT);
         self.second_pre_image_resistant_hash_algos.set(h, REJECT);
+    }
+
+    /// Considers all hash algorithms to be insecure.
+    ///
+    /// Causes all hash algorithms to be considered insecure in all
+    /// security contexts.
+    ///
+    /// This is useful when using a good list to determine what
+    /// algorithms are allowed.
+    pub fn reject_all_hashes(&mut self) {
+        self.collision_resistant_hash_algos.reject_all();
+        self.second_pre_image_resistant_hash_algos.reject_all();
     }
 
     /// Considers `h` to be insecure in all security contexts starting
@@ -1095,6 +1176,14 @@ impl<'a> StandardPolicy<'a> {
         self.critical_subpackets.set(s, REJECT);
     }
 
+    /// Considers all critical subpackets to be insecure.
+    ///
+    /// This is useful when using a good list to determine what
+    /// critical subpackets are allowed.
+    pub fn reject_all_critical_subpackets(&mut self) {
+        self.critical_subpackets.reject_all();
+    }
+
     /// Considers `s` to be insecure starting at `cutoff`.
     ///
     /// A cutoff of `None` means that there is no cutoff and the
@@ -1134,6 +1223,14 @@ impl<'a> StandardPolicy<'a> {
         self.asymmetric_algos.set(a, REJECT);
     }
 
+    /// Considers all asymmetric algorithms to be insecure.
+    ///
+    /// This is useful when using a good list to determine what
+    /// algorithms are allowed.
+    pub fn reject_all_asymmetric_algos(&mut self) {
+        self.asymmetric_algos.reject_all();
+    }
+
     /// Considers `a` to be insecure starting at `cutoff`.
     ///
     /// A cutoff of `None` means that there is no cutoff and the
@@ -1169,6 +1266,14 @@ impl<'a> StandardPolicy<'a> {
         self.symmetric_algos.set(s, REJECT);
     }
 
+    /// Considers all symmetric algorithms to be insecure.
+    ///
+    /// This is useful when using a good list to determine what
+    /// algorithms are allowed.
+    pub fn reject_all_symmetric_algos(&mut self) {
+        self.symmetric_algos.reject_all();
+    }
+
     /// Considers `s` to be insecure starting at `cutoff`.
     ///
     /// A cutoff of `None` means that there is no cutoff and the
@@ -1182,7 +1287,7 @@ impl<'a> StandardPolicy<'a> {
     /// in OpenPGP implementations is [excellent].  We chose 2017 as
     /// the cutoff year because [NIST deprecated 3DES] that year.
     ///
-    ///   ["MUST implement"]: https://tools.ietf.org/html/rfc4880#section-9.2
+    ///   ["MUST implement"]: https://www.rfc-editor.org/rfc/rfc9580.html#section-9.3
     ///   [excellent]: https://tests.sequoia-pgp.org/#Symmetric_Encryption_Algorithm_support
     ///   [NIST deprecated 3DES]: https://csrc.nist.gov/News/2017/Update-to-Current-Use-and-Deprecation-of-TDEA
     pub fn reject_symmetric_algo_at<C>(&mut self, s: SymmetricAlgorithm,
@@ -1214,6 +1319,14 @@ impl<'a> StandardPolicy<'a> {
         self.aead_algos.set(a, REJECT);
     }
 
+    /// Considers all AEAD algorithms to be insecure.
+    ///
+    /// This is useful when using a good list to determine what
+    /// algorithms are allowed.
+    pub fn reject_all_aead_algos(&mut self) {
+        self.aead_algos.reject_all();
+    }
+
     /// Considers `a` to be insecure starting at `cutoff`.
     ///
     /// A cutoff of `None` means that there is no cutoff and the
@@ -1239,17 +1352,46 @@ impl<'a> StandardPolicy<'a> {
         self.aead_algos.cutoff(a).map(|t| t.into())
     }
 
-    /// Always accept packets with the given tag.
+    /// Always accept the specified version of the packet.
+    ///
+    /// If a packet does not have a version field, then its version is
+    /// `0`.
+    pub fn accept_packet_tag_version(&mut self, tag: Tag, version: u8) {
+        self.packet_tags.set_versioned(tag, version, ACCEPT);
+    }
+
+    /// Always accept packets with the given tag independent of their
+    /// version.
+    ///
+    /// If you previously set a cutoff for a specific version of a
+    /// packet, this overrides that.
     pub fn accept_packet_tag(&mut self, tag: Tag) {
-        self.packet_tags.set(tag, ACCEPT);
+        self.packet_tags.set_unversioned(tag, ACCEPT);
+    }
+
+    /// Always reject the specified version of the packet.
+    ///
+    /// If a packet does not have a version field, then its version is
+    /// `0`.
+    pub fn reject_packet_tag_version(&mut self, tag: Tag, version: u8) {
+        self.packet_tags.set_versioned(tag, version, REJECT);
     }
 
     /// Always reject packets with the given tag.
     pub fn reject_packet_tag(&mut self, tag: Tag) {
-        self.packet_tags.set(tag, REJECT);
+        self.packet_tags.set_unversioned(tag, REJECT);
     }
 
-    /// Start rejecting packets with the given tag at `t`.
+    /// Considers all packets to be insecure.
+    ///
+    /// This is useful when using a good list to determine what
+    /// packets are allowed.
+    pub fn reject_all_packet_tags(&mut self) {
+        self.packet_tags.reject_all();
+    }
+
+    /// Start rejecting the specified version of packets with the
+    /// given tag at `t`.
     ///
     /// A cutoff of `None` means that there is no cutoff and the
     /// packet has no known vulnerabilities.
@@ -1267,22 +1409,43 @@ impl<'a> StandardPolicy<'a> {
     /// released on 2002-07-19, was the first release of Debian to
     /// ship a version of GnuPG that emitted SEIP packets by default.
     /// The first version that emitted SEIP packets was [GnuPG 1.0.3],
-    /// released on 2000-09-18.  Mid 2002 plus a 18 months grace
+    /// released on 2000-09-18.  Mid 2002 plus an 18 months grace
     /// period of people still using older versions is 2004.
     ///
     ///   [Debian 3.0]: https://www.debian.org/News/2002/20020719
     ///   [GnuPG 1.0.3]: https://lists.gnupg.org/pipermail/gnupg-announce/2000q3/000075.html
+    pub fn reject_packet_tag_version_at<C>(&mut self, tag: Tag, version: u8,
+                                           cutoff: C)
+        where C: Into<Option<SystemTime>>,
+    {
+        self.packet_tags.set_versioned(
+            tag, version,
+            cutoff.into().and_then(system_time_cutoff_to_timestamp));
+    }
+
+    /// Start rejecting packets with the given tag at `t`.
+    ///
+    /// See the documentation for
+    /// [`StandardPolicy::reject_packet_tag_version_at`].
     pub fn reject_packet_tag_at<C>(&mut self, tag: Tag, cutoff: C)
         where C: Into<Option<SystemTime>>,
     {
-        self.packet_tags.set(
+        self.packet_tags.set_unversioned(
             tag,
             cutoff.into().and_then(system_time_cutoff_to_timestamp));
     }
 
-    /// Returns the cutoff times for the specified hash algorithm.
-    pub fn packet_tag_cutoff(&self, tag: Tag) -> Option<SystemTime> {
-        self.packet_tags.cutoff(tag).map(|t| t.into())
+    /// Returns the cutoff for the specified version of the specified
+    /// packet tag.
+    ///
+    /// This first considers the versioned cutoff list.  If there is
+    /// no entry in the versioned list, it fallsback to the
+    /// unversioned cutoff list.  If there is also no entry there,
+    /// then it falls back to the default.
+    pub fn packet_tag_version_cutoff(&self, tag: Tag, version: u8)
+        -> Option<SystemTime>
+    {
+        self.packet_tags.cutoff(tag, version).map(|t| t.into())
     }
 }
 
@@ -1301,14 +1464,14 @@ impl<'a> Policy for StandardPolicy<'a> {
                     .collision_resistant_hash_algos
                     .check(sig.hash_algo(), time,
                            Some(self.hash_revocation_tolerance))
-                    .context(format!(
+                    .with_context(|| format!(
                         "Policy rejected revocation signature ({}) requiring \
                          collision resistance", sig.typ()))?
             } else {
                 self
                     .collision_resistant_hash_algos
                     .check(sig.hash_algo(), time, None)
-                    .context(format!(
+                    .with_context(|| format!(
                         "Policy rejected non-revocation signature ({}) requiring \
                          collision resistance", sig.typ()))?
             }
@@ -1319,14 +1482,14 @@ impl<'a> Policy for StandardPolicy<'a> {
                 .second_pre_image_resistant_hash_algos
                 .check(sig.hash_algo(), time,
                        Some(self.hash_revocation_tolerance))
-                .context(format!(
+                .with_context(|| format!(
                     "Policy rejected revocation signature ({}) requiring \
                      second pre-image resistance", sig.typ()))?
         } else {
             self
                 .second_pre_image_resistant_hash_algos
                 .check(sig.hash_algo(), time, None)
-                .context(format!(
+                .with_context(|| format!(
                     "Policy rejected non-revocation signature ({}) requiring \
                      second pre-image resistance", sig.typ()))?
         }
@@ -1336,9 +1499,11 @@ impl<'a> Policy for StandardPolicy<'a> {
                 .context("Policy rejected critical signature subpacket")?;
             if let SubpacketValue::NotationData(n) = csp.value() {
                 if ! self.good_critical_notations.contains(&n.name()) {
-                    return Err(Error::PolicyViolation(
-                        format!("Policy rejected critical notation {:?}",
-                                n.name()), None).into());
+                    return Err(anyhow::Error::from(
+                        Error::PolicyViolation(
+                            format!("Critical notation {:?}",
+                                    n.name()), None))
+                               .context("Policy rejected critical notation"));
                 }
             }
         }
@@ -1349,51 +1514,62 @@ impl<'a> Policy for StandardPolicy<'a> {
     fn key(&self, ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
         -> Result<()>
     {
-        use self::AsymmetricAlgorithm::{*, Unknown};
-        use crate::types::PublicKeyAlgorithm::*;
+        use crate::types::PublicKeyAlgorithm::{self, *};
         use crate::crypto::mpi::PublicKey;
 
         #[allow(deprecated)]
-        let a = match (ka.pk_algo(), ka.mpis().bits()) {
+        let a = match (ka.key().pk_algo(), ka.key().mpis().bits()) {
             // RSA.
             (RSAEncryptSign, Some(b))
                 | (RSAEncrypt, Some(b))
-                | (RSASign, Some(b)) if b < 2048 => RSA1024,
+                | (RSASign, Some(b))
+                if b < 2048 => AsymmetricAlgorithm::RSA1024,
             (RSAEncryptSign, Some(b))
                 | (RSAEncrypt, Some(b))
-                | (RSASign, Some(b)) if b < 3072 => RSA2048,
+                | (RSASign, Some(b))
+                if b < 3072 => AsymmetricAlgorithm::RSA2048,
             (RSAEncryptSign, Some(b))
                 | (RSAEncrypt, Some(b))
-                | (RSASign, Some(b)) if b < 4096 => RSA3072,
+                | (RSASign, Some(b))
+                if b < 4096 => AsymmetricAlgorithm::RSA3072,
             (RSAEncryptSign, Some(_))
                 | (RSAEncrypt, Some(_))
-                | (RSASign, Some(_)) => RSA4096,
+                | (RSASign, Some(_))
+                => AsymmetricAlgorithm::RSA4096,
             (RSAEncryptSign, None)
                 | (RSAEncrypt, None)
                 | (RSASign, None) => unreachable!(),
 
             // ElGamal.
             (ElGamalEncryptSign, Some(b))
-                | (ElGamalEncrypt, Some(b)) if b < 2048 => ElGamal1024,
+                | (ElGamalEncrypt, Some(b))
+                if b < 2048 => AsymmetricAlgorithm::ElGamal1024,
             (ElGamalEncryptSign, Some(b))
-                | (ElGamalEncrypt, Some(b)) if b < 3072 => ElGamal2048,
+                | (ElGamalEncrypt, Some(b))
+                if b < 3072 => AsymmetricAlgorithm::ElGamal2048,
             (ElGamalEncryptSign, Some(b))
-                | (ElGamalEncrypt, Some(b)) if b < 4096 => ElGamal3072,
+                | (ElGamalEncrypt, Some(b))
+                if b < 4096 => AsymmetricAlgorithm::ElGamal3072,
             (ElGamalEncryptSign, Some(_))
-                | (ElGamalEncrypt, Some(_)) => ElGamal4096,
+                | (ElGamalEncrypt, Some(_))
+                => AsymmetricAlgorithm::ElGamal4096,
             (ElGamalEncryptSign, None)
                 | (ElGamalEncrypt, None) => unreachable!(),
 
             // DSA.
-            (DSA, Some(b)) if b < 2048 => DSA1024,
-            (DSA, Some(b)) if b < 3072 => DSA2048,
-            (DSA, Some(b)) if b < 4096 => DSA3072,
-            (DSA, Some(_)) => DSA4096,
+            (DSA, Some(b))
+                if b < 2048 => AsymmetricAlgorithm::DSA1024,
+            (DSA, Some(b))
+                if b < 3072 => AsymmetricAlgorithm::DSA2048,
+            (DSA, Some(b))
+                if b < 4096 => AsymmetricAlgorithm::DSA3072,
+            (DSA, Some(_))
+                => AsymmetricAlgorithm::DSA4096,
             (DSA, None) => unreachable!(),
 
             // ECC.
             (ECDH, _) | (ECDSA, _) | (EdDSA, _) => {
-                let curve = match ka.mpis() {
+                let curve = match ka.key().mpis() {
                     PublicKey::EdDSA { curve, .. } => curve,
                     PublicKey::ECDSA { curve, .. } => curve,
                     PublicKey::ECDH { curve, .. } => curve,
@@ -1401,28 +1577,80 @@ impl<'a> Policy for StandardPolicy<'a> {
                 };
                 use crate::types::Curve;
                 match curve {
-                    Curve::NistP256 => NistP256,
-                    Curve::NistP384 => NistP384,
-                    Curve::NistP521 => NistP521,
-                    Curve::BrainpoolP256 => BrainpoolP256,
-                    Curve::BrainpoolP512 => BrainpoolP512,
-                    Curve::Ed25519 => Cv25519,
-                    Curve::Cv25519 => Cv25519,
-                    Curve::Unknown(_) => Unknown,
+                    Curve::NistP256 => AsymmetricAlgorithm::NistP256,
+                    Curve::NistP384 => AsymmetricAlgorithm::NistP384,
+                    Curve::NistP521 => AsymmetricAlgorithm::NistP521,
+                    Curve::BrainpoolP256 => AsymmetricAlgorithm::BrainpoolP256,
+                    Curve::BrainpoolP384 => AsymmetricAlgorithm::BrainpoolP384,
+                    Curve::BrainpoolP512 => AsymmetricAlgorithm::BrainpoolP512,
+                    Curve::Ed25519 => AsymmetricAlgorithm::EdDSA,
+                    Curve::Cv25519 => AsymmetricAlgorithm::Cv25519,
+                    Curve::Unknown(_) => AsymmetricAlgorithm::Unknown,
                 }
             },
 
-            _ => Unknown,
+            (PublicKeyAlgorithm::X25519, _) => AsymmetricAlgorithm::X25519,
+            (PublicKeyAlgorithm::X448, _) => AsymmetricAlgorithm::X448,
+            (PublicKeyAlgorithm::Ed25519, _) => AsymmetricAlgorithm::Ed25519,
+            (PublicKeyAlgorithm::Ed448, _) => AsymmetricAlgorithm::Ed448,
+
+            (PublicKeyAlgorithm::Private(_), _)
+                | (PublicKeyAlgorithm::Unknown(_), _)
+                => AsymmetricAlgorithm::Unknown,
         };
 
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.asymmetric_algos.check(a, time, None)
-            .context("Policy rejected asymmetric algorithm")
+            .context("Policy rejected asymmetric algorithm")?;
+
+        // Check ECDH KDF and KEK parameters.
+        if let PublicKey::ECDH { hash, sym, .. } = ka.key().mpis() {
+            self.symmetric_algorithm(*sym)
+                .context("Policy rejected ECDH \
+                          key encapsulation algorithm")?;
+
+            // RFC6637 says:
+            //
+            // > Refer to Section 13 for the details regarding the
+            // > choice of the KEK algorithm, which SHOULD be one of
+            // > three AES algorithms.
+            //
+            // Furthermore, GnuPG rejects anything other than AES.
+            // I checked the SKS dump, and there are no keys out
+            // there that use a different KEK algorithm.
+            match sym {
+                SymmetricAlgorithm::AES128
+                    | SymmetricAlgorithm::AES192
+                    | SymmetricAlgorithm::AES256
+                    => (), // Good.
+                _ =>
+                    return Err(anyhow::Error::from(
+                        Error::PolicyViolation(sym.to_string(), None))
+                               .context("Policy rejected ECDH \
+                                         key encapsulation algorithm")),
+            }
+
+            // For use in a KDF the hash algorithm does not
+            // necessarily be collision resistant, but this is the
+            // weakest property that we otherwise care for, so
+            // (somewhat arbitrarily) use this.
+            self
+                .collision_resistant_hash_algos
+                .check(*hash, time, None)
+                .context("Policy rejected ECDH \
+                          key derivation hash function")?;
+        }
+
+        Ok(())
     }
 
     fn packet(&self, packet: &Packet) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
-        self.packet_tags.check(packet.tag(), time, None)
+        self.packet_tags
+            .check(
+                packet.tag(),
+                packet.version().unwrap_or(0),
+                time, None)
             .context("Policy rejected packet type")
     }
 
@@ -1451,11 +1679,8 @@ impl<'a> Policy for StandardPolicy<'a> {
 /// Key sizes put into are buckets, rounding down to the nearest
 /// bucket.  For example, a 3253-bit RSA key is categorized as
 /// `RSA3072`.
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
 #[non_exhaustive]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub enum AsymmetricAlgorithm {
     /// RSA with key sizes up to 2048-1 bit.
     RSA1024,
@@ -1489,14 +1714,63 @@ pub enum AsymmetricAlgorithm {
     NistP521,
     /// brainpoolP256r1.
     BrainpoolP256,
+    /// brainpoolP384r1.
+    BrainpoolP384,
     /// brainpoolP512r1.
     BrainpoolP512,
     /// D.J. Bernstein's Curve25519.
     Cv25519,
+    /// X25519 (RFC 7748).
+    X25519,
+    /// X448 (RFC 7748).
+    X448,
+    /// Ed25519 (RFC 8032).
+    Ed25519,
+    /// Ed448 (RFC 8032).
+    Ed448,
+    /// EdDSA (v4 Ed25519Legacy)
+    EdDSA,
     /// Unknown algorithm.
     Unknown,
 }
 assert_send_and_sync!(AsymmetricAlgorithm);
+
+const ASYMMETRIC_ALGORITHM_VARIANTS: [AsymmetricAlgorithm; 24] = [
+    AsymmetricAlgorithm::RSA1024,
+    AsymmetricAlgorithm::RSA2048,
+    AsymmetricAlgorithm::RSA3072,
+    AsymmetricAlgorithm::RSA4096,
+    AsymmetricAlgorithm::ElGamal1024,
+    AsymmetricAlgorithm::ElGamal2048,
+    AsymmetricAlgorithm::ElGamal3072,
+    AsymmetricAlgorithm::ElGamal4096,
+    AsymmetricAlgorithm::DSA1024,
+    AsymmetricAlgorithm::DSA2048,
+    AsymmetricAlgorithm::DSA3072,
+    AsymmetricAlgorithm::DSA4096,
+    AsymmetricAlgorithm::NistP256,
+    AsymmetricAlgorithm::NistP384,
+    AsymmetricAlgorithm::NistP521,
+    AsymmetricAlgorithm::BrainpoolP256,
+    AsymmetricAlgorithm::BrainpoolP384,
+    AsymmetricAlgorithm::BrainpoolP512,
+    AsymmetricAlgorithm::Cv25519,
+    AsymmetricAlgorithm::X25519,
+    AsymmetricAlgorithm::X448,
+    AsymmetricAlgorithm::Ed25519,
+    AsymmetricAlgorithm::Ed448,
+    AsymmetricAlgorithm::EdDSA,
+];
+
+impl AsymmetricAlgorithm {
+    /// Returns an iterator over all valid variants.
+    ///
+    /// Returns an iterator over all known variants.  This does not
+    /// include the [`AsymmetricAlgorithm::Unknown`] variant.
+    pub fn variants() -> impl Iterator<Item=AsymmetricAlgorithm> {
+        ASYMMETRIC_ALGORITHM_VARIANTS.iter().cloned()
+    }
+}
 
 impl std::fmt::Display for AsymmetricAlgorithm {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -1524,8 +1798,14 @@ impl From<AsymmetricAlgorithm> for u8 {
             NistP384 => 13,
             NistP521 => 14,
             BrainpoolP256 => 15,
-            BrainpoolP512 => 16,
-            Cv25519 => 17,
+            BrainpoolP384 => 16,
+            BrainpoolP512 => 17,
+            Cv25519 => 18,
+            X25519 => 19,
+            X448 => 20,
+            Ed25519 => 21,
+            Ed448 => 22,
+            EdDSA => 23,
             Unknown => 255,
         }
     }
@@ -1556,7 +1836,7 @@ assert_send_and_sync!(NullPolicy);
 
 impl NullPolicy {
     /// Instantiates a new `NullPolicy`.
-    pub const fn new() -> Self {
+    pub const unsafe fn new() -> Self {
         NullPolicy {}
     }
 }
@@ -1593,7 +1873,6 @@ mod test {
 
     use super::*;
     use crate::Error;
-    use crate::Fingerprint;
     use crate::crypto::SessionKey;
     use crate::packet::key::Key4;
     use crate::packet::signature;
@@ -1772,7 +2051,7 @@ mod test {
         assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 
         // Now merge the revocation signature into the Cert.
-        let cert = cert.insert_packets(revocation.clone())?;
+        let cert = cert.insert_packets(revocation.clone())?.0;
 
         // Check that it is revoked.
         assert_eq!(cert.userids().with_policy(p, None).revoked(false).count(), 0);
@@ -1828,7 +2107,7 @@ mod test {
 
         // Now merge the revocation signature into the Cert.
         assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 3);
-        let cert = cert.insert_packets(revocation.clone())?;
+        let cert = cert.insert_packets(revocation.clone())?.0;
         assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 2);
 
         // Reject all subkey revocations.
@@ -1921,10 +2200,10 @@ mod test {
         }
 
         impl DecryptionHelper for VHelper {
-            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
-                          _: Option<SymmetricAlgorithm>,_: D)
-                          -> Result<Option<Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+            fn decrypt(&mut self, _: &[PKESK], _: &[SKESK],
+                       _: Option<SymmetricAlgorithm>,
+                       _: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+                       -> Result<Option<Cert>>
             {
                 unreachable!();
             }
@@ -2008,7 +2287,7 @@ mod test {
         ].iter()
             .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
             .collect::<Vec<_>>();
-        let data = "messages/signed-1.gpg";
+        let data = "messages/signed-1.pgp";
 
         let reference = crate::tests::manifesto();
 
@@ -2132,7 +2411,7 @@ mod test {
             &mut keypair,
             ReasonForRevocation::KeyCompromised,
             b"It was the maid :/")?;
-        let cert_revoked = cert.clone().insert_packets(rev)?;
+        let cert_revoked = cert.clone().insert_packets(rev)?.0;
 
         match cert_revoked.revocation_status(&DEFAULT, None) {
             RevocationStatus::Revoked(sigs) => {
@@ -2293,7 +2572,7 @@ mod test {
                                  pk.parts_as_public(), &subkey)?;
 
         let cert = cert.insert_packets(
-            vec![ Packet::from(subkey), binding.into() ])?;
+            vec![ Packet::from(subkey), binding.into() ])?.0;
 
         assert_eq!(cert.keys().with_policy(p, None).count(), 3);
         assert_eq!(cert.keys().with_policy(norsa, None).count(), 2);
@@ -2309,14 +2588,14 @@ mod test {
 
         let pk = cert.primary_key().key().parts_as_secret()?;
         let subkey: key::SecretSubkey
-            = key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
+            = key::Key6::generate_ecc(true, Curve::Ed25519)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(KeyFlags::empty().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  pk.parts_as_public(), &subkey)?;
 
         let cert = cert.insert_packets(
-            vec![ Packet::from(subkey), binding.into() ])?;
+            vec![ Packet::from(subkey), binding.into() ])?.0;
 
         assert_eq!(cert.keys().with_policy(p, None).count(), 3);
         assert_eq!(cert.keys().with_policy(norsa, None).count(), 0);
@@ -2341,7 +2620,7 @@ mod test {
     #[test]
     fn key_verify_binary_signature() -> Result<()> {
         use crate::packet::signature;
-        use crate::serialize::Serialize;
+        use crate::serialize::SerializeInto;
         use crate::Packet;
         use crate::types::KeyFlags;
 
@@ -2356,7 +2635,7 @@ mod test {
                 use crate::types::PublicKeyAlgorithm::*;
 
                 eprintln!("algo: {} is {}",
-                          ka.fingerprint(), ka.key().pk_algo());
+                          ka.key().fingerprint(), ka.key().pk_algo());
                 if ka.key().pk_algo() == RSAEncryptSign {
                     Err(anyhow::anyhow!("RSA!"))
                 } else {
@@ -2414,7 +2693,10 @@ mod test {
                             for result in results {
                                 match result {
                                     Ok(_) => self.good += 1,
-                                    Err(_) => self.errors += 1,
+                                    Err(e) => {
+                                        eprintln!("{}", e);
+                                        self.errors += 1
+                                    },
                                 }
                             }
                         MessageLayer::Compression { .. } => (),
@@ -2427,10 +2709,10 @@ mod test {
         }
 
         impl DecryptionHelper for VHelper {
-            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
-                          _: Option<SymmetricAlgorithm>,_: D)
-                          -> Result<Option<Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+            fn decrypt(&mut self, _: &[PKESK], _: &[SKESK],
+                       _: Option<SymmetricAlgorithm>,
+                       _: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+                       -> Result<Option<Cert>>
             {
                 unreachable!();
             }
@@ -2441,7 +2723,7 @@ mod test {
             eprintln!("Expect verification to be {}",
                       if good { "good" } else { "bad" });
             for (i, k) in cert.keys().enumerate() {
-                eprintln!("  {}. {}", i, k.fingerprint());
+                eprintln!("  {}. {}", i, k.key().fingerprint());
             }
 
             let msg = b"Hello, World";
@@ -2453,7 +2735,7 @@ mod test {
                 .into_keypair().unwrap();
 
             // Create a signature.
-            let mut sig =
+            let sig =
                 signature::SignatureBuilder::new(SignatureType::Binary)
                 .sign_message(&mut keypair, msg).unwrap();
 
@@ -2461,12 +2743,7 @@ mod test {
             sig.verify_message(key, msg).unwrap();
 
             // Turn it into a detached signature.
-            let sig = {
-                let mut v = Vec::new();
-                let sig : Packet = sig.into();
-                sig.serialize(&mut v).unwrap();
-                v
-            };
+            let sig = Packet::from(sig).to_vec().unwrap();
 
             let h = VHelper::new(vec![ cert.clone() ]);
             let mut v = DetachedVerifierBuilder::from_bytes(&sig).unwrap()
@@ -2547,17 +2824,18 @@ mod test {
         }
 
         impl DecryptionHelper for Helper {
-            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
-                          _: Option<SymmetricAlgorithm>, _: D)
-                          -> Result<Option<Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool {
+            fn decrypt(&mut self, _: &[PKESK], _: &[SKESK],
+                       _: Option<SymmetricAlgorithm>,
+                       _: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+                       -> Result<Option<Cert>>
+            {
                 Ok(None)
             }
         }
 
         let p = &P::new();
         let r = DecryptorBuilder::from_bytes(crate::tests::message(
-                "encrypted-to-testy.gpg"))?
+                "encrypted-to-testy.pgp"))?
             .with_policy(p, crate::frozen_time(), Helper {});
         match r {
             Ok(_) => panic!(),
@@ -2569,7 +2847,7 @@ mod test {
         let p = &mut P::new();
         p.reject_packet_tag(Tag::SEIP);
         let r = DecryptorBuilder::from_bytes(crate::tests::message(
-                "encrypted-to-testy.gpg"))?
+                "encrypted-to-testy.pgp"))?
             .with_policy(p, crate::frozen_time(), Helper {});
         match r {
             Ok(_) => panic!(),
@@ -2594,10 +2872,10 @@ mod test {
         }
 
         impl DecryptionHelper for Helper {
-            fn decrypt<D>(&mut self, pkesks: &[PKESK], _: &[SKESK],
-                          algo: Option<SymmetricAlgorithm>, mut decrypt: D)
-                          -> Result<Option<Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+            fn decrypt(&mut self, pkesks: &[PKESK], _: &[SKESK],
+                       algo: Option<SymmetricAlgorithm>,
+                       decrypt: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+                       -> Result<Option<Cert>>
             {
                 let p = &P::new();
                 let mut pair = Cert::from_bytes(
@@ -2613,14 +2891,14 @@ mod test {
 
         let p = &P::new();
         DecryptorBuilder::from_bytes(crate::tests::message(
-                "encrypted-to-testy-no-compression.gpg"))?
+                "encrypted-to-testy-no-compression.pgp"))?
             .with_policy(p, crate::frozen_time(), Helper {})?;
 
         // Reject the AES256.
         let p = &mut P::new();
         p.reject_symmetric_algo(SymmetricAlgorithm::AES256);
         let r = DecryptorBuilder::from_bytes(crate::tests::message(
-                "encrypted-to-testy-no-compression.gpg"))?
+                "encrypted-to-testy-no-compression.pgp"))?
             .with_policy(p, crate::frozen_time(), Helper {});
         match r {
             Ok(_) => panic!(),
@@ -2641,6 +2919,249 @@ mod test {
         assert_eq!(cert.with_policy(p, t).unwrap().keys().count(), 4);
         p.reject_asymmetric_algo(AsymmetricAlgorithm::RSA2048);
         assert_eq!(cert.with_policy(p, t).unwrap().keys().count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn reject_all_hashes() -> Result<()> {
+        let mut p = StandardPolicy::new();
+
+        let set_variants = [
+            HashAlgorithm::MD5,
+            HashAlgorithm::Unknown(234),
+        ];
+        let check_variants = [
+            HashAlgorithm::SHA512,
+            HashAlgorithm::Unknown(239),
+        ];
+
+        // Accept a few hashes explicitly.
+        for v in set_variants.iter().cloned() {
+            p.accept_hash(v);
+            assert_eq!(
+                p.hash_cutoff(
+                    v,
+                    HashAlgoSecurity::SecondPreImageResistance),
+                ACCEPT.map(Into::into));
+            assert_eq!(
+                p.hash_cutoff(
+                    v,
+                    HashAlgoSecurity::CollisionResistance),
+                ACCEPT.map(Into::into));
+        }
+
+        // Reject all hashes.
+        p.reject_all_hashes();
+
+        for v in set_variants.iter().chain(check_variants.iter()).cloned() {
+            assert_eq!(
+                p.hash_cutoff(
+                    v,
+                    HashAlgoSecurity::SecondPreImageResistance),
+                REJECT.map(Into::into));
+            assert_eq!(
+                p.hash_cutoff(
+                    v,
+                    HashAlgoSecurity::CollisionResistance),
+                REJECT.map(Into::into));
+        }
+
+        Ok(())
+    }
+
+    macro_rules! reject_all_check {
+        ($reject_all:ident, $accept_one:ident, $cutoff:ident,
+         $set_variants:expr, $check_variants:expr) => {
+            #[test]
+            fn $reject_all() -> Result<()> {
+                let mut p = StandardPolicy::new();
+
+                // Accept a few hashes explicitly.
+                for v in $set_variants.iter().cloned() {
+                    p.$accept_one(v);
+                    assert_eq!(p.$cutoff(v), ACCEPT.map(Into::into));
+                }
+
+                // Reject all hashes.
+                p.$reject_all();
+
+                for v in $set_variants.iter()
+                    .chain($check_variants.iter()).cloned()
+                {
+                    assert_eq!(
+                        p.$cutoff(v),
+                        REJECT.map(Into::into));
+                }
+                Ok(())
+            }
+        }
+    }
+
+    reject_all_check!(reject_all_critical_subpackets,
+                      accept_critical_subpacket,
+                      critical_subpacket_cutoff,
+                      &[ SubpacketTag::TrustSignature,
+                         SubpacketTag::Unknown(252) ],
+                      &[ SubpacketTag::Unknown(253),
+                         SubpacketTag::SignatureCreationTime ]);
+
+    reject_all_check!(reject_all_asymmetric_algos,
+                      accept_asymmetric_algo,
+                      asymmetric_algo_cutoff,
+                      &[ AsymmetricAlgorithm::RSA3072,
+                         AsymmetricAlgorithm::Cv25519 ],
+                      &[ AsymmetricAlgorithm::Unknown,
+                         AsymmetricAlgorithm::NistP256 ]);
+
+    reject_all_check!(reject_all_symmetric_algos,
+                      accept_symmetric_algo,
+                      symmetric_algo_cutoff,
+                      &[ SymmetricAlgorithm::Unencrypted,
+                         SymmetricAlgorithm::Unknown(252) ],
+                      &[ SymmetricAlgorithm::AES256,
+                         SymmetricAlgorithm::Unknown(230) ]);
+
+    reject_all_check!(reject_all_aead_algos,
+                      accept_aead_algo,
+                      aead_algo_cutoff,
+                      &[ AEADAlgorithm::OCB ],
+                      &[ AEADAlgorithm::EAX ]);
+
+    #[test]
+    fn reject_all_packets() -> Result<()> {
+        let mut p = StandardPolicy::new();
+
+        let set_variants = [
+            (Tag::SEIP, 4),
+            (Tag::Unknown(252), 17),
+        ];
+        let check_variants = [
+            (Tag::Signature, 4),
+            (Tag::Unknown(230), 9),
+        ];
+
+        // Accept a few packets explicitly.
+        for (t, v) in set_variants.iter().cloned() {
+            p.accept_packet_tag_version(t, v);
+            assert_eq!(
+                p.packet_tag_version_cutoff(t, v),
+                ACCEPT.map(Into::into));
+        }
+
+        // Reject all hashes.
+        p.reject_all_packet_tags();
+
+        for (t, v) in set_variants.iter().chain(check_variants.iter()).cloned() {
+            assert_eq!(
+                p.packet_tag_version_cutoff(t, v),
+                REJECT.map(Into::into));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn packet_versions() -> Result<()> {
+        // Accept the version of a packet.  Optionally make sure a
+        // different version is not accepted.
+        fn accept_and_check(p: &mut StandardPolicy,
+                            tag: Tag,
+                            accept_versions: &[u8],
+                            good_versions: &[u8],
+                            bad_versions: &[u8]) {
+            for v in accept_versions {
+                p.accept_packet_tag_version(tag, *v);
+                assert_eq!(
+                    p.packet_tag_version_cutoff(tag, *v),
+                    ACCEPT.map(Into::into));
+            }
+
+            for v in good_versions.iter() {
+                assert_eq!(
+                    p.packet_tag_version_cutoff(tag, *v),
+                    ACCEPT.map(Into::into));
+            }
+            for v in bad_versions.iter() {
+                assert_eq!(
+                    p.packet_tag_version_cutoff(tag, *v),
+                    REJECT.map(Into::into));
+            }
+        }
+
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+
+        let mut all_versions = (0..=u8::MAX).collect::<Vec<_>>();
+        all_versions.shuffle(&mut rng);
+        let all_versions = &all_versions[..];
+        let mut not_v5 = all_versions.iter()
+            .filter(|&&v| v != 5)
+            .cloned()
+            .collect::<Vec<_>>();
+        not_v5.shuffle(&mut rng);
+        let not_v5 = &not_v5[..];
+
+        let p = &mut StandardPolicy::new();
+        p.reject_all_packet_tags();
+
+        // First only use the versioned interfaces.
+        accept_and_check(p, Tag::Signature, &[3], &[], &[4, 5]);
+        accept_and_check(p, Tag::Signature, &[4], &[3], &[5]);
+
+        // Only use an unversioned policy.
+        accept_and_check(p, Tag::SEIP,
+                         &[], // set to accept
+                         &[], // good
+                         all_versions, // bad
+        );
+        p.accept_packet_tag(Tag::SEIP);
+        accept_and_check(p, Tag::SEIP,
+                         &[], // set to accept
+                         all_versions, // good
+                         &[], // bad
+        );
+
+        // Set an unversioned policy and then a versioned policy.
+        accept_and_check(p, Tag::PKESK,
+                         &[], // set to accept
+                         &[], // good
+                         all_versions, // bad
+        );
+        p.accept_packet_tag(Tag::PKESK);
+        accept_and_check(p, Tag::PKESK,
+                         &[], // set to accept
+                         &(0..u8::MAX).collect::<Vec<_>>()[..], // good
+                         &[], // bad
+        );
+        p.reject_packet_tag_version(Tag::PKESK, 5);
+        accept_and_check(p, Tag::PKESK,
+                         &[], // set to accept
+                         not_v5, // good
+                         &[5], // bad
+        );
+
+        // Set a versioned policy and then an unversioned policy.
+        // Make sure that the versioned policy is cleared by the
+        // unversioned policy.
+        accept_and_check(p, Tag::SKESK,
+                         &[], // set to accept
+                         &[], // good
+                         all_versions, // bad
+        );
+        p.accept_packet_tag_version(Tag::SKESK, 5);
+        accept_and_check(p, Tag::SKESK,
+                         &[], // set to accept
+                         &[5], // good
+                         not_v5, // bad
+        );
+        p.reject_packet_tag(Tag::SKESK);
+        // All versions should be bad now...
+        accept_and_check(p, Tag::SKESK,
+                         &[], // set to accept
+                         &[], // good
+                         all_versions, // bad
+        );
+
         Ok(())
     }
 }

@@ -10,14 +10,6 @@ pub(crate) fn build() -> sha1collisiondetection::Sha1CD {
 }
 
 impl Digest for sha1collisiondetection::Sha1CD {
-    fn algo(&self) -> crate::types::HashAlgorithm {
-        crate::types::HashAlgorithm::SHA1
-    }
-
-    fn digest_size(&self) -> usize {
-        20
-    }
-
     fn update(&mut self, data: &[u8]) {
         sha1collisiondetection::Sha1CD::update(self, data);
     }

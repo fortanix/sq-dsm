@@ -1,0 +1,26 @@
+p≡p Foundation – Contributor Copyright Assignment
+
+p≡p is a project founded, developed, directed and supported by the p≡p
+Foundation, Oberer Graben 4, 8400 Winterthur, Switzerland, a non-profit and
+tax-exempt foundation founded and registered in Switzerland (UID
+CHE‑497.782.377, the "Foundation"), which aims to develop free software to
+advocate privacy, freedom of information and freedom of speech (the "Project").
+The Project is open to contributions transmitted by entities and individuals
+outside of the Foundation.
+
+As a Contributor to the Project, I hereby irrevocably assign and transfer to
+the Foundation my entire right, title, and interest (including all rights under
+copyright) in my contributions (including source code) to the Foundation, its
+successors and assigns, in perpetuity and worldwide, for use with the Project
+(the "Contributions"). This assignment is non-exclusive, i.e., I remain free to
+use Contributions as I see fit.
+
+As a Contributor to the Project, I hereby represent and warrant that I am
+the sole right holder (including copyright) for all of my Contributions, and
+that I have the power and the right to execute this assignment.
+
+The Foundation guarantees that all projects where the Contributions will be
+used remain being published under one of the GNU Licenses.
+
+This assignment shall be governed by Swiss law. The courts of Winterthur in
+Zurich, Switzerland shall have exclusive jurisdiction.

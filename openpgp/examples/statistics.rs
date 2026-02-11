@@ -15,6 +15,7 @@ use anyhow::Context;
 use sequoia_openpgp as openpgp;
 
 use crate::openpgp::{Packet, Fingerprint, KeyID, KeyHandle};
+use crate::openpgp::crypto::mpi;
 use crate::openpgp::types::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
@@ -68,7 +69,7 @@ fn main() -> openpgp::Result<()> {
         Default::default();
     let mut p_comp: HashMap<Vec<CompressionAlgorithm>, usize> =
         Default::default();
-    let mut p_aead: HashMap<Vec<AEADAlgorithm>, usize> =
+    let mut p_aead_ciphersuites: HashMap<Vec<(SymmetricAlgorithm, AEADAlgorithm)>, usize> =
         Default::default();
 
     // Per-Cert statistics.
@@ -79,16 +80,24 @@ fn main() -> openpgp::Result<()> {
 
     // UserAttribute statistics.
     let mut ua_image_count = vec![0; 256];
+    let mut ua_image_unknown_variant_count = 0;
     let mut ua_unknown_count = vec![0; 256];
     let mut ua_invalid_count = 0;
+    let mut ua_unknown_variant_count = 0;
 
     // Key statistics.
     let mut pk_algo_size: HashMap<PublicKeyAlgorithm, HashMap<usize, usize>> =
         Default::default();
 
+    // ECDH Parameter (KDF and KEK) statistics.
+    let mut ecdh_params: HashMap<(HashAlgorithm, SymmetricAlgorithm), usize> =
+        Default::default();
+    let mut ecdh_params_by_curve: HashMap<(Curve, HashAlgorithm, SymmetricAlgorithm), usize> =
+        Default::default();
+
     // Current certificate.
     let mut current_fingerprint =
-        KeyHandle::Fingerprint(Fingerprint::from_bytes(&vec![0; 20]));
+        KeyHandle::Fingerprint(Fingerprint::from_bytes(4, &vec![0; 20])?);
     let mut current_keyid = KeyHandle::KeyID(KeyID::wildcard());
 
     // For each input file, create a parser.
@@ -172,6 +181,7 @@ fn main() -> openpgp::Result<()> {
                                 sigs_subpacket_tags_size_max[i] = len;
                             }
 
+                            #[allow(deprecated)]
                             match sub.value() {
                                 SubpacketValue::Unknown { .. } =>
                                     unreachable!(),
@@ -202,12 +212,12 @@ fn main() -> openpgp::Result<()> {
                                     } else {
                                         p_comp.insert(a.clone(), 1);
                                     },
-                                SubpacketValue::PreferredAEADAlgorithms(a)
+                                SubpacketValue::PreferredAEADCiphersuites(a)
                                     =>
-                                    if let Some(count) = p_aead.get_mut(a) {
+                                    if let Some(count) = p_aead_ciphersuites.get_mut(a) {
                                         *count += 1;
                                     } else {
-                                        p_aead.insert(a.clone(), 1);
+                                        p_aead_ciphersuites.insert(a.clone(), 1);
                                     },
                                 SubpacketValue::ExportableCertification(v) =>
                                     if *v {
@@ -242,9 +252,13 @@ fn main() -> openpgp::Result<()> {
                                     ua_image_count[n as usize] += 1,
                                 Image::Unknown(n, _) =>
                                     ua_image_count[n as usize] += 1,
+                                _ =>
+                                    ua_image_unknown_variant_count += 1,
                             },
                             Ok(Subpacket::Unknown(n, _)) =>
                                 ua_unknown_count[n as usize] += 1,
+                            Ok(_) =>
+                                ua_unknown_variant_count += 1,
                             Err(_) => ua_invalid_count += 1,
                         }
                     }
@@ -268,6 +282,24 @@ fn main() -> openpgp::Result<()> {
                         = Default::default();
                     size_hash.insert(bits, 1);
                     pk_algo_size.insert(pk, size_hash);
+                }
+
+                fn inc<T>(counter: &mut HashMap<T, usize>, key: T)
+                where
+                    T: std::hash::Hash + Eq,
+                {
+                    if let Some(count) = counter.get_mut(&key) {
+                        *count += 1;
+                    } else {
+                        counter.insert(key, 1);
+                    }
+                }
+
+                if let mpi::PublicKey::ECDH { curve, hash, sym, .. } = k.mpis() {
+                    inc(&mut ecdh_params,
+                        (hash.clone(), sym.clone()));
+                    inc(&mut ecdh_params_by_curve,
+                        (curve.clone(), hash.clone(), sym.clone()));
                 }
             };
             match packet {
@@ -502,15 +534,15 @@ fn main() -> openpgp::Result<()> {
         }
     }
 
-    if !p_aead.is_empty() {
+    if !p_aead_ciphersuites.is_empty() {
         println!();
-        println!("# PreferredAEADAlgorithms statistics");
+        println!("# PreferredAEADCiphersuites statistics");
         println!();
         println!("{:>70} {:>9}", "", "count",);
         println!("----------------------------------------\
                   ----------------------------------------");
 
-        for (a, n) in p_aead.iter() {
+        for (a, n) in p_aead_ciphersuites.iter() {
             let a = format!("{:?}", a);
             println!("{:>70} {:>9}", &a[1..a.len()-1], n);
         }
@@ -523,13 +555,13 @@ fn main() -> openpgp::Result<()> {
         println!();
         println!("# User Attribute Subpacket statistics");
         println!();
-        println!("{:>18} {:>9}",
+        println!("{:>21} {:>9}",
                  "", "count",);
         println!("----------------------------");
         for t in 0..256 {
             let n = ua_image_count[t];
             if n > 0 {
-                println!("{:>18} {:>9}",
+                println!("{:>21} {:>9}",
                          match t {
                              1 =>         "Image::JPEG".into(),
                              100..=110 => format!("Image::Private({})", t),
@@ -537,14 +569,22 @@ fn main() -> openpgp::Result<()> {
                          }, n);
             }
         }
+        if ua_image_unknown_variant_count > 0 {
+            println!("{:>21} {:>9}", "Unknown image variant",
+                     ua_image_unknown_variant_count);
+        }
         for t in 0..256 {
             let n = ua_unknown_count[t];
             if n > 0 {
-                println!("{:>18} {:>9}", format!("Unknown({})", t), n);
+                println!("{:>21} {:>9}", format!("Unknown({})", t), n);
             }
         }
+        if ua_unknown_variant_count > 0 {
+            println!("{:>21} {:>9}", "Unknown variant",
+                     ua_unknown_variant_count);
+        }
         if ua_invalid_count > 0 {
-            println!("{:>18} {:>9}", "Invalid", ua_invalid_count);
+            println!("{:>21} {:>9}", "Invalid", ua_invalid_count);
         }
     }
 
@@ -565,6 +605,42 @@ fn main() -> openpgp::Result<()> {
             for (size, count) in sizes {
                 println!("{:>50} {:>9} {:>9}", pk.to_string(), size, count);
             }
+        }
+    }
+
+    if !ecdh_params.is_empty() {
+        println!();
+        println!("# ECDH Parameter statistics");
+        println!();
+        println!("{:>70} {:>9}", "", "count",);
+        println!("----------------------------------------\
+                  ----------------------------------------");
+
+        // Sort by the number of occurrences.
+        let mut params = ecdh_params.iter()
+            .map(|((hash, sym), count)| {
+                (format!("{:?}, {:?}", hash, sym), count)
+            }).collect::<Vec<_>>();
+        params.sort_unstable_by(|a, b| b.1.cmp(a.1));
+        for (a, n) in params {
+            println!("{:>70} {:>9}", a, n);
+        }
+
+        println!();
+        println!("# ECDH Parameter statistics by curve");
+        println!();
+        println!("{:>70} {:>9}", "", "count",);
+        println!("----------------------------------------\
+                  ----------------------------------------");
+
+        // Sort by the number of occurrences.
+        let mut params = ecdh_params_by_curve.iter()
+            .map(|((curve, hash, sym), count)| {
+                (format!("{:?}, {:?}, {:?}", curve, hash, sym), count)
+            }).collect::<Vec<_>>();
+        params.sort_unstable_by(|a, b| b.1.cmp(a.1));
+        for (a, n) in params {
+            println!("{:>70} {:>9}", a, n);
         }
     }
 

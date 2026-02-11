@@ -1,4 +1,5 @@
 use std::fmt;
+use std::io::Write;
 
 use sequoia_openpgp as openpgp;
 use openpgp::Error;
@@ -83,22 +84,40 @@ impl Keygrip {
     /// #   W2hrBY5x0sZ8H7JlAP47mCfCuRVBqyaePuzKbxLJeLe2BpDdc0n2izMVj8t9Cg==
     /// #   =QetZ
     /// #   -----END PGP PUBLIC KEY BLOCK-----".parse()?;
-    /// assert_eq!(Keygrip::of(cert.primary_key().mpis())?.to_string(),
+    /// assert_eq!(Keygrip::of(cert.primary_key().key().mpis())?.to_string(),
     ///            "DD143ABA8D1D7D09875D6209E01BCF020788FF77");
     /// # Ok(()) }
     /// ```
     pub fn of(key: &PublicKey) -> Result<Keygrip> {
         use openpgp::crypto::hash;
         use self::PublicKey::*;
-        let mut hash = HashAlgorithm::SHA1.context().unwrap();
+        let mut hash =
+            HashAlgorithm::SHA1.context().unwrap().for_digest();
 
-        fn hash_sexp_mpi(hash: &mut dyn hash::Digest, kind: char, prefix: &[u8],
-                         mpi: &MPI)
+        fn hash_sexp_mpi(hash: &mut hash::Context, kind: char, mpi: &MPI)
         {
+            // gcrypt's MPIs can be signed or unsigned.  Our MPIs are
+            // always unsigned (well, for us they are opaque byte
+            // strings, so the concept of a sign does not apply).
+            // Every now and then we need to pay attention to this, as
+            // gcrypt sometimes prepends a zero to prevent the most
+            // significant bit from being interpreted as a sign bit.
+            // Computing keygrips is one of these times.
+            let prefix = if mpi.value().get(0).map(|msb| msb & 0x80 > 0)
+                .unwrap_or(false)
+            {
+                // The most significant bit is set.  Prepend a zero
+                // byte so that the MSB will not be interpreted as a
+                // sign bit.
+                &b"\x00"[..]
+            } else {
+                // The MSB is not set, no need to prepend anything.
+                &b""[..]
+            };
             hash_sexp(hash, kind, prefix, mpi.value());
         }
 
-        fn hash_sexp(hash: &mut dyn hash::Digest, kind: char, prefix: &[u8],
+        fn hash_sexp(hash: &mut hash::Context, kind: char, prefix: &[u8],
                      buf: &[u8])
         {
             write!(hash, "(1:{}{}:",
@@ -108,7 +127,7 @@ impl Keygrip {
             write!(hash, ")").unwrap();
         }
 
-        fn hash_ecc(hash: &mut dyn hash::Digest, curve: &Curve, q: &MPI)
+        fn hash_ecc(hash: &mut hash::Context, curve: &Curve, q: &MPI)
             -> Result<()>
         {
             for (i, name) in "pabgnhq".chars().enumerate() {
@@ -153,18 +172,16 @@ impl Keygrip {
             },
 
             &DSA { ref p, ref q, ref g, ref y } => {
-                // Empirical evidence suggest that we need to prepend
-                // a 0 to some parameters.
-                hash_sexp_mpi(&mut hash, 'p', b"\x00", p);
-                hash_sexp_mpi(&mut hash, 'q', b"\x00", q);
-                hash_sexp_mpi(&mut hash, 'g', b"", g);
-                hash_sexp_mpi(&mut hash, 'y', b"", y);
+                hash_sexp_mpi(&mut hash, 'p', p);
+                hash_sexp_mpi(&mut hash, 'q', q);
+                hash_sexp_mpi(&mut hash, 'g', g);
+                hash_sexp_mpi(&mut hash, 'y', y);
             },
 
             &ElGamal { ref p, ref g, ref y } => {
-                hash_sexp_mpi(&mut hash, 'p', b"\x00", p);
-                hash_sexp_mpi(&mut hash, 'g', b"", g);
-                hash_sexp_mpi(&mut hash, 'y', b"", y);
+                hash_sexp_mpi(&mut hash, 'p', p);
+                hash_sexp_mpi(&mut hash, 'g', g);
+                hash_sexp_mpi(&mut hash, 'y', y);
             },
 
             &EdDSA { ref curve, ref q } => hash_ecc(&mut hash, curve, q)?,
@@ -256,10 +273,31 @@ fn ecc_param(curve: &Curve, i: usize) -> Result<MPI> {
         (Cv25519, 5) => "0x08",
 
         (_, _) => {
-            return Err(Error::InvalidArgument(
-                format!("Invalid or unknown curve parameters: \
-                         curve: {}, i: {}",
-                        curve, i)).into());
+            let error = || {
+                Err(Error::InvalidArgument(
+                    format!("Invalid or unknown curve parameters: \
+                             curve: {}, i: {}",
+                            curve, i)).into())
+            };
+
+            const BRAINPOOL_P384_OID: &[u8] =
+                &[0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0B];
+
+            if curve.oid() == BRAINPOOL_P384_OID {
+                match i {
+                    0 => "0x8cb91e82a3386d280f5d6f7e50e641df152f7109ed5456b412b1da197fb71123acd3a729901d1a71874700133107ec53",
+                    1 => "0x7bc382c63d8c150c3c72080ace05afa0c2bea28e4fb22787139165efba91f90f8aa5814a503ad4eb04a8c7dd22ce2826",
+                    2 => "0x04a8c7dd22ce28268b39b55416f0447c2fb77de107dcd2a62e880ea53eeb62d57cb4390295dbc9943ab78696fa504c11",
+                    4 => "0x8cb91e82a3386d280f5d6f7e50e641df152f7109ed5456b31f166e6cac0425a7cf3ab6af6b7fc3103b883202e9046565",
+                    3 => "0x04\
+                          1d1c64f068cf45ffa2a63a81b7c13f6b8847a3e77ef14fe3db7fcafe0cbd10e8e826e03436d646aaef87b2e247d4af1e\
+                          8abe1d7520f9c2a45cb1eb8e95cfd55262b70b29feec5864e19c054ff99129280e4646217791811142820341263c5315",
+                    5 => "0x01",
+                    _ => return error(),
+                }
+            } else {
+                return error();
+            }
         }
     };
 
@@ -393,6 +431,43 @@ mod tests {
             "erika-corinna-daniela-simone-antonia-nistp384.pgp",
             "erika-corinna-daniela-simone-antonia-nistp521.pgp",
             "keygrip-issue-439.pgp",
+        ]
+            .iter().map(|n| (n, openpgp::Cert::from_bytes(crate::tests::key(n)).unwrap()))
+        {
+            eprintln!("{}", name);
+            for key in cert.keys().map(|a| a.key()) {
+                let fp = key.fingerprint();
+                eprintln!("(sub)key: {}", fp);
+                assert_eq!(&Keygrip::of(key.mpis()).unwrap(),
+                           keygrips.get(&fp).unwrap());
+            }
+        }
+    }
+
+    /// Tests vectors from GPGME, using GnuPG as oracle.
+    #[test]
+    fn gpgme_keys() {
+        use std::collections::HashMap;
+        use openpgp::Fingerprint as FP;
+        use super::Keygrip as KG;
+        use openpgp::parse::Parse;
+
+        let keygrips: HashMap<FP, KG> = [
+            // alpha.pgp
+            ("A0FF4590BB6122EDEF6E3C542D727CC768697734".parse::<FP>().unwrap(),
+             "76F7E2B35832976B50A27A282D9B87E44577EB66".parse::<KG>().unwrap()),
+            ("3B3FBC948FE59301ED629EFB6AE6D7EE46A871F8".parse::<FP>().unwrap(),
+             "A0747D5F9425E6664F4FFBEED20FBCA79FDED2BD".parse::<KG>().unwrap()),
+            // zulu.pgp
+            ("23FD347A419429BACCD5E72D6BC4778054ACD246".parse::<FP>().unwrap(),
+             "13CBE3758AFE42B5E5E2AE4CED27AFA455E3F87F".parse::<KG>().unwrap()),
+            ("2DCA5A1392DE06ED4FCB8C53EF9DC276A172C881".parse::<FP>().unwrap(),
+             "7A030357C0F253A5BBCD282FFC4E521B37558F5C".parse::<KG>().unwrap()),
+        ].iter().cloned().collect();
+
+        for (name, cert) in [
+            "alpha.pgp",
+            "zulu.pgp",
         ]
             .iter().map(|n| (n, openpgp::Cert::from_bytes(crate::tests::key(n)).unwrap()))
         {

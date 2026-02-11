@@ -1,0 +1,42 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+Archive: Debian_12
+Codename: Debian_12
+Origin: obs://build.opensuse.org/home:rapier1/Debian_12
+Label: home:rapier1
+Architectures: i386 amd64 arm64
+Date: Tue Jun 24 20:32:53 2025
+Description: home:rapier1 (Debian_12)
+MD5Sum:
+ 6f2da3c94d6f2e18ab83e978a548d4a9 37390 Packages
+ 4d0c805d9b12c3bfb352fb4c86cca339 8441 Packages.gz
+ 83d33fea7b91878a2205e6889b1a1bef 2274 Sources
+ 66d6a35d8a99768fac50de624aa433e3 1011 Sources.gz
+SHA1:
+ 18048655afd7f9311459c12ec14557606fa51e83 37390 Packages
+ 63aa4303366bac5557b25b5f6dda720b9a02de73 8441 Packages.gz
+ ebcd6afd03d8ed51bce602cfe3b7d245e2990450 2274 Sources
+ ae350a650feb554ee6608ca87526b6a0ccd3bbf2 1011 Sources.gz
+SHA256:
+ 21fc704a1d707ee0352c520d4e93564085e5d55165cbce5d0dabe8a100518892 37390 Packages
+ c461dcb1f48615d800c88e8db98a5d0ea47224cdf4f6a4c51681598794d5df57 8441 Packages.gz
+ db4669981cf5db226c2b0044795264bd4074d15f74272e9853fadb704781a0ba 2274 Sources
+ b12d11a998a4bef75658b9085ad5c27a375c7f2400d81d1c53ae002c2efaf185 1011 Sources.gz
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.7 (GNU/Linux)
+
+iQIVAwUBaFsLdTXEHEkh1m1JAQjk6A//WQCGXgBUmvCAzaujIAaPcBoe6k/O9xAS
+bOjmvr/wntC2n9CukCQmlbvqlWz8tZ8idCdmivHDjaUwoK8fxZEUmXjZ41+ww+rb
+ufQQL2rxfPjlVgDvIGG1CiC9INl1/+dTrggXkpSpK88eLbEW8jLJhnKh65SxCRt5
+n4ps7P2ePkqlj3b9Dp5ksFXSWLkVRa7ICg4J8RiVXLZkWiV0JFX7vwKEL/oqahQg
+bmXzIsrUjln4rVLIhOD85VGaqX1Dt0i8tyCoT84H3TBkHzS6KD2FJgfMCZ1M8uno
+UHXtPSt58Z2Om4PobHoZSWdriz/EybG13rMh3/evKQsvAIjTsROMgbe0ib+6rYV4
+IYaSqceg384FgXNxx9pnlxGcKCsIFMgTmqAU/uG/dSODyjpUylnzfPLWLiWuS7g8
+KptjH/oc5pY2m+HItKda1/ZvkvuaJgaaCElrlkLyidWJ5RUBek2Rkt6NT0TVF1QY
+TYG4EZQ/ltMxuGYGuOOiewBxaSOtV9gzYV/b39CXmb4vWL/IDOv3K+iidpHe3PhY
+iANb7dcqNnL3v4koBqR5l0UYmNsrehBGp8A6sIGFQivBs0twNG0U/UZU5qQZx39w
+CyG5enlgFvk1rA8/NiZGlmv+h+9v2jChrBzXlMqu73d2LHsYvyRyuDzYc5Nk0MMT
+0wPb4H0zkIk=
+=FzzI
+-----END PGP SIGNATURE-----

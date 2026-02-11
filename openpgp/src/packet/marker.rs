@@ -6,9 +6,9 @@ use crate::Packet;
 
 /// Holds a Marker packet.
 ///
-/// See [Section 5.8 of RFC 4880] for details.
+/// See [Section 5.8 of RFC 9580] for details.
 ///
-///   [Section 5.8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.8
+///   [Section 5.8 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.8
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]

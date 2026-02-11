@@ -3,10 +3,14 @@ use std::marker::PhantomData;
 
 use crate::packet;
 use crate::packet::{
-    key,
     Key,
     key::Key4,
+    key::Key6,
+    key::UnspecifiedRole,
+    key::SecretKey as KeySecretKey,
+    key::SecretParts as KeySecretParts,
 };
+use crate::Profile;
 use crate::Result;
 use crate::packet::Signature;
 use crate::packet::signature::{
@@ -26,6 +30,12 @@ use crate::types::{
     RevocationKey,
 };
 
+mod key;
+pub use key::{
+    KeyBuilder,
+    SubkeyBuilder,
+};
+
 /// Groups symmetric and asymmetric algorithms.
 ///
 /// This is used to select a suite of ciphers.
@@ -39,23 +49,26 @@ use crate::types::{
 ///
 /// # fn main() -> openpgp::Result<()> {
 /// let (ecc, _) =
-///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     CertBuilder::general_purpose(Some("alice@example.org"))
 ///         .set_cipher_suite(CipherSuite::Cv25519)
 ///         .generate()?;
-/// assert_eq!(ecc.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+/// assert_eq!(ecc.primary_key().key().pk_algo(), PublicKeyAlgorithm::EdDSA);
 ///
 /// let (rsa, _) =
-///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     CertBuilder::general_purpose(Some("alice@example.org"))
 ///         .set_cipher_suite(CipherSuite::RSA4k)
 ///         .generate()?;
-/// assert_eq!(rsa.primary_key().pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
+/// assert_eq!(rsa.primary_key().key().pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[non_exhaustive]
 pub enum CipherSuite {
     /// EdDSA and ECDH over Curve25519 with SHA512 and AES256
     Cv25519,
+    /// EdDSA and ECDH over Curve448 with SHA512 and AES256
+    Cv448,
     /// 3072 bit RSA with SHA512 and AES256
     RSA3k,
     /// EdDSA and ECDH over NIST P-256 with SHA256 and AES256
@@ -68,6 +81,9 @@ pub enum CipherSuite {
     RSA2k,
     /// 4096 bit RSA with SHA512 and AES256
     RSA4k,
+
+    // If you add a variant here, be sure to update
+    // CipherSuite::variants below.
 }
 assert_send_and_sync!(CipherSuite);
 
@@ -78,6 +94,14 @@ impl Default for CipherSuite {
 }
 
 impl CipherSuite {
+    /// Returns an iterator over `CipherSuite`'s  variants.
+    pub fn variants() -> impl Iterator<Item=CipherSuite> {
+        use CipherSuite::*;
+
+        [ Cv25519, Cv448, RSA3k, P256, P384, P521, RSA2k, RSA4k ]
+            .into_iter()
+    }
+
     /// Returns whether the currently selected cryptographic backend
     /// supports the encryption and signing algorithms that the cipher
     /// suite selects.
@@ -110,6 +134,10 @@ impl CipherSuite {
                 check_pk!(PublicKeyAlgorithm::ECDH);
                 check_curve!(Curve::Cv25519);
             },
+            Cv448 => {
+                check_pk!(PublicKeyAlgorithm::X448);
+                check_pk!(PublicKeyAlgorithm::Ed448);
+            },
             RSA2k | RSA3k | RSA4k => {
                 check_pk!(PublicKeyAlgorithm::RSAEncryptSign);
             },
@@ -132,10 +160,19 @@ impl CipherSuite {
         Ok(())
     }
 
-    fn generate_key<K, R>(self, flags: K)
-        -> Result<Key<key::SecretParts, R>>
-        where R: key::KeyRole,
-              K: AsRef<KeyFlags>,
+    fn generate_key<K>(self, flags: K, profile: Profile)
+        -> Result<Key<KeySecretParts, UnspecifiedRole>>
+        where K: AsRef<KeyFlags>,
+    {
+        match profile {
+            Profile::RFC9580 => Ok(self.generate_v6_key(flags)?.into()),
+            Profile::RFC4880 => Ok(self.generate_v4_key(flags)?.into()),
+        }
+    }
+
+    fn generate_v4_key<K>(self, flags: K)
+        -> Result<Key4<KeySecretParts, UnspecifiedRole>>
+        where K: AsRef<KeyFlags>,
     {
         use crate::types::Curve;
 
@@ -146,6 +183,25 @@ impl CipherSuite {
                 Key4::generate_rsa(3072),
             CipherSuite::RSA4k =>
                 Key4::generate_rsa(4096),
+            CipherSuite::Cv448 => {
+                let flags = flags.as_ref();
+                let sign = flags.for_certification() || flags.for_signing()
+                    || flags.for_authentication();
+                let encrypt = flags.for_transport_encryption()
+                    || flags.for_storage_encryption();
+                match (sign, encrypt) {
+                    (true, false) => Key4::generate_ed448(),
+                    (false, true) => Key4::generate_x448(),
+                    (true, true) =>
+                        Err(Error::InvalidOperation(
+                            "Can't use key for encryption and signing".into())
+                            .into()),
+                    (false, false) =>
+                        Err(Error::InvalidOperation(
+                            "No key flags set".into())
+                            .into()),
+                }
+            }
             CipherSuite::Cv25519 | CipherSuite::P256 |
             CipherSuite::P384 | CipherSuite::P521 => {
                 let flags = flags.as_ref();
@@ -180,7 +236,81 @@ impl CipherSuite {
                             .into()),
                 }
             },
-        }.map(|key| key.into())
+        }
+    }
+
+    fn generate_v6_key<K>(self, flags: K)
+        -> Result<Key6<KeySecretParts, UnspecifiedRole>>
+        where K: AsRef<KeyFlags>,
+    {
+        use crate::types::Curve;
+
+        let flags = flags.as_ref();
+        let sign = flags.for_certification() || flags.for_signing()
+            || flags.for_authentication();
+        let encrypt = flags.for_transport_encryption()
+            || flags.for_storage_encryption();
+
+        match self {
+            CipherSuite::Cv25519 => match (sign, encrypt) {
+                (true, false) => Key6::generate_ed25519(),
+                (false, true) => Key6::generate_x25519(),
+                (true, true) =>
+                    Err(Error::InvalidOperation(
+                        "Can't use key for encryption and signing".into())
+                        .into()),
+                (false, false) =>
+                    Err(Error::InvalidOperation(
+                        "No key flags set".into())
+                        .into()),
+            },
+            CipherSuite::RSA2k =>
+                Key6::generate_rsa(2048),
+            CipherSuite::RSA3k =>
+                Key6::generate_rsa(3072),
+            CipherSuite::RSA4k =>
+                Key6::generate_rsa(4096),
+            CipherSuite::Cv448 => match (sign, encrypt) {
+                (true, false) => Key6::generate_ed448(),
+                (false, true) => Key6::generate_x448(),
+                (true, true) =>
+                    Err(Error::InvalidOperation(
+                        "Can't use key for encryption and signing".into())
+                        .into()),
+                (false, false) =>
+                    Err(Error::InvalidOperation(
+                        "No key flags set".into())
+                        .into()),
+            },
+            CipherSuite::P256 | CipherSuite::P384 | CipherSuite::P521 => {
+                let curve = match self {
+                    CipherSuite::Cv25519 if sign => Curve::Ed25519,
+                    CipherSuite::Cv25519 if encrypt => Curve::Cv25519,
+                    CipherSuite::Cv25519 => {
+                        return Err(Error::InvalidOperation(
+                            "No key flags set".into())
+                            .into());
+                    }
+                    CipherSuite::P256 => Curve::NistP256,
+                    CipherSuite::P384 => Curve::NistP384,
+                    CipherSuite::P521 => Curve::NistP521,
+                    _ => unreachable!(),
+                };
+
+                match (sign, encrypt) {
+                    (true, false) => Key6::generate_ecc(true, curve),
+                    (false, true) => Key6::generate_ecc(false, curve),
+                    (true, true) =>
+                        Err(Error::InvalidOperation(
+                            "Can't use key for encryption and signing".into())
+                            .into()),
+                    (false, false) =>
+                        Err(Error::InvalidOperation(
+                            "No key flags set".into())
+                            .into()),
+                }
+            },
+        }
     }
 }
 
@@ -207,6 +337,42 @@ assert_send_and_sync!(KeyBlueprint);
 /// [`UserAttribute`s]: crate::packet::user_attribute::UserAttribute
 /// [`Key`s]: crate::packet::Key
 ///
+/// # Security considerations
+///
+/// ## Expiration
+///
+/// There are two ways to invalidate cryptographic key material:
+/// revocation and freshness.  Both variants come with their own
+/// challenges.  Revocations rely on a robust channel to update
+/// certificates (and attackers may interfere with that).
+///
+/// On the other hand, freshness involves creating key material that
+/// expires after a certain time, then periodically extending the
+/// expiration time.  Again, consumers need a way to update
+/// certificates, but should that fail (maybe because it was
+/// interfered with), the consumer errs on the side of no longer
+/// trusting that key material.
+///
+/// Because of the way metadata is added to OpenPGP certificates,
+/// attackers who control the certificate lookup and update mechanism
+/// may strip components like signatures from the certificate.  This
+/// has implications for the robustness of relying on freshness.
+///
+/// If you first create a certificate that does not expire, and then
+/// change your mind and set an expiration time, an attacker can
+/// simply strip off that update, yielding the original certificate
+/// that does not expire.
+///
+/// Hence, to ensure robust key expiration, you must set an expiration
+/// with [`CertBuilder::set_validity_period`] when you create the
+/// certificate.
+///
+/// By default, the `CertBuilder` creates certificates that do not
+/// expire, because the expiration time is a policy decision and
+/// depends on the use case.  For general purpose certificates,
+/// [`CertBuilder::general_purpose`] sets the validity period to
+/// roughly three years.
+///
 /// # Examples
 ///
 /// Generate a general-purpose certificate with one User ID:
@@ -217,7 +383,7 @@ assert_send_and_sync!(KeyBlueprint);
 ///
 /// # fn main() -> openpgp::Result<()> {
 /// let (cert, rev) =
-///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     CertBuilder::general_purpose(Some("alice@example.org"))
 ///         .generate()?;
 /// # Ok(())
 /// # }
@@ -225,17 +391,21 @@ assert_send_and_sync!(KeyBlueprint);
 pub struct CertBuilder<'a> {
     creation_time: Option<std::time::SystemTime>,
     ciphersuite: CipherSuite,
+    profile: Profile,
+
+    /// Advertised features.
+    features: Features,
     primary: KeyBlueprint,
     subkeys: Vec<(Option<SignatureBuilder>, KeyBlueprint)>,
     userids: Vec<(Option<SignatureBuilder>, packet::UserID)>,
     user_attributes: Vec<(Option<SignatureBuilder>, packet::UserAttribute)>,
     password: Option<Password>,
     revocation_keys: Option<Vec<RevocationKey>>,
+    exportable: bool,
     phantom: PhantomData<&'a ()>,
 }
 assert_send_and_sync!(CertBuilder<'_>);
 
-#[allow(clippy::new_without_default)]
 impl CertBuilder<'_> {
     /// Returns a new `CertBuilder`.
     ///
@@ -247,9 +417,11 @@ impl CertBuilder<'_> {
     /// [`CertBuilder::add_signing_subkey`],
     /// [`CertBuilder::add_transport_encryption_subkey`], etc.).
     ///
-    /// [`CertBuilder::add_signing_subkey`]: CertBuilder::add_signing_subkey()
-    /// [`CertBuilder::add_transport_encryption_subkey`]: CertBuilder::add_transport_encryption_subkey()
-    /// [`CertBuilder::add_userid`]: CertBuilder::add_userid()
+    /// By default, the generated certificate does not expire.  It is
+    /// recommended to set a suitable validity period using
+    /// [`CertBuilder::set_validity_period`].  See [this
+    /// section](CertBuilder#expiration) of the type's documentation
+    /// for security considerations of key expiration.
     ///
     /// # Examples
     ///
@@ -275,6 +447,8 @@ impl CertBuilder<'_> {
         CertBuilder {
             creation_time: None,
             ciphersuite: CipherSuite::default(),
+            profile: Default::default(),
+            features: Features::sequoia(),
             primary: KeyBlueprint{
                 flags: KeyFlags::empty().set_certification(),
                 validity: None,
@@ -285,6 +459,7 @@ impl CertBuilder<'_> {
             user_attributes: vec![],
             password: None,
             revocation_keys: None,
+            exportable: true,
             phantom: PhantomData,
         }
     }
@@ -297,6 +472,9 @@ impl CertBuilder<'_> {
     /// marked as being appropriate for both data in transit and data
     /// at rest.
     ///
+    /// The certificate and all subkeys are valid for approximately
+    /// three years.
+    ///
     /// # Examples
     ///
     /// ```
@@ -305,20 +483,25 @@ impl CertBuilder<'_> {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let (cert, rev) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///     CertBuilder::general_purpose(["Alice Lovelace", "<alice@example.org>"])
+    ///         .generate()?;
+    /// # assert_eq!(cert.keys().count(), 3);
+    /// # assert_eq!(cert.userids().count(), 2);
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(["Alice Lovelace <alice@example.org>"])
     ///         .generate()?;
     /// # assert_eq!(cert.keys().count(), 3);
     /// # assert_eq!(cert.userids().count(), 1);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn general_purpose<C, U>(ciphersuite: C, userid: Option<U>) -> Self
-        where C: Into<Option<CipherSuite>>,
-              U: Into<packet::UserID>
+    pub fn general_purpose<U>(userids: U) -> Self
+    where
+        U: IntoIterator,
+        U::Item: Into<packet::UserID>,
     {
         let mut builder = Self::new()
-            .set_cipher_suite(ciphersuite.into().unwrap_or_default())
             .set_primary_key_flags(KeyFlags::empty().set_certification())
             .set_validity_period(
                 time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0))
@@ -326,8 +509,9 @@ impl CertBuilder<'_> {
             .add_subkey(KeyFlags::empty()
                         .set_transport_encryption()
                         .set_storage_encryption(), None, None);
-        if let Some(u) = userid.map(Into::into) {
-            builder = builder.add_userid(u);
+
+        for u in userids {
+            builder = builder.add_userid(u.into());
         }
 
         builder
@@ -381,8 +565,7 @@ impl CertBuilder<'_> {
     /// let t = SystemTime::from(Timestamp::try_from(t)?);
     ///
     /// let (cert, rev) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///     CertBuilder::general_purpose(Some("Alice Lovelace <alice@example.org>"))
     ///         .set_creation_time(t)
     ///         .generate()?;
     /// assert_eq!(cert.primary_key().self_signatures().nth(0).unwrap()
@@ -440,22 +623,131 @@ impl CertBuilder<'_> {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let (ecc, _) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
     ///         .set_cipher_suite(CipherSuite::Cv25519)
     ///         .generate()?;
-    /// assert_eq!(ecc.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+    /// assert_eq!(ecc.primary_key().key().pk_algo(), PublicKeyAlgorithm::EdDSA);
     ///
     /// let (rsa, _) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
     ///         .set_cipher_suite(CipherSuite::RSA2k)
     ///         .generate()?;
-    /// assert_eq!(rsa.primary_key().pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
+    /// assert_eq!(rsa.primary_key().key().pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
     /// # Ok(())
     /// # }
     /// ```
     pub fn set_cipher_suite(mut self, cs: CipherSuite) -> Self {
         self.ciphersuite = cs;
         self
+    }
+
+    /// Sets whether the certificate is exportable.
+    ///
+    /// This method controls whether the certificate is exportable.
+    /// If the certificate builder is configured to make a
+    /// non-exportable certificate, then all the signatures that it
+    /// creates include the [Exportable Certification] subpacket
+    /// that is set to `false`.
+    ///
+    /// [Exportable Certification]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.19
+    ///
+    /// # Examples
+    ///
+    /// When exporting a non-exportable certificate, nothing will be
+    /// exported.  This is also the case when the output is ASCII
+    /// armored.
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::parse::Parse;
+    /// use openpgp::serialize::Serialize;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
+    ///         .set_exportable(false)
+    ///         .generate()?;
+    /// let mut exported = Vec::new();
+    /// cert.armored().export(&mut exported)?;
+    ///
+    /// let certs = CertParser::from_bytes(&exported)?
+    ///     .collect::<Result<Vec<Cert>>>()?;
+    /// assert_eq!(certs.len(), 0);
+    /// assert_eq!(exported.len(), 0, "{}", String::from_utf8_lossy(&exported));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn set_exportable(mut self, exportable: bool) -> Self {
+        self.exportable = exportable;
+        self
+    }
+
+    /// Sets the version of OpenPGP to generate keys for.
+    ///
+    /// Supported are [`Profile::RFC9580`] which will generate version
+    /// 6 keys, and [`Profile::RFC4880`] which will version 4 keys.
+    /// By default, we generate version 6 keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (key, _) =
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
+    ///         .set_profile(openpgp::Profile::RFC9580)?
+    ///         .generate()?;
+    /// assert_eq!(key.primary_key().key().version(), 6);
+    ///
+    /// let (key, _) =
+    ///     CertBuilder::general_purpose(Some("bob@example.org"))
+    ///         .set_profile(openpgp::Profile::RFC4880)?
+    ///         .generate()?;
+    /// assert_eq!(key.primary_key().key().version(), 4);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn set_profile(mut self, profile: Profile) -> Result<Self> {
+        self.profile = profile;
+        Ok(self)
+    }
+
+    /// Sets the features the certificate will advertise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::Features;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (key, _) =
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
+    ///         .set_profile(openpgp::Profile::RFC9580)?
+    ///         .generate()?;
+    /// assert_eq!(key.primary_key().key().version(), 6);
+    ///
+    /// // Bob is old-school: he needs this key to work on an old
+    /// // phone.  Therefore, he doesn't want to get SEIPDv2 messages,
+    /// // which his phone doesn't handle.  He advertises support for
+    /// // SEIPDv1 only.
+    /// let (key, _) =
+    ///     CertBuilder::general_purpose(Some("bob@example.org"))
+    ///         .set_profile(openpgp::Profile::RFC4880)?
+    ///         .set_features(Features::empty().set_seipdv1())?
+    ///         .generate()?;
+    /// assert_eq!(key.primary_key().key().version(), 4);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn set_features(mut self, features: Features) -> Result<Self> {
+        self.features = features;
+        Ok(self)
     }
 
     /// Adds a User ID.
@@ -466,7 +758,7 @@ impl CertBuilder<'_> {
     /// ID flag] set.
     ///
     /// [`CertBuilder::general_purpose`]: CertBuilder::general_purpose()
-    /// [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    /// [primary User ID flag]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.27
     ///
     /// # Examples
     ///
@@ -480,15 +772,14 @@ impl CertBuilder<'_> {
     /// let p = &StandardPolicy::new();
     ///
     /// let (cert, rev) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///     CertBuilder::general_purpose(Some("Alice Lovelace <alice@example.org>"))
     ///         .add_userid("Alice Lovelace <alice@lovelace.name>")
     ///         .generate()?;
     ///
     /// assert_eq!(cert.userids().count(), 2);
     /// let mut userids = cert.with_policy(p, None)?.userids().collect::<Vec<_>>();
     /// // Sort lexicographically.
-    /// userids.sort_by(|a, b| a.value().cmp(b.value()));
+    /// userids.sort_by(|a, b| a.userid().value().cmp(b.userid().value()));
     /// assert_eq!(userids[0].userid(),
     ///            &UserID::from("Alice Lovelace <alice@example.org>"));
     /// assert_eq!(userids[1].userid(),
@@ -542,7 +833,7 @@ impl CertBuilder<'_> {
     ///   [`PersonaCertification`]: crate::types::SignatureType::PersonaCertification
     ///   [`CasualCertification`]: crate::types::SignatureType::CasualCertification
     ///   [`PositiveCertification`]: crate::types::SignatureType::PositiveCertification
-    ///   [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///   [primary User ID flag]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.27
     ///
     /// # Examples
     ///
@@ -559,7 +850,7 @@ impl CertBuilder<'_> {
     /// #
     /// let (cert, revocation_cert) =
     ///     CertBuilder::general_purpose(
-    ///         None, Some("Alice Lovelace <alice@example.org>"))
+    ///         Some("Alice Lovelace <alice@example.org>"))
     ///     .add_userid_with(
     ///         "trinity",
     ///         SignatureBuilder::new(SignatureType::CasualCertification)
@@ -571,7 +862,7 @@ impl CertBuilder<'_> {
     /// assert_eq!(cert.userids().count(), 2);
     /// let mut userids = cert.with_policy(policy, None)?.userids().collect::<Vec<_>>();
     /// // Sort lexicographically.
-    /// userids.sort_by(|a, b| a.value().cmp(b.value()));
+    /// userids.sort_by(|a, b| a.userid().value().cmp(b.userid().value()));
     /// assert_eq!(userids[0].userid(),
     ///            &UserID::from("Alice Lovelace <alice@example.org>"));
     /// assert_eq!(userids[1].userid(),
@@ -611,7 +902,7 @@ impl CertBuilder<'_> {
     /// this interface or another interface, will have the [primary
     /// User ID flag] set.
     ///
-    /// [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    /// [primary User ID flag]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.27
     ///
     /// # Examples
     ///
@@ -719,7 +1010,7 @@ impl CertBuilder<'_> {
     ///   [`PersonaCertification`]: crate::types::SignatureType::PersonaCertification
     ///   [`CasualCertification`]: crate::types::SignatureType::CasualCertification
     ///   [`PositiveCertification`]: crate::types::SignatureType::PositiveCertification
-    ///   [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///   [primary User ID flag]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.27
     ///
     /// # Examples
     ///
@@ -743,7 +1034,7 @@ impl CertBuilder<'_> {
     /// #   UserAttribute::new(&[Subpacket::Unknown(7, vec![7; 7].into())])?;
     /// let (cert, revocation_cert) =
     ///     CertBuilder::general_purpose(
-    ///         None, Some("Alice Lovelace <alice@example.org>"))
+    ///         Some("Alice Lovelace <alice@example.org>"))
     ///     .add_user_attribute_with(
     ///         user_attribute,
     ///         SignatureBuilder::new(SignatureType::CasualCertification)
@@ -895,7 +1186,7 @@ impl CertBuilder<'_> {
                         None, None)
     }
 
-    /// Adds an certification-capable subkey.
+    /// Adds a certification-capable subkey.
     ///
     /// The key uses the default cipher suite (see
     /// [`CertBuilder::set_cipher_suite`]), and is not set to expire.
@@ -973,8 +1264,8 @@ impl CertBuilder<'_> {
 
     /// Adds a custom subkey.
     ///
-    /// If `expiration` is `None`, the subkey uses the same expiration
-    /// time as the primary key.
+    /// If `validity` is `None`, the subkey will be valid for the same
+    /// period as the primary key.
     ///
     /// Likewise, if `cs` is `None`, the same cipher suite is used as
     /// for the primary key.
@@ -1056,6 +1347,9 @@ impl CertBuilder<'_> {
     ///
     ///   [`SubkeyBinding`]: crate::types::SignatureType::SubkeyBinding
     ///
+    /// If `validity` is `None`, the subkey will be valid for the same
+    /// period as the primary key.
+    ///
     /// # Examples
     ///
     /// This example binds a signing subkey to a certificate,
@@ -1071,7 +1365,7 @@ impl CertBuilder<'_> {
     /// # use openpgp::types::*;
     /// let (cert, revocation_cert) =
     ///     CertBuilder::general_purpose(
-    ///         None, Some("Alice Lovelace <alice@example.org>"))
+    ///         Some("Alice Lovelace <alice@example.org>"))
     ///     .add_subkey_with(
     ///         KeyFlags::empty().set_signing(), None, None,
     ///         SignatureBuilder::new(SignatureType::SubkeyBinding)
@@ -1121,7 +1415,8 @@ impl CertBuilder<'_> {
     ///
     /// # Examples
     ///
-    /// Make the primary key certification and signing capable:
+    /// Makes the primary key signing-capable but not
+    /// certification-capable.
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -1134,15 +1429,14 @@ impl CertBuilder<'_> {
     /// let p = &StandardPolicy::new();
     ///
     /// let (cert, rev) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///     CertBuilder::general_purpose(Some("Alice Lovelace <alice@example.org>"))
     ///         .set_primary_key_flags(KeyFlags::empty().set_signing())
     ///         .generate()?;
     ///
     /// // Observe that the primary key's certification capability is
     /// // set implicitly.
     /// assert_eq!(cert.with_policy(p, None)?.primary_key().key_flags(),
-    ///            Some(KeyFlags::empty().set_signing().set_certification()));
+    ///            Some(KeyFlags::empty().set_signing()));
     /// # Ok(()) }
     /// ```
     pub fn set_primary_key_flags(mut self, flags: KeyFlags) -> Self {
@@ -1164,13 +1458,12 @@ impl CertBuilder<'_> {
     /// # fn main() -> Result<()> {
     /// // Make the certificate expire in 10 minutes.
     /// let (cert, rev) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///     CertBuilder::general_purpose(Some("Alice Lovelace <alice@example.org>"))
     ///         .set_password(Some("1234".into()))
     ///         .generate()?;
     ///
     /// for ka in cert.keys() {
-    ///     assert!(ka.has_secret());
+    ///     assert!(ka.key().has_secret());
     /// }
     /// # Ok(()) }
     /// ```
@@ -1185,8 +1478,14 @@ impl CertBuilder<'_> {
     /// after the validity period, the certificate is considered to be
     /// expired.
     ///
-    /// A value of None means that the certificate never expires.
-    //
+    /// The validity period starts with the creation time (see
+    /// [`CertBuilder::set_creation_time`]).
+    ///
+    /// A value of `None` means that the certificate never expires.
+    ///
+    /// See [this section](CertBuilder#expiration) of the type's
+    /// documentation for security considerations of key expiration.
+    ///
     /// # Examples
     ///
     /// ```
@@ -1241,10 +1540,10 @@ impl CertBuilder<'_> {
     /// let p = &StandardPolicy::new();
     ///
     /// let (alice, _) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
     ///         .generate()?;
     /// let (bob, _) =
-    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///     CertBuilder::general_purpose(Some("bob@example.org"))
     ///         .set_revocation_keys(vec![(&alice).into()])
     ///         .generate()?;
     ///
@@ -1275,14 +1574,13 @@ impl CertBuilder<'_> {
     /// let p = &StandardPolicy::new();
     ///
     /// let (alice, _) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
     ///         .generate()?;
     /// # Ok(()) }
     /// ```
     pub fn generate(mut self) -> Result<(Cert, Signature)> {
         use crate::Packet;
         use crate::types::ReasonForRevocation;
-        use std::convert::TryFrom;
 
         let creation_time =
             self.creation_time.unwrap_or_else(|| {
@@ -1291,24 +1589,28 @@ impl CertBuilder<'_> {
                     time::Duration::new(SIG_BACKDATE_BY, 0)
             });
 
-        // make sure the primary key can sign subkeys
-        if !self.subkeys.is_empty() {
-            self.primary.flags = self.primary.flags.set_certification();
-        }
-
         // Generate & self-sign primary key.
         let (primary, sig, mut signer) = self.primary_key(creation_time)?;
 
-        let mut cert = Cert::try_from(vec![
+        // Construct a skeleton cert.  We need this to bind the new
+        // components to.
+        let cert = Cert::try_from(vec![
             Packet::SecretKey({
                 let mut primary = primary.clone();
                 if let Some(ref password) = self.password {
-                    primary.secret_mut().encrypt_in_place(password)?;
+                    let (k, mut secret) = primary.take_secret();
+                    secret.encrypt_in_place(&k, password)?;
+                    primary = k.add_secret(secret).0;
                 }
                 primary
             }),
-            sig.into(),
         ])?;
+        // We will, however, collect any signatures and components in
+        // a separate vector, and only add them in the end, so that we
+        // canonicalize the new certificate just once.
+        let mut acc = vec![
+            Packet::from(sig),
+        ];
 
         // We want to mark exactly one User ID or Attribute as primary.
         // First, figure out whether one of the binding signature
@@ -1324,11 +1626,12 @@ impl CertBuilder<'_> {
         let mut emitted_primary_user_thing = false;
 
         // Sign UserIDs.
-        for (template, uid) in self.userids.into_iter() {
+        for (template, uid) in std::mem::take(&mut self.userids).into_iter() {
             let sig = template.unwrap_or_else(
                 || SignatureBuilder::new(SignatureType::PositiveCertification));
-            let sig = Self::signature_common(sig, creation_time)?;
-            let mut sig = Self::add_primary_key_metadata(sig, &self.primary)?;
+            let sig = Self::signature_common(sig, creation_time,
+                                             self.exportable)?;
+            let mut sig = self.add_primary_key_metadata(sig)?;
 
             // Make sure we mark exactly one User ID or Attribute as
             // primary.
@@ -1349,16 +1652,17 @@ impl CertBuilder<'_> {
             }
 
             let signature = uid.bind(&mut signer, &cert, sig)?;
-            cert = cert.insert_packets(
-                vec![Packet::from(uid), signature.into()])?;
+            acc.push(uid.into());
+            acc.push(signature.into());
         }
 
         // Sign UserAttributes.
-        for (template, ua) in self.user_attributes.into_iter() {
+        for (template, ua) in std::mem::take(&mut self.user_attributes) {
             let sig = template.unwrap_or_else(
                 || SignatureBuilder::new(SignatureType::PositiveCertification));
-            let sig = Self::signature_common(sig, creation_time)?;
-            let mut sig = Self::add_primary_key_metadata(sig, &self.primary)?;
+            let sig = Self::signature_common(
+                sig, creation_time, self.exportable)?;
+            let mut sig = self.add_primary_key_metadata(sig)?;
 
             // Make sure we mark exactly one User ID or Attribute as
             // primary.
@@ -1379,8 +1683,8 @@ impl CertBuilder<'_> {
             }
 
             let signature = ua.bind(&mut signer, &cert, sig)?;
-            cert = cert.insert_packets(
-                vec![Packet::from(ua), signature.into()])?;
+            acc.push(ua.into());
+            acc.push(signature.into());
         }
 
         // Sign subkeys.
@@ -1388,17 +1692,21 @@ impl CertBuilder<'_> {
             let flags = &blueprint.flags;
             let mut subkey = blueprint.ciphersuite
                 .unwrap_or(self.ciphersuite)
-                .generate_key(flags)?;
+                .generate_key(flags, self.profile)?
+                .role_into_subordinate();
             subkey.set_creation_time(creation_time)?;
 
             let sig = template.unwrap_or_else(
                 || SignatureBuilder::new(SignatureType::SubkeyBinding));
-            let sig = Self::signature_common(sig, creation_time)?;
+            let sig = Self::signature_common(
+                sig, creation_time, self.exportable)?;
             let mut builder = sig
                 .set_key_flags(flags.clone())?
                 .set_key_validity_period(blueprint.validity.or(self.primary.validity))?;
 
-            if flags.for_certification() || flags.for_signing() {
+            if flags.for_certification() || flags.for_signing()
+                || flags.for_authentication()
+            {
                 // We need to create a primary key binding signature.
                 let mut subkey_signer = subkey.clone().into_keypair().unwrap();
                 let backsig =
@@ -1414,11 +1722,16 @@ impl CertBuilder<'_> {
             let signature = subkey.bind(&mut signer, &cert, builder)?;
 
             if let Some(ref password) = self.password {
-                subkey.secret_mut().encrypt_in_place(password)?;
+                let (k, mut secret) = subkey.take_secret();
+                secret.encrypt_in_place(&k, password)?;
+                subkey = k.add_secret(secret).0;
             }
-            cert = cert.insert_packets(vec![Packet::SecretSubkey(subkey),
-                                           signature.into()])?;
+            acc.push(subkey.into());
+            acc.push(signature.into());
         }
+
+        // Now add the new components and canonicalize once.
+        let cert = cert.insert_packets(acc)?.0;
 
         let revocation = CertRevocationBuilder::new()
             .set_signature_creation_time(creation_time)?
@@ -1435,18 +1748,23 @@ impl CertBuilder<'_> {
 
     /// Creates the primary key and a direct key signature.
     fn primary_key(&self, creation_time: std::time::SystemTime)
-        -> Result<(key::SecretKey, Signature, Box<dyn Signer>)>
+        -> Result<(KeySecretKey, Signature, Box<dyn Signer>)>
     {
         let mut key = self.primary.ciphersuite
             .unwrap_or(self.ciphersuite)
-            .generate_key(KeyFlags::empty().set_certification())?;
+            .generate_key(KeyFlags::empty().set_certification(),
+                          self.profile)?
+            .role_into_primary();
         key.set_creation_time(creation_time)?;
         let sig = SignatureBuilder::new(SignatureType::DirectKey);
-        let sig = Self::signature_common(sig, creation_time)?;
-        let mut sig = Self::add_primary_key_metadata(sig, &self.primary)?;
+        let sig = Self::signature_common(
+            sig, creation_time, self.exportable)?;
+        let mut sig = self.add_primary_key_metadata(sig)?;
 
         if let Some(ref revocation_keys) = self.revocation_keys {
-            sig = sig.set_revocation_key(revocation_keys.clone())?;
+            for k in revocation_keys.into_iter().cloned() {
+                sig = sig.add_revocation_key(k)?;
+            }
         }
 
         let mut signer = key.clone().into_keypair()
@@ -1458,25 +1776,30 @@ impl CertBuilder<'_> {
 
     /// Common settings for generated signatures.
     fn signature_common(builder: SignatureBuilder,
-                        creation_time: time::SystemTime)
+                        creation_time: time::SystemTime,
+                        exportable: bool)
                         -> Result<SignatureBuilder>
     {
-        builder
+        let mut builder = builder
             // GnuPG wants at least a 512-bit hash for P521 keys.
             .set_hash_algo(HashAlgorithm::SHA512)
-            .set_signature_creation_time(creation_time)
+            .set_signature_creation_time(creation_time)?;
+        if ! exportable {
+            builder = builder.set_exportable_certification(false)?;
+        }
+        Ok(builder)
     }
 
 
     /// Adds primary key metadata to the signature.
-    fn add_primary_key_metadata(builder: SignatureBuilder,
-                                primary: &KeyBlueprint)
+    fn add_primary_key_metadata(&self,
+                                builder: SignatureBuilder)
                                 -> Result<SignatureBuilder>
     {
         builder
-            .set_features(Features::sequoia())?
-            .set_key_flags(primary.flags.clone())?
-            .set_key_validity_period(primary.validity)?
+            .set_features(self.features.clone())?
+            .set_key_flags(self.primary.flags.clone())?
+            .set_key_validity_period(self.primary.validity)?
             .set_preferred_hash_algorithms(vec![
                 HashAlgorithm::SHA512,
                 HashAlgorithm::SHA256,
@@ -1494,9 +1817,13 @@ mod tests {
 
     use super::*;
     use crate::Fingerprint;
+    use crate::crypto::mpi::PublicKey;
     use crate::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
+    use crate::types::Curve;
     use crate::types::PublicKeyAlgorithm;
+    use crate::parse::Parse;
     use crate::policy::StandardPolicy as P;
+    use crate::serialize::Serialize;
 
     #[test]
     fn all_opts() {
@@ -1539,7 +1866,7 @@ mod tests {
         let sig =
             cert.primary_key().with_policy(p, None).unwrap().binding_signature();
         assert_eq!(sig.typ(), crate::types::SignatureType::DirectKey);
-        assert!(sig.features().unwrap().supports_mdc());
+        assert!(sig.features().unwrap().supports_seipdv1());
     }
 
     #[test]
@@ -1549,14 +1876,14 @@ mod tests {
             .set_cipher_suite(CipherSuite::RSA3k)
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+        assert_eq!(cert1.primary_key().key().pk_algo(), PublicKeyAlgorithm::EdDSA);
 
         let (cert2, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::RSA3k)
             .add_userid("test2@example.com")
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        assert_eq!(cert2.primary_key().pk_algo(),
+        assert_eq!(cert2.primary_key().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(cert2.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -1568,22 +1895,22 @@ mod tests {
         let (cert1, _) = CertBuilder::new()
             .add_userid("test2@example.com")
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
+        assert_eq!(cert1.primary_key().key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert!(cert1.subkeys().next().is_none());
         assert!(cert1.with_policy(p, None).unwrap().primary_userid().unwrap()
-                .binding_signature().features().unwrap().supports_mdc());
+                .binding_signature().features().unwrap().supports_seipdv1());
     }
 
     #[test]
-    fn always_certify() {
+    fn not_always_certify() {
         let p = &P::new();
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_primary_key_flags(KeyFlags::empty())
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        assert!(cert1.primary_key().with_policy(p, None).unwrap().for_certification());
+        assert!(! cert1.primary_key().with_policy(p, None).unwrap().for_certification());
         assert_eq!(cert1.keys().subkeys().count(), 1);
     }
 
@@ -1594,7 +1921,8 @@ mod tests {
             .set_primary_key_flags(KeyFlags::empty())
             .add_subkey(KeyFlags::empty().set_certification(), None, None)
             .generate().unwrap();
-        let sig_pkts = cert1.subkeys().next().unwrap().bundle().self_signatures[0].hashed_area();
+        let sig_pkts = cert1.subkeys().next().unwrap().bundle()
+            .self_signatures().next().unwrap().hashed_area();
 
         match sig_pkts.subpacket(SubpacketTag::KeyFlags).unwrap().value() {
             SubpacketValue::KeyFlags(ref ks) => assert!(ks.for_certification()),
@@ -1614,7 +1942,7 @@ mod tests {
         assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::NotAsFarAsWeKnow);
 
-        let cert = cert.insert_packets(revocation.clone()).unwrap();
+        let cert = cert.insert_packets(revocation.clone()).unwrap().0;
         assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::Revoked(vec![ &revocation ]));
     }
@@ -1639,14 +1967,12 @@ mod tests {
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
-        assert!(cert.primary_key().optional_secret().unwrap().is_encrypted());
+        assert!(cert.primary_key().key().optional_secret().unwrap().is_encrypted());
     }
 
     #[test]
     fn all_ciphersuites() {
-        use self::CipherSuite::*;
-
-        for cs in vec![Cv25519, RSA3k, P256, P384, P521, RSA2k, RSA4k]
+        for cs in CipherSuite::variants()
             .into_iter().filter(|cs| cs.is_supported().is_ok())
         {
             assert!(CertBuilder::new()
@@ -1672,7 +1998,7 @@ mod tests {
             .generate().unwrap();
 
         let key = cert.primary_key().key();
-        let sig = &cert.primary_key().bundle().self_signatures()[0];
+        let sig = &cert.primary_key().bundle().self_signatures().next().unwrap();
         assert!(sig.key_alive(key, now).is_ok());
         assert!(sig.key_alive(key, now + 590 * s).is_ok());
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());
@@ -1702,7 +2028,7 @@ mod tests {
             .add_signing_subkey()
             .generate().unwrap();
 
-        assert_eq!(cert.primary_key().creation_time(), UNIX_EPOCH);
+        assert_eq!(cert.primary_key().key().creation_time(), UNIX_EPOCH);
         assert_eq!(cert.primary_key().with_policy(p, None).unwrap()
                    .binding_signature()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
@@ -1745,12 +2071,12 @@ mod tests {
         ];
 
         let (cert,_)
-            = CertBuilder::general_purpose(None, Some("alice@example.org"))
+            = CertBuilder::general_purpose(Some("alice@example.org"))
             .set_revocation_keys(revokers.clone())
             .generate()?;
         let cert = cert.with_policy(p, None)?;
 
-        assert_eq!(cert.revocation_keys(None).collect::<HashSet<_>>(),
+        assert_eq!(cert.revocation_keys().collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
 
         // Do it again, with a key that has no User IDs.
@@ -1760,7 +2086,7 @@ mod tests {
         let cert = cert.with_policy(p, None)?;
         assert!(cert.primary_userid().is_err());
 
-        assert_eq!(cert.revocation_keys(None).collect::<HashSet<_>>(),
+        assert_eq!(cert.revocation_keys().collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
 
         // The designated revokers on all signatures should be
@@ -1774,15 +2100,16 @@ mod tests {
 
         // Add a newer direct key signature.
         use crate::crypto::hash::Hash;
-        let mut hash = HashAlgorithm::SHA512.context()?;
-        cert.primary_key().hash(&mut hash);
         let mut primary_signer =
             cert.primary_key().key().clone().parts_into_secret()?
             .into_keypair()?;
+        let mut hash = HashAlgorithm::SHA512.context()?
+            .for_signature(primary_signer.public().version());
+        cert.primary_key().key().hash(&mut hash)?;
         let sig = signature::SignatureBuilder::new(SignatureType::DirectKey)
             .set_signature_creation_time(then)?
             .sign_hash(&mut primary_signer, hash)?;
-        let cert = cert.insert_packets(sig)?;
+        let cert = cert.insert_packets(sig)?.0;
 
         assert!(cert.with_policy(p, then)?.primary_userid().is_err());
         assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
@@ -1871,9 +2198,292 @@ mod tests {
                 SignatureBuilder::new(positive).set_primary_userid(true)?)?
             .generate()?;
         let vc = c.with_policy(p, None)?;
-        assert_eq!(vc.primary_userid()?.value(), b"bar");
+        assert_eq!(vc.primary_userid()?.userid().value(), b"bar");
         assert_eq!(count_primary_user_things(c), 1);
 
         Ok(())
+    }
+
+    #[test]
+    fn non_exportable_cert() -> Result<()> {
+        // Make sure that when we export a non-exportable cert,
+        // nothing is exported.
+
+        let (cert, _) =
+            CertBuilder::general_purpose(Some("alice@example.org"))
+            .set_exportable(false)
+            .generate()?;
+
+        let (bob, _) =
+            CertBuilder::general_purpose(Some("bob@example.org"))
+            .generate()?;
+
+        // Have Bob certify Alice's primary User ID with an exportable
+        // signature.  This shouldn't make Alice's certificate
+        // exportable.
+        let mut keypair = bob.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+        let certification = cert.userids().nth(0).unwrap()
+            .userid()
+            .certify(&mut keypair, &cert,
+                     SignatureType::PositiveCertification,
+                     None, None)?;
+        let cert = cert.insert_packets(certification)?.0;
+
+        macro_rules! check {
+            ($cert: expr, $export: ident, $expected: expr) => {
+                let mut exported = Vec::new();
+                $cert.$export(&mut exported)?;
+
+                let certs = CertParser::from_bytes(&exported)?
+                    .collect::<Result<Vec<Cert>>>()?;
+
+                assert_eq!(certs.len(), $expected);
+
+                if $expected == 0 {
+                    assert_eq!(exported.len(), 0,
+                               "{}", String::from_utf8_lossy(&exported));
+                } else {
+                    assert!(exported.len() > 0);
+                }
+            }
+        }
+
+        // Binary cert:
+        check!(cert, export, 0);
+        check!(cert, serialize, 1);
+
+        // Binary TSK:
+        check!(cert.as_tsk(), export, 0);
+        check!(cert.as_tsk(), serialize, 1);
+
+        // Armored cert:
+        check!(cert.armored(), export, 0);
+        check!(cert.armored(), serialize, 1);
+
+        // Armored TSK:
+        check!(cert.as_tsk().armored(), export, 0);
+        check!(cert.as_tsk().armored(), serialize, 1);
+
+        // Have Alice add an exportable self signature.  Now her
+        // certificate should be exportable.
+        let mut keypair = cert.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+        let certification = cert.userids().nth(0).unwrap()
+            .userid()
+            .certify(&mut keypair, &cert,
+                     SignatureType::PositiveCertification,
+                     None, None)?;
+        let cert = cert.insert_packets(certification)?.0;
+
+        macro_rules! check {
+            ($cert: expr, $export: ident, $expected: expr) => {
+                let mut exported = Vec::new();
+                $cert.$export(&mut exported)?;
+
+                let certs = CertParser::from_bytes(&exported)?
+                    .collect::<Result<Vec<Cert>>>()?;
+
+                assert_eq!(certs.len(), $expected);
+
+                if $expected == 0 {
+                    assert_eq!(exported.len(), 0,
+                               "{}", String::from_utf8_lossy(&exported));
+                } else {
+                    assert!(exported.len() > 0);
+                }
+            }
+        }
+
+        // Binary cert:
+        check!(cert, export, 1);
+        check!(cert, serialize, 1);
+
+        // Binary TSK:
+        check!(cert.as_tsk(), export, 1);
+        check!(cert.as_tsk(), serialize, 1);
+
+        // Armored cert:
+        check!(cert.armored(), export, 1);
+        check!(cert.armored(), serialize, 1);
+
+        // Armored TSK:
+        check!(cert.as_tsk().armored(), export, 1);
+        check!(cert.as_tsk().armored(), serialize, 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn check_algos() {
+        for (cipher_suite, profile, algos, curves) in [
+            (CipherSuite::Cv25519,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::EdDSA, PublicKeyAlgorithm::ECDH ][..],
+             &[ Curve::Ed25519, Curve::Cv25519, ][..]),
+            (CipherSuite::Cv25519,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::Ed25519, PublicKeyAlgorithm::X25519 ],
+             &[]),
+
+            (CipherSuite::Cv448,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::Ed448, PublicKeyAlgorithm::X448 ],
+             &[]),
+            (CipherSuite::Cv448,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::Ed448, PublicKeyAlgorithm::X448 ],
+             &[]),
+
+            (CipherSuite::RSA2k,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::RSAEncryptSign ],
+             &[]),
+            (CipherSuite::RSA2k,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::RSAEncryptSign ],
+             &[]),
+
+            (CipherSuite::RSA3k,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::RSAEncryptSign ],
+             &[]),
+            (CipherSuite::RSA3k,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::RSAEncryptSign ],
+             &[]),
+
+            (CipherSuite::RSA4k,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::RSAEncryptSign ],
+             &[]),
+            (CipherSuite::RSA4k,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::RSAEncryptSign ],
+             &[]),
+
+            (CipherSuite::P256,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::ECDSA, PublicKeyAlgorithm::ECDH ],
+             &[ Curve::NistP256 ]),
+            (CipherSuite::P256,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::ECDSA, PublicKeyAlgorithm::ECDH ],
+             &[ Curve::NistP256 ]),
+
+            (CipherSuite::P384,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::ECDSA, PublicKeyAlgorithm::ECDH ],
+             &[ Curve::NistP384 ]),
+            (CipherSuite::P384,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::ECDSA, PublicKeyAlgorithm::ECDH ],
+             &[ Curve::NistP384 ]),
+
+            (CipherSuite::P521,
+             Profile::RFC4880,
+             &[ PublicKeyAlgorithm::ECDSA, PublicKeyAlgorithm::ECDH ],
+             &[ Curve::NistP521 ]),
+            (CipherSuite::P521,
+             Profile::RFC9580,
+             &[ PublicKeyAlgorithm::ECDSA, PublicKeyAlgorithm::ECDH ],
+             &[ Curve::NistP521 ]),
+        ]
+        {
+            eprintln!("Testing that generating {:?}, {:?} results in \
+                       algorithms: {}; curves: {}",
+                      cipher_suite, profile,
+                      algos
+                          .iter()
+                          .map(|a| a.to_string())
+                          .collect::<Vec<_>>()
+                          .join(", "),
+                      if curves.is_empty() {
+                          "none".to_string()
+                      } else {
+                          curves
+                              .iter()
+                              .map(|a| a.to_string())
+                              .collect::<Vec<_>>()
+                              .join(", ")
+                      });
+
+            if let Err(err) = cipher_suite.is_supported() {
+                eprintln!("Skipping, cipher suite is not supported: {}", err);
+                continue;
+            }
+
+            let (cert, _) = CertBuilder::general_purpose(Some("x@example.org"))
+                .set_cipher_suite(cipher_suite)
+                .set_profile(profile)
+                .expect("Profile is supported")
+                .generate()
+                .expect("Cipher suite is supported");
+
+            let mut algos_got = cert.keys()
+                .map(|ka| ka.key().pk_algo())
+                .collect::<Vec<_>>();
+            algos_got.sort();
+            algos_got.dedup();
+
+            let mut algos_expected = algos.to_vec();
+            algos_expected.sort();
+
+            assert_eq!(&algos_expected, &algos_got,
+                       "\n\
+                        algos expected: {}\n\
+                        algos got:      {}",
+                       algos_expected
+                           .iter()
+                           .map(|a| a.to_string())
+                           .collect::<Vec<_>>()
+                           .join(", "),
+                       algos_got
+                           .iter()
+                           .map(|a| a.to_string())
+                           .collect::<Vec<_>>()
+                           .join(", "));
+
+
+            let mut curves_got = cert.keys()
+                .filter_map(|ka| match ka.key().mpis() {
+                    PublicKey::EdDSA { curve, .. }
+                    | PublicKey::ECDSA { curve, .. }
+                    | PublicKey::ECDH { curve, .. } =>
+                    {
+                        Some(curve.clone())
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            curves_got.sort();
+            curves_got.dedup();
+
+            let mut curves_expected = curves.to_vec();
+            curves_expected.sort();
+
+            assert_eq!(&curves_expected, &curves_got,
+                       "\n\
+                        curves expected: {}\n\
+                        curves got:      {}",
+                       if curves_expected.is_empty() {
+                           "(none)".to_string()
+                       } else {
+                           curves_expected
+                               .iter()
+                               .map(|a| a.to_string())
+                               .collect::<Vec<_>>()
+                               .join(", ")
+                       },
+                       if curves_got.is_empty() {
+                           "(none)".to_string()
+                       } else {
+                           curves_got
+                               .iter()
+                               .map(|a| a.to_string())
+                               .collect::<Vec<_>>()
+                               .join(", ")
+                       });
+        }
     }
 }

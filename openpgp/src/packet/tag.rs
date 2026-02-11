@@ -7,12 +7,13 @@ use quickcheck::{Arbitrary, Gen};
 
 use crate::packet::Packet;
 
-/// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
+/// The OpenPGP packet tags as defined in [Section 5 of RFC 9580].
 ///
-///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+///   [Section 5 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
 ///
 /// The values correspond to the serialized format.
 #[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
 pub enum Tag {
     /// Reserved Packet tag.
     Reserved,
@@ -50,10 +51,10 @@ pub enum Tag {
     SEIP,
     /// Modification Detection Code Packet.
     MDC,
-    /// AEAD Encrypted Data Packet.
-    ///
-    /// This feature is [experimental](crate#experimental-features).
+    /// Reserved ("AEAD Encrypted Data Packet").
     AED,
+    /// Padding packet.
+    Padding,
     /// Unassigned packets (as of RFC4880).
     Unknown(u8),
     /// Experimental packets.
@@ -116,6 +117,7 @@ impl From<u8> for Tag {
             18 => SEIP,
             19 => MDC,
             20 => AED,
+            21 => Padding,
             60..=63 => Private(u),
             _ => Unknown(u),
         }
@@ -150,6 +152,7 @@ impl From<&Tag> for u8 {
             Tag::SEIP => 18,
             Tag::MDC => 19,
             Tag::AED => 20,
+            Tag::Padding => 21,
             Tag::Private(x) => *x,
             Tag::Unknown(x) => *x,
         }
@@ -209,6 +212,8 @@ impl fmt::Display for Tag {
                 f.write_str("Modification Detection Code Packet"),
             Tag::AED =>
                 f.write_str("AEAD Encrypted Data Packet"),
+            Tag::Padding =>
+                f.write_str("Padding Packet"),
             Tag::Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental Packet {}", u)),
             Tag::Unknown(u) =>
@@ -216,6 +221,28 @@ impl fmt::Display for Tag {
         }
     }
 }
+
+const PACKET_TAG_VARIANTS: [Tag; 19] = [
+    Tag::PKESK,
+    Tag::Signature,
+    Tag::SKESK,
+    Tag::OnePassSig,
+    Tag::SecretKey,
+    Tag::PublicKey,
+    Tag::SecretSubkey,
+    Tag::CompressedData,
+    Tag::SED,
+    Tag::Marker,
+    Tag::Literal,
+    Tag::Trust,
+    Tag::UserID,
+    Tag::PublicSubkey,
+    Tag::UserAttribute,
+    Tag::SEIP,
+    Tag::MDC,
+    Tag::AED,
+    Tag::Padding,
+];
 
 #[cfg(test)]
 impl Arbitrary for Tag {
@@ -230,24 +257,42 @@ impl Arbitrary for Tag {
 }
 
 impl Tag {
+    /// Returns whether the `Tag` denotes a critical packet.
+    ///
+    /// Upon encountering an unknown critical packet, implementations
+    /// MUST reject the whole packet sequence.  On the other hand,
+    /// unknown non-critical packets MUST be ignored.  See [Section
+    /// 4.3 of RFC 9580].
+    ///
+    /// [Section 4.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.3
+    pub fn is_critical(&self) -> bool {
+        match u8::from(self) {
+            0..=39 => true,
+            40..=63 => false,
+            // Should never happen, but let's map this to critical as
+            // a conservative choice.
+            64..=255 => true,
+        }
+    }
+
     /// Returns whether the `Tag` can be at the start of a valid
     /// message.
     ///
     /// [Certs] can start with `PublicKey`, [TSKs] with a `SecretKey`.
     ///
-    ///   [Certs]: https://tools.ietf.org/html/rfc4880#section-11.1
-    ///   [TSKs]: https://tools.ietf.org/html/rfc4880#section-11.2
+    ///   [Certs]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.1
+    ///   [TSKs]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.2
     ///
     /// [Messages] start with a `OnePassSig`, `Signature` (old style
     /// non-one pass signatures), `PKESK`, `SKESK`, `CompressedData`,
     /// or `Literal`.
     ///
-    ///   [Messages]: https://tools.ietf.org/html/rfc4880#section-11.3
+    ///   [Messages]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
     ///
-    /// Signatures can standalone either as a [detached signature], a
+    /// Signatures can stand alone either as a [detached signature], a
     /// third-party certification, or a revocation certificate.
     ///
-    ///   [detached signature]: https://tools.ietf.org/html/rfc4880#section-11.3
+    ///   [detached signature]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
     pub fn valid_start_of_message(&self) -> bool {
         // Cert
         *self == Tag::PublicKey || *self == Tag::SecretKey
@@ -258,6 +303,15 @@ impl Tag {
             || *self == Tag::OnePassSig
             // Standalone signature, old-style signature.
             || *self == Tag::Signature
+    }
+
+    /// Returns an iterator over all valid variants.
+    ///
+    /// Returns an iterator over all known variants.  This does not
+    /// include the [`Tag::Reserved`], [`Tag::Private`], or
+    /// [`Tag::Unknown`] variants.
+    pub fn variants() -> impl Iterator<Item=Tag> {
+        PACKET_TAG_VARIANTS.iter().cloned()
     }
 }
 
@@ -294,5 +348,34 @@ mod tests {
         for i in 0..u8::MAX {
             let _ = Tag::from(i);
         }
+    }
+
+    #[test]
+    fn tag_variants() {
+        use std::collections::HashSet;
+        use std::iter::FromIterator;
+
+        // PACKET_TAG_VARIANTS is a list.  Derive it in a different way
+        // to double-check that nothing is missing.
+        let derived_variants = (0..=u8::MAX)
+            .map(Tag::from)
+            .filter(|t| {
+                match t {
+                    Tag::Reserved => false,
+                    Tag::Private(_) => false,
+                    Tag::Unknown(_) => false,
+                    _ => true,
+                }
+            })
+            .collect::<HashSet<_>>();
+
+        let known_variants
+            = HashSet::from_iter(PACKET_TAG_VARIANTS.iter().cloned());
+
+        let missing = known_variants
+            .symmetric_difference(&derived_variants)
+            .collect::<Vec<_>>();
+
+        assert!(missing.is_empty(), "{:?}", missing);
     }
 }

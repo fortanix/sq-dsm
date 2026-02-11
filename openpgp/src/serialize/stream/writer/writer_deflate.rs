@@ -7,13 +7,11 @@ use crate::types::CompressionLevel;
 use super::{Generic, Message, BoxStack, Stackable, Cookie};
 
 /// ZIP compressing writer.
-#[allow(clippy::upper_case_acronyms)]
 pub struct ZIP<'a, C: 'a> {
     inner: Generic<DeflateEncoder<BoxStack<'a, C>>, C>,
 }
 assert_send_and_sync!(ZIP<'_, C> where C);
 
-#[allow(clippy::new_ret_no_self)]
 impl<'a> ZIP<'a, Cookie> {
     /// Makes a ZIP compressing writer.
     pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>
@@ -78,13 +76,11 @@ impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
 }
 
 /// ZLIB compressing writer.
-#[allow(clippy::upper_case_acronyms)]
 pub struct ZLIB<'a, C: 'a> {
     inner: Generic<ZlibEncoder<BoxStack<'a, C>>, C>,
 }
 assert_send_and_sync!(ZLIB<'_, C> where C);
 
-#[allow(clippy::new_ret_no_self)]
 impl<'a> ZLIB<'a, Cookie> {
     /// Makes a ZLIB compressing writer.
     pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>

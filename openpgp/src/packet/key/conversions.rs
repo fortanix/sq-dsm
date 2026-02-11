@@ -20,14 +20,17 @@ use crate::Result;
 macro_rules! convert {
     ( $x:ident ) => {
         // XXX: This is ugly, but how can we do better?
+        { // XXX: Appease rustc 1.80.1 which doesn't like annotations on expressions.
+        #[allow(clippy::missing_transmute_annotations)]
         unsafe { std::mem::transmute($x) }
+        }
     }
 }
 
 macro_rules! convert_ref {
     ( $x:ident ) => {
         // XXX: This is ugly, but how can we do better?
-        #[allow(clippy::transmute_ptr_to_ptr)]
+        #[allow(clippy::missing_transmute_annotations)]
         unsafe { std::mem::transmute($x) }
     }
 }
@@ -113,6 +116,14 @@ macro_rules! create_part_conversions {
                         convert_ref!(p)
                     }
                 }
+
+                impl<$($l, )* $($g, )* > From<&$($l)* mut $Key<$($l, )* $from_parts, $($g, )* >> for &$($l)* mut $Key<$($l, )* $to_parts, $($g, )* >
+                    where $($w: $c ),*
+                {
+                    fn from(p: &$($l)* mut $Key<$($l, )* $from_parts, $($g, )* >) -> Self {
+                        convert_ref!(p)
+                    }
+                }
             }
         }
 
@@ -133,6 +144,20 @@ macro_rules! create_part_conversions {
                 {
                     type Error = anyhow::Error;
                     fn try_from(p: &$($l)* $Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
+                        if p.has_secret() {
+                            Ok(convert_ref!(p))
+                        } else {
+                            Err(Error::InvalidArgument("No secret key".into())
+                                .into())
+                        }
+                    }
+                }
+
+                impl<$($l, )* $($g, )* > TryFrom<&$($l)* mut $Key<$($l, )* $from_parts, $($g, )* >> for &$($l)* mut $Key<$($l, )* $to_parts, $($g, )* >
+                    where $($w: $c ),*
+                {
+                    type Error = anyhow::Error;
+                    fn try_from(p: &$($l)* mut $Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
                         if p.has_secret() {
                             Ok(convert_ref!(p))
                         } else {
@@ -187,6 +212,11 @@ macro_rules! create_part_conversions {
                 convert_ref!(self)
             }
 
+            /// Changes the key's parts tag to `PublicParts`.
+            pub fn parts_as_public_mut(&$($l)* mut self) -> &$($l)* mut $Key<$($l, )* PublicParts, $($g, )*> {
+                convert_ref!(self)
+            }
+
             /// Changes the key's parts tag to `SecretParts`.
             pub fn parts_into_secret(self) -> Result<$Key<$($l, )* SecretParts, $($g, )*>> {
                 if self.has_secret() {
@@ -206,13 +236,28 @@ macro_rules! create_part_conversions {
                 }
             }
 
+            /// Changes the key's parts tag to `SecretParts`.
+            pub fn parts_as_secret_mut(&$($l)* mut self) -> Result<&$($l)* mut $Key<$($l, )* SecretParts, $($g, )*>>
+            {
+                if self.has_secret() {
+                    Ok(convert_ref!(self))
+                } else {
+                    Err(Error::InvalidArgument("No secret key".into()).into())
+                }
+            }
+
             /// Changes the key's parts tag to `UnspecifiedParts`.
             pub fn parts_into_unspecified(self) -> $Key<$($l, )* UnspecifiedParts, $($g, )*> {
                 convert!(self)
             }
 
             /// Changes the key's parts tag to `UnspecifiedParts`.
-            pub fn parts_as_unspecified(&$($l)* self) -> &$Key<$($l, )* UnspecifiedParts, $($g, )*> {
+            pub fn parts_as_unspecified(&$($l)* self) -> &$($l)* $Key<$($l, )* UnspecifiedParts, $($g, )*> {
+                convert_ref!(self)
+            }
+
+            /// Changes the key's parts tag to `UnspecifiedParts`.
+            pub fn parts_as_unspecified_mut(&$($l)* mut self) -> &$($l)* mut $Key<$($l, )* UnspecifiedParts, $($g, )*> {
                 convert_ref!(self)
             }
         }
@@ -229,7 +274,9 @@ macro_rules! create_role_conversions {
                     where P: KeyParts
                 {
                     fn from(p: $Key<$($l, )* P, $from_role>) -> Self {
-                        convert!(p)
+                        let mut k: Self = convert!(p);
+                        k.set_role(<$to_role>::role());
+                        k
                     }
                 }
 
@@ -237,6 +284,14 @@ macro_rules! create_role_conversions {
                     where P: KeyParts
                 {
                     fn from(p: &$($l)* $Key<$($l, )* P, $from_role>) -> Self {
+                        convert_ref!(p)
+                    }
+                }
+
+                impl<$($l, )* P> From<&$($l)* mut $Key<$($l, )* P, $from_role>> for &$($l)* mut $Key<$($l, )* P, $to_role>
+                    where P: KeyParts
+                {
+                    fn from(p: &$($l)* mut $Key<$($l, )* P, $from_role>) -> Self {
                         convert_ref!(p)
                     }
                 }
@@ -267,7 +322,9 @@ macro_rules! create_conversions {
                 impl<$($l ),*> From<$Key<$($l, )* $from_parts, $from_role>> for $Key<$($l, )* $to_parts, $to_role>
                 {
                     fn from(p: $Key<$($l, )* $from_parts, $from_role>) -> Self {
-                        convert!(p)
+                        let mut k: Self = convert!(p);
+                        k.set_role(<$to_role>::role());
+                        k
                     }
                 }
 
@@ -275,6 +332,51 @@ macro_rules! create_conversions {
                 {
                     fn from(p: &$($l)* $Key<$from_parts, $from_role>) -> Self {
                         convert_ref!(p)
+                    }
+                }
+
+                impl<$($l ),*> From<&$($l)* mut $Key<$($l, )* $from_parts, $from_role>> for &$($l)* mut $Key<$($l, )* $to_parts, $to_role>
+                {
+                    fn from(p: &$($l)* mut $Key<$from_parts, $from_role>) -> Self {
+                        convert_ref!(p)
+                    }
+                }
+            }
+        }
+
+        macro_rules! f_try {
+            ( <$from_parts:ty, $from_role:ty> -> <SecretParts, $to_role:ty> ) => {
+                impl<$($l ),*> TryFrom<$Key<$($l, )* $from_parts, $from_role>> for $Key<$($l, )* SecretParts, $to_role>
+                {
+                    type Error = anyhow::Error;
+                    fn try_from(p: $Key<$($l, )* $from_parts, $from_role>) -> Result<Self> {
+                        // First, just change the role.
+                        let mut k: $Key<$($l, )* $from_parts, $to_role> = p.into();
+                        k.set_role(<$to_role>::role());
+                        // Now change the parts.
+                        k.try_into()
+                    }
+                }
+
+                impl<$($l ),*> TryFrom<&$($l)* $Key<$($l, )* $from_parts, $from_role>> for &$($l)* $Key<$($l, )* SecretParts, $to_role>
+                {
+                    type Error = anyhow::Error;
+                    fn try_from(p: &$($l)* $Key<$($l, )* $from_parts, $from_role>) -> Result<Self> {
+                        // First, just change the role.
+                        let k: &$($l)* $Key<$($l, )* $from_parts, $to_role> = p.into();
+                        // Now change the parts.
+                        k.try_into()
+                    }
+                }
+
+                impl<$($l ),*> TryFrom<&$($l)* mut $Key<$($l, )* $from_parts, $from_role>> for &$($l)* mut $Key<$($l, )* SecretParts, $to_role>
+                {
+                    type Error = anyhow::Error;
+                    fn try_from(p: &$($l)* mut $Key<$($l, )* $from_parts, $from_role>) -> Result<Self> {
+                        // First, just change the role.
+                        let k: &$($l)* mut $Key<$($l, )* $from_parts, $to_role> = p.into();
+                        // Now change the parts.
+                        k.try_into()
                     }
                 }
             }
@@ -288,8 +390,8 @@ macro_rules! create_conversions {
         //f!(<PublicParts, PrimaryRole> -> <PublicParts, SubordinateRole>);
         //f!(<PublicParts, PrimaryRole> -> <PublicParts, UnspecifiedRole>);
         //f!(<PublicParts, PrimaryRole> -> <SecretParts, PrimaryRole>);
-        f!(<PublicParts, PrimaryRole> -> <SecretParts, SubordinateRole>);
-        f!(<PublicParts, PrimaryRole> -> <SecretParts, UnspecifiedRole>);
+        f_try!(<PublicParts, PrimaryRole> -> <SecretParts, SubordinateRole>);
+        f_try!(<PublicParts, PrimaryRole> -> <SecretParts, UnspecifiedRole>);
         //f!(<PublicParts, PrimaryRole> -> <UnspecifiedParts, PrimaryRole>);
         f!(<PublicParts, PrimaryRole> -> <UnspecifiedParts, SubordinateRole>);
         f!(<PublicParts, PrimaryRole> -> <UnspecifiedParts, UnspecifiedRole>);
@@ -297,9 +399,9 @@ macro_rules! create_conversions {
         //f!(<PublicParts, SubordinateRole> -> <PublicParts, PrimaryRole>);
         //f!(<PublicParts, SubordinateRole> -> <PublicParts, SubordinateRole>);
         //f!(<PublicParts, SubordinateRole> -> <PublicParts, UnspecifiedRole>);
-        f!(<PublicParts, SubordinateRole> -> <SecretParts, PrimaryRole>);
+        f_try!(<PublicParts, SubordinateRole> -> <SecretParts, PrimaryRole>);
         //f!(<PublicParts, SubordinateRole> -> <SecretParts, SubordinateRole>);
-        f!(<PublicParts, SubordinateRole> -> <SecretParts, UnspecifiedRole>);
+        f_try!(<PublicParts, SubordinateRole> -> <SecretParts, UnspecifiedRole>);
         f!(<PublicParts, SubordinateRole> -> <UnspecifiedParts, PrimaryRole>);
         //f!(<PublicParts, SubordinateRole> -> <UnspecifiedParts, SubordinateRole>);
         f!(<PublicParts, SubordinateRole> -> <UnspecifiedParts, UnspecifiedRole>);
@@ -307,8 +409,8 @@ macro_rules! create_conversions {
         //f!(<PublicParts, UnspecifiedRole> -> <PublicParts, PrimaryRole>);
         //f!(<PublicParts, UnspecifiedRole> -> <PublicParts, SubordinateRole>);
         //f!(<PublicParts, UnspecifiedRole> -> <PublicParts, UnspecifiedRole>);
-        f!(<PublicParts, UnspecifiedRole> -> <SecretParts, PrimaryRole>);
-        f!(<PublicParts, UnspecifiedRole> -> <SecretParts, SubordinateRole>);
+        f_try!(<PublicParts, UnspecifiedRole> -> <SecretParts, PrimaryRole>);
+        f_try!(<PublicParts, UnspecifiedRole> -> <SecretParts, SubordinateRole>);
         //f!(<PublicParts, UnspecifiedRole> -> <SecretParts, UnspecifiedRole>);
         f!(<PublicParts, UnspecifiedRole> -> <UnspecifiedParts, PrimaryRole>);
         f!(<PublicParts, UnspecifiedRole> -> <UnspecifiedParts, SubordinateRole>);
@@ -348,8 +450,8 @@ macro_rules! create_conversions {
         f!(<UnspecifiedParts, PrimaryRole> -> <PublicParts, SubordinateRole>);
         f!(<UnspecifiedParts, PrimaryRole> -> <PublicParts, UnspecifiedRole>);
         //f!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, PrimaryRole>);
-        f!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, SubordinateRole>);
-        f!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, UnspecifiedRole>);
+        f_try!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, SubordinateRole>);
+        f_try!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, UnspecifiedRole>);
         //f!(<UnspecifiedParts, PrimaryRole> -> <UnspecifiedParts, PrimaryRole>);
         //f!(<UnspecifiedParts, PrimaryRole> -> <UnspecifiedParts, SubordinateRole>);
         //f!(<UnspecifiedParts, PrimaryRole> -> <UnspecifiedParts, UnspecifiedRole>);
@@ -357,9 +459,9 @@ macro_rules! create_conversions {
         f!(<UnspecifiedParts, SubordinateRole> -> <PublicParts, PrimaryRole>);
         //f!(<UnspecifiedParts, SubordinateRole> -> <PublicParts, SubordinateRole>);
         f!(<UnspecifiedParts, SubordinateRole> -> <PublicParts, UnspecifiedRole>);
-        f!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, PrimaryRole>);
+        f_try!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, PrimaryRole>);
         //f!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, SubordinateRole>);
-        f!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, UnspecifiedRole>);
+        f_try!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, UnspecifiedRole>);
         //f!(<UnspecifiedParts, SubordinateRole> -> <UnspecifiedParts, PrimaryRole>);
         //f!(<UnspecifiedParts, SubordinateRole> -> <UnspecifiedParts, SubordinateRole>);
         //f!(<UnspecifiedParts, SubordinateRole> -> <UnspecifiedParts, UnspecifiedRole>);
@@ -367,8 +469,8 @@ macro_rules! create_conversions {
         f!(<UnspecifiedParts, UnspecifiedRole> -> <PublicParts, PrimaryRole>);
         f!(<UnspecifiedParts, UnspecifiedRole> -> <PublicParts, SubordinateRole>);
         //f!(<UnspecifiedParts, UnspecifiedRole> -> <PublicParts, UnspecifiedRole>);
-        f!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, PrimaryRole>);
-        f!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, SubordinateRole>);
+        f_try!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, PrimaryRole>);
+        f_try!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, SubordinateRole>);
         //f!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, UnspecifiedRole>);
         //f!(<UnspecifiedParts, UnspecifiedRole> -> <UnspecifiedParts, PrimaryRole>);
         //f!(<UnspecifiedParts, UnspecifiedRole> -> <UnspecifiedParts, SubordinateRole>);
@@ -379,7 +481,9 @@ macro_rules! create_conversions {
         {
             /// Changes the key's role tag to `PrimaryRole`.
             pub fn role_into_primary(self) -> $Key<$($l, )* P, PrimaryRole> {
-                convert!(self)
+                let mut k: $Key<$($l, )* P, PrimaryRole> = convert!(self);
+                k.set_role(PrimaryRole::role());
+                k
             }
 
             /// Changes the key's role tag to `PrimaryRole`.
@@ -387,10 +491,17 @@ macro_rules! create_conversions {
                 convert_ref!(self)
             }
 
+            /// Changes the key's role tag to `PrimaryRole`.
+            pub fn role_as_primary_mut(&$($l)* mut self) -> &$($l)* mut $Key<$($l, )* P, PrimaryRole> {
+                convert_ref!(self)
+            }
+
             /// Changes the key's role tag to `SubordinateRole`.
             pub fn role_into_subordinate(self) -> $Key<$($l, )* P, SubordinateRole>
             {
-                convert!(self)
+                let mut k: $Key<$($l, )* P, SubordinateRole> = convert!(self);
+                k.set_role(SubordinateRole::role());
+                k
             }
 
             /// Changes the key's role tag to `SubordinateRole`.
@@ -399,14 +510,28 @@ macro_rules! create_conversions {
                 convert_ref!(self)
             }
 
+            /// Changes the key's role tag to `SubordinateRole`.
+            pub fn role_as_subordinate_mut(&$($l)* mut self) -> &$($l)* mut $Key<$($l, )* P, SubordinateRole>
+            {
+                convert_ref!(self)
+            }
+
             /// Changes the key's role tag to `UnspecifiedRole`.
             pub fn role_into_unspecified(self) -> $Key<$($l, )* P, UnspecifiedRole>
             {
-                convert!(self)
+                let mut k: $Key<$($l, )* P, UnspecifiedRole> = convert!(self);
+                k.set_role(UnspecifiedRole::role());
+                k
             }
 
             /// Changes the key's role tag to `UnspecifiedRole`.
             pub fn role_as_unspecified(&$($l)* self) -> &$($l)* $Key<$($l, )* P, UnspecifiedRole>
+            {
+                convert_ref!(self)
+            }
+
+            /// Changes the key's role tag to `UnspecifiedRole`.
+            pub fn role_as_unspecified_mut(&$($l)* mut self) -> &$($l)* mut $Key<$($l, )* P, UnspecifiedRole>
             {
                 convert_ref!(self)
             }
@@ -416,6 +541,7 @@ macro_rules! create_conversions {
 
 create_conversions!(Key<>);
 create_conversions!(Key4<>);
+create_conversions!(Key6<>);
 create_conversions!(KeyBundle<>);
 
 // A hack, since the type has to be an ident, which means that we

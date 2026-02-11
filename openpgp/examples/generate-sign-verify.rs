@@ -57,7 +57,7 @@ fn sign(p: &dyn Policy, sink: &mut (dyn Write + Send + Sync),
     let message = Message::new(sink);
 
     // We want to sign a literal data packet.
-    let signer = Signer::new(message, keypair).build()?;
+    let signer = Signer::new(message, keypair)?.build()?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(signer).build()?;

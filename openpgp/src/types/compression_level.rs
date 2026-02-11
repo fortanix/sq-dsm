@@ -13,41 +13,44 @@ use crate::{
 /// `1` means fastest compression, `6` being a good default, and
 /// meaning `9` best compression.
 ///
-/// Note that compression is [dangerous when used naively]. To mitigate some of
-/// these issues messages should [use padding].
+/// Note that compression is [dangerous when used naively].
 ///
 /// [dangerous when used naively]: https://mailarchive.ietf.org/arch/msg/openpgp/2FQUVt6Dw8XAsaMELyo5BNlh2pM
-/// [use padding]: crate::serialize::stream::padding
-///
-/// # Examples
-///
-/// Write a message using the given [CompressionAlgorithm]:
-///
-/// [CompressionAlgorithm]: super::CompressionAlgorithm
-///
-/// ```
-/// use sequoia_openpgp as openpgp;
-/// # fn main() -> openpgp::Result<()> {
-/// use std::io::Write;
-/// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
-/// use openpgp::serialize::stream::padding::Padder;
-/// use openpgp::types::{CompressionAlgorithm, CompressionLevel};
-///
-/// let mut sink = Vec::new();
-/// let message = Message::new(&mut sink);
-/// let message = Compressor::new(message)
-///     .algo(CompressionAlgorithm::Zlib)
-/// #   .algo(CompressionAlgorithm::Uncompressed)
-///     .level(CompressionLevel::fastest())
-///     .build()?;
-///
-/// let message = Padder::new(message).build()?;
-///
-/// let mut message = LiteralWriter::new(message).build()?;
-/// message.write_all(b"Hello world.")?;
-/// message.finalize()?;
-/// # Ok(()) }
-/// ```
+#[cfg_attr(feature = "compression-deflate", doc = r##"
+To mitigate some of these issues messages should [use padding].
+
+[use padding]: crate::serialize::stream::padding
+
+# Examples
+
+Write a message using the given [CompressionAlgorithm]:
+
+[CompressionAlgorithm]: super::CompressionAlgorithm
+
+```
+use sequoia_openpgp as openpgp;
+# fn main() -> openpgp::Result<()> {
+use std::io::Write;
+use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
+use openpgp::serialize::stream::padding::Padder;
+use openpgp::types::{CompressionAlgorithm, CompressionLevel};
+
+let mut sink = Vec::new();
+let message = Message::new(&mut sink);
+let message = Compressor::new(message)
+    .algo(CompressionAlgorithm::Zlib)
+#   .algo(CompressionAlgorithm::Uncompressed)
+    .level(CompressionLevel::fastest())
+    .build()?;
+
+let message = Padder::new(message).build()?;
+
+let mut message = LiteralWriter::new(message).build()?;
+message.write_all(b"Hello world.")?;
+message.finalize()?;
+# Ok(()) }
+```
+"##)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CompressionLevel(u8);
 assert_send_and_sync!(CompressionLevel);

@@ -1,54 +1,378 @@
 // -*- mode: Rust; -*-
 //
 // This implements parsing of [S-Expressions] encoded using the
-// canonical and basic transport encoding.
+// canonical, basic, and most of the advanced transport encodings.
+// The missing features from the advanced transport encoding
+// implementation are base64 support, and the optional length prefix
+// before the quoted-string and hexadecimal productions.  Search the
+// code for `TODO` to see the details.
 //
-// [S-Expressions]: https://people.csail.mit.edu/rivest/Sexp.txt
+// [S-Expressions]: https://datatracker.ietf.org/doc/html/draft-rivest-sexp-09
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use crate::sexp::parse::lexer::{self, LexicalError};
+use crate::sexp::parse::lexer::{self, LexicalError, State};
 use crate::sexp::{Sexp, String_};
 
-grammar<'input>;
+grammar<'input, 'state>(state: &'state Rc<RefCell<State>>);
 
-// For canonical and basic transport:
-//
-// <sexpr>    	:: <string> | <list>
+//   sexp           =  *whitespace value *whitespace
 pub Sexpr: Sexp = {
-    String,
-    List,
+    Whitespace* <Value> Whitespace*
 };
 
-// <list>     	:: "(" <sexp>* ")" ;
-List: Sexp = {
-    LPAREN <Sexpr*> RPAREN => Sexp::List(<>),
-};
+//   value          =  string / ("(" *(value / whitespace) ")")
+Value: Sexp = {
+    <String> => Sexp::String(<>),
+    LPAREN Whitespace* <ValueWhitespace*> RPAREN => {
+        Sexp::List(<>)
+    },
+}
 
-// <string>   	:: <display>? <simple-string> ;
-String: Sexp = {
-    <d: Display> <s: SimpleString> =>
-        Sexp::String(String_::with_display_hint(s, d)),
-    <s: SimpleString> =>
-        Sexp::String(String_::new(s)),
-};
+ValueWhitespace = {
+    <Value> Whitespace*
+}
 
-// <simple-string>	:: <raw> ;
-SimpleString: Vec<u8> =
-    RAW => if let lexer::Token::RAW(r) = <> {
-        r.iter().cloned().collect::<Vec<_>>()
-    } else {
-        unreachable!("Production matched on Token::RAW")
-    };
+//   string         =  [display] *whitespace simple-string
+String: String_ = {
+    <SimpleString> => String_::new(<>),
+    <display:Display> Whitespace* <string:SimpleString> =>
+        String_::with_display_hint(string, display),
+}
 
-// <display>  	:: "[" <simple-string> "]" ;
-Display = LBRACKET <SimpleString> RBRACKET;
+//   display        =  "[" *whitespace display-string *whitespace "]"
+Display: Vec<u8> = {
+    LBRACKET Whitespace* <DisplayString> Whitespace* RBRACKET,
+}
 
-// <raw>      	:: <decimal> ":" <bytes> ;
-// <decimal-digit> :: "0" | ... | "9" ;
-// <decimal>  	:: <decimal-digit>+ ;
-// 		-- decimal numbers should have no unnecessary leading zeros
-// <bytes> 	-- any string of bytes, of the indicated length
+//   display-string  =  verbatim / quoted-string / token / hexadecimal
+//                      / base-64
 //
-// RAW is handled in the lexer.
+// TODO: base-64 unimplemented.
+DisplayString: Vec<u8> = {
+    Verbatim,
+    QuotedString,
+    Token,
+    Hexadecimal,
+}
+
+//   simple-string  =  verbatim / quoted-string / token / hexadecimal /
+//                     base-64 / base-64-raw
+//
+// Observe: a simple-string is the same as a display-string with the
+// addition of base-64-raw.
+//
+// TODO: base-64, base-64-raw unimplemented.
+SimpleString = {
+    DisplayString
+}
+
+//   verbatim       =  decimal ":" *OCTET
+//                       ; the length followed by a colon and the exact
+//                       ; number of OCTETs indicated by the length
+Verbatim: Vec<u8> = {
+    RawCount COLON <raw:Bytes> => {
+        // Change the lexer back to normal lexing.
+        state.borrow_mut().raw = None;
+        raw.as_bytes().to_vec()
+    }
+}
+
+// We factor this production out of the Verbatim production so that we
+// can change the lexer mode before we parse the raw data.
+RawCount: () = {
+    <count:Decimal> => {
+        // Change the lexer to raw parsing.
+        state.borrow_mut().raw = Some(count);
+    }
+}
+
+//   decimal        =  %x30 / (%x31-39 *DIGIT)
+Decimal: usize = {
+    N_0 => 0,
+    <x:LeadingDecimalDigit> <y:DecimalDigit*> =>? {
+        let count = std::iter::once(x).chain(y.into_iter())
+            .map(|t| t.as_bytes()[0] as char)
+            .collect::<String>();
+        let count = count.parse::<usize>()
+            .map_err(|err| {
+                LexicalError::LengthOverflow(
+                    format!("Parsing {}: {}", count, err))
+            })?;
+
+        Ok(count)
+    }
+};
+
+LeadingDecimalDigit = {
+    N_1, N_2, N_3, N_4, N_5, N_6, N_7, N_8, N_9
+};
+
+DecimalDigit = {
+    N_0, N_1, N_2, N_3, N_4, N_5, N_6, N_7, N_8, N_9
+};
+
+//   quoted-string  =  [decimal] DQUOTE *(printable / escaped) DQUOTE
+//
+// TODO: [decimal] is unimplemented.
+QuotedString: Vec<u8> = {
+    DQUOTE <PrintableOrEscaped*> DQUOTE => {
+        <>.into_iter().filter_map(|v| v).collect()
+    }
+}
+
+PrintableOrEscaped: Option<u8> = {
+    <Printable> => {
+        let data = <>.as_bytes();
+        assert_eq!(data.len(), 1);
+        Some(data[0])
+    },
+    Escaped,
+};
+
+//   printable      =  %x20-21 / %x23-5B / %x5D-7E
+//                       ; All US-ASCII printable but double-quote and
+//                       ; backslash
+Printable = {
+    // 0x20
+    SPACE,
+    // 0x21 !
+    EXCLAMATION,
+    // NO: 0x22 "
+    // 0x23 #
+    HASH,
+    // 0x24 $
+    DOLLAR,
+    // 0x25 %
+    PERCENT,
+    // 0x26 &
+    AMPERSAND,
+    // 0x27 '
+    SQUOTE,
+    // 0x28 (
+    LPAREN,
+    // 0x29 )
+    RPAREN,
+    // 0x2A *
+    STAR,
+    // 0x2B +
+    PLUS,
+    // 0x2C ,
+    COMMA,
+    // 0x2D -
+    DASH,
+    // 0x2E .
+    DOT,
+    // 0x2F /
+    FORWARDSLASH,
+    // 0x30 - 0x39
+    DecimalDigit,
+    // 0x3A :
+    COLON,
+    // 0x3B ;
+    SEMICOLON,
+    // 0x3C <
+    LT,
+    // 0x3D =
+    EQUAL,
+    // 0x3E >
+    GT,
+    // 0x3F ?
+    QUESTION,
+    // 0x40 @
+    AT,
+    // 0x41 A - 0x5A Z, 0x61 a - 0x7A z
+    Alpha,
+    // 0x5B [
+    LBRACKET,
+    // NO: 0x5C \
+    // 0x5D ]
+    RBRACKET,
+    // 0x5E ^
+    CARAT,
+    // 0x5F _
+    UNDERSCORE,
+    // 0x60 `
+    BACKTICK,
+    // 0x7B {
+    LCURLY,
+    // 0x7C |
+    PIPE,
+    // 0x7D }
+    RCURLY,
+    // 0x7E ~
+    TILDE,
+}
+
+//   escaped        =  backslash (%x3F / %x61 / %x62 / %x66 / %x6E /
+//                     %x72 / %x74 / %x76 / DQUOTE / quote / backslash
+//                     / 3(%x30-37) / (%x78 2HEXDIG) / CR / LF /
+//                     (CR LF) / (LF CR))
+Escaped = {
+    BACKSLASH <QuotedChar>
+}
+
+QuotedChar: Option<u8> = {
+    QUESTION => Some(0x3f), // 0x3f
+    L_a => Some(0x61), // 0x61
+    L_b => Some(0x62), // 0x62,
+    L_f => Some(0x66), // 0x66
+    L_n => Some(0x6e), // 0x6E
+    L_r => Some(0x72), // 0x72
+    L_t => Some(0x74), // 0x74
+    L_v => Some(0x76), // 0x76
+    DQUOTE => Some('\"' as u8),
+    SQUOTE => Some('\'' as u8),
+    BACKSLASH => Some('\\' as u8),
+
+    // 3(%x30-37)
+    //
+    // \ooo   -- character with octal value ooo (all three
+    //           digits MUST be present)
+    <a:OctalDigit> <b:OctalDigit> <c:OctalDigit> => {
+        // XXX: If a > 3, this overflows.
+        Some((a << 6) | (b << 3) | c)
+    },
+
+    // (%x78 2HEXDIG)
+    //
+    // \xhh   -- character with hexadecimal value hh (both
+    //           digits MUST be present)
+    L_x <a:HexDigit> <b:HexDigit> => {
+        Some((a << 4) | b)
+    },
+
+    // \<carriage-return>   -- causes carriage-return
+    //           to be ignored.
+    CR => None,
+
+    // \<line-feed>         -- causes linefeed to be
+    //           ignored.
+    LF => None,
+
+    // \<carriage-return><line-feed>   -- causes
+    //           CRLF to be ignored.
+    CR LF => None,
+
+    // \<line-feed><carriage-return>   -- causes
+    //           LFCR to be ignored.
+    LF CR => None,
+}
+
+//   token          =  (ALPHA / simple-punc) *(ALPHA / DIGIT /
+//                        simple-punc)
+Token: Vec<u8> = {
+    <l:TokenLeadingChar> <rest:TokenChar*> Whitespace => {
+        std::iter::once(l).chain(rest.into_iter())
+            // All characters are one byte long.
+            .map(|c| c.as_bytes()[0])
+            .collect::<Vec<u8>>()
+    }
+}
+
+TokenLeadingChar = {
+    Alpha,
+    SimplePunc,
+}
+
+TokenChar = {
+    Alpha,
+    DecimalDigit,
+    SimplePunc,
+}
+
+Alpha = {
+    L_A, L_B, L_C, L_D, L_E, L_F, L_G, L_H, L_I, L_J, L_K, L_L, L_M,
+    L_N, L_O, L_P, L_Q, L_R, L_S, L_T, L_U, L_V, L_W, L_X, L_Y, L_Z,
+    L_a, L_b, L_c, L_d, L_e, L_f, L_g, L_h, L_i, L_j, L_k, L_l, L_m,
+    L_n, L_o, L_p, L_q, L_r, L_s, L_t, L_u, L_v, L_w, L_x, L_y, L_z,
+};
+
+//   whitespace     =  SP / HTAB / vtab / CR / LF / ff
+Whitespace = {
+    SPACE, HTAB, VTAB, CR, LF, FORMFEED,
+};
+
+//   simple-punc    =  "-" / "." / "/" / "_" / ":" / "*" / "+" / "="
+SimplePunc = {
+    DASH, DOT, FORWARDSLASH, UNDERSCORE, COLON, STAR, PLUS, EQUAL,
+};
+
+//   hexadecimal    =  [decimal] "#" *whitespace *hexadecimals "#"
+//
+// TODO: [decimal] unimplemented.
+Hexadecimal: Vec<u8> = {
+    HASH Whitespace* <Hexadecimals*> HASH
+}
+
+//   hexadecimals   =  2(HEXDIG *whitespace)
+Hexadecimals: u8 = {
+    <h:HexDigit> Whitespace* <l:HexDigit> Whitespace* => {
+        (h << 4) | l
+    }
+};
+
+OctalDigit: u8 = {
+    N_0 => 0,
+    N_1 => 1,
+    N_2 => 2,
+    N_3 => 3,
+    N_4 => 4,
+    N_5 => 5,
+    N_6 => 6,
+    N_7 => 7,
+}
+
+HexDigit: u8 = {
+    N_0 => 0,
+    N_1 => 1,
+    N_2 => 2,
+    N_3 => 3,
+    N_4 => 4,
+    N_5 => 5,
+    N_6 => 6,
+    N_7 => 7,
+    N_8 => 8,
+    N_9 => 9,
+    L_A => 10,
+    L_B => 11,
+    L_C => 12,
+    L_D => 13,
+    L_E => 14,
+    L_F => 15,
+    L_a => 10,
+    L_b => 11,
+    L_c => 12,
+    L_d => 13,
+    L_e => 14,
+    L_f => 15,
+}
+
+
+//   base-64        =  [decimal] "|" *whitespace *base-64-chars
+//                        [base-64-end] "|"
+//
+// TODO: Unimplemented.
+
+//   base-64-chars  =  4(base-64-char *whitespace)
+//
+// TODO: Unimplemented.
+
+//   base-64-char   =  ALPHA / DIGIT / "+" / "/"
+//
+// TODO: Unimplemented.
+
+//   base-64-end    =  base-64-chars /
+//                     3(base-64-char *whitespace) ["=" *whitespace] /
+//                     2(base-64-char *whitespace) *2("=" *whitespace)
+//
+// TODO: Unimplemented.
+
+//   base-64-raw    =  "{" *whitespace *base-64-char base-64-end "}"
+//                       ; encodes an sexp, which has a minimum
+//                       ; length of 2
+//
+// TODO: Unimplemented.
 
 extern {
     type Location = usize;
@@ -59,6 +383,107 @@ extern {
         RPAREN => lexer::Token::RPAREN,
         LBRACKET => lexer::Token::LBRACKET,
         RBRACKET => lexer::Token::RBRACKET,
-        RAW => lexer::Token::RAW(_),
+        HASH => lexer::Token::HASH,
+        DASH => lexer::Token::DASH,
+        DOT => lexer::Token::DOT,
+        FORWARDSLASH => lexer::Token::FORWARDSLASH,
+        UNDERSCORE => lexer::Token::UNDERSCORE,
+        COLON => lexer::Token::COLON,
+        STAR => lexer::Token::STAR,
+        PLUS => lexer::Token::PLUS,
+        EQUAL => lexer::Token::EQUAL,
+        DQUOTE => lexer::Token::DQUOTE,
+
+        // Whitespace.
+        SPACE => lexer::Token::SPACE,
+        HTAB => lexer::Token::HTAB,
+        VTAB => lexer::Token::VTAB,
+        CR => lexer::Token::CR,
+        LF => lexer::Token::LF,
+        FORMFEED => lexer::Token::FORMFEED,
+
+        // Other printable.
+        EXCLAMATION => lexer::Token::EXCLAMATION,
+        DOLLAR => lexer::Token::DOLLAR,
+        PERCENT => lexer::Token::PERCENT,
+        AMPERSAND => lexer::Token::AMPERSAND,
+        SQUOTE => lexer::Token::SQUOTE,
+        COMMA => lexer::Token::COMMA,
+        SEMICOLON => lexer::Token::SEMICOLON,
+        LT => lexer::Token::LT,
+        GT => lexer::Token::GT,
+        QUESTION => lexer::Token::QUESTION,
+        AT => lexer::Token::AT,
+        BACKSLASH => lexer::Token::BACKSLASH,
+        CARAT => lexer::Token::CARAT,
+        BACKTICK => lexer::Token::BACKTICK,
+        LCURLY => lexer::Token::LCURLY,
+        PIPE => lexer::Token::PIPE,
+        RCURLY => lexer::Token::RCURLY,
+        TILDE => lexer::Token::TILDE,
+
+        L_A => lexer::Token::L_A,
+        L_B => lexer::Token::L_B,
+        L_C => lexer::Token::L_C,
+        L_D => lexer::Token::L_D,
+        L_E => lexer::Token::L_E,
+        L_F => lexer::Token::L_F,
+        L_G => lexer::Token::L_G,
+        L_H => lexer::Token::L_H,
+        L_I => lexer::Token::L_I,
+        L_J => lexer::Token::L_J,
+        L_K => lexer::Token::L_K,
+        L_L => lexer::Token::L_L,
+        L_M => lexer::Token::L_M,
+        L_N => lexer::Token::L_N,
+        L_O => lexer::Token::L_O,
+        L_P => lexer::Token::L_P,
+        L_Q => lexer::Token::L_Q,
+        L_R => lexer::Token::L_R,
+        L_S => lexer::Token::L_S,
+        L_T => lexer::Token::L_T,
+        L_U => lexer::Token::L_U,
+        L_V => lexer::Token::L_V,
+        L_W => lexer::Token::L_W,
+        L_X => lexer::Token::L_X,
+        L_Y => lexer::Token::L_Y,
+        L_Z => lexer::Token::L_Z,
+        L_a => lexer::Token::L_a,
+        L_b => lexer::Token::L_b,
+        L_c => lexer::Token::L_c,
+        L_d => lexer::Token::L_d,
+        L_e => lexer::Token::L_e,
+        L_f => lexer::Token::L_f,
+        L_g => lexer::Token::L_g,
+        L_h => lexer::Token::L_h,
+        L_i => lexer::Token::L_i,
+        L_j => lexer::Token::L_j,
+        L_k => lexer::Token::L_k,
+        L_l => lexer::Token::L_l,
+        L_m => lexer::Token::L_m,
+        L_n => lexer::Token::L_n,
+        L_o => lexer::Token::L_o,
+        L_p => lexer::Token::L_p,
+        L_q => lexer::Token::L_q,
+        L_r => lexer::Token::L_r,
+        L_s => lexer::Token::L_s,
+        L_t => lexer::Token::L_t,
+        L_u => lexer::Token::L_u,
+        L_v => lexer::Token::L_v,
+        L_w => lexer::Token::L_w,
+        L_x => lexer::Token::L_x,
+        L_y => lexer::Token::L_y,
+        L_z => lexer::Token::L_z,
+        N_0 => lexer::Token::N_0,
+        N_1 => lexer::Token::N_1,
+        N_2 => lexer::Token::N_2,
+        N_3 => lexer::Token::N_3,
+        N_4 => lexer::Token::N_4,
+        N_5 => lexer::Token::N_5,
+        N_6 => lexer::Token::N_6,
+        N_7 => lexer::Token::N_7,
+        N_8 => lexer::Token::N_8,
+        N_9 => lexer::Token::N_9,
+        Bytes => lexer::Token::Bytes(_),
     }
 }

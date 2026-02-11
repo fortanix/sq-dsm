@@ -13,6 +13,9 @@ lalrpop_util::lalrpop_mod!(
     "/cert/parser/low_level/grammar.rs"
 );
 
+pub(crate) mod bundle;
+pub(crate) mod grammar_util;
+
 pub(crate) use self::lexer::Token;
 pub(crate) use self::lexer::Lexer;
 
@@ -22,12 +25,18 @@ pub(crate) use self::grammar::CertParser;
 // ParseError<usize, Tag, Error>.
 //
 // Justification: a Token is a tuple containing a Tag and a Packet.
-// This function essentially drops the Packet.  Dropping the packet is
-// necessary, because packets are not async, but Fail, which we want
-// to convert ParseErrors to, is.  Since we don't need the packet in
+// This function essentially drops the Packet.  Dropping the packet was
+// necessary, because packets were not Sync, but Error, which we want
+// to convert ParseErrors to, was.  Since we don't need the packet in
 // general anyways, changing the Token to a Tag is a simple and
 // sufficient fix.  Unfortunately, this conversion is a bit ugly and
 // will break if lalrpop ever extends ParseError.
+//
+// This justification is no longer up-to-date because Packet is now
+// also Sync.  However, we didn't catch this when we made Packet Sync,
+// and now the justification is simply that CertParserError::Parser(_)
+// expects a Tag, not a Packet.  It is not public, so we could change
+// it.
 pub(crate) fn parse_error_downcast(e: ParseError<usize, Token, Error>)
     -> ParseError<usize, Tag, Error>
 {
@@ -52,8 +61,8 @@ pub(crate) fn parse_error_downcast(e: ParseError<usize, Token, Error>)
         ParseError::User { error }
         => ParseError::User { error },
 
-        ParseError::UnrecognizedEOF { location, expected }
-        => ParseError::UnrecognizedEOF { location, expected },
+        ParseError::UnrecognizedEof { location, expected }
+        => ParseError::UnrecognizedEof { location, expected },
     }
 }
 

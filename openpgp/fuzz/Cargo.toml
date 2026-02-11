@@ -1,0 +1,46 @@
+[package]
+name = "sequoia-openpgp-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+anyhow = "1"
+libfuzzer-sys = "0.4"
+
+[dependencies.sequoia-openpgp]
+path = ".."
+default-features = false
+features = ["crypto-fuzzing", "allow-experimental-crypto", "allow-variable-time-crypto"]
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "cert_from_bytes"
+path = "fuzz_targets/cert_from_bytes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "inline_verify_from_bytes"
+path = "fuzz_targets/inline_verify_from_bytes.rs"
+
+[[bin]]
+name = "csf_verify_from_bytes"
+path = "fuzz_targets/csf_verify_from_bytes.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decrypt_from_bytes"
+path = "fuzz_targets/decrypt_from_bytes.rs"
+test = false
+doc = false

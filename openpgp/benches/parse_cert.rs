@@ -51,11 +51,11 @@ fn generate_flooded_cert(
     let userid = floodme_cloned.userids().next().unwrap();
 
     let certifications = (0..key_count).flat_map(|_| {
-        generate_certifications(&userid, &floodme_cloned, sigs_per_key)
+        generate_certifications(userid.userid(), &floodme_cloned, sigs_per_key)
             .unwrap()
     });
 
-    floodme = floodme.insert_packets(certifications)?;
+    floodme = floodme.insert_packets(certifications)?.0;
     floodme.export_to_vec()
 }
 

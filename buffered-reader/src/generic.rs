@@ -60,7 +60,7 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> fmt::Debug for Gene
 
 impl<T: io::Read + Send + Sync> Generic<T, ()> {
     /// Instantiate a new generic reader.  `reader` is the source to
-    /// wrap.  `preferred_chuck_size` is the preferred chuck size.  If
+    /// wrap.  `preferred_chunk_size` is the preferred chunk size.  If
     /// None, then the default will be used, which is usually what you
     /// want.
     pub fn new(reader: T, preferred_chunk_size: Option<usize>) -> Self {
@@ -69,9 +69,9 @@ impl<T: io::Read + Send + Sync> Generic<T, ()> {
 }
 
 impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using
-    /// the `cookie_set` method.
+    /// Like [`Self::new`], but sets a cookie, which can be retrieved using
+    /// the [`BufferedReader::cookie_ref`] and [`BufferedReader::cookie_mut`] methods, and set using
+    /// the [`BufferedReader::cookie_set`] method.
     pub fn with_cookie(
            reader: T, preferred_chunk_size: Option<usize>, cookie: C)
            -> Self {
@@ -81,7 +81,7 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
             unused_buffer: None,
             preferred_chunk_size:
                 if let Some(s) = preferred_chunk_size { s }
-                else { DEFAULT_BUF_SIZE },
+                else { default_buf_size() },
             reader,
             error: None,
             eof: false,
@@ -112,18 +112,12 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
     // If you find a bug in this function, consider whether
     // sequoia_openpgp::armor::Reader::data_helper is also affected.
     fn data_helper(&mut self, amount: usize, hard: bool, and_consume: bool)
-                   -> Result<&[u8], io::Error> {
+                   -> io::Result<&[u8]> {
         tracer!(TRACE, "Generic::data_helper");
         t!("amount: {}, hard: {}, and_consume: {} (cursor: {}, buffer: {:?})",
            amount, hard, and_consume,
            self.cursor,
            self.buffer.as_ref().map(|buffer| buffer.len()));
-
-        // See if there is an error from the last invocation.
-        if let Some(e) = self.error.take() {
-            t!("Returning stashed error: {}", e);
-            return Err(e);
-        }
 
         if let Some(ref buffer) = self.buffer {
             // We have a buffer.  Make sure `cursor` is sane.
@@ -139,9 +133,9 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
             // The caller wants more data than we have readily
             // available.  Read some more.
 
-            let capacity : usize = cmp::max(cmp::max(
-                DEFAULT_BUF_SIZE,
-                2 * self.preferred_chunk_size), amount);
+            let capacity : usize = amount.saturating_add(
+                default_buf_size().max(
+                    self.preferred_chunk_size.saturating_mul(2)));
 
             let mut buffer_new = self.unused_buffer.take()
                 .map(|mut v| {
@@ -157,6 +151,12 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
 
                 if self.eof {
                     t!("Hit EOF on the underlying reader, don't poll again.");
+                    break;
+                }
+
+                // See if there is an error from the last invocation.
+                if let Some(e) = &self.error {
+                    t!("We have a stashed error, don't poll again: {}", e);
                     break;
                 }
 
@@ -350,8 +350,7 @@ mod test {
 
         // Same test, but as a slice.
         {
-            let mut data : &[u8] = include_bytes!("buffered-reader-test.txt");
-            let mut bio = Generic::new(&mut data, None);
+            let mut bio = Generic::new(crate::BUFFERED_READER_TEST_DATA, None);
 
             buffered_reader_test_data_check(&mut bio);
         }
@@ -361,7 +360,7 @@ mod test {
     #[test]
     fn buffer_test() {
         // Test vector.
-        let size = 10 * DEFAULT_BUF_SIZE;
+        let size = 10 * default_buf_size();
         let mut input = Vec::with_capacity(size);
         let mut v = 0u8;
         for _ in 0..size {
@@ -377,11 +376,11 @@ mod test {
 
         // Gather some stats to make it easier to figure out whether
         // this test is working.
-        let stats_count =  2 * DEFAULT_BUF_SIZE;
+        let stats_count =  2 * default_buf_size();
         let mut stats = vec![0usize; stats_count];
 
         for i in 0..input.len() {
-            let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
+            let data = reader.data(default_buf_size() + 1).unwrap().to_vec();
             assert!(!data.is_empty());
             assert_eq!(data, reader.buffer());
             // And, we may as well check to make sure we read the
@@ -404,5 +403,30 @@ mod test {
                 }
             }
         }
+    }
+
+    /// Tests that we can request some data using data_hard even if a
+    /// previous request for more data failed.
+    #[test]
+    fn data_hard_after_failure() -> io::Result<()> {
+        /// Returns one byte once, then errors.
+        #[derive(Default)]
+        struct BuggySource(bool);
+        impl io::Read for BuggySource {
+            fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
+                if self.0 {
+                    Err(io::Error::new(io::ErrorKind::Other, "oops"))
+                } else {
+                    self.0 = true;
+                    Ok(1)
+                }
+            }
+        }
+
+        let mut br = Generic::new(BuggySource::default(), None);
+        assert!(br.data(2).is_ok()); // Ok...
+        assert_eq!(br.data(2).unwrap().len(), 1); // ... but short.
+        assert!(br.data_hard(1).is_ok()); // Should be fine then.
+        Ok(())
     }
 }

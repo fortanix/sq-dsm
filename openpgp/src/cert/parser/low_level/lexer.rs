@@ -3,7 +3,7 @@ use std::fmt;
 use crate::Error;
 use crate::Packet;
 use crate::packet::Tag;
-use crate::cert::bundle::{
+use crate::cert::parser::low_level::bundle::{
     SubkeyBundle,
     UserIDBundle,
     UserAttributeBundle,
@@ -53,7 +53,7 @@ assert_send_and_sync!(Token);
 /// Due to the way the parser code is generated, it must be marked as
 /// public.  But, since this module is not public, it will not
 /// actually be exported to users of the library.
-#[allow(clippy::enum_variant_names)]
+#[derive(Debug)]
 pub enum Component {
     SubkeyBundle(SubkeyBundle<key::PublicParts>),
     UserIDBundle(UserIDBundle),
@@ -111,19 +111,22 @@ impl From<Token> for Option<Packet> {
     }
 }
 
-impl From<Packet> for Option<Token> {
-    fn from(p: Packet) -> Self {
-        match p {
-            p @ Packet::PublicKey(_) => Some(Token::PublicKey(Some(p))),
-            p @ Packet::SecretKey(_) => Some(Token::SecretKey(Some(p))),
-            p @ Packet::PublicSubkey(_) => Some(Token::PublicSubkey(Some(p))),
-            p @ Packet::SecretSubkey(_) => Some(Token::SecretSubkey(Some(p))),
-            p @ Packet::UserID(_) => Some(Token::UserID(Some(p))),
-            p @ Packet::UserAttribute(_) => Some(Token::UserAttribute(Some(p))),
-            p @ Packet::Signature(_) => Some(Token::Signature(Some(p))),
-            p @ Packet::Trust(_) => Some(Token::Trust(Some(p))),
-            p @ Packet::Unknown(_) => Some(Token::Unknown(p.tag(), Some(p))),
-            _ => None,
+impl std::convert::TryFrom<Packet> for Token {
+    type Error = Packet;
+
+    fn try_from(p: Packet) -> std::result::Result<Self, Self::Error> {
+        match p.tag() {
+            Tag::PublicKey => Ok(Token::PublicKey(Some(p))),
+            Tag::SecretKey => Ok(Token::SecretKey(Some(p))),
+            Tag::PublicSubkey => Ok(Token::PublicSubkey(Some(p))),
+            Tag::SecretSubkey => Ok(Token::SecretSubkey(Some(p))),
+            Tag::UserID => Ok(Token::UserID(Some(p))),
+            Tag::UserAttribute => Ok(Token::UserAttribute(Some(p))),
+            Tag::Signature => Ok(Token::Signature(Some(p))),
+            Tag::Trust => Ok(Token::Trust(Some(p))),
+            t @ Tag::Unknown(_) => Ok(Token::Unknown(t, Some(p))),
+            t @ Tag::Private(_) => Ok(Token::Unknown(t, Some(p))),
+            _ => Err(p),
         }
     }
 }

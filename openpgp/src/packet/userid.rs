@@ -1,14 +1,13 @@
+use std::borrow::Cow;
 use std::fmt;
 use std::str;
 use std::hash::{Hash, Hasher};
-use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::sync::Mutex;
+use std::sync::OnceLock;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
-use anyhow::Context;
 use regex::Regex;
 
 use crate::Result;
@@ -34,7 +33,7 @@ impl ConventionallyParsedUserID {
     pub fn new<S>(userid: S) -> Result<Self>
         where S: Into<String>
     {
-        Self::parse(userid.into())
+        Ok(Self::parse(userid.into())?)
     }
 
     /// Returns the User ID's name component, if any.
@@ -61,8 +60,10 @@ impl ConventionallyParsedUserID {
     }
 
     fn parse(userid: String) -> Result<Self> {
-        lazy_static::lazy_static!{
-            static ref USER_ID_PARSER: Regex = {
+        fn user_id_parser() -> &'static Regex {
+            use std::sync::OnceLock;
+            static USER_ID_PARSER: OnceLock<Regex> = OnceLock::new();
+            USER_ID_PARSER.get_or_init(|| {
                 // Whitespace.
                 let ws_bare = " ";
                 let ws = format!("[{}]", ws_bare);
@@ -217,12 +218,12 @@ impl ConventionallyParsedUserID {
                               bare_name);
 
                 Regex::new(&pgp_uid_convention).unwrap()
-            };
+            })
         }
 
         // The regex is anchored at the start and at the end so we
         // have either 0 or 1 matches.
-        if let Some(cap) = USER_ID_PARSER.captures_iter(&userid).next() {
+        if let Some(cap) = user_id_parser().captures_iter(&userid).next() {
             let to_range = |m: regex::Match| (m.start(), m.end());
 
             // We need to figure out which branch matched.  Match on a
@@ -301,7 +302,7 @@ impl ConventionallyParsedUserID {
 /// Holds a UserID packet.
 ///
 /// The standard imposes no structure on UserIDs, but suggests to
-/// follow [RFC 2822].  See [Section 5.11 of RFC 4880] for details.
+/// follow [RFC 2822].  See [Section 5.11 of RFC 9580] for details.
 /// In practice though, implementations do not follow [RFC 2822], or
 /// do not even help their users in producing well-formed User IDs.
 /// Experience has shown that parsing User IDs using [RFC 2822] does
@@ -309,7 +310,7 @@ impl ConventionallyParsedUserID {
 /// what we call *Conventional User IDs*.
 ///
 ///   [RFC 2822]: https://tools.ietf.org/html/rfc2822
-///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
+///   [Section 5.11 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.11
 ///
 /// Using this definition, we provide methods to extract the [name],
 /// [comment], [email address], or [URI] from `UserID` packets.
@@ -466,28 +467,52 @@ pub struct UserID {
     pub(crate) common: packet::Common,
     /// The user id.
     ///
-    /// According to [RFC 4880], the text is by convention UTF-8 encoded
+    /// According to [Section 5.11 of RFC 9580], the text is by convention UTF-8 encoded
     /// and in "mail name-addr" form, i.e., "Name (Comment)
     /// <email@example.com>".
     ///
-    ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
+    ///   [Section 5.11 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.11
     ///
     /// Use `UserID::default()` to get a UserID with a default settings.
-    value: Vec<u8>,
+    value: Cow<'static, [u8]>,
 
-    hash_algo_security: HashAlgoSecurity,
+    hash_algo_security: OnceLock<HashAlgoSecurity>,
 
-    parsed: Mutex<RefCell<Option<ConventionallyParsedUserID>>>,
+    parsed: OnceLock<ConventionallyParsedUserID>,
 }
 assert_send_and_sync!(UserID);
+
+impl UserID {
+    /// Returns a User ID.
+    ///
+    /// This is equivalent to using `UserID::from`, but the function
+    /// is constant, and the slice must have a static lifetime.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp::packet::UserID;
+    ///
+    /// const TRUST_ROOT_USERID: UserID
+    ///     = UserID::from_static_bytes(b"Local Trust Root");
+    /// ```
+    pub const fn from_static_bytes(u: &'static [u8]) -> Self {
+        UserID {
+            common: packet::Common::new(),
+            hash_algo_security: OnceLock::new(),
+            value: Cow::Borrowed(u),
+            parsed: OnceLock::new(),
+        }
+    }
+}
 
 impl From<Vec<u8>> for UserID {
     fn from(u: Vec<u8>) -> Self {
         UserID {
             common: Default::default(),
-            hash_algo_security: UserID::determine_hash_algo_security(&u),
-            value: u,
-            parsed: Mutex::new(RefCell::new(None)),
+            hash_algo_security: Default::default(),
+            value: Cow::Owned(u),
+            parsed: Default::default(),
         }
     }
 }
@@ -500,26 +525,22 @@ impl From<&[u8]> for UserID {
 
 impl<'a> From<&'a str> for UserID {
     fn from(u: &'a str) -> Self {
-        let b = u.as_bytes();
-        let mut v = Vec::with_capacity(b.len());
-        v.extend_from_slice(b);
-        v.into()
+        u.as_bytes().into()
     }
 }
 
 impl From<String> for UserID {
     fn from(u: String) -> Self {
-        let u = &u[..];
-        u.into()
+        u.into_bytes().into()
     }
 }
 
-impl<'a> From<::std::borrow::Cow<'a, str>> for UserID {
-    fn from(u: ::std::borrow::Cow<'a, str>) -> Self {
-        let b = u.as_bytes();
-        let mut v = Vec::with_capacity(b.len());
-        v.extend_from_slice(b);
-        v.into()
+impl<'a> From<Cow<'a, str>> for UserID {
+    fn from(u: Cow<'a, str>) -> Self {
+        match u {
+            Cow::Owned(u) => u.into(),
+            Cow::Borrowed(u) => u.into(),
+        }
     }
 }
 
@@ -575,9 +596,13 @@ impl Clone for UserID {
     fn clone(&self) -> Self {
         UserID {
             common: self.common.clone(),
-            hash_algo_security: self.hash_algo_security,
+            hash_algo_security: self.hash_algo_security.clone(),
             value: self.value.clone(),
-            parsed: Mutex::new(RefCell::new(None)),
+            parsed: if let Some(p) = self.parsed.get() {
+                p.clone().into()
+            } else {
+                OnceLock::new()
+            },
         }
     }
 }
@@ -618,7 +643,7 @@ impl UserID {
                         "Validating comment ({:?})",
                         comment))),
                 Ok(p) => {
-                    if !(p.name().is_none()
+                    if !(p.name().is_some()
                          && p.comment().is_some()
                          && p.email().is_none()) {
                     return Err(Error::InvalidArgument(
@@ -655,14 +680,12 @@ impl UserID {
             }
         }
 
-        let something = !value.is_empty();
-        if something {
-            value.push_str(" <");
+        if !value.is_empty() {
+            value.push(' ');
         }
+        value.push('<');
         value.push_str(address);
-        if something {
-            value.push('>');
-        }
+        value.push('>');
 
         if check_address {
             // Make sure the combined thing is valid.
@@ -732,6 +755,10 @@ impl UserID {
     ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
     pub fn hash_algo_security(&self) -> HashAlgoSecurity {
         self.hash_algo_security
+            .get_or_init(|| {
+                UserID::determine_hash_algo_security(&self.value)
+            })
+            .clone()
     }
 
     // See documentation for hash_algo_security.
@@ -776,15 +803,24 @@ impl UserID {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_address(
-    ///                "John Smith".into(),
-    ///                None, "boat@example.org")?.value(),
+    ///                "John Smith",
+    ///                None,
+    ///                "boat@example.org")?.value(),
     ///            &b"John Smith <boat@example.org>"[..]);
+    ///
+    /// assert_eq!(UserID::from_address(
+    ///                "John Smith",
+    ///                "Who is Advok?",
+    ///                "boat@example.org")?.value(),
+    ///            &b"John Smith (Who is Advok?) <boat@example.org>"[..]);
     /// # Ok(()) }
     /// ```
-    pub fn from_address<O, S>(name: O, comment: O, email: S)
+    pub fn from_address<'a, N, C, E>(name: N, comment: C, email: E)
         -> Result<Self>
-        where S: AsRef<str>,
-              O: Into<Option<S>>
+    where
+        N: Into<Option<&'a str>>,
+        C: Into<Option<&'a str>>,
+        E: AsRef<str>,
     {
         Self::assemble(name.into().as_ref().map(|s| s.as_ref()),
                        comment.into().as_ref().map(|s| s.as_ref()),
@@ -811,15 +847,17 @@ impl UserID {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_unchecked_address(
-    ///                "NAS".into(),
+    ///                "NAS",
     ///                None, "ssh://host.example.org")?.value(),
     ///            &b"NAS <ssh://host.example.org>"[..]);
     /// # Ok(()) }
     /// ```
-    pub fn from_unchecked_address<O, S>(name: O, comment: O, address: S)
+    pub fn from_unchecked_address<'a, N, C, E>(name: N, comment: C, address: E)
         -> Result<Self>
-        where S: AsRef<str>,
-              O: Into<Option<S>>
+    where
+        N: Into<Option<&'a str>>,
+        C: Into<Option<&'a str>>,
+        E: AsRef<str>,
     {
         Self::assemble(name.into().as_ref().map(|s| s.as_ref()),
                        comment.into().as_ref().map(|s| s.as_ref()),
@@ -842,24 +880,18 @@ impl UserID {
     ///   [`UserID::comment`]: UserID::comment()
     ///   [conventional User ID]: #conventional-user-ids
     pub fn value(&self) -> &[u8] {
-        self.value.as_slice()
+        &self.value
     }
 
-    fn do_parse(&self) -> Result<()> {
-        if self.parsed.lock().unwrap().borrow().is_none() {
-            let s = str::from_utf8(&self.value)?;
-
-            *self.parsed.lock().unwrap().borrow_mut() =
-              Some(match ConventionallyParsedUserID::new(s) {
-                Ok(puid) => puid,
-                Err(err) => {
-                    // Return the error from the NameAddrOrOther parser.
-                    return Err(err).context(format!(
-                        "Failed to parse User ID: {:?}", s))?;
-                }
-            });
+    fn do_parse(&self) -> Result<&ConventionallyParsedUserID> {
+        if let Some(p) = self.parsed.get() {
+            return Ok(p);
         }
-        Ok(())
+
+        let s = str::from_utf8(&self.value)?;
+        let p = ConventionallyParsedUserID::parse(s.to_string())?;
+        let _lost_race = self.parsed.set(p.clone());
+        Ok(self.parsed.get().expect("just set"))
     }
 
     /// Parses the User ID according to de facto conventions, and
@@ -868,12 +900,8 @@ impl UserID {
     /// See [conventional User ID] for more information.
     ///
     ///   [conventional User ID]: #conventional-user-ids
-    pub fn name(&self) -> Result<Option<String>> {
-        self.do_parse()?;
-        match *self.parsed.lock().unwrap().borrow() {
-            Some(ref puid) => Ok(puid.name().map(|s| s.to_string())),
-            None => unreachable!(),
-        }
+    pub fn name(&self) -> Result<Option<&str>> {
+        Ok(self.do_parse()?.name())
     }
 
     /// Parses the User ID according to de facto conventions, and
@@ -882,12 +910,8 @@ impl UserID {
     /// See [conventional User ID] for more information.
     ///
     ///   [conventional User ID]: #conventional-user-ids
-    pub fn comment(&self) -> Result<Option<String>> {
-        self.do_parse()?;
-        match *self.parsed.lock().unwrap().borrow() {
-            Some(ref puid) => Ok(puid.comment().map(|s| s.to_string())),
-            None => unreachable!(),
-        }
+    pub fn comment(&self) -> Result<Option<&str>> {
+        Ok(self.do_parse()?.comment())
     }
 
     /// Parses the User ID according to de facto conventions, and
@@ -896,12 +920,8 @@ impl UserID {
     /// See [conventional User ID] for more information.
     ///
     ///   [conventional User ID]: #conventional-user-ids
-    pub fn email(&self) -> Result<Option<String>> {
-        self.do_parse()?;
-        match *self.parsed.lock().unwrap().borrow() {
-            Some(ref puid) => Ok(puid.email().map(|s| s.to_string())),
-            None => unreachable!(),
-        }
+    pub fn email(&self) -> Result<Option<&str>> {
+        Ok(self.do_parse()?.email())
     }
 
     /// Parses the User ID according to de facto conventions, and
@@ -910,12 +930,8 @@ impl UserID {
     /// See [conventional User ID] for more information.
     ///
     ///   [conventional User ID]: #conventional-user-ids
-    pub fn uri(&self) -> Result<Option<String>> {
-        self.do_parse()?;
-        match *self.parsed.lock().unwrap().borrow() {
-            Some(ref puid) => Ok(puid.uri().map(|s| s.to_string())),
-            None => unreachable!(),
-        }
+    pub fn uri(&self) -> Result<Option<&str>> {
+        Ok(self.do_parse()?.uri())
     }
 
     /// Returns a normalized version of the UserID's email address.
@@ -937,10 +953,9 @@ impl UserID {
     ///   [empty locale]: https://www.w3.org/International/wiki/Case_folding
     ///   [Autocrypt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
     pub fn email_normalized(&self) -> Result<Option<String>> {
-        match self.email() {
-            e @ Err(_) => e,
-            Ok(None) => Ok(None),
-            Ok(Some(address)) => {
+        match self.email()? {
+            None => Ok(None),
+            Some(address) => {
                 let mut iter = address.split('@');
                 let localpart = iter.next().expect("Invalid email address");
                 let domain = iter.next().expect("Invalid email address");
@@ -948,8 +963,8 @@ impl UserID {
 
                 // Normalize Unicode in domains.
                 let domain = idna::domain_to_ascii(domain)
-                    .map_err(|e| anyhow::anyhow!(
-                        "punycode conversion failed: {:?}", e))?;
+                    .map_err(|e| anyhow::Error::from(e)
+                             .context("punycode conversion failed"))?;
 
                 // Join.
                 let address = format!("{}@{}", localpart, domain);
@@ -1004,6 +1019,10 @@ mod tests {
              email: Option<&str>, uri: Option<&str>)
             -> bool
         {
+            assert!(email.is_none() || uri.is_none());
+            t!("userid: {}, name: {:?}, comment: {:?}, email: {:?}, uri: {:?}",
+               userid, name, comment, email, uri);
+
             match ConventionallyParsedUserID::new(userid) {
                 Ok(puid) => {
                     let good = puid.name() == name
@@ -1259,7 +1278,40 @@ mod tests {
         }
     }
 
-    // Make sure we can't parse non conventional User IDs.
+    #[test]
+    fn compose() {
+        tracer!(true, "compose", 0);
+
+        fn c(userid: &str,
+             name: Option<&str>, comment: Option<&str>,
+             email: Option<&str>, uri: Option<&str>)
+        {
+            assert!(email.xor(uri).is_some());
+            t!("userid: {}, name: {:?}, comment: {:?}, email: {:?}, uri: {:?}",
+               userid, name, comment, email, uri);
+
+            if let Some(email) = email {
+                let uid = UserID::from_address(name, comment, email).unwrap();
+                assert_eq!(userid, String::from_utf8_lossy(uid.value()));
+            }
+
+            if let Some(uri) = uri {
+                let uid =
+                    UserID::from_unchecked_address(name, comment, uri).unwrap();
+                assert_eq!(userid, String::from_utf8_lossy(uid.value()));
+            }
+        }
+
+        // Conventional User IDs:
+        c("First Last (Comment) <name@example.org>",
+          Some("First Last"), Some("Comment"), Some("name@example.org"), None);
+        c("First Last <name@example.org>",
+          Some("First Last"), None, Some("name@example.org"), None);
+        c("<name@example.org>",
+          None, None, Some("name@example.org"), None);
+    }
+
+    // Make sure we can't parse non-conventional User IDs.
     #[test]
     fn decompose_non_conventional() {
         // Empty string is not allowed.
@@ -1351,9 +1403,9 @@ mod tests {
     fn from_address() {
         assert_eq!(UserID::from_address(None, None, "foo@bar.com")
                        .unwrap().value(),
-                   b"foo@bar.com");
+                   b"<foo@bar.com>");
         assert!(UserID::from_address(None, None, "foo@@bar.com").is_err());
-        assert_eq!(UserID::from_address("Foo Q. Bar".into(), None, "foo@bar.com")
+        assert_eq!(UserID::from_address("Foo Q. Bar", None, "foo@bar.com")
                       .unwrap().value(),
                    b"Foo Q. Bar <foo@bar.com>");
     }

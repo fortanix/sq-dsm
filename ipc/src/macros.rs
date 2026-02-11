@@ -1,5 +1,3 @@
-use std::cmp;
-
 macro_rules! trace {
     ( $TRACE:expr, $fmt:expr, $($pargs:expr),* ) => {
         if $TRACE {
@@ -13,9 +11,8 @@ macro_rules! trace {
 
 // Converts an indentation level to whitespace.
 pub(crate) fn indent(i: isize) -> &'static str {
-    use std::convert::TryFrom;
     let s = "                                                  ";
-    &s[0..cmp::min(usize::try_from(i).unwrap_or(0), s.len())]
+    &s[0..usize::try_from(i).unwrap_or(0).min(s.len())]
 }
 
 macro_rules! tracer {
@@ -55,6 +52,24 @@ macro_rules! tracer {
     }
 }
 
+/// Platform abstraction.
+///
+/// Using this macro makes sure that missing support for new platform
+/// is a compile-time error.
+macro_rules! platform {
+    { unix => $unix:expr, windows => $windows:expr $(,)? } => {
+        if cfg!(unix) {
+            #[cfg(unix)] { $unix }
+            #[cfg(not(unix))] { unreachable!() }
+        } else if cfg!(windows) {
+            #[cfg(windows)] { $windows }
+            #[cfg(not(windows))] { unreachable!() }
+        } else {
+            #[cfg(not(any(unix, windows)))] compile_error!("Unsupported platform");
+            unreachable!()
+        }
+    }
+}
 
 /// A very simple profiling tool.
 ///
@@ -67,7 +82,7 @@ macro_rules! tracer {
 /// displays the output on stderr.  The output is prefixed with label,
 /// if it is provided.
 ///
-/// ```
+/// ```ignore
 /// let result = time_it!("Some code", 10, {
 ///     // Some code.
 ///     5
@@ -113,25 +128,25 @@ macro_rules! time_it {
 ///
 /// For most types just call it after defining the type:
 ///
-/// ```
+/// ```ignore
 /// pub struct MyStruct {}
 /// assert_send_and_sync!(MyStruct);
 /// ```
 ///
 /// For types with lifetimes, use the anonymous lifetime:
 ///
-/// ```
-/// pub struct WithLifetime<'a> {}
-/// assert_send_and_sync!(MyStruct<'_>);
+/// ```ignore
+/// pub struct WithLifetime<'a> { _p: std::marker::PhantomData<&'a ()> }
+/// assert_send_and_sync!(WithLifetime<'_>);
 /// ```
 ///
 /// For a type generic over another type `W`,
 /// pass the type `W` as a where clause
 /// including a trait bound when needed:
 ///
-/// ```
-/// pub struct MyWriter<W: io::Write> {}
-/// assert_send_and_sync!(MyWriterStruct<W> where W: io::Write);
+/// ```ignore
+/// pub struct MyWriter<W: std::io::Write> { _p: std::marker::PhantomData<W> }
+/// assert_send_and_sync!(MyWriter<W> where W: std::io::Write);
 /// ```
 ///
 /// This will assert that `MyWriterStruct<W>` is `Send` and `Sync`
@@ -141,30 +156,37 @@ macro_rules! time_it {
 /// Just make sure to list all the types - even those without additional
 /// trait bounds:
 ///
-/// ```
-/// pub struct MyWriterWithLifetime<a', C, W: io::Write> {}
-/// assert_send_and_sync!(MyWriterStruct<'_, C, W> where C, W: io::Write);
+/// ```ignore
+/// pub struct MyWriterWithLifetime<'a, C, W: std::io::Write> {
+///     _p: std::marker::PhantomData<&'a (C, W)>,
+/// }
+/// assert_send_and_sync!(MyWriterWithLifetime<'_, C, W> where C, W: std::io::Write);
 /// ```
 ///
 /// If you need multiple additional trait bounds on a single type
 /// you can add them separated by `+` like in normal where clauses.
 /// However you have to make sure they are `Identifiers` like `Write`.
-/// In macro patterns `Paths` (like `io::Write`) may not be followed
+/// In macro patterns `Paths` (like `std::io::Write`) may not be followed
 /// by `+` characters.
+// Note: We cannot test the macro in doctests, because the macro is
+// not public.  We test the cases in the test module below, instead.
+// If you change the examples here, propagate the changes to the
+// module below.
+#[allow(unused_macros)]
 macro_rules! assert_send_and_sync {
     ( $x:ty where $( $g:ident$( : $a:path )? $(,)?)*) => {
-        impl<$( $g ),*> crate::types::Sendable for $x
+        impl<$( $g ),*> crate::macros::Sendable for $x
             where $( $g: Send + Sync $( + $a )? ),*
             {}
-        impl<$( $g ),*> crate::types::Syncable for $x
+        impl<$( $g ),*> crate::macros::Syncable for $x
             where $( $g: Send + Sync $( + $a )? ),*
             {}
     };
     ( $x:ty where $( $g:ident$( : $a:ident $( + $b:ident )* )? $(,)?)*) => {
-        impl<$( $g ),*> crate::types::Sendable for $x
+        impl<$( $g ),*> crate::macros::Sendable for $x
             where $( $g: Send + Sync $( + $a $( + $b )* )? ),*
             {}
-        impl<$( $g ),*> crate::types::Syncable for $x
+        impl<$( $g ),*> crate::macros::Syncable for $x
             where $( $g: Send + Sync $( + $a $( + $b )* )? ),*
             {}
     };
@@ -173,5 +195,39 @@ macro_rules! assert_send_and_sync {
         impl crate::macros::Syncable for $x {}
     };
 }
+
+#[allow(dead_code)]
 pub(crate) trait Sendable : Send {}
+#[allow(dead_code)]
 pub(crate) trait Syncable : Sync {}
+
+/// We cannot test the macro in doctests, because the macro is not
+/// public.  We test the cases here, instead.  If you change the
+/// examples here, propagate the changes to the docstring above.
+#[cfg(test)]
+#[allow(dead_code)]
+mod test_assert_send_and_sync {
+    /// For most types just call it after defining the type:
+    pub struct MyStruct {}
+    assert_send_and_sync!(MyStruct);
+
+    /// For types with lifetimes, use the anonymous lifetime:
+    pub struct WithLifetime<'a> { _p: std::marker::PhantomData<&'a ()> }
+    assert_send_and_sync!(WithLifetime<'_>);
+
+    /// For a type generic over another type `W`, pass the type `W` as
+    /// a where clause including a trait bound when needed:
+    pub struct MyWriter<W: std::io::Write> { _p: std::marker::PhantomData<W> }
+    assert_send_and_sync!(MyWriter<W> where W: std::io::Write);
+
+    /// This will assert that `MyWriterStruct<W>` is `Send` and `Sync`
+    /// if `W` is `Send` and `Sync`.
+    ///
+    /// You can also combine the two and be generic over multiple
+    /// types.  Just make sure to list all the types - even those
+    /// without additional trait bounds:
+    pub struct MyWriterWithLifetime<'a, C, W: std::io::Write> {
+        _p: std::marker::PhantomData<&'a (C, W)>,
+    }
+    assert_send_and_sync!(MyWriterWithLifetime<'_, C, W> where C, W: std::io::Write);
+}

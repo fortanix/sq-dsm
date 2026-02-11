@@ -1,12 +1,12 @@
 //! Streaming packet serialization.
 //!
 //! This interface provides a convenient way to create signed and/or
-//! encrypted OpenPGP messages (see [Section 11.3 of RFC 4880]) and is
+//! encrypted OpenPGP messages (see [Section 10.3 of RFC 9580]) and is
 //! the preferred interface to generate messages using Sequoia.  It
 //! takes advantage of OpenPGP's streaming nature to avoid unnecessary
 //! buffering.
 //!
-//!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+//!   [Section 10.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
 //!
 //! To use this interface, a sink implementing [`io::Write`] is
 //! wrapped by [`Message::new`] returning a streaming [`Message`].
@@ -44,10 +44,10 @@
 //! # Examples
 //!
 //! This example demonstrates how to create the simplest possible
-//! OpenPGP message (see [Section 11.3 of RFC 4880]) containing just a
-//! literal data packet (see [Section 5.9 of RFC 4880]):
+//! OpenPGP message (see [Section 10.3 of RFC 9580]) containing just a
+//! literal data packet (see [Section 5.9 of RFC 9580]):
 //!
-//!   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+//!   [Section 5.9 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.9
 //!
 //! ```
 //! # fn main() -> sequoia_openpgp::Result<()> {
@@ -67,8 +67,8 @@
 //! ```
 //!
 //! This example demonstrates how to create the most common OpenPGP
-//! message structure (see [Section 11.3 of RFC 4880]).  The plaintext
-//! is first signed, then encrypted, and finally ASCII armored.
+//! message structure (see [Section 10.3 of RFC 9580]).  The plaintext
+//! is first signed, then padded, encrypted, and finally ASCII armored.
 //!
 //! ```
 //! # fn main() -> sequoia_openpgp::Result<()> {
@@ -77,7 +77,7 @@
 //! use openpgp::policy::StandardPolicy;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::serialize::stream::{
-//!     Message, Armorer, Encryptor, Signer, LiteralWriter,
+//!     Message, Armorer, Encryptor, Signer, LiteralWriter, padding::Padder,
 //! };
 //! # use openpgp::parse::Parse;
 //!
@@ -104,7 +104,8 @@
 //! let message = Armorer::new(message).build()?;
 //! let message = Encryptor::for_recipients(message, recipients).build()?;
 //! // Reduce metadata leakage by concealing the message size.
-//! let message = Signer::new(message, signing_keypair)
+//! let message = Padder::new(message).build()?;
+//! let message = Signer::new(message, signing_keypair)?
 //!     // Prevent Surreptitious Forwarding.
 //!     .add_intended_recipient(&recipient)
 //!     .build()?;
@@ -124,7 +125,8 @@ use crate::{
     Error,
     Fingerprint,
     HashAlgorithm,
-    KeyID,
+    KeyHandle,
+    Profile,
     Result,
     crypto::Password,
     crypto::SessionKey,
@@ -135,6 +137,7 @@ use crate::{
 };
 use crate::packet::header::CTB;
 use crate::packet::header::BodyLength;
+use crate::parse::HashingMode;
 use super::{
     Marshal,
 };
@@ -143,12 +146,12 @@ use crate::types::{
     CompressionAlgorithm,
     CompressionLevel,
     DataFormat,
+    Features,
     SignatureType,
     SymmetricAlgorithm,
 };
 
 pub(crate) mod writer;
-#[cfg(feature = "compression-deflate")]
 pub mod padding;
 mod partial_body;
 use partial_body::PartialBodyFilter;
@@ -165,10 +168,25 @@ struct Cookie {
     private: Private,
 }
 
+impl Cookie {
+    /// Sets the private data part of the cookie.
+    pub fn set_private(mut self, p: Private) -> Self {
+        self.private = p;
+        self
+    }
+}
+
+/// An enum to store writer-specific data.
 #[derive(Debug)]
 enum Private {
     Nothing,
     Signer,
+    Armorer {
+        set_profile: Option<Profile>,
+    },
+    Encryptor {
+        profile: Profile,
+    },
 }
 
 impl Cookie {
@@ -325,14 +343,14 @@ impl<'a> From<&'a mut (dyn io::Write + Send + Sync)> for Message<'a> {
 
 /// Applies ASCII Armor to the message.
 ///
-/// ASCII armored data (see [Section 6 of RFC 4880]) is a OpenPGP data
+/// ASCII armored data (see [Section 6 of RFC 9580]) is a OpenPGP data
 /// stream that has been base64-encoded and decorated with a header,
 /// footer, and optional headers representing key-value pairs.  It can
 /// be safely transmitted over protocols that can only transmit
-/// printable characters, and can handled by end users (e.g. copied
+/// printable characters, and can be handled by end users (e.g. copied
 /// and pasted).
 ///
-///   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+///   [Section 6 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6
 pub struct Armorer<'a> {
     kind: armor::Kind,
     headers: Vec<(String, String)>,
@@ -421,7 +439,7 @@ impl<'a> Armorer<'a> {
     ///     let message = Armorer::new(message)
     ///         .kind(armor::Kind::Signature)
     ///         .build()?;
-    ///     let mut signer = Signer::new(message, signing_keypair)
+    ///     let mut signer = Signer::new(message, signing_keypair)?
     ///         .detached()
     ///         .build()?;
     ///
@@ -442,10 +460,10 @@ impl<'a> Armorer<'a> {
     /// Adds a header to the armor block.
     ///
     /// There are a number of defined armor header keys (see [Section
-    /// 6 of RFC 4880]), but in practice, any key may be used, as
+    /// 6 of RFC 9580]), but in practice, any key may be used, as
     /// implementations should simply ignore unknown keys.
     ///
-    ///   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+    ///   [Section 6 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6
     ///
     /// # Examples
     ///
@@ -499,9 +517,14 @@ impl<'a> Armorer<'a> {
     /// # Ok(()) }
     pub fn build(self) -> Result<Message<'a>> {
         let level = self.inner.as_ref().cookie_ref().level;
+        let mut cookie = Cookie::new(level + 1);
+        cookie.private = Private::Armorer {
+            set_profile: None,
+        };
+
         writer::Armorer::new(
             self.inner,
-            Cookie::new(level + 1),
+            cookie,
             self.kind,
             self.headers,
         )
@@ -530,7 +553,6 @@ pub struct ArbitraryWriter<'a> {
 }
 assert_send_and_sync!(ArbitraryWriter<'_>);
 
-#[allow(clippy::new_ret_no_self)]
 impl<'a> ArbitraryWriter<'a> {
     /// Creates a new writer with the given tag.
     ///
@@ -631,20 +653,22 @@ pub struct Signer<'a> {
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    signers: Vec<Box<dyn crypto::Signer + Send + Sync + 'a>>,
+    signers: Vec<(Box<dyn crypto::Signer + Send + Sync + 'a>,
+                  HashAlgorithm, Vec<u8>)>,
+
+    /// The set of acceptable hashes.
+    acceptable_hash_algos: Vec<HashAlgorithm>,
+
+    /// The explicitly selected algo, if any.
+    hash_algo: Option<HashAlgorithm>,
+
     intended_recipients: Vec<Fingerprint>,
     mode: SignatureMode,
     template: signature::SignatureBuilder,
     creation_time: Option<SystemTime>,
-    hash: Box<dyn crypto::hash::Digest>,
+    hashes: Vec<HashingMode<crypto::hash::Context>>,
     cookie: Cookie,
     position: u64,
-
-    /// When creating a message using the cleartext signature
-    /// framework, the final newline is not part of the signature,
-    /// hence, we delay hashing up to two bytes so that we can omit
-    /// them when the message is finalized.
-    hash_stash: Vec<u8>,
 }
 assert_send_and_sync!(Signer<'_>);
 
@@ -662,13 +686,13 @@ impl<'a> Signer<'a> {
     /// create more than one signature, add more [`crypto::Signer`]s
     /// using [`Signer::add_signer`].  Properties of the signatures
     /// can be tweaked using the methods of this type.  Notably, to
-    /// generate a detached signature (see [Section 11.4 of RFC
-    /// 4880]), use [`Signer::detached`].  For even more control over
+    /// generate a detached signature (see [Section 10.4 of RFC
+    /// 9580]), use [`Signer::detached`].  For even more control over
     /// the generated signatures, use [`Signer::with_template`].
     ///
     ///   [`crypto::Signer`]: super::super::crypto::Signer
     ///   [`Signer::add_signer`]: Signer::add_signer()
-    ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
+    ///   [Section 10.4 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.4
     ///   [`Signer::detached`]: Signer::detached()
     ///   [`Signer::with_template`]: Signer::with_template()
     ///
@@ -697,7 +721,7 @@ impl<'a> Signer<'a> {
     /// let mut sink = vec![];
     /// {
     ///     let message = Message::new(&mut sink);
-    ///     let message = Signer::new(message, signing_keypair)
+    ///     let message = Signer::new(message, signing_keypair)?
     ///         // Customize the `Signer` here.
     ///         .build()?;
     ///     let mut message = LiteralWriter::new(message).build()?;
@@ -732,7 +756,7 @@ impl<'a> Signer<'a> {
     /// assert_eq!(&message, "Make it so, number one!");
     /// # Ok(()) }
     /// ```
-    pub fn new<S>(inner: Message<'a>, signer: S) -> Self
+    pub fn new<S>(inner: Message<'a>, signer: S) -> Result<Self>
         where S: crypto::Signer + Send + Sync + 'a
     {
         Self::with_template(inner, signer,
@@ -791,7 +815,7 @@ impl<'a> Signer<'a> {
     ///     message, signing_keypair,
     ///     signature::SignatureBuilder::new(SignatureType::Text)
     ///         .add_notation("issuer@starfleet.command", "Jean-Luc Picard",
-    ///                       None, true)?)
+    ///                       None, true)?)?
     ///     // Further customize the `Signer` here.
     ///     .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
@@ -800,7 +824,7 @@ impl<'a> Signer<'a> {
     /// # Ok(()) }
     /// ```
     pub fn with_template<S, T>(inner: Message<'a>, signer: S, template: T)
-                               -> Self
+                               -> Result<Self>
         where S: crypto::Signer + Send + Sync + 'a,
               T: Into<signature::SignatureBuilder>,
     {
@@ -808,30 +832,32 @@ impl<'a> Signer<'a> {
         let level = inner.cookie_ref().level + 1;
         Signer {
             inner: Some(inner),
-            signers: vec![Box::new(signer)],
+            signers: Default::default(),
+            acceptable_hash_algos:
+            crate::crypto::hash::default_hashes().to_vec(),
             intended_recipients: Vec::new(),
             mode: SignatureMode::Inline,
             template: template.into(),
             creation_time: None,
-            hash: HashAlgorithm::default().context().unwrap(),
+            hash_algo: Default::default(),
+            hashes: vec![],
             cookie: Cookie {
                 level,
                 private: Private::Signer,
             },
             position: 0,
-            hash_stash: Vec::with_capacity(0),
-        }
+        }.add_signer(signer)
     }
 
     /// Creates a signer for a detached signature.
     ///
     /// Changes the `Signer` to create a detached signature (see
-    /// [Section 11.4 of RFC 4880]).  Note that the literal data *must
+    /// [Section 10.4 of RFC 9580]).  Note that the literal data *must
     /// not* be wrapped using the [`LiteralWriter`].
     ///
     /// This overrides any prior call to [`Signer::cleartext`].
     ///
-    ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
+    ///   [Section 10.4 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.4
     ///   [`Signer::cleartext`]: Signer::cleartext()
     ///
     /// # Examples
@@ -860,7 +886,7 @@ impl<'a> Signer<'a> {
     /// let mut sink = vec![];
     /// {
     ///     let message = Message::new(&mut sink);
-    ///     let mut signer = Signer::new(message, signing_keypair)
+    ///     let mut signer = Signer::new(message, signing_keypair)?
     ///         .detached()
     ///         // Customize the `Signer` here.
     ///         .build()?;
@@ -904,20 +930,16 @@ impl<'a> Signer<'a> {
     /// Creates a signer for a cleartext signed message.
     ///
     /// Changes the `Signer` to create a cleartext signed message (see
-    /// [Section 7 of RFC 4880]).  Note that the literal data *must
+    /// [Section 7 of RFC 9580]).  Note that the literal data *must
     /// not* be wrapped using the [`LiteralWriter`].  This implies
     /// ASCII armored output, *do not* add an [`Armorer`] to the
     /// stack.
     ///
     /// Note:
     ///
-    /// - If your message does not end in a newline, creating a signed
-    ///   message using the Cleartext Signature Framework will add
-    ///   one.
-    ///
     /// - The cleartext signature framework does not hash trailing
-    ///   whitespace (in this case, space and tab, see [Section 7.1 of
-    ///   RFC 4880] for more information).  We align what we emit and
+    ///   whitespace (in this case, space and tab, see [Section 7.2 of
+    ///   RFC 9580] for more information).  We align what we emit and
     ///   what is being signed by trimming whitespace off of line
     ///   endings.
     ///
@@ -925,12 +947,12 @@ impl<'a> Signer<'a> {
     ///   the signed message if your message contains either a line
     ///   with trailing whitespace, or no final newline.  This is a
     ///   limitation of the Cleartext Signature Framework, which is
-    ///   not designed to be reversible (see [Section 7 of RFC 4880]).
+    ///   not designed to be reversible (see [Section 7 of RFC 9580]).
     ///
     /// This overrides any prior call to [`Signer::detached`].
     ///
-    ///   [Section 7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7
-    ///   [Section 7.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7.1
+    ///   [Section 7 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-7
+    ///   [Section 7.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-7.2
     ///   [`Signer::detached`]: Signer::detached()
     ///
     /// # Examples
@@ -959,7 +981,7 @@ impl<'a> Signer<'a> {
     /// let mut sink = vec![];
     /// {
     ///     let message = Message::new(&mut sink);
-    ///     let mut signer = Signer::new(message, signing_keypair)
+    ///     let mut signer = Signer::new(message, signing_keypair)?
     ///         .cleartext()
     ///         // Customize the `Signer` here.
     ///         .build()?;
@@ -994,7 +1016,7 @@ impl<'a> Signer<'a> {
     ///
     /// let mut content = Vec::new();
     /// verifier.read_to_end(&mut content)?;
-    /// assert_eq!(content, b"Make it so, number one!\n");
+    /// assert_eq!(content, b"Make it so, number one!");
     /// # Ok(()) }
     /// ```
     //
@@ -1019,6 +1041,13 @@ impl<'a> Signer<'a> {
     /// Adds an additional signer.
     ///
     /// Can be used multiple times.
+    ///
+    /// Note that some signers only support a subset of hash
+    /// algorithms, see [`crate::crypto::Signer.acceptable_hashes`].
+    /// If the given signer supports at least one hash from the
+    /// current set of acceptable hashes, the signer is added and all
+    /// algorithms not supported by it are removed from the set of
+    /// acceptable hashes.  Otherwise, an error is returned.
     ///
     /// # Examples
     ///
@@ -1047,19 +1076,44 @@ impl<'a> Signer<'a> {
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
-    /// let message = Signer::new(message, signing_keypair)
-    ///     .add_signer(additional_signing_keypair)
+    /// let message = Signer::new(message, signing_keypair)?
+    ///     .add_signer(additional_signing_keypair)?
     ///     .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
     /// message.write_all(b"Make it so, number one!")?;
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn add_signer<S>(mut self, signer: S) -> Self
+    pub fn add_signer<S>(mut self, signer: S) -> Result<Self>
         where S: crypto::Signer + Send + Sync + 'a
     {
-        self.signers.push(Box::new(signer));
-        self
+        // Update the set of acceptable hash algorithms.
+        let is_sorted = |data: &[HashAlgorithm]| {
+            data.windows(2).all(|w| w[0] <= w[1])
+        };
+
+        let mut signer_hashes = signer.acceptable_hashes();
+        let mut signer_hashes_;
+        if ! is_sorted(signer_hashes) {
+            signer_hashes_ = signer_hashes.to_vec();
+            signer_hashes_.sort();
+            signer_hashes = &signer_hashes_;
+        }
+        self.acceptable_hash_algos.retain(
+            |hash| signer_hashes.binary_search(hash).is_ok());
+
+        if self.acceptable_hash_algos.is_empty() {
+            return Err(Error::NoAcceptableHash.into());
+        }
+
+        if let Some(a) = self.hash_algo {
+            if ! self.acceptable_hash_algos.contains(&a) {
+                return Err(Error::NoAcceptableHash.into());
+            }
+        }
+
+        self.signers.push((Box::new(signer), Default::default(), Vec::new()));
+        Ok(self)
     }
 
     /// Adds an intended recipient.
@@ -1099,7 +1153,7 @@ impl<'a> Signer<'a> {
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
-    /// let message = Signer::new(message, signing_keypair)
+    /// let message = Signer::new(message, signing_keypair)?
     ///     .add_intended_recipient(&recipient)
     ///     .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
@@ -1112,7 +1166,12 @@ impl<'a> Signer<'a> {
         self
     }
 
-    /// Sets the hash algorithm to use for the signatures.
+    /// Sets the preferred hash algorithm to use for the signatures.
+    ///
+    /// Note that some signers only support a subset of hash
+    /// algorithms, see [`crate::crypto::Signer.acceptable_hashes`].
+    /// If the given algorithm is not supported by all signers, an
+    /// error is returned.
     ///
     /// # Examples
     ///
@@ -1138,7 +1197,7 @@ impl<'a> Signer<'a> {
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
-    /// let message = Signer::new(message, signing_keypair)
+    /// let message = Signer::new(message, signing_keypair)?
     ///     .hash_algo(HashAlgorithm::SHA384)?
     ///     .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
@@ -1147,8 +1206,12 @@ impl<'a> Signer<'a> {
     /// # Ok(()) }
     /// ```
     pub fn hash_algo(mut self, algo: HashAlgorithm) -> Result<Self> {
-        self.hash = algo.context()?;
-        Ok(self)
+        if self.acceptable_hash_algos.contains(&algo) {
+            self.hash_algo = Some(algo);
+            Ok(self)
+        } else {
+            Err(Error::NoAcceptableHash.into())
+        }
     }
 
     /// Sets the signature's creation time to `time`.
@@ -1182,7 +1245,7 @@ impl<'a> Signer<'a> {
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
-    /// let message = Signer::new(message, signing_keypair)
+    /// let message = Signer::new(message, signing_keypair)?
     ///     .creation_time(Timestamp::now()
     ///                    .round_down(None, signing_key.creation_time())?)
     ///     .build()?;
@@ -1202,14 +1265,14 @@ impl<'a> Signer<'a> {
     ///
     /// The most useful filter to push to the writer stack next is the
     /// [`LiteralWriter`].  Note, if you are creating a signed OpenPGP
-    /// message (see [Section 11.3 of RFC 4880]), literal data *must*
+    /// message (see [Section 10.3 of RFC 9580]), literal data *must*
     /// be wrapped using the [`LiteralWriter`].  On the other hand, if
-    /// you are creating a detached signature (see [Section 11.4 of
-    /// RFC 4880]), the literal data *must not* be wrapped using the
+    /// you are creating a detached signature (see [Section 10.4 of
+    /// RFC 9580]), the literal data *must not* be wrapped using the
     /// [`LiteralWriter`].
     ///
-    ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
-    ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
+    ///   [Section 10.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
+    ///   [Section 10.4 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.4
     ///
     /// # Examples
     ///
@@ -1237,7 +1300,7 @@ impl<'a> Signer<'a> {
     /// #
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
-    /// let message = Signer::new(message, signing_keypair)
+    /// let message = Signer::new(message, signing_keypair)?
     ///     // Customize the `Signer` here.
     ///     .build()?;
     /// # Ok(()) }
@@ -1247,19 +1310,96 @@ impl<'a> Signer<'a> {
         assert!(!self.signers.is_empty(), "The constructor adds a signer.");
         assert!(self.inner.is_some(), "The constructor adds an inner writer.");
 
+        // Possibly configure any armor writer above us.
+        if self.signers.iter().all(|(kp, _, _)| kp.public().version() > 4) {
+            writer::Armorer::set_profile(&mut self, Profile::RFC9580);
+        }
+
+        for (keypair, signer_hash, signer_salt) in self.signers.iter_mut() {
+            let algo = if let Some(a) = self.hash_algo {
+                a
+            } else {
+                self.acceptable_hash_algos.get(0)
+                    .expect("we make sure the set is never empty")
+                    .clone()
+            };
+            *signer_hash = algo;
+            let mut hash = algo.context()?
+                .for_signature(keypair.public().version());
+
+            match keypair.public().version() {
+                4 => {
+                    self.hashes.push(
+                        if self.template.typ() == SignatureType::Text
+                            || self.mode == SignatureMode::Cleartext
+                        {
+                            HashingMode::Text(vec![], hash)
+                        } else {
+                            HashingMode::Binary(vec![], hash)
+                        });
+                },
+                6 => {
+                    // Version 6 signatures are salted, and we
+                    // need to include it in the OPS packet.
+                    // Generate and remember the salt here.
+                    let mut salt = vec![0; algo.salt_size()?];
+                    crate::crypto::random(&mut salt)?;
+
+                    // Add the salted context.
+                    hash.update(&salt);
+                    self.hashes.push(
+                        if self.template.typ() == SignatureType::Text
+                            || self.mode == SignatureMode::Cleartext
+                        {
+                            HashingMode::Text(salt.clone(), hash)
+                        } else {
+                            HashingMode::Binary(salt.clone(), hash)
+                        });
+
+                    // And remember which signer used which salt.
+                    *signer_salt = salt;
+                },
+                v => return Err(Error::InvalidOperation(
+                    format!("Unsupported Key version {}", v)).into()),
+            }
+        }
+
         match self.mode {
             SignatureMode::Inline => {
                 // For every key we collected, build and emit a one pass
                 // signature packet.
-                for (i, keypair) in self.signers.iter().enumerate() {
+                let signers_count = self.signers.len();
+                for (i, (keypair, hash_algo, salt)) in
+                    self.signers.iter().enumerate()
+                {
+                    let last = i == signers_count - 1;
                     let key = keypair.public();
-                    let mut ops = OnePassSig3::new(self.template.typ());
-                    ops.set_pk_algo(key.pk_algo());
-                    ops.set_hash_algo(self.hash.algo());
-                    ops.set_issuer(key.keyid());
-                    ops.set_last(i == self.signers.len() - 1);
-                    Packet::OnePassSig(ops.into())
-                        .serialize(self.inner.as_mut().unwrap())?;
+
+                    match key.version() {
+                        4 => {
+                            let mut ops = OnePassSig3::new(self.template.typ());
+                            ops.set_pk_algo(key.pk_algo());
+                            ops.set_hash_algo(*hash_algo);
+                            ops.set_issuer(key.keyid());
+                            ops.set_last(last);
+                            Packet::from(ops)
+                                .serialize(self.inner.as_mut().unwrap())?;
+                        },
+                        6 => {
+                            // Version 6 signatures are salted, and we
+                            // need to include it in the OPS packet.
+                            let mut ops = OnePassSig6::new(
+                                self.template.typ(), key.fingerprint());
+                            ops.set_pk_algo(key.pk_algo());
+                            ops.set_hash_algo(*hash_algo);
+                            ops.set_salt(salt.clone());
+                            ops.set_last(last);
+                            Packet::from(ops)
+                                .serialize(self.inner.as_mut().unwrap())?;
+                        },
+                        v => return Err(Error::InvalidOperation(
+                            format!("Unsupported Key version {}", v)).into()),
+                    }
                 }
             },
             SignatureMode::Detached => (), // Do nothing.
@@ -1270,7 +1410,18 @@ impl<'a> Signer<'a> {
                 // Write the header.
                 let mut sink = self.inner.take().unwrap();
                 writeln!(sink, "-----BEGIN PGP SIGNED MESSAGE-----")?;
-                writeln!(sink, "Hash: {}", self.hash.algo().text_name()?)?;
+                let mut hashes = self.signers.iter().filter_map(
+                    |(keypair, algo, _)| if keypair.public().version() == 4 {
+                        Some(algo)
+                    } else {
+                        None
+                    })
+                    .collect::<Vec<_>>();
+                hashes.sort();
+                hashes.dedup();
+                for hash in hashes {
+                    writeln!(sink, "Hash: {}", hash.text_name()?)?;
+                }
                 writeln!(sink)?;
 
                 // We now install two filters.  See the comment on
@@ -1295,8 +1446,12 @@ impl<'a> Signer<'a> {
     fn emit_signatures(&mut self) -> Result<()> {
         if self.mode == SignatureMode::Cleartext {
             // Pop off the DashEscapeFilter.
-            let inner = self.inner.take().expect("It's the DashEscapeFilter")
+            let mut inner =
+                self.inner.take().expect("It's the DashEscapeFilter")
                 .into_inner()?.expect("It's the DashEscapeFilter");
+
+            // Add the separating newline that is not part of the message.
+            writeln!(inner)?;
 
             // And install an armorer.
             self.inner =
@@ -1311,16 +1466,51 @@ impl<'a> Signer<'a> {
             // Emit the signatures in reverse, so that the
             // one-pass-signature and signature packets "bracket" the
             // message.
-            for signer in self.signers.iter_mut() {
-                // Part of the signature packet is hashed in,
-                // therefore we need to clone the hash.
-                let hash = self.hash.clone();
+            for (signer, algo, signer_salt) in self.signers.iter_mut().rev() {
+                let (mut sig, hash) = match signer.public().version() {
+                    4 => {
+                        // V4 signature.
 
-                // Make and hash a signature packet.
-                let mut sig = self.template.clone()
-                    .set_signature_creation_time(
-                        self.creation_time
-                            .unwrap_or_else(crate::now))?;
+                        let hash = self.hashes.iter()
+                            .find_map(|hash| {
+                                if hash.salt().is_empty()
+                                    && hash.as_ref().algo() == *algo
+                                {
+                                    Some(hash.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .expect("we put it in there");
+
+                        // Make and hash a signature packet.
+                        let sig = self.template.clone();
+
+                        (sig, hash)
+                    },
+                    6 => {
+                        // V6 signature.
+                        let hash = self.hashes.iter()
+                            .find_map(|hash| if signer_salt == hash.salt() {
+                                Some(hash.clone())
+                            } else {
+                                None
+                            })
+                            .expect("we put it in there");
+
+                        // Make and hash a signature packet.
+                        let sig = self.template.clone()
+                            .set_prefix_salt(signer_salt.clone()).0;
+
+                        (sig, hash)
+                    },
+                    v => return Err(Error::InvalidOperation(
+                        format!("Unsupported Key version {}", v)).into()),
+                };
+
+                sig = sig.set_signature_creation_time(
+                    self.creation_time
+                        .unwrap_or_else(crate::now))?;
 
                 if ! self.intended_recipients.is_empty() {
                     sig = sig.set_intended_recipients(
@@ -1328,7 +1518,8 @@ impl<'a> Signer<'a> {
                 }
 
                 // Compute the signature.
-                let sig = sig.sign_hash(signer.as_mut(), hash)?;
+                let sig = sig.sign_hash(signer.as_mut(),
+                                        hash.into_inner())?;
 
                 // And emit the packet.
                 Packet::Signature(sig).serialize(sink)?;
@@ -1377,44 +1568,8 @@ impl<'a> Write for Signer<'a> {
         if let Ok(amount) = written {
             let data = &buf[..amount];
 
-            if self.mode == Cleartext {
-                // Delay hashing the last two bytes, because we the
-                // final newline is not part of the signature (see
-                // Section 7.1 of RFC4880).
-
-                // First, hash the stashed bytes.  We know that it is
-                // a newline, but we know that more text follows (buf
-                // is not empty), so it cannot be the last.
-                assert!(! buf.is_empty());
-                crate::parse::hash_update_text(&mut self.hash,
-                                               &self.hash_stash[..]);
-                crate::vec_truncate(&mut self.hash_stash, 0);
-
-                // Compute the length of data that should be hashed.
-                // If it ends in a newline, we delay hashing it.
-                let l = data.len() - if data.ends_with(b"\r\n") {
-                    2
-                } else if data.ends_with(b"\n") {
-                    1
-                } else {
-                    0
-                };
-
-                // XXX: This logic breaks if we get a b"\r\n" in two
-                // writes.  However, TrailingWSFilter will only emit
-                // b"\r\n" in one write.
-
-                // Hash everything but the last newline now.
-                crate::parse::hash_update_text(&mut self.hash, &data[..l]);
-                // The newline we stash away.  If more text is written
-                // later, we will hash it then.  Otherwise, it is
-                // implicitly omitted when the signer is finalized.
-                self.hash_stash.extend_from_slice(&data[l..]);
-            } else if self.template.typ() == SignatureType::Text {
-                crate::parse::hash_update_text(&mut self.hash, data);
-            } else {
-                self.hash.update(data);
-            }
+            self.hashes.iter_mut().for_each(
+                |hash| hash.update(data));
             self.position += amount as u64;
         }
 
@@ -1472,10 +1627,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
 ///
 /// Literal data, i.e. the payload or plaintext, must be wrapped in a
 /// literal data packet to be transported over OpenPGP (see [Section
-/// 5.9 of RFC 4880]).  The body will be written using partial length
+/// 5.9 of RFC 9580]).  The body will be written using partial length
 /// encoding, or, if the body is short, using full length encoding.
 ///
-///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+///   [Section 5.9 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.9
 ///
 /// # Note on metadata
 ///
@@ -1542,12 +1697,12 @@ impl<'a> LiteralWriter<'a> {
     /// {
     ///     let message = Message::new(&mut sink);
     ///     let mut message = LiteralWriter::new(message)
-    ///         .format(DataFormat::Text)
+    ///         .format(DataFormat::Unicode)
     ///         .build()?;
     ///     message.write_all(b"Hello world.")?;
     ///     message.finalize()?;
     /// }
-    /// assert_eq!(b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.",
+    /// assert_eq!(b"\xcb\x12u\x00\x00\x00\x00\x00Hello world.",
     ///            sink.as_slice());
     /// # Ok(()) }
     /// ```
@@ -1992,13 +2147,13 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 ///
 /// OpenPGP messages are encrypted with the subkeys of recipients,
 /// identified by the keyid of said subkeys in the [`recipient`] field
-/// of [`PKESK`] packets (see [Section 5.1 of RFC 4880]).  The keyid
+/// of [`PKESK`] packets (see [Section 5.1 of RFC 9580]).  The keyid
 /// may be a wildcard (as returned by [`KeyID::wildcard()`]) to
 /// obscure the identity of the recipient.
 ///
 ///   [`recipient`]: crate::packet::PKESK#method.recipient
 ///   [`PKESK`]: crate::packet::PKESK
-///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
+///   [Section 5.1 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.1
 ///   [`KeyID::wildcard()`]: crate::KeyID::wildcard()
 ///
 /// Note that several subkeys in a certificate may be suitable
@@ -2009,28 +2164,51 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 /// however, suggest to encrypt to all suitable subkeys.
 #[derive(Debug)]
 pub struct Recipient<'a> {
-    keyid: KeyID,
+    handle: Option<KeyHandle>,
+    features: Features,
     key: &'a Key<key::PublicParts, key::UnspecifiedRole>,
 }
 assert_send_and_sync!(Recipient<'_>);
 
-impl<'a, P, R> From<&'a Key<P, R>> for Recipient<'a>
-    where P: key::KeyParts,
-          R: key::KeyRole,
+impl<'a, P> From<ValidSubordinateKeyAmalgamation<'a, P>>
+    for Recipient<'a>
+where
+    P: key::KeyParts,
 {
-    fn from(key: &'a Key<P, R>) -> Self {
-        Self::new(key.keyid(), key.parts_as_public().role_as_unspecified())
+    fn from(ka: ValidSubordinateKeyAmalgamation<'a, P>) -> Self {
+        let features = ka.valid_cert().features()
+            .unwrap_or_else(Features::empty);
+        let handle: KeyHandle = if features.supports_seipdv2() {
+            ka.key().fingerprint().into()
+        } else {
+            ka.key().keyid().into()
+        };
+
+        use crate::cert::Preferences;
+        use crate::cert::amalgamation::ValidAmalgamation;
+        Self::new(features, handle,
+                  ka.key().parts_as_public().role_as_unspecified())
     }
 }
 
-impl<'a, P, R, R2> From<ValidKeyAmalgamation<'a, P, R, R2>>
+impl<'a, P> From<ValidErasedKeyAmalgamation<'a, P>>
     for Recipient<'a>
-    where P: key::KeyParts,
-          R: key::KeyRole,
-          R2: Copy,
+where
+    P: key::KeyParts,
 {
-    fn from(ka: ValidKeyAmalgamation<'a, P, R, R2>) -> Self {
-        ka.key().into()
+    fn from(ka: ValidErasedKeyAmalgamation<'a, P>) -> Self {
+        let features = ka.valid_cert().features()
+            .unwrap_or_else(Features::empty);
+        let handle: KeyHandle = if features.supports_seipdv2() {
+            ka.key().fingerprint().into()
+        } else {
+            ka.key().keyid().into()
+        };
+
+        use crate::cert::Preferences;
+        use crate::cert::amalgamation::ValidAmalgamation;
+        Self::new(features, handle,
+                  ka.key().parts_as_public().role_as_unspecified())
     }
 }
 
@@ -2085,7 +2263,8 @@ impl<'a> Recipient<'a> {
     ///     cert.keys().with_policy(p, None).supported().alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| Recipient::new(ka.key().keyid(), ka.key()));
+    ///     // Make an anonymous recipient.
+    ///     .map(|ka| Recipient::new(ka.valid_cert().features(), None, ka.key()));
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -2093,12 +2272,17 @@ impl<'a> Recipient<'a> {
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn new<P, R>(keyid: KeyID, key: &'a Key<P, R>) -> Recipient<'a>
-        where P: key::KeyParts,
-              R: key::KeyRole,
+    pub fn new<F, H, P, R>(features: F, handle: H, key: &'a Key<P, R>)
+                           -> Recipient<'a>
+    where
+        F: Into<Option<Features>>,
+        H: Into<Option<KeyHandle>>,
+        P: key::KeyParts,
+        R: key::KeyRole,
     {
         Recipient {
-            keyid,
+            features: features.into().unwrap_or_else(Features::sequoia),
+            handle: handle.into(),
             key: key.parts_as_public().role_as_unspecified(),
         }
     }
@@ -2146,15 +2330,19 @@ impl<'a> Recipient<'a> {
     ///     .map(Into::into)
     ///     .collect::<Vec<Recipient>>();
     ///
-    /// assert_eq!(recipients[0].keyid(),
-    ///            &"8BD8 8E94 C0D2 0333".parse()?);
+    /// assert_eq!(recipients[0].key_handle().unwrap(),
+    ///            "8BD8 8E94 C0D2 0333".parse()?);
     /// # Ok(()) }
     /// ```
-    pub fn keyid(&self) -> &KeyID {
-        &self.keyid
+    pub fn key_handle(&self) -> Option<KeyHandle> {
+        self.handle.clone()
     }
 
-    /// Sets the recipient keyid.
+    /// Sets the recipient key ID or fingerprint.
+    ///
+    /// When setting the recipient for a v6 key, either `None` or a
+    /// fingerprint must be supplied.  Returns
+    /// [`Error::InvalidOperation`] if a key ID is given instead.
     ///
     /// # Examples
     ///
@@ -2162,7 +2350,7 @@ impl<'a> Recipient<'a> {
     /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
-    /// use openpgp::KeyID;
+    /// use openpgp::{KeyHandle, KeyID};
     /// use openpgp::cert::prelude::*;
     /// use openpgp::serialize::stream::{
     ///     Recipient, Message, Encryptor,
@@ -2199,7 +2387,11 @@ impl<'a> Recipient<'a> {
     ///     .for_transport_encryption()
     ///     .map(|ka| Recipient::from(ka)
     ///         // Set the recipient keyid to the wildcard id.
-    ///         .set_keyid(KeyID::wildcard())
+    ///         .set_key_handle(None)
+    ///             .expect("always safe")
+    ///         // Same, but explicit.  Don't do this.
+    ///         .set_key_handle(KeyHandle::KeyID(KeyID::wildcard()))
+    ///             .expect("safe for v4 recipient")
     ///     );
     ///
     /// # let mut sink = vec![];
@@ -2208,9 +2400,20 @@ impl<'a> Recipient<'a> {
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn set_keyid(mut self, keyid: KeyID) -> Self {
-        self.keyid = keyid;
-        self
+    pub fn set_key_handle<H>(mut self, handle: H) -> Result<Self>
+    where
+        H: Into<Option<KeyHandle>>,
+    {
+        let handle = handle.into();
+        if self.key.version() == 6
+            && matches!(handle, Some(KeyHandle::KeyID(_)))
+        {
+            return Err(Error::InvalidOperation(
+                "need a fingerprint for v6 recipient key".into()).into());
+        }
+
+        self.handle = handle;
+        Ok(self)
     }
 }
 
@@ -2246,10 +2449,10 @@ impl<'a> Recipient<'a> {
 /// let p = &StandardPolicy::new();
 ///
 /// # let (cert_0, _) =
-/// #     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+/// #     CertBuilder::general_purpose(Some("Mr. Pink ☮☮☮"))
 /// #     .generate()?;
 /// # let (cert_1, _) =
-/// #     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+/// #     CertBuilder::general_purpose(Some("Mr. Pink ☮☮☮"))
 /// #     .generate()?;
 /// let recipient_certs = vec![cert_0, cert_1];
 /// let mut recipients = Vec::new();
@@ -2279,19 +2482,22 @@ impl<'a> Recipient<'a> {
 /// w.finalize()?;
 /// # Ok(()) }
 /// ```
-pub struct Encryptor<'a> {
+pub struct Encryptor<'a, 'b>
+where 'b: 'a
+{
     inner: writer::BoxStack<'a, Cookie>,
     session_key: Option<SessionKey>,
-    recipients: Vec<Recipient<'a>>,
+    recipients: Vec<Recipient<'b>>,
     passwords: Vec<Password>,
     sym_algo: SymmetricAlgorithm,
     aead_algo: Option<AEADAlgorithm>,
-    hash: Box<dyn crypto::hash::Digest>,
+    /// For the MDC packet.
+    hash: crypto::hash::Context,
     cookie: Cookie,
 }
-assert_send_and_sync!(Encryptor<'_>);
+assert_send_and_sync!(Encryptor<'_, '_>);
 
-impl<'a> Encryptor<'a> {
+impl<'a, 'b> Encryptor<'a, 'b> {
     /// Creates a new encryptor for the given recipients.
     ///
     /// To add more recipients, use [`Encryptor::add_recipients`].  To
@@ -2349,7 +2555,7 @@ impl<'a> Encryptor<'a> {
     /// ```
     pub fn for_recipients<R>(inner: Message<'a>, recipients: R) -> Self
         where R: IntoIterator,
-              R::Item: Into<Recipient<'a>>,
+              R::Item: Into<Recipient<'b>>,
     {
         Self {
             inner: inner.into(),
@@ -2358,7 +2564,7 @@ impl<'a> Encryptor<'a> {
             passwords: Vec::new(),
             sym_algo: Default::default(),
             aead_algo: Default::default(),
-            hash: HashAlgorithm::SHA1.context().unwrap(),
+            hash: HashAlgorithm::SHA1.context().unwrap().for_digest(),
             cookie: Default::default(), // Will be fixed in build.
         }
     }
@@ -2400,7 +2606,7 @@ impl<'a> Encryptor<'a> {
             passwords: passwords.into_iter().map(|p| p.into()).collect(),
             sym_algo: Default::default(),
             aead_algo: Default::default(),
-            hash: HashAlgorithm::SHA1.context().unwrap(),
+            hash: HashAlgorithm::SHA1.context().unwrap().for_digest(),
             cookie: Default::default(), // Will be fixed in build.
         }
     }
@@ -2419,7 +2625,7 @@ impl<'a> Encryptor<'a> {
     ///     session key.  Rather than falling back to replying
     ///     unencrypted, one can reuse the original message's session
     ///     key that was encrypted for every recipient and reuse the
-    ///     original [`PKESK`](crate::packet::PKESK)s.
+    ///     original [`PKESK`]s.
     ///
     ///   - Using the encryptor if the session key is transmitted or
     ///     derived using a scheme not supported by Sequoia.
@@ -2448,9 +2654,9 @@ impl<'a> Encryptor<'a> {
     /// #
     /// // Generate two keys.
     /// let (alice, _) = CertBuilder::general_purpose(
-    ///         None, Some("Alice Lovelace <alice@example.org>")).generate()?;
+    ///         Some("Alice Lovelace <alice@example.org>")).generate()?;
     /// let (bob, _) = CertBuilder::general_purpose(
-    ///         None, Some("Bob Babbage <bob@example.org>")).generate()?;
+    ///         Some("Bob Babbage <bob@example.org>")).generate()?;
     ///
     /// // Encrypt a message for both keys.
     /// let recipients = vec![&alice, &bob].into_iter().flat_map(|cert| {
@@ -2477,7 +2683,10 @@ impl<'a> Encryptor<'a> {
     /// for p in pkesks { // Emit the stashed PKESK packets.
     ///     Packet::from(p).serialize(&mut message)?;
     /// }
-    /// let message = Encryptor::with_session_key(message, algo, sk)?.build()?;
+    /// let message = Encryptor::with_session_key(
+    ///     message, algo.unwrap_or_default(), sk)?
+    ///     .aead_algo(Default::default())
+    ///     .build()?;
     /// let mut w = LiteralWriter::new(message).build()?;
     /// w.write_all(b"Encrypted reply")?;
     /// w.finalize()?;
@@ -2490,7 +2699,7 @@ impl<'a> Encryptor<'a> {
     /// /// Decrypts the message preserving algo, session key, and PKESKs.
     /// struct Helper {
     ///     key: Cert,
-    ///     recycling_bin: Option<(SymmetricAlgorithm, SessionKey, Vec<PKESK>)>,
+    ///     recycling_bin: Option<(Option<SymmetricAlgorithm>, SessionKey, Vec<PKESK>)>,
     /// }
     ///
     /// # impl Helper {
@@ -2500,10 +2709,10 @@ impl<'a> Encryptor<'a> {
     /// # }
     /// #
     /// impl DecryptionHelper for Helper {
-    ///     fn decrypt<D>(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
-    ///                   sym_algo: Option<SymmetricAlgorithm>, mut decrypt: D)
-    ///                   -> Result<Option<Fingerprint>>
-    ///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+    ///     fn decrypt(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
+    ///                sym_algo: Option<SymmetricAlgorithm>,
+    ///                decrypt: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+    ///                -> Result<Option<Cert>>
     ///     {
     ///         let p = &StandardPolicy::new();
     ///         let mut encryption_context = None;
@@ -2511,7 +2720,7 @@ impl<'a> Encryptor<'a> {
     ///         for pkesk in pkesks { // Try each PKESK until we succeed.
     ///             for ka in self.key.keys().with_policy(p, None)
     ///                 .supported().unencrypted_secret()
-    ///                 .key_handle(pkesk.recipient())
+    ///                 .key_handles(pkesk.recipient())
     ///                 .for_storage_encryption().for_transport_encryption()
     ///             {
     ///                 let mut pair = ka.key().clone().into_keypair().unwrap();
@@ -2534,7 +2743,7 @@ impl<'a> Encryptor<'a> {
     ///         }
     ///
     ///         self.recycling_bin = encryption_context; // Store for the reply.
-    ///         Ok(Some(self.key.fingerprint()))
+    ///         Ok(Some(self.key.clone()))
     ///     }
     /// }
     ///
@@ -2568,7 +2777,7 @@ impl<'a> Encryptor<'a> {
             passwords: Vec::with_capacity(0),
             sym_algo,
             aead_algo: Default::default(),
-            hash: HashAlgorithm::SHA1.context().unwrap(),
+            hash: HashAlgorithm::SHA1.context().unwrap().for_digest(),
             cookie: Default::default(), // Will be fixed in build.
         })
     }
@@ -2648,7 +2857,7 @@ impl<'a> Encryptor<'a> {
     /// ```
     pub fn add_recipients<R>(mut self, recipients: R) -> Self
         where R: IntoIterator,
-              R::Item: Into<Recipient<'a>>,
+              R::Item: Into<Recipient<'b>>,
     {
         for r in recipients {
             self.recipients.push(r.into());
@@ -2770,8 +2979,6 @@ impl<'a> Encryptor<'a> {
 
     /// Enables AEAD and sets the AEAD algorithm to use.
     ///
-    /// This feature is [experimental](super::super#experimental-features).
-    ///
     /// # Examples
     ///
     /// ```
@@ -2787,17 +2994,13 @@ impl<'a> Encryptor<'a> {
     /// let message = Message::new(&mut sink);
     /// let message =
     ///     Encryptor::with_passwords(message, Some("совершенно секретно"))
-    ///         .aead_algo(AEADAlgorithm::EAX)
+    ///         .aead_algo(AEADAlgorithm::default())
     ///         .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
     /// message.write_all(b"Hello world.")?;
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    // Function hidden from the public API due to
-    // https://gitlab.com/sequoia-pgp/sequoia/-/issues/550
-    // It is used only for tests so that it does not bit-rot.
-    #[cfg(test)]
     pub fn aead_algo(mut self, algo: AEADAlgorithm) -> Self {
         self.aead_algo = Some(algo);
         self
@@ -2851,19 +3054,34 @@ impl<'a> Encryptor<'a> {
             ).into());
         }
 
+        if self.aead_algo.is_none() {
+            // See whether all recipients support SEIPDv2.
+            if ! self.recipients.is_empty()
+                && self.recipients.iter().all(|r| {
+                    r.features.supports_seipdv2()
+                })
+            {
+                // This prefers OCB if supported.  OCB is MTI.
+                self.aead_algo = Some(AEADAlgorithm::default());
+            }
+        }
+
         struct AEADParameters {
             algo: AEADAlgorithm,
             chunk_size: usize,
-            nonce: Box<[u8]>,
+            salt: [u8; 32],
         }
 
         let aead = if let Some(algo) = self.aead_algo {
-            let mut nonce = vec![0; algo.iv_size()?];
-            crypto::random(&mut nonce);
+            // Configure any armor writer above us.
+            writer::Armorer::set_profile(&mut self, Profile::RFC9580);
+
+            let mut salt = [0u8; 32];
+            crypto::random(&mut salt)?;
             Some(AEADParameters {
                 algo,
                 chunk_size: Self::AEAD_CHUNK_SIZE,
-                nonce: nonce.into_boxed_slice(),
+                salt,
             })
         } else {
             None
@@ -2875,7 +3093,8 @@ impl<'a> Encryptor<'a> {
         // Reuse existing session key or generate a new one.
         let sym_key_size = self.sym_algo.key_size()?;
         let sk = self.session_key.take()
-            .unwrap_or_else(|| SessionKey::new(sym_key_size));
+            .map(|sk| Ok(sk))
+            .unwrap_or_else(|| SessionKey::new(sym_key_size))?;
         if sk.len() != sym_key_size {
             return Err(Error::InvalidOperation(
                 format!("{} requires a {} bit key, but session key has {}",
@@ -2884,16 +3103,25 @@ impl<'a> Encryptor<'a> {
 
         // Write the PKESK packet(s).
         for recipient in self.recipients.iter() {
-            let mut pkesk =
-                PKESK3::for_recipient(self.sym_algo, &sk, recipient.key)?;
-            pkesk.set_recipient(recipient.keyid.clone());
-            Packet::PKESK(pkesk.into()).serialize(&mut inner)?;
+            if aead.is_some() {
+                let mut pkesk =
+                    PKESK6::for_recipient(&sk, recipient.key)?;
+                pkesk.set_recipient(recipient.key_handle()
+                                    .map(TryInto::try_into)
+                                    .transpose()?);
+                Packet::from(pkesk).serialize(&mut inner)?;
+            } else {
+                let mut pkesk =
+                    PKESK3::for_recipient(self.sym_algo, &sk, recipient.key)?;
+                pkesk.set_recipient(recipient.key_handle().map(Into::into));
+                Packet::PKESK(pkesk.into()).serialize(&mut inner)?;
+            }
         }
 
         // Write the SKESK packet(s).
         for password in self.passwords.iter() {
             if let Some(aead) = aead.as_ref() {
-                let skesk = SKESK5::with_password(self.sym_algo,
+                let skesk = SKESK6::with_password(self.sym_algo,
                                                   self.sym_algo,
                                                   aead.algo,
                                                   Default::default(),
@@ -2909,25 +3137,36 @@ impl<'a> Encryptor<'a> {
         }
 
         if let Some(aead) = aead {
-            // Write the AED packet.
-            CTB::new(Tag::AED).serialize(&mut inner)?;
+            // Write the SEIPDv2 packet.
+            CTB::new(Tag::SEIP).serialize(&mut inner)?;
             let mut inner = PartialBodyFilter::new(Message::from(inner),
                                                    Cookie::new(level));
-            let aed = AED1::new(self.sym_algo, aead.algo,
-                                aead.chunk_size as u64, aead.nonce)?;
-            aed.serialize_headers(&mut inner)?;
+            let seip = SEIP2::new(self.sym_algo, aead.algo,
+                                 aead.chunk_size as u64, aead.salt)?;
+            seip.serialize_headers(&mut inner)?;
+
+            use crate::crypto::aead::SEIPv2Schedule;
+            let schedule = SEIPv2Schedule::new(
+                &sk,
+                seip.symmetric_algo(), seip.aead(), aead.chunk_size,
+                seip.salt())?;
+
+            // Note: we have consumed self, and we are returning a
+            // different encryptor here.  self will be dropped, and
+            // therefore, Self::emit_mdc will not be invoked.
 
             writer::AEADEncryptor::new(
                 inner,
-                Cookie::new(level),
-                aed.symmetric_algo(),
-                aed.aead(),
+                Cookie::new(level).set_private(Private::Encryptor {
+                    profile: Profile::RFC9580,
+                }),
+                seip.symmetric_algo(),
+                seip.aead(),
                 aead.chunk_size,
-                aed.iv(),
-                &sk,
+                schedule,
             )
         } else {
-            // Write the SEIP packet.
+            // Write the SEIPDv1 packet.
             CTB::new(Tag::SEIP).serialize(&mut inner)?;
             let mut inner = PartialBodyFilter::new(Message::from(inner),
                                                    Cookie::new(level));
@@ -2940,14 +3179,17 @@ impl<'a> Encryptor<'a> {
                 self.sym_algo,
                 &sk,
             )?.into();
-            self.cookie = Cookie::new(level);
+            self.cookie = Cookie::new(level)
+                .set_private(Private::Encryptor {
+                    profile: Profile::RFC4880,
+                });
 
             // Write the initialization vector, and the quick-check
             // bytes.  The hash for the MDC must include the
             // initialization vector, hence we must write this to
             // self after installing the encryptor at self.inner.
             let mut iv = vec![0; self.sym_algo.block_size()?];
-            crypto::random(&mut iv);
+            crypto::random(&mut iv)?;
             self.write_all(&iv)?;
             self.write_all(&iv[iv.len() - 2..])?;
 
@@ -2956,6 +3198,11 @@ impl<'a> Encryptor<'a> {
     }
 
     /// Emits the MDC packet and recovers the original writer.
+    ///
+    /// Note: This is only invoked for SEIPDv1 messages, because
+    /// Self::build consumes self, and will only return a writer stack
+    /// with Self on top for SEIPDv1 messages.  For SEIPDv2 messages,
+    /// a different writer is returned.
     fn emit_mdc(mut self) -> Result<writer::BoxStack<'a, Cookie>> {
         let mut w = self.inner;
 
@@ -2967,6 +3214,7 @@ impl<'a> Encryptor<'a> {
         BodyLength::Full(20).serialize(&mut header)?;
 
         self.hash.update(&header);
+        #[allow(deprecated)]
         Packet::MDC(MDC::from(self.hash.clone())).serialize(&mut w)?;
 
         // Now recover the original writer.  First, strip the
@@ -2979,7 +3227,9 @@ impl<'a> Encryptor<'a> {
     }
 }
 
-impl<'a> fmt::Debug for Encryptor<'a> {
+impl<'a, 'b> fmt::Debug for Encryptor<'a, 'b>
+    where 'b: 'a
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Encryptor")
             .field("inner", &self.inner)
@@ -2987,7 +3237,9 @@ impl<'a> fmt::Debug for Encryptor<'a> {
     }
 }
 
-impl<'a> Write for Encryptor<'a> {
+impl<'a, 'b> Write for Encryptor<'a, 'b>
+    where 'b: 'a
+{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let written = self.inner.write(buf);
         if let Ok(amount) = written {
@@ -3001,7 +3253,9 @@ impl<'a> Write for Encryptor<'a> {
     }
 }
 
-impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
+impl<'a, 'b> writer::Stackable<'a, Cookie> for Encryptor<'a, 'b>
+    where 'b: 'a
+{
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         unreachable!("Only implemented by Signer")
     }
@@ -3035,10 +3289,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
 #[cfg(test)]
 mod test {
     use std::io::Read;
-    use crate::{Packet, PacketPile, packet::CompressedData};
+    use crate::{Packet, PacketPile, Profile, packet::CompressedData};
     use crate::parse::{Parse, PacketParserResult, PacketParser};
     use super::*;
-    use crate::types::DataFormat::Text as T;
+    use crate::types::DataFormat::Unicode as T;
     use crate::policy::Policy;
     use crate::policy::StandardPolicy as P;
 
@@ -3048,7 +3302,7 @@ mod test {
         {
             let m = Message::new(&mut o);
             let mut ustr = ArbitraryWriter::new(m, Tag::Literal).unwrap();
-            ustr.write_all(b"t").unwrap(); // type
+            ustr.write_all(b"u").unwrap(); // type
             ustr.write_all(b"\x00").unwrap(); // fn length
             ustr.write_all(b"\x00\x00\x00\x00").unwrap(); // date
             ustr.write_all(b"Hello world.").unwrap(); // body
@@ -3057,7 +3311,7 @@ mod test {
 
         let mut pp = PacketParser::from_bytes(&o).unwrap().unwrap();
         if let Packet::Literal(ref l) = pp.packet {
-                assert_eq!(l.format(), DataFormat::Text);
+                assert_eq!(l.format(), DataFormat::Unicode);
                 assert_eq!(l.filename(), None);
                 assert_eq!(l.date(), None);
         } else {
@@ -3235,9 +3489,9 @@ mod test {
             }).collect::<Vec<KeyPair>>();
 
             let m = Message::new(&mut o);
-            let mut signer = Signer::new(m, signers.pop().unwrap());
+            let mut signer = Signer::new(m, signers.pop().unwrap()).unwrap();
             for s in signers.into_iter() {
-                signer = signer.add_signer(s);
+                signer = signer.add_signer(s).unwrap();
             }
             let signer = signer.build().unwrap();
             let mut ls = LiteralWriter::new(signer).build().unwrap();
@@ -3251,7 +3505,7 @@ mod test {
             if let Packet::Signature(sig) = &mut pp.packet {
                 let key = keys.get(sig.issuer_fingerprints().next().unwrap())
                     .unwrap();
-                sig.verify(key).unwrap();
+                sig.verify_document(key).unwrap();
                 good += 1;
             }
 
@@ -3283,7 +3537,7 @@ mod test {
         #[derive(Debug, PartialEq)]
         enum State {
             Start,
-            Decrypted(Vec<(SymmetricAlgorithm, SessionKey)>),
+            Decrypted(Vec<(Option<SymmetricAlgorithm>, SessionKey)>),
             Deciphered,
             MDC,
             Done,
@@ -3348,6 +3602,7 @@ mod test {
                         },
 
                     // Look for the MDC packet.
+                    #[allow(deprecated)]
                     State::MDC =>
                         if let Packet::MDC(ref mdc) = pp.packet {
                             assert_eq!(mdc.digest(), mdc.computed_digest());
@@ -3368,7 +3623,36 @@ mod test {
     }
 
     #[test]
-    fn aead_messages() -> Result<()> {
+    fn aead_eax() -> Result<()> {
+        test_aead_messages(AEADAlgorithm::EAX)
+    }
+
+    #[test]
+    fn aead_ocb() -> Result<()> {
+        test_aead_messages(AEADAlgorithm::OCB)
+    }
+
+    #[test]
+    fn aead_gcm() -> Result<()> {
+        test_aead_messages(AEADAlgorithm::GCM)
+    }
+
+    fn test_aead_messages(algo: AEADAlgorithm) -> Result<()> {
+        test_aead_messages_v(algo, Profile::RFC4880)?;
+        test_aead_messages_v(algo, Profile::RFC9580)?;
+        Ok(())
+    }
+
+    fn test_aead_messages_v(algo: AEADAlgorithm, profile: Profile)
+                            -> Result<()>
+    {
+        eprintln!("Testing with {:?}", profile);
+
+        if ! algo.is_supported() {
+            eprintln!("Skipping because {} is not supported.", algo);
+            return Ok(());
+        }
+
         // AEAD data is of the form:
         //
         //   [ chunk1 ][ tag1 ] ... [ chunkN ][ tagN ][ tag ]
@@ -3399,10 +3683,10 @@ mod test {
             },
         };
         use crate::cert::prelude::*;
-        use crate::serialize::stream::{LiteralWriter, Message};
 
         let (tsk, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
+            .set_profile(profile)?
             .add_transport_encryption_subkey()
             .generate().unwrap();
 
@@ -3418,12 +3702,17 @@ mod test {
             fn check(&mut self, _structure: MessageStructure) -> Result<()> {
                 Ok(())
             }
+            fn inspect(&mut self, pp: &PacketParser<'_>) -> Result<()> {
+                assert!(! matches!(&pp.packet, Packet::Unknown(_)));
+                eprintln!("Parsed {:?}", pp.packet);
+                Ok(())
+            }
         }
         impl<'a> DecryptionHelper for Helper<'a> {
-            fn decrypt<D>(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
-                          sym_algo: Option<SymmetricAlgorithm>,
-                          mut decrypt: D) -> Result<Option<crate::Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+            fn decrypt(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
+                       sym_algo: Option<SymmetricAlgorithm>,
+                       decrypt: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+                       -> Result<Option<Cert>>
             {
                 let mut keypair = self.tsk.keys().with_policy(self.policy, None)
                     .for_transport_encryption()
@@ -3436,7 +3725,7 @@ mod test {
             }
         }
 
-        let p = &P::new();
+        let p = unsafe { &crate::policy::NullPolicy::new() };
 
         for chunks in 0..3 {
             for msg_len in
@@ -3457,7 +3746,7 @@ mod test {
                         .keys().with_policy(p, None)
                         .for_storage_encryption().for_transport_encryption();
                     let encryptor = Encryptor::for_recipients(m, recipients)
-                        .aead_algo(AEADAlgorithm::EAX)
+                        .aead_algo(algo)
                         .build().unwrap();
                     let mut literal = LiteralWriter::new(encryptor).build()
                         .unwrap();
@@ -3520,7 +3809,7 @@ mod test {
                         }
 
                         // We only corrupted the final tag, so we
-                        // should get all of the content.
+                        // should get all the content.
                         assert_eq!(msg_len, decrypted_content.len());
                         assert_eq!(content, decrypted_content);
                     }
@@ -3560,7 +3849,7 @@ mod test {
                     .expect("expected unencrypted secret key");
 
             let m = Message::new(&mut o);
-            let signer = Signer::new(m, signer_keypair);
+            let signer = Signer::new(m, signer_keypair).unwrap();
             let signer = signer.creation_time(timestamp);
             let signer = signer.build().unwrap();
 
@@ -3575,7 +3864,7 @@ mod test {
         while let PacketParserResult::Some(mut pp) = ppr {
             if let Packet::Signature(sig) = &mut pp.packet {
                 assert_eq!(sig.signature_creation_time(), Some(timestamp));
-                sig.verify(ka.key()).unwrap();
+                sig.verify_document(ka.key()).unwrap();
                 good += 1;
             }
 
@@ -3623,7 +3912,7 @@ mod test {
                 let mut message = Signer::with_template(
                     message, signing_keypair,
                     signature::SignatureBuilder::new(SignatureType::Text)
-                ).detached().build()?;
+                )?.detached().build()?;
                 message.write_all(data)?;
                 message.finalize()?;
             }
@@ -3658,6 +3947,463 @@ mod test {
 
             v.verify_bytes(data)?;
             v.verify_bytes(normalized_data)?;
+        }
+
+        Ok(())
+    }
+
+    struct BadSigner;
+
+    impl crypto::Signer for BadSigner {
+        fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
+            panic!("public not impl")
+        }
+
+        /// Returns a list of hashes that this signer accepts.
+        fn acceptable_hashes(&self) -> &[HashAlgorithm] {
+            &[]
+        }
+
+        fn sign(&mut self, _hash_algo: HashAlgorithm, _digest: &[u8])
+        -> Result<crypto::mpi::Signature> {
+            panic!("sign not impl")
+        }
+    }
+
+    struct GoodSigner(Vec<HashAlgorithm>, Key<key::PublicParts, key::UnspecifiedRole>);
+
+    impl crypto::Signer for GoodSigner {
+        fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
+            &self.1
+        }
+
+        /// Returns a list of hashes that this signer accepts.
+        fn acceptable_hashes(&self) -> &[HashAlgorithm] {
+            &self.0
+        }
+
+        fn sign(&mut self, _hash_algo: HashAlgorithm, _digest: &[u8])
+        -> Result<crypto::mpi::Signature> {
+            unimplemented!()
+        }
+    }
+
+    impl Default for GoodSigner {
+        fn default() -> Self {
+            let p = &P::new();
+
+            let (cert, _) = CertBuilder::new().generate().unwrap();
+
+            let ka = cert.keys().with_policy(p, None).next().unwrap();
+
+            Self(vec![HashAlgorithm::default()], ka.key().clone())
+        }
+    }
+
+    #[test]
+    fn overlapping_hashes() {
+        let mut signature = vec![];
+        let message = Message::new(&mut signature);
+
+        Signer::new(message, GoodSigner::default()).unwrap().build().unwrap();
+    }
+
+    #[test]
+    fn no_overlapping_hashes() {
+        let mut signature = vec![];
+        let message = Message::new(&mut signature);
+
+        if let Err(e) = Signer::new(message, BadSigner) {
+            assert_eq!(e.downcast_ref::<Error>(), Some(&Error::NoAcceptableHash));
+        } else {
+            unreachable!();
+        };
+    }
+
+    #[test]
+    fn no_overlapping_hashes_for_new_signer() {
+        let mut signature = vec![];
+        let message = Message::new(&mut signature);
+
+        let signer = Signer::new(message, GoodSigner::default()).unwrap();
+        if let Err(e) = signer.add_signer(BadSigner) {
+            assert_eq!(e.downcast_ref::<Error>(), Some(&Error::NoAcceptableHash));
+        } else {
+            unreachable!();
+        };
+    }
+
+    /// Tests that multiple signatures are in the correct order.
+    #[test]
+    fn issue_816() -> Result<()> {
+        use crate::{
+            packet::key::{Key4, PrimaryRole},
+            types::Curve,
+            KeyHandle,
+        };
+
+        let signer_a =
+            Key4::<_, PrimaryRole>::generate_ecc(true, Curve::Ed25519)?
+            .into_keypair()?;
+
+        let signer_b =
+            Key4::<_, PrimaryRole>::generate_ecc(true, Curve::Ed25519)?
+            .into_keypair()?;
+
+        let mut sink = Vec::new();
+        let message = Message::new(&mut sink);
+        let message = Signer::new(message, signer_a)?
+            .add_signer(signer_b)?
+            .build()?;
+        let mut message = LiteralWriter::new(message).build()?;
+        message.write_all(b"Make it so, number one!")?;
+        message.finalize()?;
+
+        let pp = crate::PacketPile::from_bytes(&sink)?;
+        assert_eq!(pp.children().count(), 5);
+
+        let first_signer: KeyHandle =
+            if let Packet::OnePassSig(ops) = pp.path_ref(&[0]).unwrap() {
+                ops.issuer().into()
+            } else {
+                panic!("expected ops packet")
+            };
+
+        let second_signer: KeyHandle =
+            if let Packet::OnePassSig(ops) = pp.path_ref(&[1]).unwrap() {
+                ops.issuer().into()
+            } else {
+                panic!("expected ops packet")
+            };
+
+        assert!(matches!(pp.path_ref(&[2]).unwrap(), Packet::Literal(_)));
+
+        // OPS and Signature packets "bracket" the literal, i.e. the
+        // last occurring ops packet is met by the first occurring
+        // signature packet.
+        if let Packet::Signature(sig) = pp.path_ref(&[3]).unwrap() {
+            assert!(sig.get_issuers()[0].aliases(&second_signer));
+        } else {
+            panic!("expected sig packet")
+        }
+
+        if let Packet::Signature(sig) = pp.path_ref(&[4]).unwrap() {
+            assert!(sig.get_issuers()[0].aliases(&first_signer));
+        } else {
+            panic!("expected sig packet")
+        }
+
+        Ok(())
+    }
+
+    // Example copied from `Encryptor::aead_algo` and slightly
+    // adjusted since the doctest from `Encryptor::aead_algo` does not
+    // run.  Additionally this test case utilizes
+    // `AEADAlgorithm::default` to detect which algorithm to
+    // use.
+    #[test]
+    fn experimental_aead_encryptor() -> Result<()> {
+        use std::io::Write;
+        use crate::types::AEADAlgorithm;
+        use crate::policy::NullPolicy;
+        use crate::serialize::stream::{
+            Message, Encryptor, LiteralWriter,
+        };
+        use crate::parse::stream::{
+            DecryptorBuilder, VerificationHelper,
+            DecryptionHelper, MessageStructure,
+        };
+
+        let mut sink = vec![];
+        let message = Message::new(&mut sink);
+        let message =
+          Encryptor::with_passwords(message, Some("совершенно секретно"))
+              .aead_algo(AEADAlgorithm::default())
+              .build()?;
+        let mut message = LiteralWriter::new(message).build()?;
+        message.write_all(b"Hello world.")?;
+        message.finalize()?;
+
+        struct Helper;
+
+        impl VerificationHelper for Helper {
+            fn get_certs(&mut self, _ids: &[crate::KeyHandle]) -> Result<Vec<Cert>> where {
+                Ok(Vec::new())
+            }
+
+            fn check(&mut self, _structure: MessageStructure) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        impl DecryptionHelper for Helper {
+            fn decrypt(&mut self, _: &[PKESK], skesks: &[SKESK],
+                       _sym_algo: Option<SymmetricAlgorithm>,
+                       decrypt: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+                       -> Result<Option<Cert>>
+            {
+                skesks[0].decrypt(&"совершенно секретно".into())
+                    .map(|(algo, session_key)| decrypt(algo, &session_key))?;
+                Ok(None)
+            }
+        }
+
+        let p = unsafe { &NullPolicy::new() };
+        let mut v = DecryptorBuilder::from_bytes(&sink)?.with_policy(p, None, Helper)?;
+        let mut content = vec![];
+        v.read_to_end(&mut content)?;
+        assert_eq!(content, b"Hello world.");
+        Ok(())
+    }
+
+    /// Signs using our set of public keys.
+    #[test]
+    fn signer() -> Result<()> {
+        use crate::policy::StandardPolicy;
+        use crate::parse::stream::{
+            VerifierBuilder,
+            test::VHelper,
+        };
+
+        let p = StandardPolicy::new();
+        for alg in &[
+            "rsa", "dsa",
+            "nistp256", "nistp384", "nistp521",
+            "brainpoolP256r1", "brainpoolP384r1", "brainpoolP512r1",
+            "secp256k1",
+        ] {
+            eprintln!("Test vector {:?}...", alg);
+            let key = Cert::from_bytes(crate::tests::key(
+                &format!("signing/{}.pgp", alg)))?;
+            if let Some(k) = key.with_policy(&p, None).ok()
+                .and_then(|vcert| vcert.keys().for_signing().supported().next())
+            {
+                use crate::crypto::mpi::PublicKey;
+                match k.key().mpis() {
+                    PublicKey::ECDSA { curve, .. } |
+                    PublicKey::EdDSA { curve, .. }
+                    if ! curve.is_supported() => {
+                        eprintln!("Skipping {} because we don't support \
+                                   the curve {}", alg, curve);
+                        continue;
+                    },
+                    _ => (),
+                }
+            } else {
+                eprintln!("Skipping {} because we don't support the algorithm",
+                          alg);
+                continue;
+            }
+
+            let signing_keypair = key.keys().secret()
+                .with_policy(&p, None).supported()
+                .alive().revoked(false).for_signing()
+                .nth(0).unwrap()
+                .key().clone().into_keypair()?;
+
+            let mut sink = vec![];
+            let message = Message::new(&mut sink);
+            let message = Signer::new(message, signing_keypair)?
+                .build()?;
+            let mut message = LiteralWriter::new(message).build()?;
+            message.write_all(b"Hello world.")?;
+            message.finalize()?;
+
+            let h = VHelper::new(1, 0, 0, 0, vec![key]);
+            let mut d = VerifierBuilder::from_bytes(&sink)?
+                .with_policy(&p, None, h)?;
+            assert!(d.message_processed());
+
+            let mut content = Vec::new();
+            d.read_to_end(&mut content).unwrap();
+            assert_eq!(&b"Hello world."[..], &content[..]);
+        }
+
+        Ok(())
+    }
+
+    /// Encrypts using public key cryptography.
+    #[test]
+    fn pk_encryptor() -> Result<()> {
+        use crate::policy::StandardPolicy;
+        use crate::parse::stream::{
+            DecryptorBuilder,
+            test::VHelper,
+        };
+
+        let p = StandardPolicy::new();
+        for path in [
+            "rsa", "elg", "cv25519", "cv25519.unclamped",
+            "nistp256", "nistp384", "nistp521",
+            "brainpoolP256r1", "brainpoolP384r1", "brainpoolP512r1",
+            "secp256k1",
+        ].iter().map(|alg| format!("messages/encrypted/{}.sec.pgp", alg))
+            .chain(vec![
+                "crypto-refresh/v6-minimal-secret.key".into(),
+            ].into_iter())
+        {
+            eprintln!("Test vector {:?}...", path);
+            let key = Cert::from_bytes(crate::tests::file(&path))?;
+            if let Some(k) =
+                key.with_policy(&p, None)?.keys().subkeys().supported().next()
+            {
+                use crate::crypto::mpi::PublicKey;
+                match k.key().mpis() {
+                    PublicKey::ECDH { curve, .. } if ! curve.is_supported() => {
+                        eprintln!("Skipping {} because we don't support \
+                                   the curve {}", path, curve);
+                        continue;
+                    },
+                    _ => (),
+                }
+            } else {
+                eprintln!("Skipping {} because we don't support the algorithm",
+                          path);
+                continue;
+            }
+
+            let recipients =
+                key.with_policy(&p, None)?.keys().for_storage_encryption();
+
+            let mut sink = vec![];
+            let message = Message::new(&mut sink);
+            let message =
+                Encryptor::for_recipients(message, recipients)
+                .build()?;
+            let mut message = LiteralWriter::new(message).build()?;
+            message.write_all(b"Hello world.")?;
+            message.finalize()?;
+
+            let h = VHelper::for_decryption(0, 0, 0, 0, Vec::new(),
+                                            vec![key], Vec::new());
+            let mut d = DecryptorBuilder::from_bytes(&sink)?
+                .with_policy(&p, None, h)?;
+            assert!(d.message_processed());
+
+            let mut content = Vec::new();
+            d.read_to_end(&mut content).unwrap();
+            assert_eq!(&b"Hello world."[..], &content[..]);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn encryptor_lifetime()
+    {
+        // See https://gitlab.com/sequoia-pgp/sequoia/-/issues/1028
+        //
+        // Using Encryptor instead of Encryptor, we get the error:
+        //
+        // pub fn _encrypt_data<'a, B: AsRef<[u8]>, R>(data: B, recipients: R)
+        //                      -- lifetime `'a` defined here
+        //
+        //     let message = Message::new(&mut sink);
+        //                   -------------^^^^^^^^^-
+        //                   |            |
+        //                   |            borrowed value does not live long enough
+        //                   argument requires that `sink` is borrowed for `'a`
+        //
+        // }
+        // - `sink` dropped here while still borrowed
+        pub fn _encrypt_data<'a, B: AsRef<[u8]>, R>(data: B, recipients: R)
+            -> anyhow::Result<Vec<u8>>
+        where
+            R: IntoIterator,
+            R::Item: Into<Recipient<'a>>,
+        {
+            let mut sink = vec![];
+            let message = Message::new(&mut sink);
+            let armorer = Armorer::new(message).build()?;
+            let encryptor = Encryptor::for_recipients(armorer, recipients).build()?;
+            let mut writer = LiteralWriter::new(encryptor).build()?;
+            writer.write_all(data.as_ref())?;
+            writer.finalize()?;
+
+            Ok(sink)
+        }
+    }
+
+    /// Encrypts to a v4 and a v6 recipient using SEIPDv1.
+    #[test]
+    fn mixed_recipients_seipd1() -> Result<()> {
+        let alice = CertBuilder::general_purpose(Some("alice"))
+            .set_profile(Profile::RFC9580)?
+            .generate()?.0;
+        let bob = CertBuilder::general_purpose(Some("bob"))
+            .set_profile(Profile::RFC4880)?
+            .set_features(Features::empty().set_seipdv1())?
+            .generate()?.0;
+        mixed_recipients_intern(alice, bob, 1)
+    }
+
+    /// Encrypts to a v4 and a v6 recipient using SEIPDv2.
+    #[test]
+    fn mixed_recipients_seipd2() -> Result<()> {
+        let alice = CertBuilder::general_purpose(Some("alice"))
+            .set_profile(Profile::RFC9580)?
+            .generate()?.0;
+        let bob = CertBuilder::general_purpose(Some("bob"))
+            .set_profile(Profile::RFC4880)?
+            .generate()?.0;
+        mixed_recipients_intern(alice, bob, 2)
+    }
+
+    fn mixed_recipients_intern(alice: Cert, bob: Cert, seipdv: u8)
+                               -> Result<()>
+    {
+        use crate::policy::StandardPolicy;
+        use crate::parse::stream::{
+            DecryptorBuilder,
+            test::VHelper,
+        };
+
+        let p = StandardPolicy::new();
+        let recipients = [&alice, &bob].into_iter().flat_map(
+            |c| c.keys().with_policy(&p, None).for_storage_encryption());
+
+        let mut sink = vec![];
+        let message = Message::new(&mut sink);
+        let message =
+            Encryptor::for_recipients(message, recipients)
+            .build()?;
+        let mut message = LiteralWriter::new(message).build()?;
+        message.write_all(b"Hello world.")?;
+        message.finalize()?;
+
+        for key in [alice, bob] {
+            eprintln!("Decrypting with key version {}",
+                      key.primary_key().key().version());
+            let h = VHelper::for_decryption(0, 0, 0, 0, Vec::new(),
+                                            vec![key], Vec::new());
+            let mut d = DecryptorBuilder::from_bytes(&sink)?
+                .with_policy(&p, None, h)?;
+            assert!(d.message_processed());
+
+            let mut content = Vec::new();
+            d.read_to_end(&mut content).unwrap();
+            assert_eq!(&b"Hello world."[..], &content[..]);
+
+            use Packet::*;
+            match seipdv {
+                1 => d.helper_ref().packets.iter().for_each(
+                    |p| match p {
+                        PKESK(p) => assert_eq!(p.version(), 3),
+                        SKESK(p) => assert_eq!(p.version(), 4),
+                        SEIP(p) => assert_eq!(p.version(), 1),
+                        _ => (),
+                    }),
+
+                2 => d.helper_ref().packets.iter().for_each(
+                    |p| match p {
+                        PKESK(p) => assert_eq!(p.version(), 6),
+                        SKESK(p) => assert_eq!(p.version(), 6),
+                        SEIP(p) => assert_eq!(p.version(), 2),
+                        _ => (),
+                    }),
+
+                _ => unreachable!(),
+            }
         }
 
         Ok(())

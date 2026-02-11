@@ -43,10 +43,10 @@ impl<T: BufferedReader<()>> Dup<T, ()> {
 }
 
 impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> Dup<T, C> {
-    /// Like `new()`, but uses a cookie.
+    /// Like [`Self::new`], but uses a cookie.
     ///
-    /// The cookie can be retrieved using the `cookie_ref` and
-    /// `cookie_mut` methods, and set using the `cookie_set` method.
+    /// The cookie can be retrieved using the [`BufferedReader::cookie_ref`] and
+    /// [`BufferedReader::cookie_mut`] methods, and set using the [`BufferedReader::cookie_set`] method.
     pub fn with_cookie(reader: T, cookie: C) -> Self {
         Dup {
             reader,
@@ -128,7 +128,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C> for Du
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
             where Self: 'b {
-        Some(self.reader.as_boxed())
+        Some(self.reader.into_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -152,7 +152,7 @@ mod test {
 
     #[test]
     fn buffered_reader_memory_test () {
-        let data : &[u8] = include_bytes!("buffered-reader-test.txt");
+        let data = crate::BUFFERED_READER_TEST_DATA;
         let reader = Memory::new(data);
         let mut reader = Dup::new(reader);
 
@@ -177,7 +177,7 @@ mod test {
     fn buffer_test() {
         // Test vector.  A Dup returns all unconsumed
         // data.  So, use a relatively small buffer size.
-        let size = DEFAULT_BUF_SIZE;
+        let size = default_buf_size();
         let mut input = Vec::with_capacity(size);
         let mut v = 0u8;
         for _ in 0..size {
@@ -193,7 +193,7 @@ mod test {
         let mut reader = Dup::new(reader);
 
         for i in 0..input.len() {
-            let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
+            let data = reader.data(default_buf_size() + 1).unwrap().to_vec();
             assert!(!data.is_empty());
             assert_eq!(data, reader.buffer());
             // And, we may as well check to make sure we read the

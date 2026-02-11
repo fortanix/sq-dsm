@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-openpgp"
 description = "OpenPGP data types and associated machinery"
-version = "1.6.0"
+version = "2.2.0"
 authors = [
     "Igor Matuszewski <igor@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
@@ -19,8 +19,8 @@ readme = "README.md"
 keywords = ["cryptography", "openpgp", "pgp", "encryption", "signing"]
 categories = ["cryptography", "authentication", "email"]
 license = "LGPL-2.0-or-later"
-edition = "2018"
-rust-version = "1.56"
+edition = "2021"
+rust-version = "1.85"
 
 [badges]
 gitlab = { repository = "sequoia-pgp/sequoia" }
@@ -28,82 +28,129 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 anyhow = "1.0.18"
-buffered-reader = { path = "../buffered-reader", version = "1.0.0", default-features = false }
-base64 = ">=0.12"
-bzip2 = { version = "0.4", optional = true }
+argon2 = "0.5"
+buffered-reader = { path = "../buffered-reader", version = "1.3.0", default-features = false }
+base64 = ">= 0.21, < 0.23"
+bzip2 = { version = ">= 0.4, < 0.7", optional = true }
 dyn-clone = "1"
 flate2 = { version = "1.0.1", optional = true }
-idna = "0.2"
-lalrpop-util = ">=0.17"
-lazy_static = "1.4.0"
+idna = ">= 1.0.3, < 2"
+lalrpop-util = ">=0.20, <0.23"
 libc = "0.2.66"
-memsec = { version = ">=0.5", default-features = false }
-nettle = { version = "7.0.2", optional = true }
+memsec = { version = ">=0.5, <0.8", default-features = false }
+nettle = { version = "7.3", optional = true }
 regex = "1"
-regex-syntax = "0.6"
+regex-syntax = "0.8"
 serde = { version = "1.0", features = ["derive"] }
-sha1collisiondetection = { version = "0.2.3", default-features = false, features = ["std"] }
-thiserror = "1.0.2"
+sha1collisiondetection = { version = "0.3.1", default-features = false, features = ["std"] }
+thiserror = ">=1, <3"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-backtrace = "0.3.3"
+
+# At least 0.10.55 is needed due `no-ocb` check:
+# https://github.com/sfackler/rust-openssl/blob/master/openssl/CHANGELOG.md
+openssl = { version = "0.10.55", optional = true }
+# We need to directly depend on the sys crate so that the metadata produced
+# in its build script is passed to sequoia-openpgp's build script
+# see: https://doc.rust-lang.org/cargo/reference/build-scripts.html#the-links-manifest-key
+openssl-sys = { version = "0.9.90", optional = true }
+
+# Botan.
+botan = { version = ">= 0.10.6, < 0.12", optional = true }
 
 # RustCrypto crates.
-aes = { version = "0.6.0", optional = true }
-block-modes = { version = "0.7.0", optional = true }
-block-padding = { version = "0.2.1", optional = true }
-blowfish = { version = "0.7.0", optional = true }
-cast5 = { version = "0.9.0", optional = true }
-cipher = { version = "0.2.5", optional = true, features = ["std"] }
-des = { version = "0.6.0", optional = true }
-digest = { version = "0.9.0", optional = true }
-eax = { version = "0.3.0", optional = true }
-ecdsa = { version = "0.11", optional = true, features = ["hazmat", "arithmetic"] } # XXX
-ed25519-dalek = { version = "1", default-features = false, features = ["rand", "u64_backend"], optional = true }
-generic-array = { version = "0.14.4", optional = true }
-idea = { version = "0.3.0", optional = true }
-md-5 = { version = "0.9.1", optional = true }
-num-bigint-dig = { version = "0.6", default-features = false, optional = true }
-p256 = { version = "0.8", optional = true, features = ["ecdh", "ecdsa"] }
-rand07 = { package = "rand", version = "0.7.3", optional = true }
+aes = { version = "0.8", optional = true, features = ["zeroize"] }
+aes-gcm = { version = "0.10", optional = true, features = ["std"] }
+block-padding = { version = "0.3", optional = true }
+blowfish = { version = "0.9", optional = true, features = ["zeroize"] }
+camellia = { version = "0.1", optional = true, features = ["zeroize"] }
+cast5 = { version = "0.11", optional = true, features = ["zeroize"] }
+cbc = { version = "0.1", optional = true }
+cipher = { version = "0.4", optional = true, features = ["std", "zeroize"] }
+cfb-mode = { version = "0.8", optional = true }
+des = { version = "0.8", optional = true, features = ["zeroize"] }
+digest = { version = "0.10", optional = true }
+dsa = { version = "0.6", optional = true }
+eax = { version = "0.5", optional = true }
+ecb = { version = "0.1", optional = true }
+ecdsa = { version = "0.16", optional = true, features = ["hazmat", "arithmetic"] } # XXX
+# We don't directly use ed25519, but ed25519-dalek reexports it and we
+# need the std feature, at least so that ed25519::Error implements
+# std::error::Error.
+ed25519 = { version = "2", default-features = false, features = ["std"], optional = true }
+ed25519-dalek = { version = "2", features = ["rand_core", "zeroize"], optional = true }
+hkdf = { version = "0.12", optional = true }
+idea = { version = "0.5", optional = true, features = ["zeroize"] }
+md-5 = { version = "0.10", features = ["oid"], optional = true }
+num-bigint-dig = { version = "0.8", default-features = false, optional = true }
+ocb3 = { version = "0.1", default-features = false, optional = true }
+p256 = { version = "0.13", optional = true, features = ["ecdh", "ecdsa"] }
+p384 = { version = "0.13", optional = true, features = ["ecdh", "ecdsa"] }
+p521 = { version = "0.13", optional = true, features = ["ecdh", "ecdsa"] }
+rand = { version = "0.9", optional = true, default-features = false }
+# As long as we are on x25519-dalek 2.0 we have to use rand_core v0.6.
 rand_core = { version = "0.6", optional = true }
-ripemd160 = { version = "0.9.1", optional = true }
-rsa = { version = "0.3.0", optional = true }
-sha-1 = { version = "0.9.2", optional = true }
-sha2 = { version = "0.9.2", optional = true }
-twofish = { version = "0.5.0", optional = true }
+ripemd = { version = "0.1", features = ["oid"], optional = true }
+rsa = { version = "0.9.0", optional = true }
+sha2 = { version = "0.10", features = ["oid"], optional = true }
+sha3 = { version = "0.10", features = ["oid"], optional = true }
+twofish = { version = "0.7", optional = true, features = ["zeroize"] }
 typenum = { version = "1.12.0", optional = true }
-x25519-dalek = { version = "1.1.0", optional = true }
+x25519-dalek = { version = "2", optional = true, default-features = false, features = ["static_secrets", "zeroize"] }
 
 [target.'cfg(windows)'.dependencies]
-win-crypto-ng = { version = "0.4", features = ["rand", "block-cipher"], optional = true }
+win-crypto-ng = { version = "0.5.1", features = ["rand", "block-cipher"], optional = true }
+# If zeroize is inluced in the dependency tree, then `win-crypto-ng`
+# will use it to clear buffers that contain secrets.  Other
+# dependencies should pull in `zeroize`, but we do explicitly to be
+# doubly sure that it is actually available.
+zeroize = { version = "1", optional = true }
 winapi = { version = "0.3.8", default-features = false, features = ["bcrypt"], optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-chrono = { version = "0.4.10", default-features = false, features = ["std", "wasmbind"] }
+chrono = { version = "0.4.10", default-features = false, features = ["std", "wasmbind", "clock"] }
 getrandom = { version = "0.2", features = ["js"] }
-rand07 = { package = "rand", version = "0.7", features = ["wasm-bindgen"] }
 
 [build-dependencies]
-lalrpop = ">=0.17"
+lalrpop = { version = ">=0.20, <0.23", default-features = false }
 
 [dev-dependencies]
 quickcheck = { version = "1", default-features = false }
-quickcheck_macros = { version = "1", default-features = false }
-rand = { version = "0.8" }
-rpassword = "5.0"
-criterion = { version = "0.3.4", features = ["html_reports"] }
+rand = { version = "0.9", default-features = false, features = ["std", "std_rng", "thread_rng"] }
+rpassword = "7.0"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = ["compression", "crypto-nettle"]
 # TODO(#333): Allow for/implement more backends
-crypto-nettle = ["nettle"]
+crypto-nettle = ["dep:nettle"]
 crypto-rust = [
-    "aes", "block-modes", "block-padding", "blowfish", "cast5", "cipher", "des",
-    "digest", "eax", "ed25519-dalek", "generic-array", "idea", "md-5", "num-bigint-dig", "rand07",
-    "ripemd160", "rsa", "sha-1", "sha2", "twofish", "typenum", "x25519-dalek", "p256",
-    "rand_core", "rand_core/getrandom", "ecdsa"
+    "dep:aes", "dep:block-padding", "dep:blowfish", "dep:camellia",
+    "dep:cast5", "dep:cfb-mode", "dep:cipher", "dep:des", "dep:digest",
+    "dep:eax", "dep:ecb", "dep:ed25519", "dep:ed25519-dalek", "dep:idea",
+    "dep:md-5", "dep:num-bigint-dig", "dep:ripemd", "dep:rsa", "dep:sha2",
+    "dep:sha3",
+    "dep:cbc",
+    "sha1collisiondetection/digest-trait", "sha1collisiondetection/oid",
+    "dep:twofish", "dep:typenum", "dep:x25519-dalek",
+    "dep:ocb3",
+    "dep:p256",
+    "dep:p384", "dep:p521",
+    "dep:rand", "rand?/os_rng", "dep:rand_core", "rand_core?/getrandom",
+    "dep:ecdsa", "dep:aes-gcm", "dep:dsa", "dep:hkdf",
 ]
-crypto-cng = ["eax", "winapi", "win-crypto-ng", "ed25519-dalek", "num-bigint-dig"]
+crypto-cng = [
+    "dep:cipher", "dep:eax", "dep:winapi", "dep:win-crypto-ng",
+    "dep:ed25519", "dep:ed25519-dalek",
+    "dep:num-bigint-dig", "dep:aes-gcm", "dep:rand_core",
+    "dep:hkdf", "dep:sha2",
+    "dep:ocb3",
+    "dep:zeroize"
+]
+crypto-openssl = ["dep:openssl", "dep:openssl-sys"]
+crypto-botan = ["dep:botan", "botan?/botan3"]
+crypto-botan2 = ["dep:botan"]
+crypto-fuzzing = []
+__implicit-crypto-backend-for-tests = []
 
 # Experimental and variable-time cryptographic backends opt-ins
 allow-experimental-crypto = []
@@ -111,8 +158,8 @@ allow-variable-time-crypto = []
 
 # The compression algorithms.
 compression = ["compression-deflate", "compression-bzip2"]
-compression-deflate = ["flate2", "buffered-reader/compression-deflate"]
-compression-bzip2 = ["bzip2", "buffered-reader/compression-bzip2"]
+compression-deflate = ["dep:flate2", "buffered-reader/compression-deflate"]
+compression-bzip2 = ["dep:bzip2", "buffered-reader/compression-bzip2"]
 
 [lib]
 bench = false
@@ -124,3 +171,22 @@ required-features = ["compression-deflate"]
 [[bench]]
 name = "run_benchmarks"
 harness = false
+
+[[example]]
+name = "secret-leak-detector"
+path = "tests/secret-leak-detector/detector.rs"
+
+# rustc version 1.80 adds the `unexpected_cfgs` warning, which warns
+# about unexpected cfg condition names.  Extend the list of cfg
+# condition names to include those that we use.
+#
+# https://blog.rust-lang.org/2024/05/06/check-cfg.html
+# https://doc.rust-lang.org/stable/rustc/check-cfg.html#well-known-names-and-values
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(osslconf, values("OPENSSL_NO_BF"))',
+    'cfg(osslconf, values("OPENSSL_NO_CAMELLIA"))',
+    'cfg(osslconf, values("OPENSSL_NO_CAST"))',
+    'cfg(osslconf, values("OPENSSL_NO_IDEA"))',
+    'cfg(osslconf, values("OPENSSL_NO_OCB"))',
+] }

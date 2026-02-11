@@ -149,7 +149,10 @@ pub fn certify(config: Config, m: &clap::ArgMatches)
             &mut signer,
             cert.primary_key().component(),
             userid)?;
-    let cert = cert.insert_packets(certification.clone())?;
+
+    // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+    // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+    let cert = cert.insert_packets(certification.clone())?.0;
     assert!(cert.clone().into_packets().any(|p| {
         match p {
             Packet::Signature(sig) => sig == certification,

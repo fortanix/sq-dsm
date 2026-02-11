@@ -1,8 +1,8 @@
 [workspace]
+resolver = "2"
 members = [
     "autocrypt",
     "buffered-reader",
-    "guide",
     "ipc",
     "net",
     "openpgp",
@@ -22,3 +22,70 @@ ntapi = { git = "https://github.com/MSxDOS/ntapi", rev = "24fc1e47677fc9f6e38e5f
 # Issue : https://github.com/emgre/win-crypto-ng/issues/40
 # Fix : https://github.com/emgre/win-crypto-ng/pull/43
 win-crypto-ng = { git = "https://github.com/emgre/win-crypto-ng", rev = "306da1c87fad53b5e51f9e089b04380a5c336de7"}
+
+# The Rust Crypto crates are *very* slow when compiled without any
+# optimizations.  Turn on some optimizations.
+[profile.dev.package.aes]
+opt-level = 2
+[profile.dev.package.aes-gcm]
+opt-level = 2
+[profile.dev.package.argon2]
+opt-level = 2
+[profile.dev.package.blake2]
+opt-level = 2
+[profile.dev.package.block-padding]
+opt-level = 2
+[profile.dev.package.blowfish]
+opt-level = 2
+[profile.dev.package.camellia]
+opt-level = 2
+[profile.dev.package.cast5]
+opt-level = 2
+[profile.dev.package.cipher]
+opt-level = 2
+[profile.dev.package.cfb-mode]
+opt-level = 2
+[profile.dev.package.des]
+opt-level = 2
+[profile.dev.package.digest]
+opt-level = 2
+[profile.dev.package.dsa]
+opt-level = 2
+[profile.dev.package.eax]
+opt-level = 2
+[profile.dev.package.ecb]
+opt-level = 2
+[profile.dev.package.ecdsa]
+opt-level = 2
+[profile.dev.package.ed25519]
+opt-level = 2
+[profile.dev.package.ed25519-dalek]
+opt-level = 2
+[profile.dev.package.idea]
+opt-level = 2
+[profile.dev.package.keccak]
+opt-level = 2
+[profile.dev.package.md-5]
+opt-level = 2
+[profile.dev.package.num-bigint-dig]
+opt-level = 2
+[profile.dev.package.ocb3]
+opt-level = 2
+[profile.dev.package.p256]
+opt-level = 2
+[profile.dev.package.p384]
+opt-level = 2
+[profile.dev.package.p521]
+opt-level = 2
+[profile.dev.package.ripemd]
+opt-level = 2
+[profile.dev.package.rsa]
+opt-level = 2
+[profile.dev.package.sha2]
+opt-level = 2
+[profile.dev.package.sha3]
+opt-level = 2
+[profile.dev.package.twofish]
+opt-level = 2
+[profile.dev.package.x25519-dalek]
+opt-level = 2

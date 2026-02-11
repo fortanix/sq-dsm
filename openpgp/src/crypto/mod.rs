@@ -28,21 +28,52 @@ use crate::{
     Result,
 };
 
-pub(crate) mod aead;
+pub mod aead;
 mod asymmetric;
 pub use self::asymmetric::{Signer, Decryptor, KeyPair};
-mod backend;
-pub use backend::random;
+pub(crate) mod backend;
 pub mod ecdh;
 pub mod hash;
+mod key;
 pub mod mem;
 pub mod mpi;
 mod s2k;
 pub use s2k::S2K;
-pub(crate) mod symmetric;
-
+pub mod symmetric;
+mod types;
+pub use types::{
+    AEADAlgorithm,
+    Curve,
+    HashAlgorithm,
+    PublicKeyAlgorithm,
+    SymmetricAlgorithm,
+};
 #[cfg(test)]
 mod tests;
+
+/// Returns a short, human-readable description of the backend.
+///
+/// This starts with the name of the backend, possibly a version, and
+/// any optional features that are available.  This is meant for
+/// inclusion in version strings to improve bug reports.
+pub fn backend() -> String {
+    use backend::interface::Backend;
+    backend::Backend::backend()
+}
+
+/// Fills the given buffer with random data.
+///
+/// Fills the given buffer with random data produced by a
+/// cryptographically secure pseudorandom number generator (CSPRNG).
+/// The output may be used as session keys or to derive long-term
+/// cryptographic keys from.  However, to create session keys,
+/// consider using [`SessionKey::new`].
+///
+///   [`SessionKey::new`]: crate::crypto::SessionKey::new()
+pub fn random<B: AsMut<[u8]>>(mut buf: B) -> Result<()> {
+    use backend::interface::Backend;
+    backend::Backend::random(buf.as_mut())
+}
 
 /// Holds a session key.
 ///
@@ -80,19 +111,24 @@ impl SessionKey {
     /// use openpgp::packet::prelude::*;
     ///
     /// let cipher = SymmetricAlgorithm::AES256;
-    /// let sk = SessionKey::new(cipher.key_size().unwrap());
+    /// let sk = SessionKey::new(cipher.key_size()?)?;
     ///
     /// let key: Key<key::SecretParts, key::UnspecifiedRole> =
-    ///     Key4::generate_ecc(false, Curve::Cv25519)?.into();
+    ///     Key6::generate_ecc(false, Curve::Cv25519)?.into();
     ///
     /// let pkesk: PKESK =
     ///     PKESK3::for_recipient(cipher, &sk, &key)?.into();
     /// # Ok(()) }
     /// ```
-    pub fn new(size: usize) -> Self {
+    pub fn new(size: usize) -> Result<Self> {
         let mut sk: mem::Protected = vec![0; size].into();
-        random(&mut sk);
-        Self(sk)
+        random(&mut sk)?;
+        Ok(Self(sk))
+    }
+
+    /// Returns a reference to the inner [`mem::Protected`].
+    pub fn as_protected(&self) -> &mem::Protected {
+        &self.0
     }
 }
 
@@ -183,13 +219,15 @@ assert_send_and_sync!(Password);
 
 impl From<Vec<u8>> for Password {
     fn from(v: Vec<u8>) -> Self {
-        Password(mem::Encrypted::new(v.into()))
+        Password(mem::Encrypted::new(v.into())
+                 .expect("encrypting memory failed"))
     }
 }
 
 impl From<Box<[u8]>> for Password {
     fn from(v: Box<[u8]>) -> Self {
-        Password(mem::Encrypted::new(v.into()))
+        Password(mem::Encrypted::new(v.into())
+                 .expect("encrypting memory failed"))
     }
 }
 
@@ -248,7 +286,7 @@ impl Password {
 /// Some encodings strip leading zero-bytes.  This function adds them
 /// back, if necessary.  If the size exceeds `to`, an error is
 /// returned.
-pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<[u8]>>
+pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<'_, [u8]>>
 {
     match value.len().cmp(&to) {
         Ordering::Equal => Ok(Cow::Borrowed(value)),
@@ -272,8 +310,7 @@ pub(crate) fn pad(value: &[u8], to: usize) -> Result<Cow<[u8]>>
 /// back, if necessary.  If the size exceeds `to`, the value is
 /// returned as-is.
 #[allow(dead_code)]
-#[allow(clippy::unnecessary_lazy_evaluations)]
-pub(crate) fn pad_at_least(value: &[u8], to: usize) -> Cow<[u8]>
+pub(crate) fn pad_at_least(value: &[u8], to: usize) -> Cow<'_, [u8]>
 {
     pad(value, to).unwrap_or(Cow::Borrowed(value))
 }
@@ -284,7 +321,7 @@ pub(crate) fn pad_at_least(value: &[u8], to: usize) -> Cow<[u8]>
 /// back, if necessary.  If the size exceeds `to`, the value is
 /// silently truncated.
 #[allow(dead_code)]
-pub(crate) fn pad_truncating(value: &[u8], to: usize) -> Cow<[u8]>
+pub(crate) fn pad_truncating(value: &[u8], to: usize) -> Cow<'_, [u8]>
 {
     if value.len() == to {
         Cow::Borrowed(value)
@@ -294,5 +331,43 @@ pub(crate) fn pad_truncating(value: &[u8], to: usize) -> Cow<[u8]>
         let mut v = vec![0; to];
         v[missing..].copy_from_slice(&value[..limit]);
         Cow::Owned(v)
+    }
+}
+
+/// Compares two arbitrary-sized big-endian integers.
+///
+/// Note that the tempting `a < b` doesn't work: it computes the
+/// lexicographical order, so that `[2] > [1, 2]`, whereas we want
+/// `[2] < [1, 2]`.
+pub(crate) fn raw_bigint_cmp(mut a: &[u8], mut b: &[u8]) -> Ordering {
+    // First, trim leading zeros.
+    while a.get(0) == Some(&0) {
+        a = &a[1..];
+    }
+
+    while b.get(0) == Some(&0) {
+        b = &b[1..];
+    }
+
+    // Then, compare their length.  Shorter integers are also smaller.
+    a.len().cmp(&b.len())
+        // Finally, if their length is equal, do a lexicographical
+        // comparison.
+        .then_with(|| a.cmp(b))
+}
+
+/// Given the secret prime values `p` and `q`, returns the pair of
+/// primes so that the smaller one comes first.
+///
+/// Section 5.5.3 of RFC4880 demands that `p < q`.  This function can
+/// be used to order `p` and `q` accordingly.
+#[allow(dead_code)]
+pub(crate) fn rsa_sort_raw_pq<'a>(p: &'a [u8], q: &'a [u8])
+                                  -> (&'a [u8], &'a [u8])
+{
+    match raw_bigint_cmp(p, q) {
+        Ordering::Less => (p, q),
+        Ordering::Equal => (p, q),
+        Ordering::Greater => (q, p),
     }
 }

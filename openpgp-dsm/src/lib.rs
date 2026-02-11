@@ -646,7 +646,8 @@ impl KeyMetadata {
         // Primary
         let prim_metadata = KeyMetadata {
             sq_dsm_version: version.clone(),
-            fingerprint:    primary.fingerprint().to_hex(),
+            // key().fingerprint() forwards to the corresponding KeyV4 or KeyV6 fingerprint()
+            fingerprint:    primary.key().fingerprint().to_hex(),
             key_flags:      primary.key_flags(),
             certificate:    Some(cert.to_string()),
             hash_algo,
@@ -660,7 +661,8 @@ impl KeyMetadata {
         for key in subkeys {
             let subkey_metadata = KeyMetadata {
                 sq_dsm_version: version.clone(),
-                fingerprint:    key.fingerprint().to_hex(),
+                // key().fingerprint() forwards to the corresponding KeyV4 or KeyV6 fingerprint()
+                fingerprint:    key.key().fingerprint().to_hex(),
                 key_flags:      key.key_flags(),
                 certificate:    None,
                 hash_algo,
@@ -879,8 +881,9 @@ pub fn generate_key(
                 HashAlgorithm::SHA256,
             ])?;
         let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
-
-        cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
+        // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+        // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+        cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?.0;
     }
 
     if !encryption_subkeys.is_empty() {
@@ -897,7 +900,9 @@ pub fn generate_key(
                 .set_key_flags(flags.clone())?;
 
             let signature = pk.bind(&mut prim_signer, &cert, builder)?;
-            cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+            // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+            // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+            cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?.0;
         }
     }
 
@@ -934,7 +939,9 @@ pub fn generate_key(
                 .set_embedded_signature(embedded_signature)?;
 
             let signature = pk.bind(&mut prim_signer, &cert, builder)?;
-            cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?;
+            // Cert::insert_packets, use Cert::insert_packets2 instead. then Cert::insert_packets2 renamed to insert_packets.
+            // insert_packets() -> Result<Self> => insert_packets() -> Result<(Self, bool)>
+            cert = cert.insert_packets(vec![Packet::from(pk), signature.into()])?.0;
         }
     }
 
@@ -1812,7 +1819,8 @@ pub fn import_key_to_dsm(
     let prim_flags = tsk.primary_key()
         .key_flags()
         .ok_or_else(|| anyhow::anyhow!("Bad input: primary has no key flags"))?;
-    let prim_id = prim_key.keyid().to_hex();
+    // key().keyid() forwards to the corresponding KeyV4 or KeyV6 keyid()
+    let prim_id = prim_key.key().keyid().to_hex();
 
     // For PGP keyring, primary key name => {keyring-name} {primary-finerprint}
     // For PGP key, primary key name => {keyname}
@@ -1834,7 +1842,8 @@ pub fn import_key_to_dsm(
     let armored = String::from_utf8(tsk.cert().armored().to_vec()?)?;
     let mut prim_metadata = KeyMetadata {
         sq_dsm_version:              SQ_DSM_VERSION.to_string(),
-        fingerprint:                 prim_key.fingerprint().to_hex(),
+        // key().fingerprint() forwards to the corresponding KeyV4 or KeyV6 fingerprint()
+        fingerprint:                 prim_key.key().fingerprint().to_hex(),
         key_flags:                   Some(prim_flags),
         certificate:                 Some(armored),
         external_creation_timestamp: Some(creation_time.into()),
@@ -1843,7 +1852,8 @@ pub fn import_key_to_dsm(
 
     let prim_ops = get_operations(
         prim_key.key_flags(),
-        prim_key.pk_algo(),
+        // key().fingerprint() forwards to the corresponding KeyV4 or KeyV6 fingerprint()
+        prim_key.key().pk_algo(),
         exportable,
         is_secret_key
     );
@@ -1872,9 +1882,11 @@ pub fn import_key_to_dsm(
     if is_secret_key{
         // TSK SubKeys
         for subkey in tsk.keys().subkeys().unencrypted_secret() {
-            let creation_time = Timestamp::try_from(subkey.creation_time())?;
+            // key().creation_time() forwards to the corresponding KeyV4 or KeyV6 creation_time()
+            let creation_time = Timestamp::try_from(subkey.key().creation_time())?;
             let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
-            let subkey_id = subkey.keyid().to_hex();
+            // key().keyid() forwards to the corresponding KeyV4 or KeyV6 keyid()
+            let subkey_id = subkey.key().keyid().to_hex();
             let subkey_name = format!(
                 "{} {}/{}", key_name, prim_id, subkey_id,
             ).to_string();
@@ -1882,8 +1894,9 @@ pub fn import_key_to_dsm(
                 "PGP subkey, {}", subkey_flags.human_readable()
             );
             let subkey_deactivation = if let Some(d) = subkey.key_validity_period() {
+                // key().creation_time() forwards to the corresponding KeyV4 or KeyV6 creation_time()
                 let creation_secs = subkey
-                    .creation_time()
+                    .key().creation_time()
                     .duration_since(UNIX_EPOCH)?.as_secs();
                 Some(SdkmsTime(creation_secs + d.as_secs()))
             } else {
@@ -1894,19 +1907,21 @@ pub fn import_key_to_dsm(
                 certificate:                 None,
                 sq_dsm_version:              SQ_DSM_VERSION.to_string(),
                 external_creation_timestamp: Some(creation_time.into()),
-                fingerprint:                 subkey.fingerprint().to_hex(),
+                // key().fingerprint() forwards to the corresponding KeyV4 or KeyV6 fingerprint()
+                fingerprint:                 subkey.key().fingerprint().to_hex(),
                 key_flags:                   Some(subkey_flags),
                 ..Default::default()
             };
     
             let subkey_ops = get_operations(
                 subkey.key_flags(),
-                subkey.pk_algo(),
+                // key().pk_algo() forwards to the corresponding KeyV4 or KeyV6 pk_algo()
+                subkey.key().pk_algo(),
                 exportable,
                 is_secret_key
             );
     
-            let subkey_hazmat = Some(get_hazardous_material(&subkey));
+            let subkey_hazmat = Some(get_hazardous_material(&subkey.key()));
     
             info!("import subkey {}", subkey_name);
             let subkey_uuid = import_constructed_sobject(
@@ -1915,7 +1930,8 @@ pub fn import_key_to_dsm(
                 subkey_desc,
                 subkey_ops,
                 &mut subkey_md,
-                subkey.mpis(),
+                // key().mpis() forwards to the corresponding KeyV4 or KeyV6 mpis()
+                subkey.key().mpis(),
                 subkey_hazmat.as_ref(),
                 subkey_deactivation,
                 group_id,
@@ -1938,9 +1954,11 @@ pub fn import_key_to_dsm(
     }else {
         // TPK SubKeys
         for subkey in tsk.keys().subkeys() {
-            let creation_time = Timestamp::try_from(subkey.creation_time())?;
+            // key().creation_time() forwards to the corresponding KeyV4 or KeyV6 creation_time()
+            let creation_time = Timestamp::try_from(subkey.key().creation_time())?;
             let subkey_flags = subkey.key_flags().unwrap_or_else(KeyFlags::empty);
-            let subkey_id = subkey.keyid().to_hex();
+            // key().keyid() forwards to the corresponding KeyV4 or KeyV6 keyid()
+            let subkey_id = subkey.key().keyid().to_hex();
             let subkey_name = format!(
                 "{} {}/{}", key_name, prim_id, subkey_id,
             ).to_string();
@@ -1948,8 +1966,9 @@ pub fn import_key_to_dsm(
                 "PGP subkey, {}", subkey_flags.human_readable()
             );
             let subkey_deactivation = if let Some(d) = subkey.key_validity_period() {
+                // key().creation_time() forwards to the corresponding KeyV4 or KeyV6 creation_time()
                 let creation_secs = subkey
-                    .creation_time()
+                    .key().creation_time()
                     .duration_since(UNIX_EPOCH)?.as_secs();
                 Some(SdkmsTime(creation_secs + d.as_secs()))
             } else {
@@ -1960,14 +1979,16 @@ pub fn import_key_to_dsm(
                 certificate:                 None,
                 sq_dsm_version:              SQ_DSM_VERSION.to_string(),
                 external_creation_timestamp: Some(creation_time.into()),
-                fingerprint:                 subkey.fingerprint().to_hex(),
+                // key().fingerprint() forwards to the corresponding KeyV4 or KeyV6 fingerprint()
+                fingerprint:                 subkey.key().fingerprint().to_hex(),
                 key_flags:                   Some(subkey_flags),
                 ..Default::default()
             };
     
             let subkey_ops = get_operations(
                 subkey.key_flags(),
-                subkey.pk_algo(),
+                // key().pk_algo() forwards to the corresponding KeyV4 or KeyV6 pk_algo()
+                subkey.key().pk_algo(),
                 exportable,
                 is_secret_key
             );
@@ -1979,7 +2000,8 @@ pub fn import_key_to_dsm(
                 subkey_desc,
                 subkey_ops,
                 &mut subkey_md,
-                subkey.mpis(),
+                // key().mpis() forwards to the corresponding KeyV4 or KeyV6 mpis()
+                subkey.key().mpis(),
                 None,
                 subkey_deactivation,
                 group_id,
@@ -2172,7 +2194,7 @@ impl PublicKey {
                     let curve = sequoia_curve_from_api_curve(curve)?;
                     let (x, y) = der::parse::ec_point_x_y(&raw_pk)?;
                     let bits_field = curve.bits()
-                        .ok_or_else(|| Error::msg("bad curve"))?;
+                        .map_err(|_| Error::msg("bad curve"))?;
 
                     let point = MPI::new_point(&x, &y, bits_field);
                     let (pk_algo, ec_pk) = match role {
@@ -2432,7 +2454,13 @@ impl Decryptor for DsmAgent {
                         .into()
                 };
 
-                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)
+                // `crypto::ecdh::decrypt_unwrap()` was deprecated and replaced with `crypto::ecdh::decrypt_unwrap2()`, which introduced a `plaintext_len` parameter.
+                // ref : https://gitlab.com/sequoia-pgp/sequoia/-/commit/1817d2a71f80a33fd7345a5a15827acb90c2894f
+                // 
+                // Later, `decrypt_unwrap2()` was renamed to `decrypt_unwrap()`, and the `plaintext_len` parameter was renamed to `_plaintext_len`
+                // ref : https://gitlab.com/sequoia-pgp/sequoia/-/commit/2293374f2b0ac5bca478e1fce5210fd988f5ce6f
+                // ref : https://gitlab.com/sequoia-pgp/sequoia/-/commit/b1b7d20f9924564e08bb8572442d316460446552
+                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext, _plaintext_len)
                     .context("could not unwrap the session key")?
                     .to_vec()
                     .into())
@@ -2520,7 +2548,7 @@ fn secret_packet_from_sobject(sobject: &Sobject) -> Result<Packet> {
                 // Public key point
                 let curve = sequoia_curve_from_api_curve(curve)?;
                 let bits_field = curve.bits()
-                    .ok_or_else(|| Error::msg("bad curve"))?;
+                    .map_err(|_| Error::msg("bad curve"))?;
                 let (x, y) = der::parse::ec_point_x_y(raw_public)?;
                 let point = MPI::new_point(&x, &y, bits_field);
 

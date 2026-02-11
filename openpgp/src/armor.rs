@@ -1,9 +1,9 @@
 //! ASCII Armor.
 //!
 //! This module deals with ASCII Armored data (see [Section 6 of RFC
-//! 4880]).
+//! 9580]).
 //!
-//!   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+//!   [Section 6 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6
 //!
 //! # Scope
 //!
@@ -24,7 +24,7 @@
 //! use openpgp::armor::{Reader, ReaderMode, Kind};
 //!
 //! let mut file = File::open("somefile.asc")?;
-//! let mut r = Reader::new(&mut file, ReaderMode::Tolerant(Some(Kind::File)));
+//! let mut r = Reader::from_reader(&mut file, ReaderMode::Tolerant(Some(Kind::File)));
 //! # Ok(()) }
 //! ```
 
@@ -42,6 +42,11 @@ use std::borrow::Cow;
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as base64std;
+use base64::engine::general_purpose::STANDARD_NO_PAD as base64nopad;
+
+use crate::Profile;
 use crate::packet::prelude::*;
 use crate::packet::header::{BodyLength, CTBNew, CTBOld};
 use crate::parse::Cookie;
@@ -53,18 +58,23 @@ use base64_utils::*;
 mod crc;
 use crc::Crc;
 
+/// Whether to trace execution by default (on stderr).
+const TRACE: bool = false;
+
 /// The encoded output stream must be represented in lines of no more
-/// than 76 characters each (see (see [RFC 4880, section
-/// 6.3](https://tools.ietf.org/html/rfc4880#section-6.3).  GnuPG uses
-/// 64.
+/// than 76 characters each (see [Section 6 of RFC 9580]).  GnuPG
+/// uses 64.
+///
+/// [Section 6 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6
 pub(crate) const LINE_LENGTH: usize = 64;
 
 const LINE_ENDING: &str = "\n";
 
-/// Specifies the type of data (see [RFC 4880, section 6.2]).
+/// Specifies the type of data (see [Section 6.2 of RFC 9580]).
 ///
-/// [RFC 4880, section 6.2]: https://tools.ietf.org/html/rfc4880#section-6.2
+/// [Section 6.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6.2
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Kind {
     /// A generic OpenPGP message.  (Since its structure hasn't been
     /// validated, in this crate's terminology, this is just a
@@ -116,9 +126,9 @@ enum Label {
     Signature,
     /// A message using the Cleartext Signature Framework.
     ///
-    /// See [Section 7 of RFC 4880].
+    /// See [Section 7 of RFC 9580].
     ///
-    ///   [Section 7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7
+    ///   [Section 7 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-7
     CleartextSignature,
     /// A generic file.  This is a GnuPG extension.
     File,
@@ -192,6 +202,8 @@ impl Label {
 impl Kind {
     /// Detects the footer returning length of the footer.
     fn detect_footer(&self, blurb: &[u8]) -> Option<usize> {
+        tracer!(TRACE, "armor::Kind::detect_footer");
+        t!("Looking for footer in {:?}", String::from_utf8_lossy(blurb));
         let (leading_dashes, rest) = dash_prefix(blurb);
 
         // Skip over "END PGP "
@@ -233,6 +245,7 @@ impl Kind {
 /// A filter that applies ASCII Armor to the data written to it.
 pub struct Writer<W: Write> {
     sink: W,
+    profile: Option<Profile>,
     kind: Kind,
     stash: Vec<u8>,
     column: usize,
@@ -306,6 +319,7 @@ impl<W: Write> Writer<W> {
     {
         let mut w = Writer {
             sink: inner,
+            profile: None,
             kind,
             stash: Vec::<u8>::with_capacity(2),
             column: 0,
@@ -329,6 +343,48 @@ impl<W: Write> Writer<W> {
         }
 
         Ok(w)
+    }
+
+    /// Sets the version of OpenPGP to generate ASCII Armor for.
+    ///
+    /// This function can only be called once.  Calling it repeatedly
+    /// will return an error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::{Read, Write, Cursor};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::armor::{Writer, Kind};
+    ///
+    /// # fn main() -> std::io::Result<()> {
+    /// let mut writer = Writer::new(Vec::new(), Kind::File)?;
+    ///
+    /// writer.set_profile(openpgp::Profile::RFC9580)?;
+    /// writer.set_profile(openpgp::Profile::RFC9580).unwrap_err();
+    /// writer.set_profile(openpgp::Profile::RFC4880).unwrap_err();
+    ///
+    /// writer.write_all(b"Hello world!")?;
+    /// let buffer = writer.finalize()?;
+    /// assert_eq!(
+    ///     String::from_utf8_lossy(&buffer),
+    ///     "-----BEGIN PGP ARMORED FILE-----
+    ///
+    /// SGVsbG8gd29ybGQh
+    /// -----END PGP ARMORED FILE-----
+    /// ");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn set_profile(&mut self, profile: Profile) -> Result<()> {
+        if self.profile.is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "profile already selected"));
+        }
+
+        self.profile = Some(profile);
+        Ok(())
     }
 
     /// Returns a reference to the inner writer.
@@ -374,8 +430,7 @@ impl<W: Write> Writer<W> {
 
         // Write any stashed bytes and pad.
         if !self.stash.is_empty() {
-            self.sink.write_all(base64::encode_config(
-                &self.stash, base64::STANDARD).as_bytes())?;
+            self.sink.write_all(base64std.encode(&self.stash).as_bytes())?;
             self.column += 4;
         }
 
@@ -395,14 +450,22 @@ impl<W: Write> Writer<W> {
             write!(self.sink, "{}", LINE_ENDING)?;
         }
 
-        // 24-bit CRC
-        let crc = self.crc.finalize();
-        let bytes = &crc.to_be_bytes()[1..4];
+        match self.profile {
+            None | Some(Profile::RFC4880) => {
+                // 24-bit CRC
+                let crc = self.crc.finalize();
+                let bytes = &crc.to_be_bytes()[1..4];
 
-        // CRC and footer.
-        write!(self.sink, "={}{}{}{}",
-               base64::encode_config(&bytes, base64::STANDARD_NO_PAD),
-               LINE_ENDING, self.kind.end(), LINE_ENDING)?;
+                // Emit the CRC line.
+                write!(self.sink, "={}{}",
+                       base64nopad.encode(&bytes), LINE_ENDING)?;
+            },
+
+            Some(Profile::RFC9580) => (),
+        }
+
+        // Finally, emit the footer.
+        write!(self.sink, "{}{}", self.kind.end(), LINE_ENDING)?;
 
         self.dirty = false;
         crate::vec_truncate(&mut self.scratch, 0);
@@ -425,8 +488,14 @@ impl<W: Write> Write for Writer<W> {
         self.finalize_headers()?;
         assert!(self.dirty);
 
-        // Update CRC on the unencoded data.
-        self.crc.update(buf);
+        match self.profile {
+            None | Some(Profile::RFC4880) => {
+                // Update CRC on the unencoded data.
+                self.crc.update(buf);
+            },
+
+            Some(Profile::RFC9580) => (),
+        }
 
         let mut input = buf;
         let mut written = 0;
@@ -451,8 +520,7 @@ impl<W: Write> Write for Writer<W> {
             // If this fails for some reason, and the caller retries
             // the write, we might end up with a stash of size 3.
             self.sink
-                .write_all(base64::encode_config(
-                    &self.stash, base64::STANDARD_NO_PAD).as_bytes())?;
+                .write_all(base64nopad.encode(&self.stash).as_bytes())?;
             self.column += 4;
             self.linebreak()?;
             crate::vec_truncate(&mut self.stash, 0);
@@ -469,9 +537,9 @@ impl<W: Write> Write for Writer<W> {
             }
 
             written += input_bytes;
-            base64::encode_config_slice(&input[..input_bytes],
-                                        base64::STANDARD_NO_PAD,
-                                        &mut self.scratch[..encoded_bytes]);
+            base64nopad.encode_slice(&input[..input_bytes],
+                                  &mut self.scratch[..encoded_bytes])
+                .expect("buffer correctly sized");
 
             let mut n = 0;
             while ! self.scratch[n..encoded_bytes].is_empty() {
@@ -501,6 +569,7 @@ impl<W: Write> Write for Writer<W> {
 
 /// How an ArmorReader should act.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub enum ReaderMode {
     /// Makes the armor reader tolerant of simple errors.
     ///
@@ -542,7 +611,9 @@ pub struct Reader<'a> {
     // XXX: Directly implement the BufferedReader protocol.  This may
     // actually simplify the code and reduce the required buffering.
 
-    buffer: Option<Box<[u8]>>,
+    buffer: Option<Vec<u8>>,
+    /// Currently unused buffer, a cache.
+    unused_buffer: Option<Vec<u8>>,
     // The next byte to read in the buffer.
     cursor: usize,
     // The preferred chunk size.  This is just a hint.
@@ -551,6 +622,8 @@ pub struct Reader<'a> {
     source: Box<dyn BufferedReader<Cookie> + 'a>,
     // Stashed error, if any.
     error: Option<Error>,
+    /// Whether we hit EOF on the underlying reader.
+    eof: bool,
     // The user settable cookie.
     cookie: Cookie,
     // End fields of the embedded generic reader.
@@ -558,8 +631,6 @@ pub struct Reader<'a> {
     kind: Option<Kind>,
     mode: ReaderMode,
     decode_buffer: Vec<u8>,
-    crc: Crc,
-    expect_crc: Option<u32>,
     initialized: bool,
     headers: Vec<(String, String)>,
     finalized: bool,
@@ -576,7 +647,7 @@ pub struct Reader<'a> {
 assert_send_and_sync!(Reader<'_>);
 
 // The default buffer size.
-const DEFAULT_BUF_SIZE: usize = 8 * 1024;
+const DEFAULT_BUF_SIZE: usize = 32 * 1024;
 
 impl<'a> fmt::Display for Reader<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -593,37 +664,48 @@ impl Default for ReaderMode {
 /// State for transforming a message using the Cleartext Signature
 /// Framework into an inline signed message.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(clippy::upper_case_acronyms)]
 enum CSFTransformer {
-    OPS,
-    Literal,
-    Signatures,
+    Transform,
+    Read,
 }
 
 impl Default for CSFTransformer {
     fn default() -> Self {
-        CSFTransformer::OPS
+        CSFTransformer::Transform
     }
 }
 
 impl<'a> Reader<'a> {
-    /// Constructs a new filter for the given type of data.
+    /// Constructs a new `Reader` from the given `BufferedReader`.
+    pub fn from_buffered_reader<R, M>(reader: R, mode: M) -> Result<Self>
+    where
+        R: BufferedReader<Cookie> + 'a,
+        M: Into<Option<ReaderMode>>,
+    {
+        Ok(Self::from_cookie_reader(reader.into_boxed(), mode, Default::default()))
+    }
+
+    /// Constructs a new `Reader` from the given `io::Read`er.
     ///
     /// [ASCII Armor], designed to protect OpenPGP data in transit,
     /// has been a source of problems if the armor structure is
     /// damaged.  For example, copying data manually from one program
     /// to another might introduce or drop newlines.
     ///
-    /// By default, the reader operates in robust mode.  It will
-    /// extract the first armored OpenPGP data block it can find, even
-    /// if the armor frame is damaged, or missing.
+    /// By default, the reader operates in tolerant mode.  It will
+    /// ignore common formatting errors but the header and footer
+    /// lines must be intact.
     ///
-    /// To select strict mode, specify a kind argument.  In strict
-    /// mode, the reader will match on the armor frame.  The reader
-    /// ignores any data in front of the Armor Header Line, as long as
-    /// the line the header is only prefixed by whitespace.
+    /// To select stricter mode, specify the kind argument for
+    /// tolerant mode.  In this mode only ASCII Armor blocks with the
+    /// appropriate header are recognized.
     ///
-    ///   [ASCII Armor]: https://tools.ietf.org/html/rfc4880#section-6.2
+    /// There is also very tolerant mode that is appropriate when
+    /// reading text that the user cut and pasted into a text area.
+    /// This mode of operation is CPU intense, particularly on large
+    /// text files.
+    ///
+    ///   [ASCII Armor]: https://www.rfc-editor.org/rfc/rfc9580.html#section-6.2
     ///
     /// # Examples
     ///
@@ -638,7 +720,7 @@ impl<'a> Reader<'a> {
     /// let data = "yxJiAAAAAABIZWxsbyB3b3JsZCE="; // base64 over literal data packet
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, ReaderMode::VeryTolerant);
+    /// let mut reader = Reader::from_reader(&mut cursor, ReaderMode::VeryTolerant);
     ///
     /// let mut buf = Vec::new();
     /// reader.read_to_end(&mut buf)?;
@@ -666,7 +748,7 @@ impl<'a> Reader<'a> {
     ///      -----END PGP ARMORED FILE-----";
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
+    /// let mut reader = Reader::from_reader(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
     ///
     /// let mut content = String::new();
     /// reader.read_to_string(&mut content)?;
@@ -675,22 +757,11 @@ impl<'a> Reader<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<R, M>(inner: R, mode: M) -> Self
-        where R: 'a + Read + Send + Sync,
-              M: Into<Option<ReaderMode>>
-    {
-        Self::from_buffered_reader(
-            Box::new(buffered_reader::Generic::with_cookie(inner, None,
-                                                           Default::default())),
-            mode, Default::default())
-    }
-
-    /// Creates a `Reader` from an `io::Read`er.
     pub fn from_reader<R, M>(reader: R, mode: M) -> Self
         where R: 'a + Read + Send + Sync,
               M: Into<Option<ReaderMode>>
     {
-        Self::from_buffered_reader(
+        Self::from_cookie_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                            Default::default())),
             mode, Default::default())
@@ -701,7 +772,7 @@ impl<'a> Reader<'a> {
         where P: AsRef<Path>,
               M: Into<Option<ReaderMode>>
     {
-        Ok(Self::from_buffered_reader(
+        Ok(Self::from_cookie_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                         Default::default())?),
             mode, Default::default()))
@@ -711,21 +782,21 @@ impl<'a> Reader<'a> {
     pub fn from_bytes<M>(bytes: &'a [u8], mode: M) -> Self
         where M: Into<Option<ReaderMode>>
     {
-        Self::from_buffered_reader(
+        Self::from_cookie_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                           Default::default())),
             mode, Default::default())
     }
 
-    pub(crate) fn from_buffered_reader<M>(
+    pub(crate) fn from_cookie_reader<M>(
         inner: Box<dyn BufferedReader<Cookie> + 'a>, mode: M, cookie: Cookie)
         -> Self
         where M: Into<Option<ReaderMode>>
     {
-        Self::from_buffered_reader_csft(inner, mode.into(), cookie, false)
+        Self::from_cookie_reader_csft(inner, mode.into(), cookie, false)
     }
 
-    pub(crate) fn from_buffered_reader_csft(
+    pub(crate) fn from_cookie_reader_csft(
         inner: Box<dyn BufferedReader<Cookie> + 'a>,
         mode: Option<ReaderMode>,
         cookie: Cookie,
@@ -738,18 +809,18 @@ impl<'a> Reader<'a> {
         Reader {
             // The embedded generic reader's fields.
             buffer: None,
+            unused_buffer: None,
             cursor: 0,
             preferred_chunk_size: DEFAULT_BUF_SIZE,
             source: inner,
             error: None,
+            eof: false,
             cookie,
             // End of the embedded generic reader's fields.
 
             kind: None,
             mode,
             decode_buffer: Vec::<u8>::with_capacity(1024),
-            crc: Crc::new(),
-            expect_crc: None,
             headers: Vec::new(),
             initialized: false,
             finalized: false,
@@ -795,7 +866,7 @@ impl<'a> Reader<'a> {
     ///      -----END PGP ARMORED FILE-----";
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
+    /// let mut reader = Reader::from_reader(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
     ///
     /// let mut content = String::new();
     /// reader.read_to_string(&mut content)?;
@@ -813,15 +884,21 @@ impl<'a> Reader<'a> {
 
 impl<'a> Reader<'a> {
     /// Consumes the header if not already done.
-    #[allow(clippy::nonminimal_bool)]
     fn initialize(&mut self) -> Result<()> {
+        tracer!(TRACE, "armor::Reader::initialize");
+        t!("self.initialized is {:?}", self.initialized);
         if self.initialized { return Ok(()) }
 
         // The range of the first 6 bits of a message is limited.
         // Save cpu cycles by only considering base64 data that starts
         // with one of those characters.
-        lazy_static::lazy_static!{
-            static ref START_CHARS_VERY_TOLERANT: Vec<u8> = {
+        fn start_chars_very_tolerant() -> &'static [u8] {
+            use std::sync::OnceLock;
+
+            static START_CHARS_VERY_TOLERANT: OnceLock<Vec<u8>>
+                = OnceLock::new();
+
+            START_CHARS_VERY_TOLERANT.get_or_init(|| {
                 let mut valid_start = Vec::new();
                 for &tag in &[ Tag::PKESK, Tag::SKESK,
                               Tag::OnePassSig, Tag::Signature,
@@ -833,12 +910,14 @@ impl<'a> Reader<'a> {
                     let mut o = [ 0u8; 4 ];
 
                     CTBNew::new(tag).serialize_into(&mut ctb[..]).unwrap();
-                    base64::encode_config_slice(&ctb[..], base64::STANDARD, &mut o[..]);
+                    base64std.encode_slice(&ctb[..], &mut o[..])
+                        .expect("buffer correctly sized");
                     valid_start.push(o[0]);
 
                     CTBOld::new(tag, BodyLength::Full(0)).unwrap()
                         .serialize_into(&mut ctb[..]).unwrap();
-                    base64::encode_config_slice(&ctb[..], base64::STANDARD, &mut o[..]);
+                    base64std.encode_slice(&ctb[..], &mut o[..])
+                        .expect("buffer correctly sized");
                     valid_start.push(o[0]);
                 }
 
@@ -856,9 +935,16 @@ impl<'a> Reader<'a> {
                 valid_start.sort_unstable();
                 valid_start.dedup();
                 valid_start
-            };
+            })
+        }
 
-            static ref START_CHARS_TOLERANT: Vec<u8> = {
+        fn start_chars_tolerant() -> &'static [u8] {
+            use std::sync::OnceLock;
+
+            static START_CHARS_TOLERANT: OnceLock<Vec<u8>>
+                = OnceLock::new();
+
+            START_CHARS_TOLERANT.get_or_init(|| {
                 let mut valid_start = Vec::new();
                 // Add all first bytes of Unicode characters from the
                 // "Dash Punctuation" category.
@@ -874,16 +960,16 @@ impl<'a> Reader<'a> {
                 valid_start.sort_unstable();
                 valid_start.dedup();
                 valid_start
-            };
+            })
         }
 
         // Look for the Armor Header Line, skipping any garbage in the
         // process.
         let mut found_blob = false;
         let start_chars = if self.mode != ReaderMode::VeryTolerant {
-            &START_CHARS_TOLERANT[..]
+            start_chars_tolerant()
         } else {
-            &START_CHARS_VERY_TOLERANT[..]
+            start_chars_very_tolerant()
         };
 
         let mut lines = 0;
@@ -936,6 +1022,7 @@ impl<'a> Reader<'a> {
 
                 // Possible ASCII-armor header.
                 if let Some((label, len)) = Label::detect_header(input) {
+                    t!("Found the label {:?}", label);
                     if label == Label::CleartextSignature && ! self.enable_csft
                     {
                         // We found a message using the Cleartext
@@ -995,6 +1082,7 @@ impl<'a> Reader<'a> {
             }
         };
         self.source.consume(n);
+        t!("self.kind is {:?} after consuming {} bytes", self.kind, n);
 
         if found_blob {
             // Skip the rest of the initialization.
@@ -1010,6 +1098,7 @@ impl<'a> Reader<'a> {
 
     /// Reads headers and finishes the initialization.
     fn read_headers(&mut self) -> Result<()> {
+        tracer!(TRACE, "armor::Reader::read_headers");
         // We consumed the header above, but not any trailing
         // whitespace and the trailing new line.  We do that now.
         // Other data between the header and the new line are not
@@ -1022,6 +1111,7 @@ impl<'a> Reader<'a> {
             }).unwrap_or(line.len())
         };
         self.source.consume(n);
+        t!("consumed {} bytes of whitespace", n);
 
         let next_prefix =
             &self.source.data_hard(self.prefix.len())?[..self.prefix.len()];
@@ -1061,6 +1151,7 @@ impl<'a> Reader<'a> {
             // Buffer the next line.
             let line = self.source.read_to(b'\n')?;
             n = line.len();
+            t!("{}: {:?}", lines, String::from_utf8_lossy(&line));
             lines += 1;
 
             let line = str::from_utf8(line);
@@ -1156,6 +1247,8 @@ fn common_prefix<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> usize {
 
 impl<'a> Reader<'a> {
     fn read_armored_data(&mut self, buf: &mut [u8]) -> Result<usize> {
+        assert!(self.csft.is_none());
+
         let (consumed, decoded) = if !self.decode_buffer.is_empty() {
             // We have something buffered, use that.
 
@@ -1174,8 +1267,8 @@ impl<'a> Reader<'a> {
             //     of data.
             //
             //     Note: this happens if the caller does `for c in
-            //     Reader::new(...).bytes() ...`.  Then it reads one
-            //     byte of decoded data at a time.
+            //     Reader::from_reader(...).bytes() ...`.  Then it
+            //     reads one byte of decoded data at a time.
             //
             //   - Small: if the caller only requests a few bytes at a
             //     time, we may as well double buffer to reduce
@@ -1228,11 +1321,8 @@ impl<'a> Reader<'a> {
                 // (Note: the computed size *might* be a slight
                 // overestimate, because the last base64 chunk may
                 // include padding.)
-                self.decode_buffer = base64::decode_config(
-                    &base64data, base64::STANDARD)
+                self.decode_buffer = base64std.decode(&base64data)
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
-                self.crc.update(&self.decode_buffer);
 
                 let copied = cmp::min(buf.len(), self.decode_buffer.len());
                 buf[..copied].copy_from_slice(&self.decode_buffer[..copied]);
@@ -1242,13 +1332,8 @@ impl<'a> Reader<'a> {
             } else {
                 // We can decode directly into the caller-supplied
                 // buffer.
-                let decoded = base64::decode_config_slice(
-                    &base64data, base64::STANDARD, buf)
-                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
-
-                self.crc.update(&buf[..decoded]);
-
-                decoded
+                base64std.decode_slice(&base64data, buf)
+                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))?
             };
 
             self.prefix_remaining = prefix_remaining;
@@ -1281,20 +1366,6 @@ impl<'a> Reader<'a> {
                     && data[1..5].iter().all(is_base64_char)
                 {
                     /* Found.  */
-                    let crc = match base64::decode_config(
-                        &data[1..5], base64::STANDARD)
-                    {
-                        Ok(d) => d,
-                        Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
-                    };
-
-                    assert_eq!(crc.len(), 3);
-                    let crc =
-                        (crc[0] as u32) << 16
-                        | (crc[1] as u32) << 8
-                        | crc[2] as u32;
-
-                    self.expect_crc = Some(crc);
                     5
                 } else {
                     0
@@ -1333,173 +1404,191 @@ impl<'a> Reader<'a> {
                 }
             };
             self.source.consume(consumed);
-
-            if let Some(crc) = self.expect_crc {
-                if self.crc.finalize() != crc {
-                    return Err(Error::new(ErrorKind::InvalidInput,
-                                          "Bad CRC sum."));
-                }
-            }
         }
 
         Ok(decoded)
     }
 
-    fn read_clearsigned_message(&mut self, buf: &mut [u8]) -> Result<usize> {
-        // XXX: We're not terribly concerned with performance at this
-        // point, there is room for improvement.
+    /// Reads a message using the Cleartext Signature Framework,
+    /// transforms it into an inline-signed message, then feeds that
+    /// to the consumer.
+    fn read_clearsigned_message(&mut self, buf: &mut [u8])
+                                -> crate::Result<usize>
+    {
+        assert!(self.csft.is_some());
 
-        use std::collections::HashSet;
         use crate::{
-            types::{DataFormat, HashAlgorithm, SignatureType},
+            parse::{
+                Dearmor,
+                PacketParserBuilder,
+                PacketParserResult,
+                Parse,
+            },
             serialize::Serialize,
+            types::DataFormat,
         };
 
-        assert!(self.csft.is_some());
-        if self.decode_buffer.is_empty() {
-            match self.csft.as_ref().expect("CSFT has been initialized") {
-                CSFTransformer::OPS => {
-                    // Determine the set of hash algorithms.
-                    let mut algos: HashSet<HashAlgorithm> = self.headers.iter()
-                        .filter(|(key, _value)| key == "Hash")
-                        .flat_map(|(_key, value)| {
-                            value.split(',')
-                                .filter_map(|hash| hash.parse().ok())
-                        }).collect();
+        if self.csft == Some(CSFTransformer::Transform) {
+            // Read the text body.
+            let literal = {
+                let mut text = Vec::new();
+                loop {
+                    let prefixed_line = self.source.read_to(b'\n')?;
 
-                    if algos.is_empty() {
-                        // The default is MD5.
-                        #[allow(deprecated)]
-                        algos.insert(HashAlgorithm::MD5);
+                    if prefixed_line.is_empty() {
+                        // Truncated?
+                        break;
                     }
 
-                    // Now create an OPS packet for every algorithm.
-                    let count = algos.len();
-                    for (i, &algo) in algos.iter().enumerate() {
-                        let mut ops = OnePassSig3::new(SignatureType::Text);
-                        ops.set_hash_algo(algo);
-                        ops.set_last(i + 1 == count);
-                        Packet::from(ops).serialize(&mut self.decode_buffer)
-                            .expect("writing to vec does not fail");
+                    // Treat lines shorter than the prefix as
+                    // empty lines.
+                    let n = prefixed_line.len().min(self.prefix.len());
+                    let prefix = &prefixed_line[..n];
+                    let mut line = &prefixed_line[n..];
+
+                    // Check that we see the correct prefix.
+                    let l = common_prefix(&self.prefix, prefix);
+                    let full_prefix = l == self.prefix.len();
+                    if ! (full_prefix
+                          // Truncation is okay if the rest of the prefix
+                          // contains only whitespace.
+                          || self.prefix[l..].iter().all(
+                              |c| c.is_ascii_whitespace()))
+                    {
+                        return Err(
+                            Error::new(ErrorKind::InvalidInput,
+                                       "Inconsistent quoting of \
+                                        armored data").into());
                     }
 
-                    // We will let the caller consume the buffer.
-                    // Once drained, we start decoding the message.
-                    self.csft = Some(CSFTransformer::Literal);
-                },
-
-                CSFTransformer::Literal => {
-                    // XXX: We should create a partial-body encoded
-                    // literal packet, but for now we construct the
-                    // whole packet in core.
-
-                    let mut text = Vec::new();
-                    loop {
-                        let prefixed_line = self.source.read_to(b'\n')?;
-
-                        if prefixed_line.is_empty() {
-                            // Truncated?
-                            break;
-                        }
-
-                        // Treat lines shorter than the prefix as
-                        // empty lines.
-                        let n = prefixed_line.len().min(self.prefix.len());
-                        let prefix = &prefixed_line[..n];
-                        let mut line = &prefixed_line[n..];
-
-                        // Check that we see the correct prefix.
-                        let l = common_prefix(&self.prefix, prefix);
-                        let full_prefix = l == self.prefix.len();
-                        if ! (full_prefix
-                              // Truncation is okay if the rest of the prefix
-                              // contains only whitespace.
-                              || self.prefix[l..].iter().all(
-                                  |c| c.is_ascii_whitespace()))
-                        {
-                            return Err(
-                                Error::new(ErrorKind::InvalidInput,
-                                           "Inconsistent quoting of \
-                                            armored data"));
-                        }
-
-                        let (dashes, rest) = dash_prefix(line);
-                        if dashes.len() > 2 // XXX: heuristic...
-                            && rest.starts_with(b"BEGIN PGP SIGNATURE")
-                        {
-                            // We reached the end of the signed
-                            // message.  Consuming this line and break
-                            // the loop.
-                            let l = prefixed_line.len();
-                            self.source.consume(l);
-                            break;
-                        }
-
-                        // Undo the dash-escaping.
-                        if line.starts_with(b"- ") {
-                            line = &line[2..];
-                        }
-
-                        // Trim trailing whitespace according to
-                        // Section 7.1 of RFC4880, i.e. "spaces (0x20)
-                        // and tabs (0x09)".  We do this here, because
-                        // we transform the CSF message into an inline
-                        // signed message, which does not make a
-                        // distinction between the literal text and
-                        // the signed text (modulo the newline
-                        // normalization).
-
-                        // First, split off the line ending.
-                        let crlf_line_end = line.ends_with(b"\r\n");
-                        line = &line[..line.len()
-                                         - if crlf_line_end { 2 } else { 1 }];
-
-                        // Now, trim whitespace off the line.
-                        while Some(&b' ') == line.last()
-                            || Some(&b'\t') == line.last()
-                        {
-                            line = &line[..line.len() - 1];
-                        }
-
-                        text.extend_from_slice(line);
-                        if crlf_line_end {
-                            text.extend_from_slice(&b"\r\n"[..]);
-                        } else {
-                            text.extend_from_slice(&b"\n"[..]);
-                        }
-
-                        // Finally, consume this line.
+                    let (dashes, rest) = dash_prefix(line);
+                    if dashes.len() > 2 // XXX: heuristic...
+                        && rest.starts_with(b"BEGIN PGP SIGNATURE")
+                    {
+                        // We reached the end of the signed
+                        // message.  Consuming this line and break
+                        // the loop.
                         let l = prefixed_line.len();
                         self.source.consume(l);
+                        break;
                     }
 
-                    // Now, we have the whole text.
-                    let mut literal = Literal::new(DataFormat::Text);
-                    literal.set_body(text);
-                    Packet::from(literal).serialize(&mut self.decode_buffer)
-                        .expect("writing to vec does not fail");
+                    // Undo the dash-escaping.
+                    if line.starts_with(b"- ") {
+                        line = &line[2..];
+                    }
 
-                    // We will let the caller consume the buffer.
-                    // Once drained, we start streaming the
-                    // signatures.
-                    self.csft = Some(CSFTransformer::Signatures);
-                },
+                    // Trim trailing whitespace according to Section
+                    // 7.1 of RFC4880, i.e. "spaces (0x20) and tabs
+                    // (0x09)".  We do this here, because we transform
+                    // the CSF message into an inline signed message,
+                    // which does not make a distinction between the
+                    // literal text and the signed text (modulo the
+                    // newline normalization).
 
-                CSFTransformer::Signatures => {
-                    // Drop transformer to revert to normal armor
-                    // reader.
-                    self.csft = None;
+                    // First, split off the line ending.
+                    let crlf_line_end = line.ends_with(b"\r\n");
+                    line = &line[..line.len().saturating_sub(
+                        if crlf_line_end { 2 } else { 1 })];
 
-                    // Consume any headers.
-                    self.read_headers()?;
+                    // Now, trim whitespace off the line.
+                    while Some(&b' ') == line.last()
+                        || Some(&b'\t') == line.last()
+                    {
+                        line = &line[..line.len().saturating_sub(1)];
+                    }
 
-                    // Then start streaming the signatures.  We call
-                    // this function explicitly once, but next time
-                    // the caller reads, it will shortcut to that
-                    // function.
-                    return self.read_armored_data(buf);
-                },
+                    text.extend_from_slice(line);
+                    if crlf_line_end {
+                        text.extend_from_slice(&b"\r\n"[..]);
+                    } else {
+                        text.extend_from_slice(&b"\n"[..]);
+                    }
+
+                    // Finally, consume this line.
+                    let l = prefixed_line.len();
+                    self.source.consume(l);
+                }
+
+                // Trim the final newline, it is not part of the
+                // message, but separates the signature marker from
+                // the text.
+                let c = text.pop();
+                assert!(c.is_none() || c == Some(b'\n'));
+                if text.ends_with(b"\r") {
+                    text.pop();
+                }
+
+                // Now, we have the whole text.
+                // XXX: We optimistically assume that it is UTF-8 encoded.
+                let mut literal = Literal::new(DataFormat::Unicode);
+                literal.set_body(text);
+                literal
+            };
+
+            // Then, read and parse all the signatures.  To that end,
+            // we need to temporarily disable the CSF transformation,
+            // and doing that will finalize the reader, which we'll
+            // have to undo later on.
+            self.csft = None;
+
+            // We found the signature marker, now consume any armor
+            // headers.
+            self.read_headers()?;
+
+            let mut sigs: Vec<Packet> = Vec::new();
+            let mut ppr = PacketParserBuilder::from_reader(self.by_ref())?
+                .dearmor(Dearmor::Disabled)
+                .build()?;
+            while let PacketParserResult::Some(pp) = ppr {
+                let (p, ppr_) = pp.next()?;
+                match p {
+                    Packet::Signature(sig) => sigs.push(sig.into()),
+                    Packet::Marker(_) => (),
+                    Packet::Unknown(u) if u.tag() == Tag::Signature =>
+                        sigs.push(u.into()),
+                    p => return Err(crate::Error::MalformedMessage(
+                        format!("Unexpected {} packet in \
+                                 cleartext signed message", p.tag()))
+                                    .into()),
+                }
+                ppr = ppr_;
             }
+            drop(ppr);
+            assert!(self.finalized);
+
+            // Now assemble an inline-signed message from the text
+            // and components.
+
+            // First, create one-pass-signature packets, and mark
+            // the last of them as being the last.
+            let mut opss = Vec::with_capacity(sigs.len());
+            for p in sigs.iter().rev() {
+                if let Packet::Signature(sig) = p {
+                    if let Ok(ops) = OnePassSig::try_from(sig) {
+                        opss.push(ops);
+                    }
+                }
+            }
+            if let Some(ops) = opss.last_mut() {
+                ops.set_last(true);
+            }
+
+            // Now write everything out to our buffer.
+            for ops in opss {
+                Packet::from(ops).serialize(&mut self.decode_buffer)?;
+            }
+            Packet::from(literal).serialize(&mut self.decode_buffer)?;
+            for p in sigs {
+                p.serialize(&mut self.decode_buffer)?;
+            }
+
+            // We have placed the assembled message into our decode
+            // buffer.  Now revert the reader to a state so that the
+            // caller can extract it.
+            self.finalized = false;
+            self.eof = false;
+            self.csft = Some(CSFTransformer::Read);
         }
 
         let amount = cmp::min(buf.len(), self.decode_buffer.len());
@@ -1530,6 +1619,12 @@ impl<'a> Reader<'a> {
 
         if self.csft.is_some() {
             self.read_clearsigned_message(buf)
+                .map_err(|e| {
+                    match e.downcast::<io::Error>() {
+                        Ok(e) => e,
+                        Err(e) => io::Error::new(io::ErrorKind::Other, e),
+                    }
+                })
         } else {
             self.read_armored_data(buf)
         }
@@ -1541,19 +1636,12 @@ impl<'a> Reader<'a> {
     // buffered_reader::Generic::data_helper, the only modification is
     // that it uses the above do_read function.
     fn data_helper(&mut self, amount: usize, hard: bool, and_consume: bool)
-                   -> Result<&[u8]> {
-        // println!("Generic.data_helper(\
-        //           amount: {}, hard: {}, and_consume: {} (cursor: {}, buffer: {:?})",
-        //          amount, hard, and_consume,
-        //          self.cursor,
-        //          if let Some(ref buffer) = self.buffer { Some(buffer.len()) }
-        //          else { None });
-
-
-        // See if there is an error from the last invocation.
-        if let Some(e) = self.error.take() {
-            return Err(e);
-        }
+                   -> io::Result<&[u8]> {
+        tracer!(TRACE, "armor::Reader::data_helper");
+        t!("amount: {}, hard: {}, and_consume: {} (cursor: {}, buffer: {:?})",
+           amount, hard, and_consume,
+           self.cursor,
+           self.buffer.as_ref().map(|buffer| buffer.len()));
 
         if let Some(ref buffer) = self.buffer {
             // We have a buffer.  Make sure `cursor` is sane.
@@ -1569,18 +1657,39 @@ impl<'a> Reader<'a> {
             // The caller wants more data than we have readily
             // available.  Read some more.
 
-            let capacity : usize = cmp::max(cmp::max(
-                DEFAULT_BUF_SIZE,
-                2 * self.preferred_chunk_size), amount);
+            let capacity : usize = amount.saturating_add(
+                DEFAULT_BUF_SIZE.max(
+                    self.preferred_chunk_size.saturating_mul(2)));
 
-            let mut buffer_new : Vec<u8> = vec![0u8; capacity];
+            let mut buffer_new = self.unused_buffer.take()
+                .map(|mut v| {
+                    vec_resize(&mut v, capacity);
+                    v
+                })
+                .unwrap_or_else(|| vec![0u8; capacity]);
 
             let mut amount_read = 0;
             while amount_buffered + amount_read < amount {
+                t!("Have {} bytes, need {} bytes",
+                   amount_buffered + amount_read, amount);
+
+                if self.eof {
+                    t!("Hit EOF on the underlying reader, don't poll again.");
+                    break;
+                }
+
+                // See if there is an error from the last invocation.
+                if let Some(e) = &self.error {
+                    t!("We have a stashed error, don't poll again: {}", e);
+                    break;
+                }
+
                 match self.do_read(&mut buffer_new
                                    [amount_buffered + amount_read..]) {
                     Ok(read) => {
+                        t!("Read {} bytes", read);
                         if read == 0 {
+                            self.eof = true;
                             break;
                         } else {
                             amount_read += read;
@@ -1608,9 +1717,9 @@ impl<'a> Reader<'a> {
                 }
 
                 vec_truncate(&mut buffer_new, amount_buffered + amount_read);
-                buffer_new.shrink_to_fit();
 
-                self.buffer = Some(buffer_new.into_boxed_slice());
+                self.unused_buffer = self.buffer.take();
+                self.buffer = Some(buffer_new);
                 self.cursor = 0;
             }
         }
@@ -1619,19 +1728,24 @@ impl<'a> Reader<'a> {
             = self.buffer.as_ref().map(|b| b.len() - self.cursor).unwrap_or(0);
 
         if self.error.is_some() {
+            t!("Encountered an error: {}", self.error.as_ref().unwrap());
             // An error occurred.  If we have enough data to fulfill
             // the caller's request, then don't return the error.
             if hard && amount > amount_buffered {
+                t!("Not enough data to fulfill request, returning error");
                 return Err(self.error.take().unwrap());
             }
             if !hard && amount_buffered == 0 {
+                t!("No data data buffered, returning error");
                 return Err(self.error.take().unwrap());
             }
         }
 
         if hard && amount_buffered < amount {
+            t!("Unexpected EOF");
             Err(Error::new(ErrorKind::UnexpectedEof, "EOF"))
         } else if amount == 0 || amount_buffered == 0 {
+            t!("Returning zero-length slice");
             Ok(&b""[..])
         } else {
             let buffer = self.buffer.as_ref().unwrap();
@@ -1639,8 +1753,13 @@ impl<'a> Reader<'a> {
                 let amount_consumed = cmp::min(amount_buffered, amount);
                 self.cursor += amount_consumed;
                 assert!(self.cursor <= buffer.len());
+                t!("Consuming {} bytes, returning {} bytes",
+                   amount_consumed,
+                   buffer[self.cursor-amount_consumed..].len());
                 Ok(&buffer[self.cursor-amount_consumed..])
             } else {
+                t!("Returning {} bytes",
+                   buffer[self.cursor..].len());
                 Ok(&buffer[self.cursor..])
             }
         }
@@ -1899,7 +2018,7 @@ mod test {
                           LITERAL_NO_HEADER_WITH_CHKSUM_ASC[i],
                           LITERAL_NO_HEADER_ASC[i],
                           LITERAL_NO_NEWLINES_ASC[i]] {
-                let mut r = Reader::new(Cursor::new(test),
+                let mut r = Reader::from_reader(Cursor::new(test),
                                         ReaderMode::VeryTolerant);
                 let mut dearmored = Vec::<u8>::new();
                 r.read_to_end(&mut dearmored).unwrap();
@@ -1912,7 +2031,7 @@ mod test {
     #[test]
     fn dearmor_binary() {
         for bin in TEST_BIN.iter() {
-            let mut r = Reader::new(
+            let mut r = Reader::from_reader(
                 Cursor::new(bin), ReaderMode::Tolerant(Some(Kind::Message)));
             let mut buf = [0; 5];
             let e = r.read(&mut buf);
@@ -1922,7 +2041,7 @@ mod test {
 
     #[test]
     fn dearmor_wrong_kind() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(&include_bytes!("../tests/data/armor/test-0.asc")[..]),
             ReaderMode::Tolerant(Some(Kind::Message)));
         let mut buf = [0; 5];
@@ -1932,18 +2051,23 @@ mod test {
 
     #[test]
     fn dearmor_wrong_crc() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-0.bad-crc.asc")[..]),
             ReaderMode::Tolerant(Some(Kind::File)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
-        assert!(e.is_err());
+        // Quoting RFC4880++:
+        //
+        // > An implementation MUST NOT reject an OpenPGP object when
+        // > the CRC24 footer is present, missing, malformed, or
+        // > disagrees with the computed CRC24 sum.
+        assert!(e.is_ok());
     }
 
     #[test]
     fn dearmor_wrong_footer() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-2.bad-footer.asc")[..]
             ),
@@ -1962,7 +2086,7 @@ mod test {
 
     #[test]
     fn dearmor_no_crc() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-1.no-crc.asc")[..]),
             ReaderMode::Tolerant(Some(Kind::File)));
@@ -1973,7 +2097,7 @@ mod test {
 
     #[test]
     fn dearmor_with_header() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-3.with-headers.asc")[..]
             ),
@@ -1990,7 +2114,7 @@ mod test {
 
     #[test]
     fn dearmor_any() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-3.with-headers.asc")[..]
             ),
@@ -2010,7 +2134,7 @@ mod test {
         // Slap some garbage in front and make sure it still reads ok.
         let mut b: Vec<u8> = "Some\ngarbage\nlines\n\t\r  ".into();
         b.extend_from_slice(armored);
-        let mut r = Reader::new(Cursor::new(b), ReaderMode::VeryTolerant);
+        let mut r = Reader::from_reader(Cursor::new(b), ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert_eq!(r.kind(), Some(Kind::File));
@@ -2022,7 +2146,7 @@ mod test {
         // line of the header.
         let mut b: Vec<u8> = "Some\ngarbage\nlines\n\t.\r  ".into();
         b.extend_from_slice(armored);
-        let mut r = Reader::new(Cursor::new(b), ReaderMode::VeryTolerant);
+        let mut r = Reader::from_reader(Cursor::new(b), ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -2031,7 +2155,7 @@ mod test {
     #[test]
     fn dearmor() {
         for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
-            let mut r = Reader::new(
+            let mut r = Reader::from_reader(
                 Cursor::new(asc),
                 ReaderMode::Tolerant(Some(Kind::File)));
             let mut dearmored = Vec::<u8>::new();
@@ -2044,7 +2168,7 @@ mod test {
     #[test]
     fn dearmor_bytewise() {
         for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
-            let r = Reader::new(
+            let r = Reader::from_reader(
                 Cursor::new(asc),
                 ReaderMode::Tolerant(Some(Kind::File)));
             let mut dearmored = Vec::<u8>::new();
@@ -2059,12 +2183,12 @@ mod test {
     #[test]
     fn dearmor_yuge() {
         let yuge_key = crate::tests::key("yuge-key-so-yuge-the-yugest.asc");
-        let mut r = Reader::new(Cursor::new(yuge_key),
+        let mut r = Reader::from_reader(Cursor::new(yuge_key),
                                 ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         r.read_to_end(&mut dearmored).unwrap();
 
-        let r = Reader::new(Cursor::new(yuge_key),
+        let r = Reader::from_reader(Cursor::new(yuge_key),
                             ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         for c in r.bytes() {
@@ -2074,7 +2198,7 @@ mod test {
 
     #[test]
     fn dearmor_quoted() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-3.with-headers-quoted.asc")[..]
             ),
@@ -2089,7 +2213,7 @@ mod test {
 
     #[test]
     fn dearmor_quoted_stripped() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-3.with-headers-quoted-stripped.asc")[..]
             ),
@@ -2104,7 +2228,7 @@ mod test {
 
     #[test]
     fn dearmor_quoted_a_lot() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-3.with-headers-quoted-a-lot.asc")[..]
             ),
@@ -2119,7 +2243,7 @@ mod test {
 
     #[test]
     fn dearmor_quoted_badly() {
-        let mut r = Reader::new(
+        let mut r = Reader::from_reader(
             Cursor::new(
                 &include_bytes!("../tests/data/armor/test-3.with-headers-quoted-badly.asc")[..]
             ),
@@ -2143,13 +2267,13 @@ mod test {
             let encoded = w.finalize().unwrap();
 
             let mut recovered = Vec::new();
-            Reader::new(Cursor::new(&encoded),
+            Reader::from_reader(Cursor::new(&encoded),
                         ReaderMode::Tolerant(Some(kind)))
                 .read_to_end(&mut recovered)
                 .unwrap();
 
             let mut recovered_any = Vec::new();
-            Reader::new(Cursor::new(&encoded), ReaderMode::VeryTolerant)
+            Reader::from_reader(Cursor::new(&encoded), ReaderMode::VeryTolerant)
                 .read_to_end(&mut recovered_any)
                 .unwrap();
 
@@ -2278,10 +2402,11 @@ mod test {
             types::HashAlgorithm,
         };
 
-        fn f<R>(clearsig: &[u8], reference: R) -> crate::Result<()>
+        fn f<R>(clearsig: &[u8], reference: R, hash: HashAlgorithm)
+                -> crate::Result<()>
         where R: AsRef<[u8]>
         {
-            let mut reader = Reader::from_buffered_reader_csft(
+            let mut reader = Reader::from_cookie_reader_csft(
                 Box::new(buffered_reader::Memory::with_cookie(
                     clearsig, Default::default())),
                 None, Default::default(), true);
@@ -2290,11 +2415,13 @@ mod test {
             reader.read_to_end(&mut buf)?;
 
             let message = crate::Message::from_bytes(&buf)?;
-            assert_eq!(message.children().count(), 3);
+            assert_eq!(message.packets().children().count(), 3);
 
             // First, an one-pass-signature packet.
-            if let Some(Packet::OnePassSig(ops)) = message.path_ref(&[0]) {
-                assert_eq!(ops.hash_algo(), HashAlgorithm::SHA256);
+            if let Some(Packet::OnePassSig(ops)) =
+                message.packets().path_ref(&[0])
+            {
+                assert_eq!(ops.hash_algo(), hash);
             } else {
                 panic!("expected an OPS packet");
             }
@@ -2303,15 +2430,17 @@ mod test {
             assert_eq!(message.body().unwrap().body(), reference.as_ref());
 
             // And, the signature.
-            if let Some(Packet::Signature(sig)) = message.path_ref(&[2]) {
-                assert_eq!(sig.hash_algo(), HashAlgorithm::SHA256);
+            if let Some(Packet::Signature(sig)) =
+                message.packets().path_ref(&[2])
+            {
+                assert_eq!(sig.hash_algo(), hash);
             } else {
                 panic!("expected an signature packet");
             }
 
             // If we parse it without enabling the CSF transformation,
             // we should only find the signature.
-            let mut reader = Reader::from_buffered_reader_csft(
+            let mut reader = Reader::from_cookie_reader_csft(
                 Box::new(buffered_reader::Memory::with_cookie(
                     clearsig, Default::default())),
                 None, Default::default(), false);
@@ -2324,7 +2453,7 @@ mod test {
 
             // The signature.
             if let Some(Packet::Signature(sig)) = pp.path_ref(&[0]) {
-                assert_eq!(sig.hash_algo(), HashAlgorithm::SHA256);
+                assert_eq!(sig.hash_algo(), hash);
             } else {
                 panic!("expected an signature packet");
             }
@@ -2332,18 +2461,17 @@ mod test {
         }
 
         f(crate::tests::message("a-problematic-poem.txt.cleartext.sig"),
-          crate::tests::message("a-problematic-poem.txt"))?;
-        f(crate::tests::message("a-cypherpunks-manifesto.txt.cleartext.sig"),
           {
-              // The transformation process trims trailing whitespace,
-              // and the manifesto has a trailing whitespace right at
-              // the end.
-              let mut manifesto = crate::tests::manifesto().to_vec();
-              let ws_at = manifesto.len() - 2;
-              let ws = manifesto.remove(ws_at);
-              assert_eq!(ws, b' ');
-              manifesto
-          })?;
+              // The test vector, created by GnuPG, does not preserve
+              // the final newline.
+              let mut reference =
+                  crate::tests::message("a-problematic-poem.txt").to_vec();
+              assert_eq!(reference.pop(), Some(b'\n'));
+              reference
+          }, HashAlgorithm::SHA256)?;
+        f(crate::tests::file("crypto-refresh/cleartext-signed-message.txt"),
+          crate::tests::file("crypto-refresh/cleartext-signed-message.txt.plain"),
+          HashAlgorithm::SHA512)?;
         Ok(())
     }
 }

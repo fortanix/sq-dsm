@@ -19,6 +19,7 @@ use crate::types::{
     SymmetricAlgorithm,
 };
 use crate::{
+    Profile,
     Result,
     crypto::SessionKey,
 };
@@ -87,12 +88,14 @@ pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
     fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)>;
 
     /// Sets the cookie and returns the old value.
+    #[allow(dead_code)]
     fn cookie_set(&mut self, cookie: C) -> C;
 
     /// Returns a reference to the cookie.
     fn cookie_ref(&self) -> &C;
 
     /// Returns a mutable reference to the cookie.
+    #[allow(dead_code)]
     fn cookie_mut(&mut self) -> &mut C;
 
     /// Returns the number of bytes written to this filter.
@@ -101,16 +104,6 @@ pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
     /// Writes a byte.
     fn write_u8(&mut self, b: u8) -> io::Result<()> {
         self.write_all(&[b])
-    }
-
-    /// Writes a big endian `u16`.
-    fn write_be_u16(&mut self, n: u16) -> io::Result<()> {
-        self.write_all(&n.to_be_bytes())
-    }
-
-    /// Writes a big endian `u32`.
-    fn write_be_u32(&mut self, n: u32) -> io::Result<()> {
-        self.write_all(&n.to_be_bytes())
     }
 }
 
@@ -149,28 +142,37 @@ impl <'a, C> Stackable<'a, C> for BoxStack<'a, C> {
 
 /// Maps a function over the stack of writers.
 #[allow(dead_code)]
-pub(crate) fn map<C, F>(head: &(dyn Stackable<C> + Send + Sync), mut fun: F)
-    where F: FnMut(&(dyn Stackable<C> + Send + Sync)) -> bool {
+pub(crate) fn map<C, F, T>(head: &(dyn Stackable<C> + Send + Sync),
+                           mut fun: F) -> Option<T>
+where
+    F: FnMut(&(dyn Stackable<C> + Send + Sync)) -> Option<T>,
+{
     let mut ow = Some(head);
     while let Some(w) = ow {
-        if ! fun(w) {
-            break;
+        if let Some(r) = fun(w) {
+            return Some(r);
         }
         ow = w.inner_ref()
     }
+
+    None
 }
 
 /// Maps a function over the stack of mutable writers.
 #[allow(dead_code)]
-pub(crate) fn map_mut<C, F>(head: &mut (dyn Stackable<C> + Send + Sync), mut fun: F)
-    where F: FnMut(&mut (dyn Stackable<C> + Send + Sync)) -> bool {
+pub(crate) fn map_mut<C, F, T>(head: &mut (dyn Stackable<C> + Send + Sync),
+                               mut fun: F) -> Option<T>
+where F: FnMut(&mut (dyn Stackable<C> + Send + Sync)) -> Option<T>
+{
     let mut ow = Some(head);
     while let Some(w) = ow {
-        if ! fun(w) {
-            break;
+        if let Some(r) = fun(w) {
+            return Some(r);
         }
         ow = w.inner_mut()
     }
+
+    None
 }
 
 /// Dumps the writer stack.
@@ -180,7 +182,7 @@ pub(crate) fn dump<C>(head: &(dyn Stackable<C> + Send + Sync)) {
     map(head, |w| {
         eprintln!("{}: {:?}", depth, w);
         depth += 1;
-        true
+        Some(())
     });
 }
 
@@ -191,7 +193,6 @@ pub struct Identity<'a, C> {
 }
 assert_send_and_sync!(Identity<'_, C> where C);
 
-#[allow(clippy::new_ret_no_self)]
 impl<'a> Identity<'a, Cookie> {
     /// Makes an identity writer.
     pub fn new(inner: Message<'a>, cookie: Cookie)
@@ -273,7 +274,6 @@ pub struct Generic<W: io::Write + Send + Sync, C> {
 }
 assert_send_and_sync!(Generic<W, C> where W: io::Write, C);
 
-#[allow(clippy::new_ret_no_self)]
 impl<'a, W: 'a + io::Write + Send + Sync> Generic<W, Cookie> {
     /// Wraps an `io::Write`r.
     pub fn new(inner: W, cookie: Cookie) -> Message<'a> {
@@ -359,7 +359,6 @@ pub struct Armorer<'a, C: 'a> {
 }
 assert_send_and_sync!(Armorer<'_, C> where C);
 
-#[allow(clippy::new_ret_no_self)]
 impl<'a> Armorer<'a, Cookie> {
     /// Makes an armoring writer.
     pub fn new<I, K, V>(inner: Message<'a>, cookie: Cookie,
@@ -375,6 +374,25 @@ impl<'a> Armorer<'a, Cookie> {
                 cookie),
         })))
     }
+
+    /// Sets the version of OpenPGP to generate ASCII Armor for.
+    ///
+    /// Walks up the writer stack, looking for the next Armorer.
+    /// Configure it to use the given profile.
+    ///
+    /// This function can only be called once.  Calling it repeatedly
+    /// does nothing.
+    pub fn set_profile(stack: &mut (dyn Stackable<'a, Cookie> + Send + Sync),
+                       profile: Profile)
+    {
+        map_mut(stack, |w| match &mut w.cookie_mut().private {
+            super::Private::Armorer { set_profile, .. } => {
+                *set_profile = Some(profile);
+                Some(())
+            },
+            _ => None, // Keep looking.
+        });
+    }
 }
 
 impl<'a, C: 'a> fmt::Debug for Armorer<'a, C> {
@@ -385,8 +403,21 @@ impl<'a, C: 'a> fmt::Debug for Armorer<'a, C> {
     }
 }
 
-impl<'a, C: 'a> io::Write for Armorer<'a, C> {
+impl<'a> io::Write for Armorer<'a, Cookie> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if bytes.len() == 0 {
+            return Ok(0);
+        }
+
+        // Lazily configure the armor writer.
+        if let Some(p) = match &mut self.cookie_mut().private {
+            super::Private::Armorer { set_profile } =>
+                set_profile.take(),
+            _ => None,
+        } {
+            let _ = self.inner.inner.set_profile(p);
+        }
+
         self.inner.write(bytes)
     }
 
@@ -395,30 +426,30 @@ impl<'a, C: 'a> io::Write for Armorer<'a, C> {
     }
 }
 
-impl<'a, C: 'a> Stackable<'a, C> for Armorer<'a, C> {
-    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
+impl<'a> Stackable<'a, Cookie> for Armorer<'a, Cookie> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, Cookie>>> {
         let inner = self.inner.inner.finalize()?;
         Ok(Some(inner))
     }
-    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, Cookie>>> {
         unreachable!("Only implemented by Signer")
     }
-    fn mount(&mut self, _new: BoxStack<'a, C>) {
+    fn mount(&mut self, _new: BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.inner.get_mut().as_mut())
     }
-    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.inner.get_ref().as_ref())
     }
-    fn cookie_set(&mut self, cookie: C) -> C {
+    fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
         self.inner.cookie_set(cookie)
     }
-    fn cookie_ref(&self) -> &C {
+    fn cookie_ref(&self) -> &Cookie {
         self.inner.cookie_ref()
     }
-    fn cookie_mut(&mut self) -> &mut C {
+    fn cookie_mut(&mut self) -> &mut Cookie {
         self.inner.cookie_mut()
     }
     fn position(&self) -> u64 {
@@ -433,16 +464,22 @@ pub struct Encryptor<'a, C: 'a> {
 }
 assert_send_and_sync!(Encryptor<'_, C> where C);
 
-#[allow(clippy::new_ret_no_self)]
 impl<'a> Encryptor<'a, Cookie> {
     /// Makes an encrypting writer.
     pub fn new(inner: Message<'a>, cookie: Cookie, algo: SymmetricAlgorithm,
-               key: &[u8])
+               key: &SessionKey)
         -> Result<Message<'a>>
     {
+        use crate::crypto::symmetric::{
+            BlockCipherMode,
+            PaddingMode,
+        };
+
         Ok(Message::from(Box::new(Encryptor {
             inner: Generic::new_unboxed(
-                symmetric::Encryptor::new(algo, key, inner.into())?,
+                symmetric::Encryptor::new(
+                    algo, BlockCipherMode::CFB, PaddingMode::None,
+                    key, None, inner.into())?,
                 cookie),
         })))
     }
@@ -467,8 +504,8 @@ impl<'a, C: 'a> io::Write for Encryptor<'a, C> {
 }
 
 impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
-    fn into_inner(mut self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
-        let inner = self.inner.inner.finish()?;
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
+        let inner = self.inner.inner.finalize()?;
         Ok(Some(inner))
     }
     fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
@@ -501,29 +538,30 @@ impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
 
 
 /// AEAD encrypting writer.
-pub struct AEADEncryptor<'a, C: 'a> {
-    inner: Generic<aead::Encryptor<BoxStack<'a, C>>, C>,
+pub struct AEADEncryptor<'a, 's, C: 'a> {
+    inner: Generic<aead::Encryptor<'s, BoxStack<'a, C>>, C>,
 }
-assert_send_and_sync!(AEADEncryptor<'_, C> where C);
+assert_send_and_sync!(AEADEncryptor<'_, '_, C> where C);
 
-#[allow(clippy::new_ret_no_self)]
-impl<'a> AEADEncryptor<'a, Cookie> {
+impl<'a, 's> AEADEncryptor<'a, 's, Cookie> {
     /// Makes an encrypting writer.
-    pub fn new(inner: Message<'a>, cookie: Cookie,
-               cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
-               chunk_size: usize, iv: &[u8], key: &SessionKey)
-        -> Result<Message<'a>>
+    pub fn new<S>(inner: Message<'a>, cookie: Cookie,
+                  cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+                  chunk_size: usize, schedule: S)
+                  -> Result<Message<'a>>
+    where
+        S: aead::Schedule<aead::EncryptionContext> + 'a + 's,
     {
         Ok(Message::from(Box::new(AEADEncryptor {
             inner: Generic::new_unboxed(
-                aead::Encryptor::new(1, cipher, aead, chunk_size, iv, key,
+                aead::Encryptor::new(cipher, aead, chunk_size, schedule,
                                      inner.into())?,
                 cookie),
         })))
     }
 }
 
-impl<'a, C: 'a> fmt::Debug for AEADEncryptor<'a, C> {
+impl<'a, C: 'a> fmt::Debug for AEADEncryptor<'a, '_, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("writer::AEADEncryptor")
             .field("inner", &self.inner)
@@ -531,7 +569,7 @@ impl<'a, C: 'a> fmt::Debug for AEADEncryptor<'a, C> {
     }
 }
 
-impl<'a, C: 'a> io::Write for AEADEncryptor<'a, C> {
+impl<'a, C: 'a> io::Write for AEADEncryptor<'a, '_, C> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.inner.write(bytes)
     }
@@ -541,9 +579,9 @@ impl<'a, C: 'a> io::Write for AEADEncryptor<'a, C> {
     }
 }
 
-impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, C> {
-    fn into_inner(mut self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
-        let inner = self.inner.inner.finish()?;
+impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, '_, C> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
+        let inner = self.inner.inner.finalize()?;
         Ok(Some(inner))
     }
     fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
@@ -592,12 +630,12 @@ mod test {
 
             w.write_all(b"be happy").unwrap();
             let mut count = 0;
-            map_mut(w.as_mut(), |g| {
+            map_mut(w.as_mut(), |g| -> Option<()> {
                 let new = Cookie::new(0);
                 let old = g.cookie_set(new);
                 assert_eq!(old.level, 1);
                 count += 1;
-                true
+                None
             });
             assert_eq!(count, 1);
             assert_eq!(w.as_ref().cookie_ref().level, 0);
@@ -616,10 +654,10 @@ mod test {
             dump(w.as_ref());
 
             let mut count = 0;
-            map(w.as_ref(), |g| {
+            map(w.as_ref(), |g| -> Option<()> {
                 assert_eq!(g.cookie_ref().level, 0);
                 count += 1;
-                true
+                None
             });
             assert_eq!(count, 2);
         }

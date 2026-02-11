@@ -20,9 +20,9 @@ use crate::Result;
 /// the data in a streaming manner rather than the using the
 /// `PacketPile::from_file` and related interfaces.
 ///
-/// See [Section 5.9 of RFC 4880] for details.
+/// See [Section 5.9 of RFC 9580] for details.
 ///
-///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+///   [Section 5.9 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.9
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -166,7 +166,7 @@ impl Literal {
     }
 }
 
-impl_body_forwards!(Literal);
+impl_unprocessed_body_forwards!(Literal);
 
 impl From<Literal> for Packet {
     fn from(s: Literal) -> Self {

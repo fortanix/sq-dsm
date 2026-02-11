@@ -21,11 +21,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use futures_util::{FutureExt, future::{BoxFuture, TryFutureExt}};
-use http::Response;
-use hyper::{Body, Client, Uri};
-use hyper_tls::HttpsConnector;
 
+use openpgp::policy::StandardPolicy;
 use sequoia_openpgp::{
     self as openpgp,
     Fingerprint,
@@ -36,7 +33,8 @@ use sequoia_openpgp::{
     cert::prelude::*,
 };
 
-use super::{Result, Error};
+use crate::email::EmailAddress;
+use crate::Result;
 
 /// WKD variants.
 ///
@@ -61,49 +59,6 @@ impl Default for Variant {
     }
 }
 
-
-/// Stores the local_part and domain of an email address.
-pub struct EmailAddress {
-    local_part: String,
-    domain: String,
-}
-
-
-impl EmailAddress {
-    /// Returns an EmailAddress from an email address string.
-    ///
-    /// From [draft-koch]:
-    ///
-    ///```text
-    /// To help with the common pattern of using capitalized names
-    /// (e.g. "Joe.Doe@example.org") for mail addresses, and under the
-    /// premise that almost all MTAs treat the local-part case-insensitive
-    /// and that the domain-part is required to be compared
-    /// case-insensitive anyway, all upper-case ASCII characters in a User
-    /// ID are mapped to lowercase.  Non-ASCII characters are not changed.
-    ///```
-    fn from<S: AsRef<str>>(email_address: S) -> Result<Self> {
-        // Ensure that is a valid email address by parsing it and return the
-        // errors that it returns.
-        // This is also done in hagrid.
-        let email_address = email_address.as_ref();
-        let v: Vec<&str> = email_address.split('@').collect();
-        if v.len() != 2 {
-            return Err(Error::MalformedEmail(email_address.into()).into())
-        };
-
-        // Convert to lowercase without tailoring, i.e. without taking any
-        // locale into account. See:
-        // https://doc.rust-lang.org/std/primitive.str.html#method.to_lowercase
-        let email = EmailAddress {
-            local_part: v[0].to_lowercase(),
-            domain: v[1].to_lowercase()
-        };
-        Ok(email)
-    }
-}
-
-
 /// Stores the parts needed to create a Web Key Directory URL.
 ///
 /// NOTE: This is a different `Url` than [`url::Url`] (`url` crate) that is
@@ -125,7 +80,7 @@ impl Url {
     /// Returns a [`Url`] from an email address string.
     pub fn from<S: AsRef<str>>(email_address: S) -> Result<Self> {
         let email = EmailAddress::from(email_address)?;
-        let local_encoded = encode_local_part(&email.local_part);
+        let local_encoded = encode_local_part(&email.local_part.to_lowercase());
         let url = Url {
             domain : email.domain,
             local_encoded,
@@ -150,19 +105,9 @@ impl Url {
     }
 
     /// Returns an [`url::Url`].
-    pub fn to_url<V>(&self, variant: V) -> Result<url::Url>
+    pub fn to_url<V>(&self, variant: V) -> Result<reqwest::Url>
             where V: Into<Option<Variant>> {
-        let url_string = self.build(variant);
-        let url_url = url::Url::parse(url_string.as_str())?;
-        Ok(url_url)
-    }
-
-    /// Returns an [`hyper::Uri`].
-    pub fn to_uri<V>(&self, variant: V) -> Result<Uri>
-            where V: Into<Option<Variant>> {
-        let url_string = self.build(variant);
-        let uri = url_string.as_str().parse::<Uri>()?;
-        Ok(uri)
+        Ok(reqwest::Url::parse(self.build(variant).as_str())?)
     }
 
     /// Returns a [`PathBuf`].
@@ -188,12 +133,13 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
     let local_part = local_part.as_ref();
 
     let mut digest = vec![0; 20];
-    let mut ctx = HashAlgorithm::SHA1.context().expect("must be implemented");
+    let mut ctx = HashAlgorithm::SHA1.context().expect("must be implemented")
+        .for_digest();
     ctx.update(local_part.as_bytes());
     let _ = ctx.digest(&mut digest);
 
     // After z-base-32 encoding 20 bytes, it will be 32 bytes long.
-    zbase32::encode_full_bytes(&digest[..])
+    zbase32::encode(&digest[..])
 }
 
 
@@ -207,63 +153,33 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
 /// address.
 /// ```
 fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
-        -> Result<Vec<Cert>> {
+        -> Result<Vec<Result<Cert>>> {
     let email_address = email_address.as_ref();
     // This will fail on the first packet that can not be parsed.
     let packets = CertParser::from_bytes(&body)?;
     // Collect only the correct packets.
-    let certs: Vec<Cert> = packets.flatten().collect();
+    let certs: Vec<Result<Cert>> = packets.collect();
     if certs.is_empty() {
-        return Err(Error::NotFound.into());
+        return Err(crate::Error::NotFound.into());
     }
 
     // Collect only the Certs that contain the email in any of their userids
-    let valid_certs: Vec<Cert> = certs.iter()
+    let valid_certs: Vec<Result<Cert>> = certs.into_iter()
         // XXX: This filter could become a Cert method, but it adds other API
         // method to maintain
-        .filter(|cert| {cert.userids()
-            .any(|uidb|
-                if let Ok(Some(a)) = uidb.userid().email() {
-                    a == email_address
-                } else { false })
-        }).cloned().collect();
+        .filter(|cert| match cert {
+            Ok(cert) => cert.userids()
+                .any(|uidb|
+                     if let Ok(Some(a)) = uidb.userid().email() {
+                         a == email_address
+                     } else { false }),
+            Err(_) => true,
+        }).collect();
     if valid_certs.is_empty() {
-        Err(Error::EmailNotInUserids(email_address.into()).into())
+        Err(crate::Error::EmailNotInUserids(email_address.into()).into())
     } else {
         Ok(valid_certs)
     }
-}
-
-fn get_following_redirects<T>(
-    client: &hyper::client::Client<T>,
-    url: Uri,
-    depth: i32,
-) -> BoxFuture<Result<Response<Body>>>
-where
-    T: hyper::client::connect::Connect + Clone + Send + Sync + 'static,
-{
-    async move {
-        let response = client.get(url).await;
-
-        if depth < 0 {
-            return Err(anyhow::anyhow!("Too many redirects"));
-        }
-
-        if let Ok(ref resp) = response {
-            if resp.status().is_redirection() {
-                let url = resp.headers().get("Location")
-                    .map(|value| value.to_str().ok())
-                    .flatten()
-                    .map(|value| value.parse::<Uri>());
-                if let Some(Ok(url)) = url {
-                    return get_following_redirects(client, url, depth - 1).await;
-                }
-            }
-        }
-
-        response.map_err(|err| anyhow::anyhow!(err))
-    }
-    .boxed()
 }
 
 /// Retrieves the Certs that contain userids with a given email address
@@ -292,6 +208,7 @@ where
 /// ```
 ///
 /// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
+///
 /// # Examples
 ///
 /// ```no_run
@@ -299,34 +216,63 @@ where
 /// # use sequoia_openpgp::Cert;
 /// # async fn f() -> Result<()> {
 /// let email_address = "foo@bar.baz";
-/// let certs: Vec<Cert> = wkd::get(&email_address).await?;
+/// let certs: Vec<Result<Cert>> =
+///     wkd::get(&reqwest::Client::new(), &email_address).await?;
 /// # Ok(())
 /// # }
 /// ```
-
 // XXX: Maybe the direct method should be tried on other errors too.
 // https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
-pub async fn get<S: AsRef<str>>(email_address: S) -> Result<Vec<Cert>> {
+pub async fn get<S: AsRef<str>>(c: &reqwest::Client, email_address: S)
+                                -> Result<Vec<Result<Cert>>>
+{
     let email = email_address.as_ref().to_string();
     // First, prepare URIs and client.
     let wkd_url = Url::from(&email)?;
 
-    // WKD must use TLS, so build a client for that.
-    let https = HttpsConnector::new();
-    let client = Client::builder().build::<_, hyper::Body>(https);
-    let advanced_uri = wkd_url.to_uri(Variant::Advanced)?;
-    let direct_uri = wkd_url.to_uri(Variant::Direct)?;
-
-    const REDIRECT_LIMIT: i32 = 10;
+    let advanced_uri = wkd_url.to_url(Variant::Advanced)?;
+    let direct_uri = wkd_url.to_url(Variant::Direct)?;
 
     // First, try the Advanced Method.
-    let res = get_following_redirects(&client, advanced_uri, REDIRECT_LIMIT)
+    let res = if let Ok(res) = c.get(advanced_uri).send().await {
+        Ok(res)
+    } else {
         // Fall back to the Direct Method.
-        .or_else(|_| get_following_redirects(&client, direct_uri, REDIRECT_LIMIT))
-        .await?;
-    let body = hyper::body::to_bytes(res.into_body()).await?;
+        c.get(direct_uri).send().await
+    }.map_err(Error::NotFound)?;
 
-    parse_body(&body, &email)
+    if res.status() == reqwest::StatusCode::OK {
+        let body = res.bytes().await?;
+        parse_body(&body, &email)
+    } else {
+        Err(crate::Error::NotFound.into())
+    }
+}
+
+/// Returns all e-mail addresses from certificate's User IDs matching `domain`.
+fn get_cert_domains<'a>(domain: &'a str, cert: &ValidCert<'a>) -> impl Iterator<Item = Url> + 'a
+{
+    cert.userids().filter_map(move |uidb| {
+        uidb.userid().email().unwrap_or(None).and_then(|addr| {
+            if EmailAddress::from(&addr).ok().map(|e| e.domain == domain)
+                .unwrap_or(false)
+            {
+                Url::from(&addr).ok()
+            } else {
+                None
+            }
+        })
+    })
+}
+
+/// Checks if the certificate contains a User ID for given domain.
+///
+/// Returns `true` if at least one of `cert`'s UserIDs contains an
+/// e-mail address in the domain passed as an argument.
+pub fn cert_contains_domain_userid<S>(domain: S, cert: &ValidCert) -> bool
+    where S: AsRef<str>
+{
+    get_cert_domains(domain.as_ref(), cert).next().is_some()
 }
 
 /// Inserts a key into a Web Key Directory.
@@ -349,24 +295,16 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     let base_path = base_path.as_ref();
     let domain = domain.as_ref();
     let variant = variant.into().unwrap_or_default();
+    let policy = &StandardPolicy::new();
+    let cert = cert.with_policy(policy, None)?;
 
     // First, check which UserIDs are in `domain`.
-    let addresses = cert.userids().filter_map(|uidb| {
-        uidb.userid().email().unwrap_or(None).and_then(|addr| {
-            if EmailAddress::from(&addr).ok().map(|e| e.domain == domain)
-                .unwrap_or(false)
-            {
-                Url::from(&addr).ok()
-            } else {
-                None
-            }
-        })
-    }).collect::<Vec<_>>();
+    let addresses = get_cert_domains(domain, &cert).collect::<Vec<_>>();
 
     // Any?
     if addresses.is_empty() {
         return Err(openpgp::Error::InvalidArgument(
-            format!("Key {} does not have a UserID in {}", cert, domain)
+            format!("Key {} does not have a User ID in {}", cert, domain)
         ).into());
     }
 
@@ -384,7 +322,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
                     format!("Malformed Cert in existing {:?}", path))?)?;
             }
         }
-        keyring.insert(cert.clone())?;
+        keyring.insert(cert.cert().clone())?;
         let mut file = fs::File::create(&path)?;
         keyring.export(&mut file)?;
 
@@ -406,13 +344,8 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     Ok(())
 }
 
+#[derive(Default)]
 struct KeyRing(HashMap<Fingerprint, Cert>);
-
-impl Default for KeyRing {
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
 
 impl KeyRing {
     fn insert(&mut self, cert: Cert) -> Result<()> {
@@ -433,6 +366,14 @@ impl KeyRing {
     }
 }
 
+/// Errors for this module.
+#[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
+pub enum Error {
+    /// A requested cert was not found.
+    #[error("Cert not found")]
+    NotFound(#[from] reqwest::Error),
+}
 
 #[cfg(test)]
 mod tests {
@@ -464,10 +405,10 @@ mod tests {
              stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1";
         let wkd_url = Url::from("test1@example.com").unwrap();
         assert_eq!(expected_url, wkd_url.to_string());
-        assert_eq!(url::Url::parse(expected_url).unwrap(),
+        assert_eq!(reqwest::Url::parse(expected_url).unwrap(),
                    wkd_url.to_url(None).unwrap());
-        assert_eq!(expected_url.parse::<Uri>().unwrap(),
-                   wkd_url.to_uri(None).unwrap());
+        assert_eq!(expected_url.parse::<reqwest::Url>().unwrap(),
+                   wkd_url.to_url(None).unwrap());
 
         // Direct method
         let expected_url =
@@ -475,10 +416,10 @@ mod tests {
              .well-known/openpgpkey/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1";
         assert_eq!(expected_url, wkd_url.build(Direct));
-        assert_eq!(url::Url::parse(expected_url).unwrap(),
+        assert_eq!(reqwest::Url::parse(expected_url).unwrap(),
                    wkd_url.to_url(Direct).unwrap());
-        assert_eq!(expected_url.parse::<Uri>().unwrap(),
-                   wkd_url.to_uri(Direct).unwrap());
+        assert_eq!(expected_url.parse::<reqwest::Url>().unwrap(),
+                   wkd_url.to_url(Direct).unwrap());
     }
 
     #[test]
@@ -557,5 +498,39 @@ mod tests {
             ".well-known/openpgpkey/example.com/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic");
         assert!(!path.is_file());
+    }
+
+    #[test]
+    fn test_get_cert_domains() -> Result<()> {
+        let (cert, _) = CertBuilder::new()
+             .add_userid("test1@example.example")
+             .add_userid("juga@sequoia-pgp.org")
+             .generate()
+             .unwrap();
+        let policy = &StandardPolicy::new();
+        let user_ids: Vec<_> = get_cert_domains("sequoia-pgp.org", &cert.with_policy(policy, None)?)
+            .map(|addr| addr.to_string())
+            .collect();
+        assert_eq!(user_ids, vec!["https://openpgpkey.sequoia-pgp.org/.well-known/openpgpkey/sequoia-pgp.org/hu/7t1uqk9cwh1955776rc4z1gqf388566j?l=juga"]);
+
+        let user_ids: Vec<_> = get_cert_domains("example.example", &cert.with_policy(policy, None)?)
+            .map(|addr| addr.to_string())
+            .collect();
+        assert_eq!(user_ids, vec!["https://openpgpkey.example.example/.well-known/openpgpkey/example.example/hu/stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1"]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_cert_contains_domain_userid() -> Result<()> {
+        let (cert, _) = CertBuilder::new()
+             .add_userid("test1@example.example")
+             .add_userid("juga@sequoia-pgp.org")
+             .generate()
+             .unwrap();
+        let policy = &StandardPolicy::new();
+        assert!(cert_contains_domain_userid("sequoia-pgp.org", &cert.with_policy(policy, None)?));
+        assert!(cert_contains_domain_userid("example.example", &cert.with_policy(policy, None)?));
+        assert!(!cert_contains_domain_userid("example.org", &cert.with_policy(policy, None)?));
+        Ok(())
     }
 }

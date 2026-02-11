@@ -2,6 +2,30 @@
 #+TITLE: buffered-reader NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.4.0
+** Notable changes
+   - Our MSRV is now 1.79.
+
+** Notable fixes
+   - The signature of struct File on Windows has been aligned with the
+     struct File on other platforms.
+* Changes in 1.3.2
+  - Maintenance release.
+* Changes in 1.3.1
+** New functionality
+   - Implement `BufferedReader` for `&mut T` where `T: BufferedReader`.
+* Changes in 1.3.0
+** New functionality
+   - File::new
+   - File::new_with_cookie
+* Changes in 1.2.0
+** Notable changes
+   - BufferedReader::copy is like std::io::copy, but more efficient.
+ * Notable fixes
+   - A parser bug was fixed.  We classify this as a low-severity
+     issue, because Rust correctly detects the out-of-bounds access
+     and panics.  If an attacker controls the input, they may be able
+     to use this bug to cause a denial of service.
 * Changes in 1.1.2
 ** Notable changes
    - The generic buffered reader now correctly handles end-of-file

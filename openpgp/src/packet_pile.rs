@@ -1,8 +1,6 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::vec;
-use std::io;
-use std::path::Path;
 use std::iter::FromIterator;
 use std::iter::IntoIterator;
 
@@ -24,7 +22,7 @@ use crate::parse::Cookie;
 /// [`PacketParser`], [`PacketPileParser`], or
 /// [`PacketPile::from_file`] (or related routines).
 ///
-///   [packet]: https://tools.ietf.org/html/rfc4880#section-4
+///   [packet]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4
 ///   [`PacketParser`]: crate::parse::PacketParser
 ///   [`PacketPileParser`]: crate::parse::PacketPileParser
 ///
@@ -52,7 +50,7 @@ use crate::parse::Cookie;
 /// use openpgp::serialize::Serialize;
 /// use openpgp::policy::StandardPolicy;
 /// use openpgp::crypto::mpi;
-/// use openpgp::types::RevocationStatus::{Revoked, CouldBe};
+/// use openpgp::types::RevocationStatus;
 ///
 /// # fn main() -> openpgp::Result<()> {
 /// let (cert, revocation) = CertBuilder::new().generate()?;
@@ -64,11 +62,11 @@ use crate::parse::Cookie;
 ///
 /// let policy = &StandardPolicy::new();
 ///
-/// // Certificate is considered revoked because it is accompanied with its
+/// // Certificate is considered revoked because it is accompanied by its
 /// // revocation signature
 /// let pp: PacketPile = PacketPile::from_bytes(&buffer)?;
 /// let cert = Cert::try_from(pp)?;
-/// if let Revoked(_) = cert.revocation_status(policy, None) {
+/// if let RevocationStatus::Revoked(_) = cert.revocation_status(policy, None) {
 ///     // cert is considered revoked
 /// }
 /// # else {
@@ -92,7 +90,7 @@ use crate::parse::Cookie;
 /// }
 ///
 /// let cert = Cert::try_from(pp)?;
-/// if let NotAsFarAsWeKnow = cert.revocation_status(policy, None) {
+/// if let RevocationStatus::NotAsFarAsWeKnow = cert.revocation_status(policy, None) {
 ///     // revocation signature is broken and the cert is not revoked
 ///     assert_eq!(cert.bad_signatures().count(), 1);
 /// }
@@ -120,8 +118,8 @@ impl fmt::Debug for PacketPile {
 }
 
 impl<'a> Parse<'a, PacketPile> for PacketPile {
-    /// Deserializes the OpenPGP message stored in a `std::io::Read`
-    /// object.
+    /// Deserializes the OpenPGP message stored in the file named by
+    /// `path`.
     ///
     /// Although this method is easier to use to parse a sequence of
     /// OpenPGP packets than a [`PacketParser`] or a
@@ -133,28 +131,11 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     ///
     ///   [`PacketParser`]: crate::parse::PacketParser
     ///   [`PacketPileParser`]: crate::parse::PacketPileParser
-    fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<PacketPile> {
-        let bio = buffered_reader::Generic::with_cookie(
-            reader, None, Cookie::default());
-        PacketPile::from_buffered_reader(Box::new(bio))
-    }
-
-    /// Deserializes the OpenPGP message stored in the file named by
-    /// `path`.
-    ///
-    /// See `from_reader` for more details and caveats.
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<PacketPile> {
-        PacketPile::from_buffered_reader(
-            Box::new(buffered_reader::File::with_cookie(path, Cookie::default())?))
-    }
-
-    /// Deserializes the OpenPGP message stored in the provided buffer.
-    ///
-    /// See `from_reader` for more details and caveats.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<PacketPile> {
-        let bio = buffered_reader::Memory::with_cookie(
-            data.as_ref(), Cookie::default());
-        PacketPile::from_buffered_reader(Box::new(bio))
+    fn from_buffered_reader<R>(reader: R) -> Result<PacketPile>
+    where
+        R: BufferedReader<Cookie> + 'a,
+    {
+        PacketPile::from_cookie_reader(reader.into_boxed())
     }
 }
 
@@ -204,6 +185,7 @@ impl PacketPile {
     /// Pretty prints the message to stderr.
     ///
     /// This function is primarily intended for debugging purposes.
+    #[cfg(test)]
     pub fn pretty_print(&self) {
         self.top_level.pretty_print(0);
     }
@@ -241,7 +223,7 @@ impl PacketPile {
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() -> Result<()> {
-    /// # let mut lit = Literal::new(DataFormat::Text);
+    /// # let mut lit = Literal::new(DataFormat::Unicode);
     /// # lit.set_body(b"test".to_vec());
     /// # let packets = vec![lit.into()];
     /// let pile = PacketPile::from(packets);
@@ -295,7 +277,7 @@ impl PacketPile {
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() -> Result<()> {
-    /// # let mut lit = Literal::new(DataFormat::Text);
+    /// # let mut lit = Literal::new(DataFormat::Unicode);
     /// # lit.set_body(b"test".to_vec());
     /// # let packets = vec![lit.into()];
     /// let mut pile = PacketPile::from(packets);
@@ -337,7 +319,7 @@ impl PacketPile {
     /// Replaces the specified packets at the location described by
     /// `pathspec` with `packets`.
     ///
-    /// If a packet is a container, the sub-tree rooted at the
+    /// If a packet is a container, the subtree rooted at the
     /// container is removed.
     ///
     /// Note: the number of packets to remove need not match the
@@ -356,15 +338,15 @@ impl PacketPile {
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() -> Result<()> {
     /// // A compressed data packet that contains a literal data packet.
-    /// let mut literal = Literal::new(DataFormat::Text);
+    /// let mut literal = Literal::new(DataFormat::Unicode);
     /// literal.set_body(b"old".to_vec());
     /// let mut compressed =
     ///     CompressedData::new(CompressionAlgorithm::Uncompressed);
-    /// compressed.children_mut().unwrap().push(literal.into());
+    /// compressed.container_mut().children_mut().unwrap().push(literal.into());
     /// let mut pile = PacketPile::from(Packet::from(compressed));
     ///
     /// // Replace the literal data packet.
-    /// let mut literal = Literal::new(DataFormat::Text);
+    /// let mut literal = Literal::new(DataFormat::Unicode);
     /// literal.set_body(b"new".to_vec());
     /// pile.replace(
     ///     &[0, 0], 1,
@@ -421,7 +403,6 @@ impl PacketPile {
                 // The structured container types.
                 Packet::CompressedData(_)
                     | Packet::SEIP(_)
-                    | Packet::AED(_)
                     => (), // Ok.
                 _ => return Err(Error::IndexOutOfRange.into()),
             }
@@ -433,7 +414,7 @@ impl PacketPile {
         Err(Error::IndexOutOfRange.into())
     }
 
-    /// Returns an iterator over all of the packet's descendants, in
+    /// Returns an iterator over all the packet's descendants, in
     /// depth-first order.
     ///
     /// ```rust
@@ -442,7 +423,7 @@ impl PacketPile {
     /// #     Packet, PacketPile, packet::Literal, packet::Tag};
     /// # use std::iter::Iterator;
     /// # fn main() -> Result<()> {
-    /// let mut lit = Literal::new(DataFormat::Text);
+    /// let mut lit = Literal::new(DataFormat::Unicode);
     /// lit.set_body(b"test".to_vec());
     ///
     /// let pile = PacketPile::from(vec![lit.into()]);
@@ -464,7 +445,7 @@ impl PacketPile {
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() -> Result<()> {
-    /// let mut lit = Literal::new(DataFormat::Text);
+    /// let mut lit = Literal::new(DataFormat::Unicode);
     /// lit.set_body(b"test".to_vec());
     ///
     /// let pile = PacketPile::from(vec![lit.into()]);
@@ -486,7 +467,7 @@ impl PacketPile {
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::Tag};
     /// # fn main() -> Result<()> {
-    /// let mut lit = Literal::new(DataFormat::Text);
+    /// let mut lit = Literal::new(DataFormat::Unicode);
     /// lit.set_body(b"test".to_vec());
     ///
     /// let pile = PacketPile::from(vec![lit.into()]);
@@ -504,9 +485,9 @@ impl PacketPile {
     }
 
 
-    pub(crate) fn from_buffered_reader<'a>(bio: Box<dyn BufferedReader<Cookie> + 'a>)
+    pub(crate) fn from_cookie_reader<'a>(bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<PacketPile> {
-        PacketParserBuilder::from_buffered_reader(bio)?
+        PacketParserBuilder::from_cookie_reader(bio)?
             .buffer_unread_content()
             .into_packet_pile()
     }
@@ -516,8 +497,18 @@ impl From<Cert> for PacketPile {
     /// Converts the `Cert` into a `PacketPile`.
     ///
     /// If any packets include secret key material, that secret key
-    /// material is not dropped, as it is when serializing a `Cert`.
+    /// material is included in the resulting `PacketPile`.  In
+    /// contrast, when serializing a `Cert`, or converting a cert to
+    /// packets with [`Cert::into_packets`], the secret key material
+    /// not included.
+    ///
+    /// Note: This will change in sequoia-openpgp version 2, which
+    /// will harmonize the behavior and not include secret key
+    /// material.
+    // XXXv2: Drop the note in the doc comment and mentioned it in the
+    // release notes.
     fn from(cert: Cert) -> PacketPile {
+        #[allow(deprecated)]
         PacketPile::from(cert.into_packets().collect::<Vec<Packet>>())
     }
 }
@@ -525,7 +516,7 @@ impl From<Cert> for PacketPile {
 impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
     type Error = anyhow::Error;
 
-    /// Reads all of the packets from a `PacketParser`, and turns them
+    /// Reads all the packets from a `PacketParser`, and turns them
     /// into a message.
     ///
     /// Note: this assumes that `ppr` points to a top-level packet.
@@ -637,7 +628,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// settings.  Thus, by default, the content of packets will *not*
     /// be buffered.
     ///
-    /// Note: to avoid denial of service attacks, the `PacketParser`
+    /// Note: to avoid denial-of-service attacks, the `PacketParser`
     /// interface should be preferred unless the size of the message
     /// is known to fit in memory.
     ///
@@ -648,7 +639,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # use openpgp::Result;
     /// # use openpgp::PacketPile;
     /// # use openpgp::parse::{Parse, PacketParser, PacketParserBuilder};
-    /// # f(include_bytes!("../tests/data/keys/public-key.gpg"));
+    /// # f(include_bytes!("../tests/data/keys/public-key.pgp"));
     /// #
     /// # fn f(message_data: &[u8]) -> Result<PacketPile> {
     /// let message = PacketParserBuilder::from_bytes(message_data)?
@@ -667,12 +658,12 @@ mod test {
     use super::*;
 
     use crate::types::CompressionAlgorithm;
-    use crate::types::DataFormat::Text;
+    use crate::types::DataFormat::Unicode;
     use crate::packet::Literal;
     use crate::packet::CompressedData;
     use crate::packet::seip::SEIP1;
     use crate::packet::Tag;
-    use crate::parse::{Parse, PacketParser};
+    use crate::parse::Parse;
 
     #[test]
     fn deserialize_test_1 () {
@@ -680,7 +671,7 @@ mod test {
         // just rely on the fact that an assertion is not thrown.
 
         // A flat message.
-        let pile = PacketPile::from_bytes(crate::tests::key("public-key.gpg"))
+        let pile = PacketPile::from_bytes(crate::tests::key("public-key.pgp"))
             .unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
@@ -701,7 +692,7 @@ mod test {
         // A message containing a compressed packet that contains a
         // literal packet.
         let pile = PacketPile::from_bytes(
-            crate::tests::message("compressed-data-algo-1.gpg")).unwrap();
+            crate::tests::message("compressed-data-algo-1.pgp")).unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
         eprintln!("PacketPile: {:?}", pile);
@@ -718,7 +709,7 @@ mod test {
     #[test]
     fn deserialize_test_3 () {
         let pile =
-            PacketPile::from_bytes(crate::tests::message("signed.gpg")).unwrap();
+            PacketPile::from_bytes(crate::tests::message("signed.pgp")).unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
         eprintln!("PacketPile: {:?}", pile);
@@ -741,28 +732,28 @@ mod test {
         use std::convert::TryInto;
         use crate::parse::PacketPileParser;
 
-        let data = crate::tests::key("dkg.gpg");
+        let data = crate::tests::key("dkg.pgp");
         let mut ppp: PacketPileParser =
             PacketParserBuilder::from_bytes(data).unwrap()
             //.trace()
             .buffer_unread_content()
             .try_into().unwrap();
 
-        while ppp.is_some() {
+        while ppp.packet().is_ok() {
             ppp.recurse().unwrap();
         }
         let pile = ppp.finish();
         //pile.pretty_print();
         assert_eq!(pile.children().len(), 1450);
 
-        let data = crate::tests::key("lutz.gpg");
+        let data = crate::tests::key("lutz.pgp");
         let mut ppp: PacketPileParser =
             PacketParserBuilder::from_bytes(data).unwrap()
             //.trace()
             .buffer_unread_content()
             .try_into().unwrap();
 
-        while let Ok(pp) = ppp.as_ref() {
+        while let Ok(pp) = ppp.packet().as_ref() {
             eprintln!("{:?}", pp);
             ppp.recurse().unwrap();
         }
@@ -778,7 +769,7 @@ mod test {
         // quine.
         let max_recursion_depth = 128;
         let pile = PacketParserBuilder::from_bytes(
-            crate::tests::message("compression-quine.gpg")).unwrap()
+            crate::tests::message("compression-quine.pgp")).unwrap()
             .max_recursion_depth(max_recursion_depth)
             .into_packet_pile().unwrap();
 
@@ -800,7 +791,7 @@ mod test {
         let max_recursion_depth = 255;
         let mut ppr : PacketParserResult
             = PacketParserBuilder::from_bytes(
-                crate::tests::message("compression-quine.gpg")).unwrap()
+                crate::tests::message("compression-quine.pgp")).unwrap()
                 .max_recursion_depth(max_recursion_depth)
                 .build().unwrap();
 
@@ -827,12 +818,13 @@ mod test {
     #[test]
     fn consume_content_1 () {
         use std::io::Read;
+        use crate::parse::PacketParser;
         // A message containing a compressed packet that contains a
         // literal packet.  When we read some of the compressed
         // packet, we expect recurse() to not recurse.
 
         let ppr = PacketParserBuilder::from_bytes(
-                crate::tests::message("compressed-data-algo-1.gpg")).unwrap()
+                crate::tests::message("compressed-data-algo-1.pgp")).unwrap()
             .buffer_unread_content()
             .build().unwrap();
 
@@ -884,13 +876,13 @@ mod test {
 
         let mut cd = CompressedData::new(CompressionAlgorithm::Uncompressed);
         for t in text.iter() {
-            let mut lit = Literal::new(Text);
+            let mut lit = Literal::new(Unicode);
             lit.set_body(t.to_vec());
             cd = cd.push(lit.into())
         }
 
         let mut seip = SEIP1::new();
-        seip.children_mut().unwrap().push(cd.into());
+        seip.container_mut().children_mut().unwrap().push(cd.into());
         packets.push(seip.into());
 
         eprintln!("{:#?}", packets);
@@ -955,9 +947,9 @@ mod test {
         // 0: Literal("one")
         // =>
         // 0: Literal("two")
-        let mut one = Literal::new(Text);
+        let mut one = Literal::new(Unicode);
         one.set_body(b"one".to_vec());
-        let mut two = Literal::new(Text);
+        let mut two = Literal::new(Unicode);
         two.set_body(b"two".to_vec());
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(one.into());
@@ -988,7 +980,7 @@ mod test {
 
         let mut packets : Vec<Packet> = Vec::new();
         for text in initial.iter() {
-            let mut lit = Literal::new(Text);
+            let mut lit = Literal::new(Unicode);
             lit.set_body(text.to_vec());
             packets.push(lit.into())
         }
@@ -1000,7 +992,7 @@ mod test {
 
                     let mut replacement : Vec<Packet> = Vec::new();
                     for &text in inserted[0..insert].iter() {
-                        let mut lit = Literal::new(Text);
+                        let mut lit = Literal::new(Unicode);
                         lit.set_body(text.to_vec());
                         replacement.push(lit.into());
                     }
@@ -1041,7 +1033,7 @@ mod test {
 
         let mut cd = CompressedData::new(CompressionAlgorithm::Uncompressed);
         for l in initial.iter() {
-            let mut lit = Literal::new(Text);
+            let mut lit = Literal::new(Unicode);
             lit.set_body(l.to_vec());
             cd = cd.push(lit.into());
         }
@@ -1054,7 +1046,7 @@ mod test {
 
                     let mut replacement : Vec<Packet> = Vec::new();
                     for &text in inserted[0..insert].iter() {
-                        let mut lit = Literal::new(Text);
+                        let mut lit = Literal::new(Unicode);
                         lit.set_body(text.to_vec());
                         replacement.push(lit.into());
                     }
@@ -1088,7 +1080,7 @@ mod test {
         }
 
         // Make sure out-of-range accesses error out.
-        let mut one = Literal::new(Text);
+        let mut one = Literal::new(Unicode);
         one.set_body(b"one".to_vec());
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(one.into());

@@ -112,14 +112,22 @@ mod for_each_artifact {
                 return Ok(());
             };
 
+            if ! p.primary_key().key().pk_algo().is_supported() {
+                eprintln!("Skipping {} because we don't support {}",
+                          src.display(),
+                          p.primary_key().key().pk_algo());
+                return Ok(());
+            }
+
+
             let mut v = Vec::new();
             p.as_tsk().serialize(&mut v)?;
             let q = openpgp::Cert::from_bytes(&v)?;
             if p != q {
                 eprintln!("roundtripping {:?} failed", src);
 
-                let p_: Vec<_> = p.clone().into_packets().collect();
-                let q_: Vec<_> = q.clone().into_packets().collect();
+                let p_: Vec<_> = p.clone().as_tsk().into_packets().collect();
+                let q_: Vec<_> = q.clone().as_tsk().into_packets().collect();
                 eprintln!("original: {} packets; roundtripped: {} packets",
                           p_.len(), q_.len());
 
@@ -141,6 +149,33 @@ mod for_each_artifact {
             assert_eq!(v, w,
                        "Serialize and SerializeInto disagree on {:?}", p);
 
+            // Check that Cert::into_packets() and Cert::to_vec()
+            // agree.  (Cert::into_packets() returns no secret keys if
+            // secret key material is present; Cert::to_vec only ever
+            // returns public keys.)
+            let v = p.to_vec()?;
+            let mut buf = Vec::new();
+            for p in p.clone().into_packets() {
+                p.serialize(&mut buf)?;
+            }
+            if let Err(_err) = diff_serialized(&buf, &v) {
+                panic!("Checking that \
+                        Cert::into_packets() \
+                        and Cert::to_vec() agree.");
+            }
+
+            // Check that Cert::as_tsk().into_packets() and
+            // Cert::as_tsk().to_vec() agree.
+            let v = p.as_tsk().to_vec()?;
+            let mut buf = Vec::new();
+            for p in p.as_tsk().into_packets() {
+                p.serialize(&mut buf)?;
+            }
+            if let Err(_err) = diff_serialized(&buf, &v) {
+                panic!("Checking that Cert::as_tsk().into_packets() \
+                        and Cert::as_tsk().to_vec() agree.");
+            }
+
             // Check that
             // Cert::strip_secret_key_material().into_packets() and
             // Cert::to_vec() agree.  (Cert::into_packets() returns
@@ -148,6 +183,7 @@ mod for_each_artifact {
             // Cert::to_vec only ever returns public keys.)
             let v = p.to_vec()?;
             let mut buf = Vec::new();
+            #[allow(deprecated)]
             for p in p.clone().strip_secret_key_material().into_packets() {
                 p.serialize(&mut buf)?;
             }
@@ -157,11 +193,11 @@ mod for_each_artifact {
                         and Cert::to_vec() agree.");
             }
 
-            // Check that Cert::into_packets() and
+            // Check that TSK::into_packets() and
             // Cert::as_tsk().to_vec() agree.
             let v = p.as_tsk().to_vec()?;
             let mut buf = Vec::new();
-            for p in p.into_packets() {
+            for p in p.as_tsk().into_packets() {
                 p.serialize(&mut buf)?;
             }
             if let Err(_err) = diff_serialized(&buf, &v) {
@@ -191,6 +227,55 @@ mod for_each_artifact {
             let w = p.to_vec().unwrap();
             assert_eq!(v, w,
                        "Serialize and SerializeInto disagree on {:?}", p);
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
+    fn raw_cert_roundtrip() {
+        use openpgp::cert::raw::RawCert;
+        for_all_files(&test_data_dir(), |src| {
+            let p = if let Ok(cert) = RawCert::from_file(src) {
+                cert
+            } else {
+                // Ignore non-Cert files.
+                return Ok(());
+            };
+
+            let mut v = Vec::new();
+            p.packets().for_each(|p| v.extend_from_slice(p.as_bytes()));
+
+            let q = RawCert::from_bytes(&v)?;
+            assert_eq!(p, q, "roundtripping {:?} failed", src);
+
+            Ok(())
+        }).unwrap();
+    }
+
+    #[test]
+    fn raw_cert_parser_roundtrip() {
+        use openpgp::cert::raw::{RawCert, RawCertParser};
+        for_all_files(&test_data_dir(), |src| {
+            let mut parser = if let Ok(p) = RawCertParser::from_file(src) {
+                p
+            } else {
+                // Ignore non-Cert files.
+                return Ok(());
+            };
+            while let Some(p) = parser.next() {
+                let p = if let Ok(p) = p {
+                    p
+                } else {
+                    // Ignore non-Cert files.
+                    continue;
+                };
+                let mut v = Vec::new();
+                p.packets().for_each(|p| v.extend_from_slice(p.as_bytes()));
+
+                let q = RawCert::from_bytes(&v)?;
+                assert_eq!(p, q, "roundtripping {:?} failed", src);
+            }
+
             Ok(())
         }).unwrap();
     }

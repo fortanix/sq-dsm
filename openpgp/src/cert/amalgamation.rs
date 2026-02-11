@@ -139,102 +139,40 @@
 //! embedded in the data structure.  Further, when the
 //! `ValidComponentAmalgamation` constructor is passed `None` for the
 //! reference time, it eagerly stores the current time, and uses that
-//! for all operations.  This approach elegantly solves all of the
+//! for all operations.  This approach elegantly solves all the
 //! aforementioned problems.
-//!
-//! # Lifetimes
-//!
-//! `ComponentAmalgamation` autoderefs to `ComponentBundle`.
-//! Unfortunately, due to the definition of the [`Deref` trait],
-//! `ComponentBundle` is assigned the same lifetime as
-//! `ComponentAmalgamation`.  However, it's lifetime is actually `'a`.
-//! Particularly when using combinators like [`std::iter::map`], the
-//! `ComponentBundle`'s lifetime is longer.  Consider the following
-//! code, which doesn't compile:
-//!
-//! ```compile_fail
-//! # fn main() -> sequoia_openpgp::Result<()> {
-//! # use sequoia_openpgp as openpgp;
-//! use openpgp::cert::prelude::*;
-//! use openpgp::packet::prelude::*;
-//!
-//! # let (cert, _) = CertBuilder::new()
-//! #     .add_userid("Alice")
-//! #     .add_signing_subkey()
-//! #     .add_transport_encryption_subkey()
-//! #     .generate()?;
-//! cert.userids()
-//!     .map(|ua| {
-//!         // Use auto deref to get the containing `&ComponentBundle`.
-//!         let b: &ComponentBundle<_> = &ua;
-//!         b
-//!     })
-//!     .collect::<Vec<&UserID>>();
-//! # Ok(()) }
-//! ```
-//!
-//! Compiling it results in the following error:
-//!
-//! > `b` returns a value referencing data owned by the current
-//! > function
-//!
-//! This error occurs because the `Deref` trait says that the lifetime
-//! of the target, i.e., `&ComponentBundle`, is bounded by `ua`'s
-//! lifetime, whose lifetime is indeed limited to the closure.  But,
-//! `&ComponentBundle` is independent of `ua`; it is a copy of the
-//! `ComponentAmalgamation`'s reference to the `ComponentBundle` whose
-//! lifetime is `'a`!  Unfortunately, this can't be expressed using
-//! `Deref`.  But, it can be done using separate methods as shown
-//! below for the [`ComponentAmalgamation::component`] method:
-//!
-//! ```
-//! # fn main() -> sequoia_openpgp::Result<()> {
-//! # use sequoia_openpgp as openpgp;
-//! use openpgp::cert::prelude::*;
-//! use openpgp::packet::prelude::*;
-//!
-//! # let (cert, _) = CertBuilder::new()
-//! #     .add_userid("Alice")
-//! #     .add_signing_subkey()
-//! #     .add_transport_encryption_subkey()
-//! #     .generate()?;
-//! cert.userids()
-//!     .map(|ua| {
-//!         // ua's lifetime is this closure.  But `component()`
-//!         // returns a reference whose lifetime is that of
-//!         // `cert`.
-//!         ua.component()
-//!     })
-//!     .collect::<Vec<&UserID>>();
-//! # Ok(()) }
-//! ```
 //!
 //! [`ComponentBundle`]: super::bundle
 //! [`Signature`]: crate::packet::signature
 //! [`Cert`]: super
-//! [is supposed to]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+//! [is supposed to]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.10
 //! [`std::iter::map`]: std::iter::Map
 //! [MD5 collisions]: https://en.wikipedia.org/wiki/MD5
 //! [`Policy`]: crate::policy::Policy
 //! [streaming verifier]: crate::parse::stream
-//! [Intended Recipients]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
-//! [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-//! [`Deref` trait]: std::ops::Deref
-//! [`ComponentAmalgamation::component`]: ComponentAmalgamation::component()
+//! [Intended Recipients]: https://www.rfc-editor.org/rfc/rfc9580.html#intended-recipient-fingerprint
+//! [signature expirations]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.18
 use std::time;
-use std::time::SystemTime;
+use std::time::{
+    Duration,
+    SystemTime,
+};
 use std::clone::Clone;
 use std::borrow::Borrow;
 
 use crate::{
     cert::prelude::*,
-    crypto::{Signer, hash::{Hash, Digest}},
+    crypto::{Signer, hash::Hash},
     Error,
+    KeyHandle,
+    packet,
     packet::{
+        Key,
         Signature,
         Unknown,
         UserAttribute,
         UserID,
+        key::{PrimaryRole, PublicParts},
     },
     Result,
     policy::{
@@ -250,6 +188,7 @@ use crate::{
         KeyServerPreferences,
         RevocationKey,
         RevocationStatus,
+        RevocationType,
         SignatureType,
         SymmetricAlgorithm,
     },
@@ -307,7 +246,7 @@ pub mod key;
 /// }
 /// # fn main() -> openpgp::Result<()> {
 /// #     let (cert, _) =
-/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         CertBuilder::general_purpose(Some("alice@example.org"))
 /// #         .generate()?;
 /// #     let ua = cert.userids().nth(0).expect("User IDs");
 /// #     f(ua);
@@ -326,7 +265,7 @@ pub trait ValidateAmalgamation<'a, C: 'a>: seal::Sealed {
     /// Uses the specified `Policy` and reference time with the amalgamation.
     ///
     /// If `time` is `None`, the current time is used.
-    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+    fn with_policy<T>(&self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
         where T: Into<Option<time::SystemTime>>,
               Self: Sized;
 }
@@ -364,7 +303,7 @@ trait ValidateAmalgamationRelaxed<'a, C: 'a> {
     ///
     ///   - To check if the user id is valid, we need to check that
     ///     the corresponding certificate is valid.
-    fn with_policy_relaxed<T>(self, policy: &'a dyn Policy, time: T,
+    fn with_policy_relaxed<T>(&self, policy: &'a dyn Policy, time: T,
                               valid_cert: bool) -> Result<Self::V>
         where T: Into<Option<time::SystemTime>>,
               Self: Sized;
@@ -387,22 +326,8 @@ trait ValidateAmalgamationRelaxed<'a, C: 'a> {
 /// you also need to implement the `seal::Sealed` marker trait.
 ///
 /// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
-///
 pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 {
-    /// Maps the given function over binding and direct key signature.
-    ///
-    /// Makes `f` consider both the binding signature and the direct
-    /// key signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
-    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn map<F: Fn(&'a Signature) -> Option<T>, T>(&self, f: F) -> Option<T> {
-        f(self.binding_signature())
-            .or_else(|| self.direct_key_signature().ok().and_then(f))
-    }
-
     /// Returns the valid amalgamation's associated certificate.
     ///
     /// # Examples
@@ -413,13 +338,13 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # use openpgp::policy::StandardPolicy;
     /// #
     /// fn f(ua: &ValidUserIDAmalgamation) {
-    ///     let cert = ua.cert();
+    ///     let vcert = ua.valid_cert();
     ///     // ...
     /// }
     /// # fn main() -> openpgp::Result<()> {
     /// #     let p = &StandardPolicy::new();
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// #     let fpr = cert.fingerprint();
     /// #     let ua = cert.userids().nth(0).expect("User IDs");
@@ -428,7 +353,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// #     Ok(())
     /// # }
     /// ```
-    fn cert(&self) -> &ValidCert<'a>;
+    fn valid_cert(&self) -> &ValidCert<'a>;
 
     /// Returns the amalgamation's reference time.
     ///
@@ -448,7 +373,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// #     let p = &StandardPolicy::new();
     /// #     let t = UNIX_EPOCH + Duration::from_secs(1554542220);
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .set_creation_time(t)
     /// #         .generate()?;
     /// #     let ua = cert.userids().nth(0).expect("User IDs");
@@ -476,7 +401,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # fn main() -> openpgp::Result<()> {
     /// #     let p: &dyn Policy = &StandardPolicy::new();
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// #     let ua = cert.userids().nth(0).expect("User IDs");
     /// #     let ua = ua.with_policy(p, None)?;
@@ -503,7 +428,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # fn main() -> openpgp::Result<()> {
     /// #     let p: &dyn Policy = &StandardPolicy::new();
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// #     let ua = cert.userids().nth(0).expect("User IDs");
     /// #     let ua = ua.with_policy(p, None)?;
@@ -517,9 +442,9 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// reference time, if any.
     ///
     /// Subpackets on direct key signatures apply to all components of
-    /// the certificate, cf. [Section 5.2.3.3 of RFC 4880].
+    /// the certificate, cf. [Section 5.2.3.10 of RFC 9580].
     ///
-    /// [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    /// [Section 5.2.3.10 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.10
     ///
     /// # Examples
     ///
@@ -535,7 +460,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # fn main() -> openpgp::Result<()> {
     /// #     let p: &dyn Policy = &StandardPolicy::new();
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// #     let cert = cert.with_policy(p, None)?;
     /// #     let ua = cert.userids().nth(0).expect("User IDs");
@@ -546,7 +471,8 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # }
     /// ```
     fn direct_key_signature(&self) -> Result<&'a Signature> {
-        self.cert().cert.primary.binding_signature(self.policy(), self.time())
+        self.valid_cert().cert().primary_key()
+            .binding_signature(self.policy(), self.time())
     }
 
     /// Returns the component's revocation status as of the amalgamation's
@@ -555,7 +481,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// This does *not* check whether the certificate has been
     /// revoked.  For that, use `Cert::revocation_status()`.
     ///
-    /// Note, as per [RFC 4880], a key is considered to be revoked at
+    /// Note, as per [Section 5.2.3.31 of RFC 9580], a key is considered to be revoked at
     /// some time if there were no soft revocations created as of that
     /// time, and no hard revocations:
     ///
@@ -563,7 +489,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// > created by that key are suspect.  However, if it was merely
     /// > superseded or retired, old signatures are still valid.
     ///
-    /// [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
+    /// [Section 5.2.3.31 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.31
     ///
     /// # Examples
     ///
@@ -576,7 +502,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # fn main() -> openpgp::Result<()> {
     /// #     let p = &StandardPolicy::new();
     /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         CertBuilder::general_purpose(Some("alice@example.org"))
     /// #         .generate()?;
     /// #     let cert = cert.with_policy(p, None)?;
     /// #     let ua = cert.userids().nth(0).expect("User IDs");
@@ -604,7 +530,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// Returns a list of any designated revokers for this component.
     ///
     /// This function returns the designated revokers listed on the
-    /// components's binding signatures and the certificate's direct
+    /// components' binding signatures and the certificate's direct
     /// key signatures.
     ///
     /// Note: the returned list is deduplicated.
@@ -622,11 +548,11 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// let p = &StandardPolicy::new();
     ///
     /// let (alice, _) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
     ///     .generate()?;
     /// // Make Alice a designated revoker for Bob.
     /// let (bob, _) =
-    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///     CertBuilder::general_purpose(Some("bob@example.org"))
     ///     .set_revocation_keys(vec![(&alice).into()])
     ///     .generate()?;
     ///
@@ -646,6 +572,38 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// ```
     fn revocation_keys(&self)
                        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>;
+}
+
+#[test]
+fn valid_amalgamation_is_dyn_compatible() {
+    let _t: Option<Box<dyn ValidAmalgamation<()>>> = None;
+}
+
+/// Locates information on the active binding signature or direct key
+/// signature.
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside
+/// this crate.  Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate you also need
+/// to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait ValidBindingSignature<'a, C: 'a>: ValidAmalgamation<'a, C> + seal::Sealed
+{
+    /// Maps the given function over binding and direct key signature.
+    ///
+    /// Makes `f` consider both the binding signature and the direct
+    /// key signature.  Information in the binding signature takes
+    /// precedence over the direct key signature.  See also [Section
+    /// 5.2.3.10 of RFC 9580].
+    ///
+    ///   [Section 5.2.3.10 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.10
+    fn map<F: Fn(&'a Signature) -> Option<T>, T>(&self, f: F) -> Option<T> {
+        f(self.binding_signature())
+            .or_else(|| self.direct_key_signature().ok().and_then(f))
+    }
 }
 
 /// A certificate component, its associated data, and useful methods.
@@ -670,7 +628,7 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 /// # fn main() -> openpgp::Result<()> {
 /// #     let p = &StandardPolicy::new();
 /// #     let (cert, _) =
-/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         CertBuilder::general_purpose(Some("alice@example.org"))
 /// #         .generate()?;
 /// #     let fpr = cert.fingerprint();
 /// // Iterate over all User IDs.
@@ -729,14 +687,6 @@ impl<'a, C> Clone for ComponentAmalgamation<'a, C> {
     }
 }
 
-impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
-    type Target = ComponentBundle<C>;
-
-    fn deref(&self) -> &Self::Target {
-        self.bundle
-    }
-}
-
 impl<'a, C> ComponentAmalgamation<'a, C> {
     /// Creates a new amalgamation.
     pub(crate) fn new(cert: &'a Cert, bundle: &'a ComponentBundle<C>) -> Self
@@ -747,7 +697,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         }
     }
 
-    /// Returns the component's associated certificate.
+    /// Returns the amalgamations's associated certificate.
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -755,7 +705,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
-    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
     /// #     .generate()?;
     /// for u in cert.userids() {
     ///     // It's not only an identical `Cert`, it's the same one.
@@ -767,29 +717,43 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         self.cert
     }
 
-    /// Selects a binding signature.
+    /// Returns the active binding signature at time `t`.
     ///
-    /// Uses the provided policy and reference time to select an
-    /// appropriate binding signature.
+    /// The active binding signature is the most recent, non-revoked
+    /// self-signature that is valid according to the `policy` and
+    /// alive at time `t` (`creation time <= t`, `t < expiry`).  If
+    /// there are multiple such signatures then the signatures are
+    /// ordered by their MPIs interpreted as byte strings.
     ///
-    /// Note: this function is not exported.  Users of this interface
-    /// should do: ca.with_policy(policy, time)?.binding_signature().
-    fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
-        -> Result<&'a Signature>
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display information about each User ID's current active
+    /// // binding signature (the `time` parameter is `None`), if any.
+    /// for ua in cert.userids() {
+    ///     eprintln!("{:?}", ua.binding_signature(p, None));
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
+                                -> Result<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(crate::now);
-        self.bundle.binding_signature(policy, time)
+        self.bundle().binding_signature(policy, time)
     }
 
     /// Returns this amalgamation's bundle.
-    ///
-    /// Note: although `ComponentAmalgamation` derefs to a
-    /// `&ComponentBundle`, this method provides a more accurate
-    /// lifetime, which is helpful when returning the reference from a
-    /// function.  [See the module's documentation] for more details.
-    ///
-    /// [See the module's documentation]: self
     ///
     /// # Examples
     ///
@@ -805,17 +769,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// #     .add_transport_encryption_subkey()
     /// #     .generate()?;
     /// cert.userids()
-    ///     .map(|ua| {
-    ///         // The following doesn't work:
-    ///         //
-    ///         //   let b: &ComponentBundle<_> = &ua; b
-    ///         //
-    ///         // Because ua's lifetime is this closure and autoderef
-    ///         // assigns `b` the same lifetime as `ua`.  `bundle()`,
-    ///         // however, returns a reference whose lifetime is that
-    ///         // of `cert`.
-    ///         ua.bundle()
-    ///     })
+    ///     .map(|ua| ua.bundle())
     ///     .collect::<Vec<&ComponentBundle<_>>>();
     /// # Ok(()) }
     /// ```
@@ -825,49 +779,393 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
 
     /// Returns this amalgamation's component.
     ///
-    /// Note: although `ComponentAmalgamation` derefs to a
-    /// `&Component` (via `&ComponentBundle`), this method provides a
-    /// more accurate lifetime, which is helpful when returning the
-    /// reference from a function.  [See the module's documentation]
-    /// for more details.
+    /// # Examples
     ///
-    /// [See the module's documentation]: self
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about any unknown components.
+    /// for u in cert.unknowns() {
+    ///     eprintln!(" - {:?}", u.component());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn component(&self) -> &'a C {
         self.bundle().component()
     }
 
-    /// The component's self-signatures.
+    /// Returns the component's self-signatures.
+    ///
+    /// The signatures are validated, and they are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, ka) in cert.keys().enumerate() {
+    ///     eprintln!("Key #{} ({}) has {:?} self signatures",
+    ///               i, ka.key().fingerprint(),
+    ///               ka.self_signatures().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn self_signatures(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
-        self.bundle().self_signatures().iter()
+        self.bundle().self_signatures()
     }
 
-    /// The component's third-party certifications.
+    /// Returns the component's third-party certifications.
+    ///
+    /// The signatures are *not* validated.  They are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for ua in cert.userids() {
+    ///     eprintln!("User ID {} has {:?} unverified, third-party certifications",
+    ///               String::from_utf8_lossy(ua.userid().value()),
+    ///               ua.certifications().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn certifications(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
-        self.bundle().certifications().iter()
+        self.bundle().certifications()
     }
 
-    /// The component's revocations that were issued by the
+    /// Returns third-party certifications that appear to issued by
+    /// any of the specified keys.
+    ///
+    /// A certification is returned if one of the provided key handles
+    /// matches an [Issuer subpacket] or [Issuer Fingerprint
+    /// subpacket] in the certification.
+    ///
+    ///   [Issuer subpacket]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.12
+    ///   [Issuer Fingerprint subpacket]: https://www.rfc-editor.org/rfc/rfc9580.html#name-intended-recipient-fingerpr
+    ///
+    /// This function does not check that a certification is valid.
+    /// It can't.  To check that a certification was actually issued
+    /// by a specific key, we also need a policy and the public key,
+    /// which we don't have.  To only get valid certifications, use
+    /// [`UserIDAmalgamation::valid_certifications_by_key`] or
+    /// [`UserIDAmalgamation::active_certifications_by_key`] instead
+    /// of this function.
+    pub fn certifications_by_key<'b>(&'b self, issuers: &'b [ KeyHandle ])
+        -> impl Iterator<Item=&'a Signature> + Send + Sync + 'b
+    {
+        self.certifications().filter(|certification| {
+            certification.get_issuers().into_iter().any(|certification_issuer| {
+                issuers.iter().any(|issuer| {
+                    certification_issuer.aliases(issuer)
+                })
+            })
+        })
+    }
+
+    /// Returns the component's revocations that were issued by the
     /// certificate holder.
+    ///
+    /// The revocations are validated, and they are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for u in cert.userids() {
+    ///     eprintln!("User ID {} has {:?} revocation certificates.",
+    ///               String::from_utf8_lossy(u.userid().value()),
+    ///               u.self_revocations().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn self_revocations(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
-        self.bundle().self_revocations().iter()
+        self.bundle().self_revocations()
     }
 
-    /// The component's revocations that were issued by other
+    /// Returns the component's revocations that were issued by other
     /// certificates.
+    ///
+    /// The revocations are *not* validated.  They are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for u in cert.userids() {
+    ///     eprintln!("User ID {} has {:?} unverified, third-party revocation certificates.",
+    ///               String::from_utf8_lossy(u.userid().value()),
+    ///               u.other_revocations().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn other_revocations(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
-        self.bundle().other_revocations().iter()
+        self.bundle().other_revocations()
     }
 
-    /// Returns all of the component's signatures.
+    /// Returns all the component's Certification Approval Key
+    /// Signatures.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// The signatures are validated, and they are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// A certificate owner can use Certification Approval Key
+    /// Signatures to approve of third party certifications.
+    /// Currently, only userid and user attribute certifications can
+    /// be approved of.  See [Approved Certifications subpacket] for
+    /// details.
+    ///
+    ///   [Approved Certifications subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, uid) in cert.userids().enumerate() {
+    ///     eprintln!("UserID #{} ({:?}) has {:?} certification approval key signatures",
+    ///               i, uid.userid().email(),
+    ///               uid.approvals().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn approvals(&self)
+                     -> impl Iterator<Item=&'a Signature> + Send + Sync + 'a
+    {
+        self.bundle().approvals()
+    }
+
+    /// Returns all the component's signatures.
+    ///
+    /// Only the self-signatures are validated.  The signatures are
+    /// sorted first by type, then by creation time.  The self
+    /// revocations come first, then the self signatures,
+    /// then any certification approval key  signatures,
+    /// certifications, and third-party revocations coming last.  This
+    /// function may return additional types of signatures that could
+    /// be associated to this component.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, ka) in cert.keys().enumerate() {
+    ///     eprintln!("Key #{} ({}) has {:?} signatures",
+    ///               i, ka.key().fingerprint(),
+    ///               ka.signatures().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn signatures(&self)
                       -> impl Iterator<Item = &'a Signature> + Send + Sync {
         self.bundle().signatures()
+    }
+
+    // Used to implement
+    // [`UserIDAmalgamation::valid_certifications_by_key`],
+    // [`KeyAmalgamation::valid_certifications_by_key`],
+    // [`UserIDAmalgamation::active_certifications_by_key`], and
+    // [`KeyAmalgamation::active_certifications_by_key`].
+    fn valid_certifications_by_key_<'b, F>(
+        &self,
+        policy: &'a dyn Policy,
+        reference_time: Option<time::SystemTime>,
+        issuer: &'a packet::Key<packet::key::PublicParts,
+                                packet::key::UnspecifiedRole>,
+        only_active: bool,
+        certifications: impl Iterator<Item=&'b Signature> + Send + Sync,
+        verify_certification: F)
+        -> impl Iterator<Item=&'b Signature> + Send + Sync
+    where
+        F: Fn(&Signature) -> Result<()>
+    {
+        let reference_time = reference_time.unwrap_or_else(crate::now);
+        let issuer_handle = issuer.key_handle();
+        let issuer_handle = &issuer_handle;
+
+        let mut certifications: Vec<(&Signature, _)> = certifications
+            .filter_map(|certification| {
+                // Extract the signature's creation time.  Ignore
+                // certifications without a creation time: those are
+                // malformed.
+                certification
+                    .signature_creation_time()
+                    .map(|ct| (certification, ct))
+            })
+            .filter(|(certification, _ct)| {
+                // Filter out certifications that definitely aren't
+                // from `issuer`.
+                certification.get_issuers().into_iter().any(|sig_issuer| {
+                    sig_issuer.aliases(issuer_handle)
+                })
+            })
+            .map(|(certification, ct)| {
+                let hard = if matches!(certification.typ(),
+                                       SignatureType::KeyRevocation
+                                       | SignatureType::SubkeyRevocation
+                                       | SignatureType::CertificationRevocation)
+                {
+                    certification.reason_for_revocation()
+                        .map(|(reason, _text)| {
+                            reason.revocation_type() == RevocationType::Hard
+                        })
+                        // Interpret an unspecified reason as a hard
+                        // revocation.
+                        .unwrap_or(true)
+                } else {
+                    false
+                };
+
+                (certification, ct, hard)
+            })
+            .filter(|(_certification, ct, hard)| {
+                // Skip certifications created after the reference
+                // time, unless they are hard revocations.
+                *ct <= reference_time || *hard
+            })
+            .filter(|(certification, ct, hard)| {
+                // Check that the certification is not expired as of
+                // the reference time.
+                if *hard {
+                    // Hard revocations don't expire.
+                    true
+                } else if let Some(validity)
+                    = certification.signature_validity_period()
+                {
+                    if validity == Duration::new(0, 0) {
+                        // "If this is not present or has a value of
+                        // zero, it never expires."
+                        //
+                        // https://www.rfc-editor.org/rfc/rfc9580.html#name-key-expiration-time
+                        true
+                    } else {
+                        // "the number of seconds after the signature
+                        // creation time that the signature expires"
+                        //
+                        // Assume validity = 1 second, then:
+                        //
+                        //  expiry time   reference time    status
+                        //  -----------   --------------    ------
+                        //              >     ct            live
+                        //  ct + 1      =     ct + 1        expired
+                        //              <     ct + 2        expired
+                        *ct + validity > reference_time
+                    }
+                } else {
+                    true
+                }
+            })
+            .filter(|(_certification, ct, hard)| {
+                // Make sure the certification was created after the
+                // certificate, unless they are hard revocations.
+                self.cert.primary_key().key().creation_time() <= *ct || *hard
+            })
+            .filter(|(certification, _ct, _hard)| {
+                // Make sure the certification conforms to the policy.
+                policy
+                    .signature(certification,
+                               HashAlgoSecurity::CollisionResistance)
+                    .is_ok()
+            })
+            .map(|(certification, ct, _hard)| (certification, ct))
+            .collect();
+
+        // Sort the certifications by creation time so that the newest
+        // certifications come first.
+        certifications.sort_unstable_by(|(_, a), (_, b)| {
+            a.cmp(b).reverse()
+        });
+
+        // Check that the issuer actually made the signatures, and
+        // collect the most recent certifications.
+        let mut valid = Vec::new();
+        for (certification, ct) in certifications.into_iter() {
+            if only_active {
+                if let Some((_active, active_ct)) = valid.get(0) {
+                    if *active_ct != ct {
+                        // This certification is further in the past.
+                        // We're done.
+                        break;
+                    }
+                }
+            }
+
+            if let Ok(()) = verify_certification(certification) {
+                valid.push((certification, ct));
+            }
+        }
+
+        valid.into_iter()
+            .map(|(certification, _creation_time)| certification)
+            .collect::<Vec<&Signature>>()
+            .into_iter()
     }
 }
 
 macro_rules! impl_with_policy {
     ($func:ident, $value:ident $(, $arg:ident: $type:ty )*) => {
-        fn $func<T>(self, policy: &'a dyn Policy, time: T, $($arg: $type, )*)
+        fn $func<T>(&self, policy: &'a dyn Policy, time: T, $($arg: $type, )*)
             -> Result<Self::V>
             where T: Into<Option<time::SystemTime>>,
                   Self: Sized
@@ -885,7 +1183,7 @@ macro_rules! impl_with_policy {
             // we know the certificate is valid (unless the caller
             // doesn't care).
             Ok(ValidComponentAmalgamation {
-                ca: self,
+                ca: self.clone(),
                 cert: ValidCert {
                     cert,
                     policy,
@@ -913,30 +1211,390 @@ impl<'a, C> ValidateAmalgamationRelaxed<'a, C> for ComponentAmalgamation<'a, C> 
 impl<'a> UserIDAmalgamation<'a> {
     /// Returns a reference to the User ID.
     ///
-    /// Note: although `ComponentAmalgamation<UserID>` derefs to a
-    /// `&UserID` (via `&ComponentBundle`), this method provides a
-    /// more accurate lifetime, which is helpful when returning the
-    /// reference from a function.  [See the module's documentation]
-    /// for more details.
+    /// This is just a type-specific alias for
+    /// [`ComponentAmalgamation::component`].
     ///
-    /// [See the module's documentation]: self
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the User IDs.
+    /// for ua in cert.userids() {
+    ///     eprintln!(" - {:?}", ua.userid());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn userid(&self) -> &'a UserID {
         self.component()
     }
 
-    /// Attests to third-party certifications.
+    /// Returns the User ID's revocation status at time `t`.<a
+    /// name="userid_revocation_status"></a>
+    ///
+    /// <!-- Why we have the above anchor:
+    ///      https://github.com/rust-lang/rust/issues/71912 -->
+    ///
+    /// A User ID is revoked at time `t` if:
+    ///
+    ///   - There is a live revocation at time `t` that is newer than
+    ///     all live self signatures at time `t`.
+    ///
+    /// Note: Certs and subkeys have different criteria from User IDs
+    /// and User Attributes.
+    ///
+    /// Note: this only returns whether this User ID is revoked; it
+    /// does not imply anything about the Cert or other components.
+    //
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display the User IDs' revocation status.
+    /// for ua in cert.userids() {
+    ///     eprintln!(" Revocation status of {}: {:?}",
+    ///               String::from_utf8_lossy(ua.userid().value()),
+    ///               ua.revocation_status(p, None));
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn revocation_status<T>(&self, policy: &dyn Policy, t: T)
+                                -> RevocationStatus
+    where
+        T: Into<Option<time::SystemTime>>,
+    {
+        let t = t.into();
+        self.bundle().revocation_status(policy, t)
+    }
+
+    /// Returns the third-party certifications issued by the specified
+    /// key, and valid at the specified time.
+    ///
+    /// This function returns the certifications issued by the
+    /// specified key.  Specifically, it returns a certification if:
+    ///
+    ///   - it is well-formed,
+    ///   - it is live with respect to the reference time,
+    ///   - it conforms to the policy, and
+    ///   - the signature is cryptographically valid.
+    ///
+    /// This method is implemented on a [`UserIDAmalgamation`] and not
+    /// a [`ValidUserIDAmalgamation`], because a third-party
+    /// certification does not require the user ID to be self-signed.
+    ///
+    /// # Examples
+    ///
+    /// Alice has certified that a certificate belongs to Bob on two
+    /// occasions.  Whereas
+    /// [`UserIDAmalgamation::valid_certifications_by_key`] returns
+    /// both certifications,
+    /// [`UserIDAmalgamation::active_certifications_by_key`] only
+    /// returns the most recent certification.
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::packet::UserID;
+    /// use openpgp::policy::StandardPolicy;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// const P: &StandardPolicy = &StandardPolicy::new();
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let epoch = std::time::SystemTime::now()
+    /// #     - std::time::Duration::new(100, 0);
+    /// # let t0 = epoch;
+    /// #
+    /// # let (alice, _) = CertBuilder::new()
+    /// #     .set_creation_time(t0)
+    /// #     .add_userid("<alice@example.org>")
+    /// #     .generate()
+    /// #     .unwrap();
+    /// let alice: Cert = // ...
+    /// # alice;
+    /// #
+    /// # let bob_userid = "<bob@example.org>";
+    /// # let (bob, _) = CertBuilder::new()
+    /// #     .set_creation_time(t0)
+    /// #     .add_userid(bob_userid)
+    /// #     .generate()
+    /// #     .unwrap();
+    /// let bob: Cert = // ...
+    /// # bob;
+    ///
+    /// # // Alice has not certified Bob's User ID.
+    /// # let ua = bob.userids().next().expect("have a user id");
+    /// # assert_eq!(
+    /// #     ua.active_certifications_by_key(
+    /// #         P, t0, alice.primary_key().key()).count(),
+    /// #     0);
+    /// #
+    /// # // Have Alice certify Bob's certificate.
+    /// # let mut alice_signer = alice
+    /// #     .keys()
+    /// #     .with_policy(P, None)
+    /// #     .for_certification()
+    /// #     .next().expect("have a certification-capable key")
+    /// #     .key()
+    /// #     .clone()
+    /// #     .parts_into_secret().expect("have unencrypted key material")
+    /// #     .into_keypair().expect("have unencrypted key material");
+    /// #
+    /// # let mut bob = bob;
+    /// # for i in 1..=2usize {
+    /// #     let ti = t0 + std::time::Duration::new(i as u64, 0);
+    /// #
+    /// #     let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+    /// #         .set_signature_creation_time(ti)?
+    /// #         .sign_userid_binding(
+    /// #             &mut alice_signer,
+    /// #             bob.primary_key().key(),
+    /// #             &UserID::from(bob_userid))?;
+    /// #     bob = bob.insert_packets(certification)?.0;
+    /// #
+    /// #     let ua = bob.userids().next().expect("have a user id");
+    /// #     assert_eq!(
+    /// #         ua.valid_certifications_by_key(
+    /// #             P, ti, alice.primary_key().key()).count(),
+    /// #         i);
+    /// #
+    /// #     assert_eq!(
+    /// #         ua.active_certifications_by_key(
+    /// #             P, ti, alice.primary_key().key()).count(),
+    /// #         1);
+    /// # }
+    /// let ua = bob.userids().next().expect("have user id");
+    ///
+    /// let valid_certifications = ua.valid_certifications_by_key(
+    ///     P, None, alice.primary_key().key());
+    /// // Alice certified Bob's certificate twice.
+    /// assert_eq!(valid_certifications.count(), 2);
+    ///
+    /// let active_certifications = ua.active_certifications_by_key(
+    ///     P, None, alice.primary_key().key());
+    /// // But only the most recent one is active.
+    /// assert_eq!(active_certifications.count(), 1);
+    /// # Ok(()) }
+    /// ```
+    pub fn valid_certifications_by_key<T, PK>(&self,
+                                              policy: &'a dyn Policy,
+                                              reference_time: T,
+                                              issuer: PK)
+        -> impl Iterator<Item=&Signature> + Send + Sync
+    where
+        T: Into<Option<time::SystemTime>>,
+        PK: Into<&'a packet::Key<packet::key::PublicParts,
+                                 packet::key::UnspecifiedRole>>,
+    {
+        let reference_time = reference_time.into();
+        let issuer = issuer.into();
+
+        self.valid_certifications_by_key_(
+            policy, reference_time, issuer, false,
+            self.certifications(),
+            |sig| {
+                sig.clone().verify_userid_binding(
+                    issuer,
+                    self.cert.primary_key().key(),
+                    self.userid())
+            })
+    }
+
+    /// Returns any active third-party certifications issued by the
+    /// specified key.
+    ///
+    /// This function is like
+    /// [`UserIDAmalgamation::valid_certifications_by_key`], but it
+    /// only returns active certifications.  Active certifications are
+    /// the most recent valid certifications with respect to the
+    /// reference time.
+    ///
+    /// Although there is normally only a single active certification,
+    /// there can be multiple certifications with the same timestamp.
+    /// In this case, all of them are returned.
+    ///
+    /// Unlike self-signatures, multiple third-party certifications
+    /// issued by the same key at the same time can be sensible.  For
+    /// instance, Alice may fully trust a CA for user IDs in a
+    /// particular domain, and partially trust it for everything else.
+    /// This can only be expressed using multiple certifications.
+    ///
+    /// This method is implemented on a [`UserIDAmalgamation`] and not
+    /// a [`ValidUserIDAmalgamation`], because a third-party
+    /// certification does not require the user ID to be self-signed.
+    ///
+    /// # Examples
+    ///
+    /// See the examples for
+    /// [`UserIDAmalgamation::valid_certifications_by_key`].
+    pub fn active_certifications_by_key<T, PK>(&self,
+                                               policy: &'a dyn Policy,
+                                               reference_time: T,
+                                               issuer: PK)
+        -> impl Iterator<Item=&Signature> + Send + Sync
+    where
+        T: Into<Option<time::SystemTime>>,
+        PK: Into<&'a packet::Key<packet::key::PublicParts,
+                                 packet::key::UnspecifiedRole>>,
+    {
+        let reference_time = reference_time.into();
+        let issuer = issuer.into();
+
+        self.valid_certifications_by_key_(
+            policy, reference_time, issuer, true,
+            self.certifications(),
+            |sig| {
+                sig.clone().verify_userid_binding(
+                    issuer,
+                    self.cert.primary_key().key(),
+                    self.userid())
+            })
+    }
+
+    /// Returns the third-party revocations issued by the specified
+    /// key, and valid at the specified time.
+    ///
+    /// This function returns the revocations issued by the specified
+    /// key.  Specifically, it returns a revocation if:
+    ///
+    ///   - it is well-formed,
+    ///   - it is live with respect to the reference time,
+    ///   - it conforms to the policy, and
+    ///   - the signature is cryptographically valid.
+    ///
+    /// This method is implemented on a [`UserIDAmalgamation`] and not
+    /// a [`ValidUserIDAmalgamation`], because a third-party
+    /// revocation does not require the user ID to be self-signed.
+    ///
+    /// # Examples
+    ///
+    /// Alice revokes a user ID on Bob's certificate.
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// # use openpgp::Packet;
+    /// # use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::packet::UserID;
+    /// use openpgp::policy::StandardPolicy;
+    /// # use openpgp::types::ReasonForRevocation;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// const P: &StandardPolicy = &StandardPolicy::new();
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let epoch = std::time::SystemTime::now()
+    /// #     - std::time::Duration::new(100, 0);
+    /// # let t0 = epoch;
+    /// # let t1 = epoch + std::time::Duration::new(1, 0);
+    /// #
+    /// # let (alice, _) = CertBuilder::new()
+    /// #     .set_creation_time(t0)
+    /// #     .add_userid("<alice@example.org>")
+    /// #     .generate()
+    /// #     .unwrap();
+    /// let alice: Cert = // ...
+    /// # alice;
+    /// #
+    /// # let bob_userid = "<bob@example.org>";
+    /// # let (bob, _) = CertBuilder::new()
+    /// #     .set_creation_time(t0)
+    /// #     .add_userid(bob_userid)
+    /// #     .generate()
+    /// #     .unwrap();
+    /// let bob: Cert = // ...
+    /// # bob;
+    ///
+    /// # // Alice has not certified Bob's User ID.
+    /// # let ua = bob.userids().next().expect("have a user id");
+    /// # assert_eq!(
+    /// #     ua.active_certifications_by_key(
+    /// #         P, t0, alice.primary_key().key()).count(),
+    /// #     0);
+    /// #
+    /// # // Have Alice certify Bob's certificate.
+    /// # let mut alice_signer = alice
+    /// #     .keys()
+    /// #     .with_policy(P, None)
+    /// #     .for_certification()
+    /// #     .next().expect("have a certification-capable key")
+    /// #     .key()
+    /// #     .clone()
+    /// #     .parts_into_secret().expect("have unencrypted key material")
+    /// #     .into_keypair().expect("have unencrypted key material");
+    /// #
+    /// # let certification = SignatureBuilder::new(SignatureType::CertificationRevocation)
+    /// #     .set_signature_creation_time(t1)?
+    /// #     .set_reason_for_revocation(
+    /// #         ReasonForRevocation::UIDRetired, b"")?
+    /// #     .sign_userid_binding(
+    /// #         &mut alice_signer,
+    /// #         bob.primary_key().key(),
+    /// #         &UserID::from(bob_userid))?;
+    /// # let bob = bob.insert_packets([
+    /// #     Packet::from(UserID::from(bob_userid)),
+    /// #     Packet::from(certification),
+    /// # ])?.0;
+    /// let ua = bob.userids().next().expect("have user id");
+    ///
+    /// let revs = ua.valid_third_party_revocations_by_key(
+    ///     P, None, alice.primary_key().key());
+    /// // Alice revoked the User ID.
+    /// assert_eq!(revs.count(), 1);
+    /// # Ok(()) }
+    /// ```
+    pub fn valid_third_party_revocations_by_key<T, PK>(&self,
+                                                       policy: &'a dyn Policy,
+                                                       reference_time: T,
+                                                       issuer: PK)
+        -> impl Iterator<Item=&Signature> + Send + Sync
+    where
+        T: Into<Option<time::SystemTime>>,
+        PK: Into<&'a packet::Key<packet::key::PublicParts,
+                                 packet::key::UnspecifiedRole>>,
+    {
+        let reference_time = reference_time.into();
+        let issuer = issuer.into();
+
+        self.valid_certifications_by_key_(
+            policy, reference_time, issuer, false,
+            self.other_revocations(),
+            |sig| {
+                sig.clone().verify_userid_revocation(
+                    issuer,
+                    self.cert.primary_key().key(),
+                    self.userid())
+            })
+    }
+
+    /// Approves of third-party certifications.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
-    /// Allows the certificate owner to attest to third party
-    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// Allows the certificate owner to approve of third party
+    /// certifications. See [Approved Certifications subpacket] for
     /// details.  This can be used to address certificate flooding
     /// concerns.
     ///
+    ///   [Approved Certifications subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
+    ///
     /// A policy is needed, because the expiration is updated by
     /// updating the current binding signatures.
-    ///
-    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
     ///
     /// # Examples
     ///
@@ -968,126 +1626,197 @@ impl<'a> UserIDAmalgamation<'a> {
     ///     = bob.userids().next().unwrap().userid().bind(
     ///         &mut alice_signer, &bob,
     ///         SignatureBuilder::new(SignatureType::GenericCertification))?;
-    /// let bob = bob.insert_packets(vec![alice_certifies_bob.clone()])?;
+    /// let bob = bob.insert_packets(vec![alice_certifies_bob.clone()])?.0;
     ///
-    /// // Have Bob attest that certification.
+    /// // Have Bob approve of that certification.
     /// let bobs_uid = bob.userids().next().unwrap();
-    /// let attestations =
-    ///     bobs_uid.attest_certifications(
+    /// let approvals =
+    ///     bobs_uid.approve_of_certifications(
     ///         policy,
+    ///         None,
     ///         &mut bob_signer,
     ///         bobs_uid.certifications())?;
-    /// let bob = bob.insert_packets(attestations)?;
+    /// let bob = bob.insert_packets(approvals)?.0;
     ///
     /// assert_eq!(bob.bad_signatures().count(), 0);
     /// assert_eq!(bob.userids().next().unwrap().certifications().next(),
     ///            Some(&alice_certifies_bob));
     /// # Ok(()) }
     /// ```
-    pub fn attest_certifications<C, S>(&self,
-                                       policy: &dyn Policy,
-                                       primary_signer: &mut dyn Signer,
-                                       certifications: C)
-                                       -> Result<Vec<Signature>>
-    where C: IntoIterator<Item = S>,
+    pub fn approve_of_certifications<T, C, S>(&self,
+                                              policy: &dyn Policy,
+                                              time: T,
+                                              primary_signer: &mut dyn Signer,
+                                              certifications: C)
+        -> Result<Vec<Signature>>
+    where T: Into<Option<time::SystemTime>>,
+          C: IntoIterator<Item = S>,
           S: Borrow<Signature>,
     {
-        // Hash the components like in a binding signature.
-        let mut hash = HashAlgorithm::default().context()?;
-        self.cert().primary_key().hash(&mut hash);
-        self.userid().hash(&mut hash);
+        let time = time.into();
+        let certifications = certifications.into_iter()
+            .collect::<Vec<_>>();
 
         // Check if there is a previous attestation.  If so, we need
         // that to robustly override it.
         let old = self.clone()
-            .with_policy(policy, None)
+            .with_policy(policy, time)
             .ok()
-            .and_then(|v| v.attestation_key_signatures().cloned().next());
+            .and_then(
+                |v| v.certification_approval_key_signatures().next().cloned());
 
-        attest_certifications_common(hash, old, primary_signer, certifications)
+        approve_of_certifications_common(self.cert().primary_key().key(),
+                                         self.userid(),
+                                         old, time, primary_signer,
+                                         &certifications)
     }
 }
 
 impl<'a> UserAttributeAmalgamation<'a> {
     /// Returns a reference to the User Attribute.
     ///
-    /// Note: although `ComponentAmalgamation<UserAttribute>` derefs
-    /// to a `&UserAttribute` (via `&ComponentBundle`), this method
-    /// provides a more accurate lifetime, which is helpful when
-    /// returning the reference from a function.  [See the module's
-    /// documentation] for more details.
+    /// This is just a type-specific alias for
+    /// [`ComponentAmalgamation::component`].
     ///
-    /// [See the module's documentation]: self
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the User Attributes
+    /// for ua in cert.user_attributes() {
+    ///     eprintln!(" - {:?}", ua.user_attribute());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn user_attribute(&self) -> &'a UserAttribute {
         self.component()
     }
 
-    /// Attests to third-party certifications.
+    /// Returns the User Attribute's revocation status at time `t`.
+    ///
+    /// A User Attribute is revoked at time `t` if:
+    ///
+    ///   - There is a live revocation at time `t` that is newer than
+    ///     all live self signatures at time `t`.
+    ///
+    /// Note: Certs and subkeys have different criteria from User IDs
+    /// and User Attributes.
+    ///
+    /// Note: this only returns whether this User Attribute is revoked;
+    /// it does not imply anything about the Cert or other components.
+    //
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display the User Attributes' revocation status.
+    /// for (i, ua) in cert.user_attributes().enumerate() {
+    ///     eprintln!(" Revocation status of User Attribute #{}: {:?}",
+    ///               i, ua.revocation_status(p, None));
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn revocation_status<T>(&self, policy: &dyn Policy, t: T)
+                                -> RevocationStatus
+    where
+        T: Into<Option<time::SystemTime>>,
+    {
+        let t = t.into();
+        self.bundle().revocation_status(policy, t)
+    }
+
+    /// Approves of third-party certifications.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
-    /// Allows the certificate owner to attest to third party
-    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// Allows the certificate owner to approve of third party
+    /// certifications. See [Approved Certifications subpacket] for
     /// details.  This can be used to address certificate flooding
     /// concerns.
     ///
     /// A policy is needed, because the expiration is updated by
     /// updating the current binding signatures.
     ///
-    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///   [Approved Certifications subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
     ///
     /// # Examples
     ///
-    /// See [`UserIDAmalgamation::attest_certifications#examples`].
+    /// See [`UserIDAmalgamation::approve_of_certifications#examples`].
     ///
-    ///   [`UserIDAmalgamation::attest_certifications#examples`]: UserIDAmalgamation#examples
+    ///   [`UserIDAmalgamation::approve_of_certifications#examples`]: UserIDAmalgamation#examples
     // The explicit link works around a bug in rustdoc.
-    pub fn attest_certifications<C, S>(&self,
-                                       policy: &dyn Policy,
-                                       primary_signer: &mut dyn Signer,
-                                       certifications: C)
-                                       -> Result<Vec<Signature>>
-    where C: IntoIterator<Item = S>,
+    pub fn approve_of_certifications<T, C, S>(&self,
+                                              policy: &dyn Policy,
+                                              time: T,
+                                              primary_signer: &mut dyn Signer,
+                                              certifications: C)
+        -> Result<Vec<Signature>>
+    where T: Into<Option<time::SystemTime>>,
+          C: IntoIterator<Item = S>,
           S: Borrow<Signature>,
     {
-        // Hash the components like in a binding signature.
-        let mut hash = HashAlgorithm::default().context()?;
-        self.cert().primary_key().hash(&mut hash);
-        self.user_attribute().hash(&mut hash);
+        let time = time.into();
+        let certifications = certifications.into_iter()
+            .collect::<Vec<_>>();
 
         // Check if there is a previous attestation.  If so, we need
         // that to robustly override it.
         let old = self.clone()
-            .with_policy(policy, None)
+            .with_policy(policy, time)
             .ok()
-            .and_then(|v| v.attestation_key_signatures().cloned().next());
+            .and_then(
+                |v| v.certification_approval_key_signatures().next().cloned());
 
-        attest_certifications_common(hash, old, primary_signer, certifications)
+        approve_of_certifications_common(self.cert().primary_key().key(),
+                                         self.user_attribute(),
+                                         old, time, primary_signer,
+                                         &certifications)
     }
 }
 
-/// Attests to third-party certifications.
-#[allow(clippy::let_and_return)]
-fn attest_certifications_common<C, S>(hash: Box<dyn Digest>,
-                                      old_attestation: Option<Signature>,
-                                      primary_signer: &mut dyn Signer,
-                                      certifications: C)
-                                      -> Result<Vec<Signature>>
-where C: IntoIterator<Item = S>,
-      S: Borrow<Signature>,
+/// Approves of third-party certifications.
+fn approve_of_certifications_common<S>(key: &Key<PublicParts, PrimaryRole>,
+                                          component: &dyn Hash,
+                                          old_attestation: Option<Signature>,
+                                          time: Option<SystemTime>,
+                                          primary_signer: &mut dyn Signer,
+                                          certifications: &[S])
+                                          -> Result<Vec<Signature>>
+where
+    S: Borrow<Signature>,
 {
     use crate::{
         packet::signature::{SignatureBuilder, subpacket::SubpacketArea},
         serialize::MarshalInto,
     };
 
-    let hash_algo = hash.algo();
-    let digest_size = hash.digest_size();
+    // Fix the time.
+    let now = time.unwrap_or_else(crate::now);
+
+    // Fix the algorithm.
+    let hash_algo = HashAlgorithm::default();
+    let digest_size = hash_algo.digest_size()?;
 
     let mut attestations = Vec::new();
-    for certification in certifications.into_iter() {
-        let mut h = hash_algo.context()?;
-        certification.borrow().hash_for_confirmation(&mut h);
+    for certification in certifications {
+        let mut h = hash_algo.context()?
+            .for_signature(primary_signer.public().version());
+        certification.borrow().hash_for_confirmation(&mut h)?;
         attestations.push(h.into_digest()?);
     }
 
@@ -1099,7 +1828,8 @@ where C: IntoIterator<Item = S>,
     // our signatures to be newer than any existing signatures.  Do so
     // by using the old attestation as template.
     let template = if let Some(old) = old_attestation {
-        let mut s: SignatureBuilder = old.into();
+        let mut s = SignatureBuilder::from(old)
+            .set_reference_time(now)?;
         s.hashed_area_mut().clear();
         s.unhashed_area_mut().clear();
         s
@@ -1107,24 +1837,36 @@ where C: IntoIterator<Item = S>,
         // Backdate the signature a little so that we can immediately
         // override it.
         use crate::packet::signature::SIG_BACKDATE_BY;
-        let creation_time =
-            crate::now() - time::Duration::new(SIG_BACKDATE_BY, 0);
 
-        let template = SignatureBuilder::new(SignatureType::AttestationKey)
+        let mut creation_time =
+            now - time::Duration::new(SIG_BACKDATE_BY, 0);
+
+        // ... but don't backdate it further than the key's creation
+        // time, which would make it invalid.
+        let key_creation_time = primary_signer.public().creation_time();
+        if creation_time < key_creation_time {
+            // ... unless that would make it is later than now.
+            creation_time = key_creation_time.min(now);
+        }
+
+        let template = SignatureBuilder::new(SignatureType::CertificationApproval)
             .set_signature_creation_time(creation_time)?;
         template
 
     };
 
     let template = template
-        .set_hash_algo(hash_algo)
-    // Important for size calculation.
-        .pre_sign(primary_signer)?;
+        .set_hash_algo(hash_algo);
 
     // Compute the available space in the hashed area.  For this,
     // it is important that template.pre_sign has been called.
-    let available_space =
-        SubpacketArea::MAX_SIZE - template.hashed_area().serialized_len();
+    let available_space = {
+        // But, we do it on a clone, so that `template` is still not
+        // initialized.
+        let t = template.clone().pre_sign(primary_signer)?;
+
+        SubpacketArea::MAX_SIZE - t.hashed_area().serialized_len()
+    };
 
     // Reserve space for the subpacket header, length and tag.
     const SUBPACKET_HEADER_MAX_LEN: usize = 5 + 1;
@@ -1136,23 +1878,73 @@ where C: IntoIterator<Item = S>,
     // Now create the signatures.
     let mut sigs = Vec::new();
     for digests in attestations.chunks(digests_per_sig) {
-        sigs.push(
-            template.clone()
-                .set_attested_certifications(digests)?
-                .sign_hash(primary_signer, hash.clone())?);
+        // Hash the components.  First, initialize the salt.
+        let t = template.clone().pre_sign(primary_signer)?;
+
+        let mut hash = hash_algo.context()?
+            .for_signature(primary_signer.public().version());
+
+        if let Some(salt) = t.sb_version.salt() {
+            hash.update(salt);
+        }
+        key.hash(&mut hash)?;
+        component.hash(&mut hash)?;
+
+        sigs.push(t
+                  .set_approved_certifications(digests)?
+                  .sign_hash(primary_signer, hash)?);
     }
 
     if attestations.is_empty() {
         // The certificate owner can withdraw attestations by issuing
         // an empty attestation key signature.
         assert!(sigs.is_empty());
-        sigs.push(
-            template
-                .set_attested_certifications(Option::<&[u8]>::None)?
-                .sign_hash(primary_signer, hash.clone())?);
+
+        // Hash the components.  First, initialize the salt.
+        let t = template.clone().pre_sign(primary_signer)?;
+
+        let mut hash = hash_algo.context()?
+            .for_signature(primary_signer.public().version());
+
+        if let Some(salt) = t.sb_version.salt() {
+            hash.update(salt);
+        }
+        key.hash(&mut hash)?;
+        component.hash(&mut hash)?;
+
+        sigs.push(t
+                  .set_approved_certifications(Option::<&[u8]>::None)?
+                  .sign_hash(primary_signer, hash.clone())?);
     }
 
     Ok(sigs)
+}
+
+impl<'a> UnknownComponentAmalgamation<'a> {
+    /// Returns a reference to the Unknown packet.
+    ///
+    /// This is just a type-specific alias for
+    /// [`ComponentAmalgamation::component`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the Unknown components.
+    /// for u in cert.unknowns() {
+    ///     eprintln!(" - {:?}", u.unknown());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn unknown(&self) -> &'a Unknown {
+        self.component()
+    }
 }
 
 /// A `ComponentAmalgamation` plus a `Policy` and a reference time.
@@ -1226,7 +2018,7 @@ where C: IntoIterator<Item = S>,
 ///     } else {
 ///         // Print information about the User ID.
 ///         eprintln!("{}: preferred symmetric algorithms: {:?}",
-///                   String::from_utf8_lossy(u.value()),
+///                   String::from_utf8_lossy(u.userid().value()),
 ///                   u.preferred_symmetric_algorithms());
 ///     }
 /// }
@@ -1243,6 +2035,370 @@ pub struct ValidComponentAmalgamation<'a, C> {
 }
 assert_send_and_sync!(ValidComponentAmalgamation<'_, C> where C);
 
+impl<'a, C> ValidComponentAmalgamation<'a, C> {
+    /// Returns the valid amalgamation's associated certificate.
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for u in cert.userids() {
+    ///     // It's not only an identical `Cert`, it's the same one.
+    ///     assert!(std::ptr::eq(u.cert(), &cert));
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn cert(&self) -> &'a Cert {
+        self.ca.cert()
+    }
+
+    /// Returns the valid amalgamation's active binding signature.
+    ///
+    /// The active binding signature is the most recent, non-revoked
+    /// self-signature that is valid according to the `policy` and
+    /// alive at time `t` (`creation time <= t`, `t < expiry`).  If
+    /// there are multiple such signatures then the signatures are
+    /// ordered by their MPIs interpreted as byte strings.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display information about each User ID's current active
+    /// // binding signature (the `time` parameter is `None`), if any.
+    /// for ua in cert.with_policy(p, None)?.userids() {
+    ///     eprintln!("{:?}", ua.binding_signature());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn binding_signature(&self) -> &'a Signature {
+        self.binding_signature
+    }
+
+    /// Returns the valid amalgamation's amalgamation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate()?;
+    /// // Get a user ID amalgamation.
+    /// let ua = cert.userids().next().expect("added one");
+    ///
+    /// // Validate it, yielding a valid component amalgamation.
+    /// let vua = ua.with_policy(p, None)?;
+    ///
+    /// // And here we get the amalgamation back.
+    /// let ua2 = vua.amalgamation();
+    /// assert_eq!(&ua, ua2);
+    /// # Ok(()) }
+    /// ```
+    pub fn amalgamation(&self) -> &ComponentAmalgamation<'a, C> {
+        &self.ca
+    }
+
+    /// Returns this valid amalgamation's bundle.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// let p = &openpgp::policy::StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate()?;
+    /// cert.with_policy(p, None)?.userids()
+    ///     .map(|ua| ua.bundle())
+    ///     .collect::<Vec<&ComponentBundle<_>>>();
+    /// # Ok(()) }
+    /// ```
+    pub fn bundle(&self) -> &'a ComponentBundle<C> {
+        self.ca.bundle()
+    }
+
+    /// Returns this valid amalgamation's component.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// let p = &openpgp::policy::StandardPolicy::new();
+    ///
+    /// // Display some information about any userid components.
+    /// for u in cert.with_policy(p, None)?.userids() {
+    ///     eprintln!(" - {:?}", u.component());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn component(&self) -> &'a C {
+        self.bundle().component()
+    }
+}
+
+impl<'a, C> ValidComponentAmalgamation<'a, C>
+where
+    C: Send + Sync,
+{
+    /// Returns the valid amalgamation's self-signatures.
+    ///
+    /// The signatures are validated, and they are sorted by their
+    /// creation time, most recent first.  This method only returns
+    /// signatures that are valid under the current policy.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, ka) in cert.with_policy(p, None)?.keys().enumerate() {
+    ///     eprintln!("Key #{} ({}) has {:?} self signatures",
+    ///               i, ka.key().fingerprint(),
+    ///               ka.self_signatures().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn self_signatures(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync + 'a {
+        let policy = self.cert.policy();
+        let has = self.ca.bundle().hash_algo_security;
+
+        self.ca.self_signatures()
+          .filter(move |sig| policy.signature(sig, has).is_ok())
+    }
+
+    /// Returns the component's third-party certifications.
+    ///
+    /// The signatures are *not* validated.  They are sorted by their
+    /// creation time, most recent first.  This method only returns
+    /// signatures that are valid under the current policy.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for ua in cert.with_policy(p, None)?.userids() {
+    ///     eprintln!("User ID {} has {:?} unverified, third-party certifications",
+    ///               String::from_utf8_lossy(ua.userid().value()),
+    ///               ua.certifications().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn certifications(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync + 'a {
+        let policy = self.cert.policy();
+
+        self.ca.certifications()
+          .filter(move |sig| policy.signature(sig,
+            HashAlgoSecurity::CollisionResistance).is_ok())
+    }
+
+    /// Returns the valid amalgamation's revocations that were issued
+    /// by the certificate holder.
+    ///
+    /// The revocations are validated, and they are sorted by their
+    /// creation time, most recent first.  This method only returns
+    /// signatures that are valid under the current policy.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for u in cert.with_policy(p, None)?.userids() {
+    ///     eprintln!("User ID {} has {:?} revocation certificates.",
+    ///               String::from_utf8_lossy(u.userid().value()),
+    ///               u.self_revocations().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn self_revocations(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync + 'a  {
+        let policy = self.cert.policy();
+        let has = self.ca.bundle().hash_algo_security;
+
+        self.ca.self_revocations()
+          .filter(move |sig| policy.signature(sig, has).is_ok())
+    }
+
+    /// Returns the valid amalgamation's revocations that were issued
+    /// by other certificates.
+    ///
+    /// The revocations are *not* validated.  They are sorted by their
+    /// creation time, most recent first.  This method only returns
+    /// signatures that are valid under the current policy.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for u in cert.with_policy(p, None)?.userids() {
+    ///     eprintln!("User ID {} has {:?} unverified, third-party revocation certificates.",
+    ///               String::from_utf8_lossy(u.userid().value()),
+    ///               u.other_revocations().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn other_revocations(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync + 'a {
+        let policy = self.cert.policy();
+
+        self.ca.other_revocations()
+          .filter(move |sig| policy.signature(sig,
+            HashAlgoSecurity::CollisionResistance).is_ok())
+    }
+
+    /// Returns all of the valid amalgamation's Certification Approval
+    /// Key Signatures.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// The signatures are validated, and they are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// A certificate owner can use Certification Approval Key
+    /// Signatures to approve of third party certifications.
+    /// Currently, only userid and user attribute certifications can
+    /// be approved.  See [Approved Certifications subpacket] for
+    /// details.
+    ///
+    ///   [Approved Certifications subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, uid) in cert.with_policy(p, None)?.userids().enumerate() {
+    ///     eprintln!("UserID #{} ({:?}) has {:?} certification approval key signatures",
+    ///               i, uid.userid().email(),
+    ///               uid.approvals().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn approvals(&self)
+                     -> impl Iterator<Item = &'a Signature> + Send + Sync + 'a
+    {
+        let policy = self.cert.policy();
+        let has = self.ca.bundle().hash_algo_security;
+
+        self.ca.approvals()
+          .filter(move |sig| policy.signature(sig, has).is_ok())
+    }
+
+    /// Returns all of the valid amalgamations's signatures.
+    ///
+    /// Only the self-signatures are validated.  The signatures are
+    /// sorted first by type, then by creation time.  The self
+    /// revocations come first, then the self signatures,
+    /// then any certification approval key signatures,
+    /// certifications, and third-party revocations coming last.  This
+    /// function may return additional types of signatures that could
+    /// be associated to this component.
+    ///
+    /// This method only returns signatures that are valid under the
+    /// current policy.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, ka) in cert.with_policy(p, None)?.keys().enumerate() {
+    ///     eprintln!("Key #{} ({}) has {:?} signatures",
+    ///               i, ka.key().fingerprint(),
+    ///               ka.signatures().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn signatures(&self)
+                      -> impl Iterator<Item = &'a Signature> + Send + Sync + 'a {
+        let policy = self.cert.policy();
+
+        self.ca.signatures()
+          .filter(move |sig| policy.signature(sig,
+            HashAlgoSecurity::CollisionResistance).is_ok())
+    }
+}
+
 /// A Valid User ID and its associated data.
 ///
 /// A specialized version of [`ValidComponentAmalgamation`].
@@ -1250,27 +2406,52 @@ assert_send_and_sync!(ValidComponentAmalgamation<'_, C> where C);
 pub type ValidUserIDAmalgamation<'a> = ValidComponentAmalgamation<'a, UserID>;
 
 impl<'a> ValidUserIDAmalgamation<'a> {
-    /// Returns the userid's attested third-party certifications.
+    /// Returns a reference to the User ID.
+    ///
+    /// This is just a type-specific alias for
+    /// [`ValidComponentAmalgamation::component`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the User IDs.
+    /// for ua in cert.userids() {
+    ///     eprintln!(" - {:?}", ua.userid());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn userid(&self) -> &'a UserID {
+        self.component()
+    }
+
+    /// Returns the user ID's approved third-party certifications.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
-    /// Allows the certificate owner to attest to third party
-    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// Allows the certificate owner to approve of third party
+    /// certifications. See [Approved Certification subpacket] for
     /// details.  This can be used to address certificate flooding
     /// concerns.
     ///
     /// This method only returns signatures that are valid under the
-    /// current policy and are attested by the certificate holder.
+    /// current policy and are approved by the certificate holder.
     ///
-    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
-    pub fn attested_certifications(&self)
+    ///   [Approved Certification subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
+    pub fn approved_certifications(&self)
         -> impl Iterator<Item=&Signature> + Send + Sync
     {
         let mut hash_algo = None;
         let digests: std::collections::HashSet<_> =
-            self.attestation_key_signatures()
+            self.certification_approval_key_signatures()
             .filter_map(|sig| {
-                sig.attested_certifications().ok()
+                sig.approved_certifications().ok()
                     .map(|digest_iter| (sig, digest_iter))
             })
             .flat_map(|(sig, digest_iter)| {
@@ -1281,8 +2462,9 @@ impl<'a> ValidUserIDAmalgamation<'a> {
 
         self.certifications()
             .filter_map(move |sig| {
-                let mut hash = hash_algo.and_then(|a| a.context().ok())?;
-                sig.hash_for_confirmation(&mut hash);
+                let mut hash = hash_algo.and_then(|a| a.context().ok())?
+                    .for_signature(sig.version());
+                sig.hash_for_confirmation(&mut hash).ok()?;
                 let digest = hash.into_digest().ok()?;
                 if digests.contains(&digest[..]) {
                     Some(sig)
@@ -1292,31 +2474,31 @@ impl<'a> ValidUserIDAmalgamation<'a> {
             })
     }
 
-    /// Returns set of active attestation key signatures.
+    /// Returns set of active certification approval key signatures.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
     /// Returns the set of signatures with the newest valid signature
     /// creation time.  Older signatures are not returned.  The sum of
-    /// all digests in these signatures are the set of attested
+    /// all digests in these signatures are the set of approved
     /// third-party certifications.
     ///
-    /// This interface is useful for pruning old attestation key
-    /// signatures when filtering a certificate.
+    /// This interface is useful for pruning old certification
+    /// approval key signatures when filtering a certificate.
     ///
     /// Note: This is a low-level interface.  Consider using
-    /// [`ValidUserIDAmalgamation::attested_certifications`] to
-    /// iterate over all attested certifications.
+    /// [`ValidUserIDAmalgamation::approved_certifications`] to
+    /// iterate over all approved certifications.
     ///
-    ///   [`ValidUserIDAmalgamation::attested_certifications`]: ValidUserIDAmalgamation#method.attested_certifications
+    ///   [`ValidUserIDAmalgamation::approved_certifications`]: ValidUserIDAmalgamation#method.approved_certifications
     // The explicit link works around a bug in rustdoc.
-    pub fn attestation_key_signatures(&'a self)
+    pub fn certification_approval_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync
     {
         let mut first = None;
 
         // The newest valid signature will be returned first.
-        self.attestations()
+        self.ca.approvals()
         // First, filter out any invalid (e.g. too new) signatures.
             .filter(move |sig| self.cert.policy().signature(
                 sig,
@@ -1342,16 +2524,16 @@ impl<'a> ValidUserIDAmalgamation<'a> {
             })
     }
 
-    /// Attests to third-party certifications.
+    /// Approves of third-party certifications.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
-    /// Allows the certificate owner to attest to third party
-    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// Allows the certificate owner to approve of third party
+    /// certifications. See [Approved Certifications subpacket] for
     /// details.  This can be used to address certificate flooding
     /// concerns.
     ///
-    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///   [Approved Certifications subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
     ///
     /// # Examples
     ///
@@ -1383,33 +2565,33 @@ impl<'a> ValidUserIDAmalgamation<'a> {
     ///     = bob.userids().next().unwrap().userid().bind(
     ///         &mut alice_signer, &bob,
     ///         SignatureBuilder::new(SignatureType::GenericCertification))?;
-    /// let bob = bob.insert_packets(vec![alice_certifies_bob.clone()])?;
+    /// let bob = bob.insert_packets(vec![alice_certifies_bob.clone()])?.0;
     ///
-    /// // Have Bob attest that certification.
-    /// let bobs_uid = bob.userids().next().unwrap();
-    /// let attestations =
-    ///     bobs_uid.attest_certifications(
-    ///         policy,
+    /// // Have Bob approve of that certification.
+    /// let bobs_uid = bob.with_policy(policy, None)?.userids().next().unwrap();
+    /// let approvals =
+    ///     bobs_uid.approve_of_certifications(
     ///         &mut bob_signer,
     ///         bobs_uid.certifications())?;
-    /// let bob = bob.insert_packets(attestations)?;
+    /// let bob = bob.insert_packets(approvals)?.0;
     ///
     /// assert_eq!(bob.bad_signatures().count(), 0);
     /// assert_eq!(bob.userids().next().unwrap().certifications().next(),
     ///            Some(&alice_certifies_bob));
     /// # Ok(()) }
     /// ```
-    pub fn attest_certifications<C, S>(&self,
-                                       primary_signer: &mut dyn Signer,
-                                       certifications: C)
-                                       -> Result<Vec<Signature>>
+    pub fn approve_of_certifications<C, S>(&self,
+                                           primary_signer: &mut dyn Signer,
+                                           certifications: C)
+                                           -> Result<Vec<Signature>>
     where C: IntoIterator<Item = S>,
           S: Borrow<Signature>,
     {
-        std::ops::Deref::deref(self)
-            .attest_certifications(self.policy(),
-                                   primary_signer,
-                                   certifications)
+        self.ca
+            .approve_of_certifications(self.policy(),
+                                       self.time(),
+                                       primary_signer,
+                                       certifications)
     }
 }
 
@@ -1421,27 +2603,52 @@ pub type ValidUserAttributeAmalgamation<'a>
     = ValidComponentAmalgamation<'a, UserAttribute>;
 
 impl<'a> ValidUserAttributeAmalgamation<'a> {
-    /// Returns the user attributes's attested third-party certifications.
+    /// Returns a reference to the User Attribute.
+    ///
+    /// This is just a type-specific alias for
+    /// [`ValidComponentAmalgamation::component`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the User IDs.
+    /// for ua in cert.user_attributes() {
+    ///     eprintln!(" - {:?}", ua.user_attribute());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn user_attribute(&self) -> &'a UserAttribute {
+        self.component()
+    }
+
+    /// Returns the user attributes' approved third-party certifications.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
-    /// Allows the certificate owner to attest to third party
-    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// Allows the certificate owner to approve of third party
+    /// certifications. See [Approved Certifications subpacket] for
     /// details.  This can be used to address certificate flooding
     /// concerns.
     ///
     /// This method only returns signatures that are valid under the
-    /// current policy and are attested by the certificate holder.
+    /// current policy and are approved by the certificate holder.
     ///
-    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
-    pub fn attested_certifications(&self)
+    ///   [Approved Certifications subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
+    pub fn approved_certifications(&self)
         -> impl Iterator<Item=&Signature> + Send + Sync
     {
         let mut hash_algo = None;
         let digests: std::collections::HashSet<_> =
-            self.attestation_key_signatures()
+            self.certification_approval_key_signatures()
             .filter_map(|sig| {
-                sig.attested_certifications().ok()
+                sig.approved_certifications().ok()
                     .map(|digest_iter| (sig, digest_iter))
             })
             .flat_map(|(sig, digest_iter)| {
@@ -1452,8 +2659,9 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
 
         self.certifications()
             .filter_map(move |sig| {
-                let mut hash = hash_algo.and_then(|a| a.context().ok())?;
-                sig.hash_for_confirmation(&mut hash);
+                let mut hash = hash_algo.and_then(|a| a.context().ok())?
+                    .for_signature(sig.version());
+                sig.hash_for_confirmation(&mut hash).ok()?;
                 let digest = hash.into_digest().ok()?;
                 if digests.contains(&digest[..]) {
                     Some(sig)
@@ -1463,31 +2671,31 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
             })
     }
 
-    /// Returns set of active attestation key signatures.
+    /// Returns set of active certification approval key signatures.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
     /// Returns the set of signatures with the newest valid signature
     /// creation time.  Older signatures are not returned.  The sum of
-    /// all digests in these signatures are the set of attested
+    /// all digests in these signatures are the set of approved
     /// third-party certifications.
     ///
-    /// This interface is useful for pruning old attestation key
-    /// signatures when filtering a certificate.
+    /// This interface is useful for pruning old certification
+    /// approval key signatures when filtering a certificate.
     ///
     /// Note: This is a low-level interface.  Consider using
-    /// [`ValidUserAttributeAmalgamation::attested_certifications`] to
-    /// iterate over all attested certifications.
+    /// [`ValidUserAttributeAmalgamation::approved_certifications`] to
+    /// iterate over all approved certifications.
     ///
-    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: ValidUserAttributeAmalgamation#method.attested_certifications
+    ///   [`ValidUserAttributeAmalgamation::approved_certifications`]: ValidUserAttributeAmalgamation#method.approved_certifications
     // The explicit link works around a bug in rustdoc.
-    pub fn attestation_key_signatures(&'a self)
+    pub fn certification_approval_key_signatures(&'a self)
         -> impl Iterator<Item=&'a Signature> + Send + Sync
     {
         let mut first = None;
 
         // The newest valid signature will be returned first.
-        self.attestations()
+        self.ca.approvals()
         // First, filter out any invalid (e.g. too new) signatures.
             .filter(move |sig| self.cert.policy().signature(
                 sig,
@@ -1513,34 +2721,35 @@ impl<'a> ValidUserAttributeAmalgamation<'a> {
             })
     }
 
-    /// Attests to third-party certifications.
+    /// Approves of third-party certifications.
     ///
     /// This feature is [experimental](crate#experimental-features).
     ///
-    /// Allows the certificate owner to attest to third party
-    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// Allows the certificate owner to approve of third party
+    /// certifications. See [Approved Certifications subpacket] for
     /// details.  This can be used to address certificate flooding
     /// concerns.
     ///
-    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///   [Approved Certifications subpacket]: https://www.ietf.org/archive/id/draft-dkg-openpgp-1pa3pc-02.html#approved-certifications-subpacket
     ///
     /// # Examples
     ///
-    /// See [`ValidUserIDAmalgamation::attest_certifications#examples`].
+    /// See [`ValidUserIDAmalgamation::approve_of_certifications#examples`].
     ///
-    ///   [`ValidUserIDAmalgamation::attest_certifications#examples`]: ValidUserIDAmalgamation#examples
+    ///   [`ValidUserIDAmalgamation::approve_of_certifications#examples`]: ValidUserIDAmalgamation#examples
     // The explicit link works around a bug in rustdoc.
-    pub fn attest_certifications<C, S>(&self,
-                                       primary_signer: &mut dyn Signer,
-                                       certifications: C)
-                                       -> Result<Vec<Signature>>
+    pub fn approve_of_certifications<C, S>(&self,
+                                           primary_signer: &mut dyn Signer,
+                                           certifications: C)
+                                           -> Result<Vec<Signature>>
     where C: IntoIterator<Item = S>,
           S: Borrow<Signature>,
     {
-        std::ops::Deref::deref(self)
-            .attest_certifications(self.policy(),
-                                   primary_signer,
-                                   certifications)
+        self.ca
+            .approve_of_certifications(self.policy(),
+                                       self.time(),
+                                       primary_signer,
+                                       certifications)
     }
 }
 
@@ -1556,15 +2765,6 @@ impl<'a, C> Clone for ValidComponentAmalgamation<'a, C> {
             cert: self.cert.clone(),
             binding_signature: self.binding_signature,
         }
-    }
-}
-
-impl<'a, C> std::ops::Deref for ValidComponentAmalgamation<'a, C> {
-    type Target = ComponentAmalgamation<'a, C>;
-
-    fn deref(&self) -> &Self::Target {
-        assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
-        &self.ca
     }
 }
 
@@ -1592,13 +2792,13 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     ///   - primary first
     ///   - signature creation first
     ///
-    /// If there is more than one, than one is selected in a
+    /// If there is more than one, then one is selected in a
     /// deterministic, but undefined manner.
     ///
     /// If `valid_cert` is `false`, then this does not also check
     /// whether the certificate is valid; it only checks whether the
     /// component is valid.  Normally, this should be `true`.  This
-    /// option is only expose to allow breaking an infinite recursion:
+    /// option is only exposed to allow breaking an infinite recursion:
     ///
     ///   - To check if a certificate is valid, we check if the
     ///     primary key is valid.
@@ -1639,7 +2839,8 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                 },
             }?;
 
-            let revoked = c._revocation_status(policy, t, false, Some(sig));
+            let revoked = c.revocation_status_intern(
+                policy, Some(t), false, Some(sig));
             let primary = sig.primary_userid().unwrap_or(false);
             let signature_creation_time = match sig.signature_creation_time() {
                 Some(time) => Some(time),
@@ -1689,63 +2890,13 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
             .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
                       .with_policy_relaxed(policy, t, valid_cert))
     }
-
-    /// The component's self-signatures.
-    ///
-    /// This method only returns signatures that are valid under the current policy.
-    pub fn self_signatures(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
-        std::ops::Deref::deref(self).self_signatures()
-          .filter(move |sig| self.cert.policy().signature(sig,
-            self.hash_algo_security).is_ok())
-    }
-
-    /// The component's third-party certifications.
-    ///
-    /// This method only returns signatures that are valid under the current policy.
-    pub fn certifications(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
-        std::ops::Deref::deref(self).certifications()
-          .filter(move |sig| self.cert.policy().signature(sig,
-            HashAlgoSecurity::CollisionResistance).is_ok())
-    }
-
-    /// The component's revocations that were issued by the
-    /// certificate holder.
-    ///
-    /// This method only returns signatures that are valid under the current policy.
-    pub fn self_revocations(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
-        std::ops::Deref::deref(self).self_revocations()
-          .filter(move |sig|self.cert.policy().signature(sig,
-            self.hash_algo_security).is_ok())
-    }
-
-    /// The component's revocations that were issued by other
-    /// certificates.
-    ///
-    /// This method only returns signatures that are valid under the current policy.
-    pub fn other_revocations(&self) -> impl Iterator<Item=&Signature> + Send + Sync {
-        std::ops::Deref::deref(self).other_revocations()
-          .filter(move |sig| self.cert.policy().signature(sig,
-            HashAlgoSecurity::CollisionResistance).is_ok())
-    }
-
-
-    /// Returns all of the component's signatures.
-    ///
-    /// This method only returns signatures that are valid under the
-    /// current policy.
-    pub fn signatures(&self)
-                      -> impl Iterator<Item = &Signature> + Send + Sync {
-        std::ops::Deref::deref(self).signatures()
-          .filter(move |sig| self.cert.policy().signature(sig,
-            HashAlgoSecurity::CollisionResistance).is_ok())
-    }
 }
 
 impl<'a, C> seal::Sealed for ValidComponentAmalgamation<'a, C> {}
 impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     type V = Self;
 
-    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+    fn with_policy<T>(&self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
         where T: Into<Option<time::SystemTime>>,
               Self: Sized,
     {
@@ -1756,8 +2907,11 @@ impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     }
 }
 
-impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
-    fn cert(&self) -> &ValidCert<'a> {
+impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C>
+where
+    C: Send + Sync,
+{
+    fn valid_cert(&self) -> &ValidCert<'a> {
         assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
         &self.cert
     }
@@ -1779,8 +2933,9 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     }
 
     fn revocation_status(&self) -> RevocationStatus<'a> {
-        self.bundle._revocation_status(self.policy(), self.cert.time,
-                                       false, Some(self.binding_signature))
+        self.bundle().revocation_status_intern(
+            self.policy(), Some(self.cert.time), false,
+            Some(self.binding_signature))
     }
 
     fn revocation_keys(&self)
@@ -1789,10 +2944,10 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
         let mut keys = std::collections::HashSet::new();
 
         let policy = self.policy();
-        let pk_sec = self.cert().primary_key().hash_algo_security();
+        let pk_sec = self.cert().primary_key().key().hash_algo_security();
 
         // All valid self-signatures.
-        let sec = self.hash_algo_security;
+        let sec = self.bundle().hash_algo_security;
         self.self_signatures()
             .filter(move |sig| {
                 policy.signature(sig, sec).is_ok()
@@ -1810,8 +2965,15 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     }
 }
 
+impl<'a, C> ValidBindingSignature<'a, C> for ValidComponentAmalgamation<'a, C>
+where
+    C: Send + Sync,
+{}
+
 impl<'a, C> crate::cert::Preferences<'a>
     for ValidComponentAmalgamation<'a, C>
+where
+    C: Send + Sync,
 {
     fn preferred_symmetric_algorithms(&self)
                                       -> Option<&'a [SymmetricAlgorithm]> {
@@ -1827,8 +2989,11 @@ impl<'a, C> crate::cert::Preferences<'a>
         self.map(|s| s.preferred_compression_algorithms())
     }
 
-    fn preferred_aead_algorithms(&self) -> Option<&'a [AEADAlgorithm]> {
-        self.map(|s| s.preferred_aead_algorithms())
+    fn preferred_aead_ciphersuites(
+        &self)
+        -> Option<&'a [(SymmetricAlgorithm, AEADAlgorithm)]>
+    {
+        self.map(|s| s.preferred_aead_ciphersuites())
     }
 
     fn key_server_preferences(&self) -> Option<KeyServerPreferences> {
@@ -1850,8 +3015,16 @@ impl<'a, C> crate::cert::Preferences<'a>
 
 #[cfg(test)]
 mod test {
+    use super::*;
+
+    use std::time::UNIX_EPOCH;
+
     use crate::policy::StandardPolicy as P;
-    use crate::cert::prelude::*;
+    use crate::Packet;
+    use crate::packet::signature::SignatureBuilder;
+    use crate::packet::UserID;
+    use crate::types::SignatureType;
+    use crate::types::ReasonForRevocation;
 
     // derive(Clone) doesn't work with generic parameters that don't
     // implement clone.  Make sure that our custom implementations
@@ -1894,5 +3067,504 @@ mod test {
 
         let _ = cert.user_attributes().map(|ua| ua.user_attribute())
             .collect::<Vec<_>>();
+    }
+
+    #[test]
+    fn component_amalgamation_certifications_by_key() -> Result<()> {
+        // Alice and Bob certify Carol's certificate.  We then check
+        // that certifications_by_key returns them.
+        let (alice, _) = CertBuilder::new()
+            .add_userid("<alice@example.example>")
+            .generate()
+            .unwrap();
+
+        let (bob, _) = CertBuilder::new()
+            .add_userid("<bob@example.example>")
+            .generate()
+            .unwrap();
+
+        let carol_userid = "<carol@example.example>";
+        let (carol, _) = CertBuilder::new()
+            .add_userid(carol_userid)
+            .generate()
+            .unwrap();
+
+        let ua = alice.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications_by_key(&[ alice.key_handle() ]).count(), 0);
+
+        // Alice has not certified Bob's User ID.
+        let ua = bob.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications_by_key(&[ alice.key_handle() ]).count(), 0);
+
+        // Alice has not certified Carol's User ID.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications_by_key(&[ alice.key_handle() ]).count(), 0);
+
+
+        // Have Alice certify Carol's certificate.
+        let mut alice_signer = alice.primary_key()
+            .key()
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .sign_userid_binding(
+                &mut alice_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification)?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 1);
+        assert_eq!(ua.certifications_by_key(&[ alice.key_handle() ]).count(), 1);
+        assert_eq!(ua.certifications_by_key(&[ bob.key_handle() ]).count(), 0);
+
+
+        // Have Bob certify Carol's certificate.
+        let mut bob_signer = bob.primary_key()
+            .key()
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .sign_userid_binding(
+                &mut bob_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification)?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 2);
+        assert_eq!(ua.certifications_by_key(&[ alice.key_handle() ]).count(), 1);
+        assert_eq!(ua.certifications_by_key(&[ bob.key_handle() ]).count(), 1);
+
+        // Again.
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .sign_userid_binding(
+                &mut bob_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification)?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 3);
+        assert_eq!(ua.certifications_by_key(&[ alice.key_handle() ]).count(), 1);
+        assert_eq!(ua.certifications_by_key(&[ bob.key_handle() ]).count(), 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn user_id_amalgamation_certifications_by_key() -> Result<()> {
+        // Alice and Bob certify Carol's certificate.  We then check
+        // that valid_certifications_by_key and
+        // active_certifications_by_key return them.
+        let p = &crate::policy::StandardPolicy::new();
+
+        // $ date -u -d '2024-01-02 13:00' +%s
+        let t0 = UNIX_EPOCH + Duration::new(1704200400, 0);
+        // $ date -u -d '2024-01-02 14:00' +%s
+        let t1 = UNIX_EPOCH + Duration::new(1704204000, 0);
+        // $ date -u -d '2024-01-02 15:00' +%s
+        let t2 = UNIX_EPOCH + Duration::new(1704207600, 0);
+
+        let (alice, _) = CertBuilder::new()
+            .set_creation_time(t0)
+            .add_userid("<alice@example.example>")
+            .generate()
+            .unwrap();
+        let alice_primary = alice.primary_key().key();
+
+        let (bob, _) = CertBuilder::new()
+            .set_creation_time(t0)
+            .add_userid("<bob@example.example>")
+            .generate()
+            .unwrap();
+        let bob_primary = bob.primary_key().key();
+
+        let carol_userid = "<carol@example.example>";
+        let (carol, _) = CertBuilder::new()
+            .set_creation_time(t0)
+            .add_userid(carol_userid)
+            .generate()
+            .unwrap();
+
+        let ua = alice.userids().next().expect("have a user id");
+        assert_eq!(ua.valid_certifications_by_key(p, None, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, None, alice_primary).count(), 0);
+
+        // Alice has not certified Bob's User ID.
+        let ua = bob.userids().next().expect("have a user id");
+        assert_eq!(ua.valid_certifications_by_key(p, None, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, None, alice_primary).count(), 0);
+
+        // Alice has not certified Carol's User ID.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.valid_certifications_by_key(p, None, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, None, alice_primary).count(), 0);
+
+
+        // Have Alice certify Carol's certificate at t1.
+        let mut alice_signer = alice_primary
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .set_signature_creation_time(t1)?
+            .sign_userid_binding(
+                &mut alice_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification.clone())?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 1);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, alice_primary).count(), 0);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, alice_primary).count(), 1);
+        assert_eq!(ua.active_certifications_by_key(p, t1, alice_primary).count(), 1);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, bob_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t1, bob_primary).count(), 0);
+
+
+        // Have Alice certify Carol's certificate at t1 (again).
+        // Since both certifications were created at t1, they should
+        // both be returned.
+        let mut alice_signer = alice_primary
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .set_signature_creation_time(t1)?
+            .sign_userid_binding(
+                &mut alice_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification.clone())?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 2);
+        assert_eq!(ua.valid_certifications_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, alice_primary).count(), 0);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.active_certifications_by_key(p, t1, alice_primary).count(), 2);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t2, alice_primary).count(), 2);
+        assert_eq!(ua.active_certifications_by_key(p, t2, alice_primary).count(), 2);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t0, bob_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, bob_primary).count(), 0);
+
+
+        // Have Alice certify Carol's certificate at t2.  Now we only
+        // have one active certification.
+        let mut alice_signer = alice_primary
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .set_signature_creation_time(t2)?
+            .sign_userid_binding(
+                &mut alice_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification.clone())?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 3);
+        assert_eq!(ua.valid_certifications_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, alice_primary).count(), 0);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.active_certifications_by_key(p, t1, alice_primary).count(), 2);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t2, alice_primary).count(), 3);
+        assert_eq!(ua.active_certifications_by_key(p, t2, alice_primary).count(), 1);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t0, bob_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, bob_primary).count(), 0);
+
+
+        // Have Bob certify Carol's certificate at t1 and have it expire at t2.
+        let mut bob_signer = bob.primary_key()
+            .key()
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .set_signature_creation_time(t1)?
+            .set_signature_validity_period(t2.duration_since(t1)?)?
+            .sign_userid_binding(
+                &mut bob_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification.clone())?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 4);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, alice_primary).count(), 0);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.active_certifications_by_key(p, t1, alice_primary).count(), 2);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t2, alice_primary).count(), 3);
+        assert_eq!(ua.active_certifications_by_key(p, t2, alice_primary).count(), 1);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t0, bob_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, bob_primary).count(), 0);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, bob_primary).count(), 1);
+        assert_eq!(ua.active_certifications_by_key(p, t1, bob_primary).count(), 1);
+
+        // It expired.
+        assert_eq!(ua.valid_certifications_by_key(p, t2, bob_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t2, bob_primary).count(), 0);
+
+
+        // Have Bob certify Carol's certificate at t1 again.  This
+        // time don't have it expire.
+        let mut bob_signer = bob.primary_key()
+            .key()
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+            .set_signature_creation_time(t1)?
+            .sign_userid_binding(
+                &mut bob_signer,
+                carol.primary_key().key(),
+                &UserID::from(carol_userid))?;
+        let carol = carol.insert_packets(certification.clone())?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.certifications().count(), 5);
+        assert_eq!(ua.valid_certifications_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, alice_primary).count(), 0);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.active_certifications_by_key(p, t1, alice_primary).count(), 2);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t2, alice_primary).count(), 3);
+        assert_eq!(ua.active_certifications_by_key(p, t2, alice_primary).count(), 1);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t0, bob_primary).count(), 0);
+        assert_eq!(ua.active_certifications_by_key(p, t0, bob_primary).count(), 0);
+
+        assert_eq!(ua.valid_certifications_by_key(p, t1, bob_primary).count(), 2);
+        assert_eq!(ua.active_certifications_by_key(p, t1, bob_primary).count(), 2);
+
+        // One of the certifications expired.
+        assert_eq!(ua.valid_certifications_by_key(p, t2, bob_primary).count(), 1);
+        assert_eq!(ua.active_certifications_by_key(p, t2, bob_primary).count(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn user_id_amalgamation_third_party_revocations_by_key() -> Result<()> {
+        // Alice and Bob revoke Carol's User ID.  We then check
+        // that valid_third_party_revocations_by_key returns them.
+        let p = &crate::policy::StandardPolicy::new();
+
+        // $ date -u -d '2024-01-02 13:00' +%s
+        let t0 = UNIX_EPOCH + Duration::new(1704200400, 0);
+        // $ date -u -d '2024-01-02 14:00' +%s
+        let t1 = UNIX_EPOCH + Duration::new(1704204000, 0);
+        // $ date -u -d '2024-01-02 15:00' +%s
+        let t2 = UNIX_EPOCH + Duration::new(1704207600, 0);
+
+        let (alice, _) = CertBuilder::new()
+            .set_creation_time(t0)
+            .add_userid("<alice@example.example>")
+            .generate()
+            .unwrap();
+        let alice_primary = alice.primary_key().key();
+
+        let (bob, _) = CertBuilder::new()
+            .set_creation_time(t0)
+            .add_userid("<bob@example.example>")
+            .generate()
+            .unwrap();
+        let bob_primary = bob.primary_key().key();
+
+        let carol_userid = "<carol@example.example>";
+        let (carol, _) = CertBuilder::new()
+            .set_creation_time(t0)
+            .add_userid(carol_userid)
+            .generate()
+            .unwrap();
+        let carol_userid = UserID::from(carol_userid);
+
+        let ua = alice.userids().next().expect("have a user id");
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, None, alice_primary).count(), 0);
+
+        // Alice has not certified Bob's User ID.
+        let ua = bob.userids().next().expect("have a user id");
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, None, alice_primary).count(), 0);
+
+        // Alice has not certified Carol's User ID.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, None, alice_primary).count(), 0);
+
+
+        // Have Alice revoke Carol's certificate at t1.
+        let mut alice_signer = alice_primary
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::CertificationRevocation)
+            .set_signature_creation_time(t1)?
+            .set_reason_for_revocation(
+                ReasonForRevocation::UIDRetired, b"")?
+            .sign_userid_binding(
+                &mut alice_signer,
+                carol.primary_key().key(),
+                &carol_userid)?;
+        let carol = carol.insert_packets([
+            Packet::from(carol_userid.clone()),
+            Packet::from(certification.clone()),
+        ])?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.other_revocations().count(), 1);
+
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, alice_primary).count(), 1);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, bob_primary).count(), 0);
+
+
+        // Have Alice certify Carol's certificate at t1 (again).
+        // Since both certifications were created at t1, they should
+        // both be returned.
+        let mut alice_signer = alice_primary
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::CertificationRevocation)
+            .set_signature_creation_time(t1)?
+            .set_reason_for_revocation(ReasonForRevocation::UIDRetired, b"")?
+            .sign_userid_binding(
+                &mut alice_signer,
+                carol.primary_key().key(),
+                &carol_userid)?;
+        let carol = carol.insert_packets([
+            Packet::from(carol_userid.clone()),
+            Packet::from(certification.clone()),
+        ])?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.other_revocations().count(), 2);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t2, alice_primary).count(), 2);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, bob_primary).count(), 0);
+
+
+        // Have Alice certify Carol's certificate at t2.  Now we only
+        // have one active certification.
+        let mut alice_signer = alice_primary
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::CertificationRevocation)
+            .set_signature_creation_time(t2)?
+            .set_reason_for_revocation(ReasonForRevocation::UIDRetired, b"")?
+            .sign_userid_binding(
+                &mut alice_signer,
+                carol.primary_key().key(),
+                &carol_userid)?;
+        let carol = carol.insert_packets([
+            Packet::from(carol_userid.clone()),
+            Packet::from(certification.clone()),
+        ])?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.other_revocations().count(), 3);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t2, alice_primary).count(), 3);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, bob_primary).count(), 0);
+
+
+        // Have Bob certify Carol's certificate at t1 and have it expire at t2.
+        let mut bob_signer = bob.primary_key()
+            .key()
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::CertificationRevocation)
+            .set_signature_creation_time(t1)?
+            .set_signature_validity_period(t2.duration_since(t1)?)?
+            .set_reason_for_revocation(ReasonForRevocation::UIDRetired, b"")?
+            .sign_userid_binding(
+                &mut bob_signer,
+                carol.primary_key().key(),
+                &carol_userid)?;
+        let carol = carol.insert_packets([
+            Packet::from(carol_userid.clone()),
+            Packet::from(certification.clone()),
+        ])?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.other_revocations().count(), 4);
+
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t2, alice_primary).count(), 3);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, bob_primary).count(), 0);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, bob_primary).count(), 1);
+        // It expired.
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t2, bob_primary).count(), 0);
+
+
+        // Have Bob certify Carol's certificate at t1 again.  This
+        // time don't have it expire.
+        let mut bob_signer = bob.primary_key()
+            .key()
+            .clone()
+            .parts_into_secret().expect("have unencrypted key material")
+            .into_keypair().expect("have unencrypted key material");
+        let certification = SignatureBuilder::new(SignatureType::CertificationRevocation)
+            .set_signature_creation_time(t1)?
+            .set_reason_for_revocation(ReasonForRevocation::UIDRetired, b"")?
+            .sign_userid_binding(
+                &mut bob_signer,
+                carol.primary_key().key(),
+                &carol_userid)?;
+        let carol = carol.insert_packets([
+            Packet::from(carol_userid.clone()),
+            Packet::from(certification.clone()),
+        ])?.0;
+
+        // Check that it is returned.
+        let ua = carol.userids().next().expect("have a user id");
+        assert_eq!(ua.other_revocations().count(), 5);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, alice_primary).count(), 0);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, alice_primary).count(), 2);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t2, alice_primary).count(), 3);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t0, bob_primary).count(), 0);
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t1, bob_primary).count(), 2);
+        // One of the certifications expired.
+        assert_eq!(ua.valid_third_party_revocations_by_key(p, t2, bob_primary).count(), 1);
+
+        Ok(())
     }
 }

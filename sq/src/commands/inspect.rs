@@ -3,7 +3,7 @@ use std::io::{self, Read};
 
 
 
-use sequoia_openpgp as openpgp;
+use sequoia_openpgp::{self as openpgp, KeyID};
 use crate::openpgp::{KeyHandle, Packet, Result};
 use crate::openpgp::cert::prelude::*;
 use openpgp::packet::{
@@ -55,7 +55,8 @@ pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::W
             Packet::Literal(_) => {
                 pp.by_ref().take(40).read_to_end(&mut literal_prefix)?;
             },
-            Packet::SEIP(_) | Packet::AED(_) => {
+            //  Packet::AED removed
+            Packet::SEIP(_) => {
                 encrypted = true;
             },
             _ => (),
@@ -95,7 +96,7 @@ pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::W
                 writeln!(output, "      Passwords: {}", n_skesks)?;
             }
             for pkesk in pkesks.iter() {
-                writeln!(output, "      Recipient: {}", pkesk.recipient())?;
+                writeln!(output, "      Recipient: {}", KeyID::from(pkesk.recipient()))?;
             }
             inspect_signatures(output, &sigs)?;
             if ! literal_prefix.is_empty() {
@@ -149,7 +150,9 @@ fn inspect_cert(policy: &dyn Policy,
     for vka in cert.keys().subkeys().with_policy(policy, None) {
         writeln!(output, "         Subkey: {}", vka.key().fingerprint())?;
         inspect_revocation(output, "", vka.revocation_status())?;
-        inspect_key(policy, output, "", vka.into_key_amalgamation().into(),
+        // ValidKeyAmalgamation::into_key_amalgamation() -> KeyAmalgamation<'a, P, R, R2> removed
+        // ValidKeyAmalgamation::amalgamation() -> &KeyAmalgamation<'a, P, R, R2> added
+        inspect_key(policy, output, "", vka.amalgamation().clone().into(),
                     print_certifications)?;
         writeln!(output)?;
     }
@@ -271,7 +274,10 @@ fn inspect_key(policy: &dyn Policy,
             writeln!(output, "{}      Key flags: {}", indent, flags)?;
         }
     }
-    inspect_certifications(output, bundle.certifications().iter(),
+    // ** Deprecated functionality - ComponentBundle::certifications.
+    // ComponentBundle::certifications2() -> impl Iterator<Item=&Signature> + Send + Sync
+    // ComponentBundle::certifications2 renamed to ComponentBundle::certifications
+    inspect_certifications(output, bundle.certifications(),
                            print_certifications)?;
 
     Ok(())

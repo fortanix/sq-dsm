@@ -10,8 +10,8 @@
 //! now two families: the so-called old format, and new format
 //! encodings.
 //!
-//! [packet's type]: https://tools.ietf.org/html/rfc4880#section-4.3
-//! [packet's length]: https://tools.ietf.org/html/rfc4880#section-4.2.1
+//! [packet's type]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
+//! [packet's length]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.2
 
 use crate::{
     Error,
@@ -28,9 +28,9 @@ pub use self::ctb::{
 
 /// A packet's header.
 ///
-/// See [Section 4.2 of RFC 4880] for details.
+/// See [Section 4.2 of RFC 9580] for details.
 ///
-/// [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+/// [Section 4.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
 #[derive(Clone, Debug)]
 pub struct Header {
     /// The packet's CTB.
@@ -58,7 +58,7 @@ impl Header {
 
     /// Checks the header for validity.
     ///
-    /// A header is consider invalid if:
+    /// A header is considered invalid if:
     ///
     ///   - The tag is [`Tag::Reserved`].
     ///   - The tag is [`Tag::Unknown`] or [`Tag::Private`] and
@@ -71,7 +71,7 @@ impl Header {
     /// [`Tag::Reserved`]: super::Tag::Reserved
     /// [`Tag::Unknown`]: super::Tag::Unknown
     /// [`Tag::Private`]: super::Tag::Private
-    /// [length encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
+    /// [length encoding]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.1.4
     /// [`PKESK`]: super::PKESK
     /// [`SKESK`]: super::SKESK
     // Note: To check the packet's content, use
@@ -95,7 +95,7 @@ impl Header {
         // Partial Body Lengths MUST NOT be used for any other packet
         // types.
         //
-        // https://tools.ietf.org/html/rfc4880#section-4.2.2.4
+        // https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.1.4
         if tag == Tag::Literal || tag == Tag::CompressedData
             || tag == Tag::SED || tag == Tag::SEIP
             || tag == Tag::AED
@@ -173,15 +173,20 @@ impl Header {
                                     + 64 * 1024 // MPIs.
                                    )).contains(&l),
                         Tag::SKESK =>
-                            // 2 bytes of fixed header.  An s2k
+                            // 2 bytes of fixed header.  A s2k
                             // specification (at least 1 byte), an
                             // optional encryption session key.
                             (3..10 * 1024).contains(&l),
                         Tag::PKESK =>
-                            // 10 bytes of fixed header, plus the
-                            // encrypted session key.
-                            10 < l && l < 10 * 1024,
-                        Tag::OnePassSig if ! future_compatible => l == 13,
+                            // For v3, 10 bytes of fixed header, plus
+                            // the encrypted session key.
+                            (10 < l && l < 10 * 1024)
+                            // For v6, 5 bytes of fixed header, plus
+                            // the encrypted session key.
+                            || (5 <= l && l < 10 * 1024),
+                        Tag::OnePassSig if ! future_compatible =>
+                            l == 13 // v3
+                            || (6 + 32..6 + 32 + 256).contains(&l), // v6
                         Tag::OnePassSig => l < 1024,
                         Tag::PublicKey | Tag::PublicSubkey
                             | Tag::SecretKey | Tag::SecretSubkey =>
@@ -205,6 +210,7 @@ impl Header {
 
                         Tag::Marker => l == 3,
                         Tag::Reserved => true,
+                        Tag::Padding => true,
                     };
 
                     if ! valid {
@@ -219,16 +225,16 @@ impl Header {
         Ok(())
     }
 }
-
+
 /// A packet's size.
 ///
 /// A packet's size can be expressed in three different ways.  Either
 /// the size of the packet is fully known (`Full`), the packet is
 /// chunked using OpenPGP's partial body encoding (`Partial`), or the
 /// packet extends to the end of the file (`Indeterminate`).  See
-/// [Section 4.2 of RFC 4880] for more details.
+/// [Section 4.2 of RFC 9580] for more details.
 ///
-///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+///   [Section 4.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
 #[derive(Debug)]
 // We need PartialEq so that assert_eq! works.
 #[derive(PartialEq)]
@@ -246,3 +252,59 @@ pub enum BodyLength {
     Indeterminate,
 }
 assert_send_and_sync!(BodyLength);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::packet::Packet;
+    use crate::parse::{
+        Cookie, Dearmor, PacketParserBuilder, PacketParserResult, Parse,
+    };
+    use crate::serialize::SerializeInto;
+
+    quickcheck! {
+        /// Checks alignment of Header::parse-then-Header::valid, the
+        /// PacketParser, and Arbitrary::arbitrary.
+        fn parser_alignment(p: Packet) -> bool {
+            let verbose = false;
+            let buf = p.to_vec().expect("Failed to serialize packet");
+
+            // First, check Header::parse and Header::valid.
+            let mut reader = buffered_reader::Memory::with_cookie(
+                &buf, Cookie::default());
+            let header = Header::parse(&mut reader).unwrap();
+            if verbose {
+                eprintln!("header parsed: {:?}", header);
+            }
+            header.valid(true).unwrap();
+            header.valid(false).unwrap();
+
+            // Now check the packet parser.  Be careful to disable the
+            // armor detection because that in turn relies on
+            // Header::valid, and we want to test the behavior of the
+            // packet parser.
+            let ppr =
+                PacketParserBuilder::from_bytes(&buf).unwrap()
+                .dearmor(Dearmor::Disabled)
+                .buffer_unread_content()
+                .build().unwrap();
+
+            let (p, ppr) = match ppr {
+                PacketParserResult::Some(pp) => {
+                    pp.next().unwrap()
+                },
+                PacketParserResult::EOF(eof) =>
+                    panic!("no packet found: {:?}", eof),
+            };
+            if verbose {
+                eprintln!("packet parser parsed: {:?}", p);
+            }
+
+            if let PacketParserResult::Some(pp) = ppr {
+                panic!("Excess data after packet: {:?}", pp)
+            }
+
+            true
+        }
+    }
+}

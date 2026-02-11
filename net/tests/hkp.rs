@@ -1,17 +1,18 @@
+use bytes::Bytes;
+use http_body_util::{combinators::BoxBody, BodyExt, Full};
 use http::{Request, Response};
-use hyper::{Server, Body};
-use hyper::service::{make_service_fn, service_fn};
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
 use hyper::{Method, StatusCode};
-use rand::RngCore;
-use rand::rngs::OsRng;
+use hyper_util::rt::TokioIo;
 use std::io::Cursor;
 use std::net::{SocketAddr, IpAddr, Ipv4Addr};
+use tokio::net::TcpListener;
 
 use sequoia_openpgp::KeyID;
 use sequoia_openpgp::armor::Reader;
 use sequoia_openpgp::Cert;
 use sequoia_openpgp::parse::Parse;
-use sequoia_net as net;
 use sequoia_net::KeyServer;
 
 const RESPONSE: &str = "-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -49,12 +50,12 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 const FP: &str = "3E8877C877274692975189F5D03F6F865226FE8B";
 const ID: &str = "D03F6F865226FE8B";
 
-async fn service(req: Request<Body>)
-           -> Result<Response<Body>, Box<dyn std::error::Error + Send + Sync>> {
-    let (parts, body) = req.into_parts();
-    match (parts.method, parts.uri.path()) {
-        (Method::GET, "/pks/lookup") => {
-            if let Some(args) = parts.uri.query() {
+async fn service(
+    req: Request<hyper::body::Incoming>,
+) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+    match (req.method(), req.uri().path()) {
+        (&Method::GET, "/pks/lookup") => {
+            if let Some(args) = req.uri().query() {
                 for (key, value) in url::form_urlencoded::parse(args.as_bytes()) {
                     match key.clone().into_owned().as_ref() {
                         "op" => assert_eq!(value, "get"),
@@ -67,16 +68,16 @@ async fn service(req: Request<Body>)
                 panic!("Expected query string");
             }
 
-            Ok(Response::new(Body::from(RESPONSE)))
+            Ok(Response::new(full(RESPONSE)))
         },
-        (Method::POST, "/pks/add") => {
-            let b = hyper::body::to_bytes(body).await?;
+        (&Method::POST, "/pks/add") => {
+            let b = req.collect().await?.to_bytes();
 
-            for (key, value) in url::form_urlencoded::parse(b.as_ref()) {
+            for (key, value) in url::form_urlencoded::parse(&b) {
                 match key.clone().into_owned().as_ref() {
                     "keytext" => {
 			let key = Cert::from_reader(
-                            Reader::new(Cursor::new(value.into_owned()),
+                            Reader::from_reader(Cursor::new(value.into_owned()),
                                         None)).unwrap();
                         assert_eq!(
                             key.fingerprint(),
@@ -87,49 +88,68 @@ async fn service(req: Request<Body>)
                 }
 	    }
 
-            Ok(Response::new(Body::from("Ok")))
+            Ok(Response::new(full("Ok")))
         },
         _ => {
             Ok(Response::builder()
                .status(StatusCode::NOT_FOUND)
-               .body(Body::from("Not found")).unwrap())
+               .body(full("Not found")).unwrap())
         },
     }
+}
+
+fn full<T: Into<Bytes>>(chunk: T) -> BoxBody<Bytes, hyper::Error> {
+    Full::new(chunk.into())
+        .map_err(|never| match never {})
+        .boxed()
 }
 
 /// Starts a server on a random port.
 ///
 /// Returns the address, a channel to drop() to kill the server, and
 /// the thread handle to join the server thread.
-fn start_server() -> SocketAddr {
-    let (addr, server) = loop {
-        let port = OsRng.next_u32() as u16;
+async fn start_server() -> anyhow::Result<SocketAddr> {
+    let (addr, socket) = loop {
+        let mut two_bytes = [0; 2];
+        sequoia_openpgp::crypto::random(&mut two_bytes)?;
+        let port: u16 = ((two_bytes[0] as u16) << 8) + (two_bytes[1] as u16);
+
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-        if let Ok(s) = Server::try_bind(&addr) {
+        if let Ok(s) = TcpListener::bind(&addr).await {
             break (addr, s);
         }
     };
 
-    let start_server = server.serve(make_service_fn(|_| async {
-        Ok::<_, hyper::Error>(service_fn(service))
-    }));
-    tokio::spawn(start_server);
+    async fn server(l: TcpListener) {
+        while let Ok((stream, _)) = l.accept().await {
+            let io = TokioIo::new(stream);
+            tokio::task::spawn(async move {
+                if let Err(err) = http1::Builder::new()
+                    .serve_connection(io, service_fn(service))
+                    .await
+                {
+                    eprintln!("Error serving connection: {:?}", err);
+                }
+            });
+        }
+    }
 
-    addr
+    tokio::spawn(server(socket));
+
+    Ok(addr)
 }
-
-const P: net::Policy = net::Policy::Insecure;
 
 #[tokio::test]
 async fn get() -> anyhow::Result<()> {
     // Start server.
-    let addr = start_server();
+    let addr = start_server().await?;
 
-    let mut keyserver = KeyServer::new(P, &format!("hkp://{}", addr))?;
+    let keyserver = KeyServer::new(&format!("hkp://{}", addr))?;
     let keyid: KeyID = ID.parse()?;
-    let key = keyserver.get(keyid).await?;
+    let keys = keyserver.get(keyid).await?;
+    assert_eq!(keys.len(), 1);
 
-    assert_eq!(key.fingerprint(),
+    assert_eq!(keys[0].as_ref().unwrap().fingerprint(),
                FP.parse().unwrap());
     Ok(())
 }
@@ -137,11 +157,11 @@ async fn get() -> anyhow::Result<()> {
 #[tokio::test]
 async fn send() -> anyhow::Result<()> {
     // Start server.
-    let addr = start_server();
+    let addr = start_server().await?;
     eprintln!("{}", format!("hkp://{}", addr));
-    let mut keyserver =
-        KeyServer::new(P, &format!("hkp://{}", addr))?;
-    let key = Cert::from_reader(Reader::new(Cursor::new(RESPONSE), None))?;
+    let keyserver =
+        KeyServer::new(&format!("hkp://{}", addr))?;
+    let key = Cert::from_reader(Reader::from_reader(Cursor::new(RESPONSE), None))?;
     keyserver.send(&key).await?;
 
     Ok(())

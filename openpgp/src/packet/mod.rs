@@ -66,8 +66,9 @@
 //! OpenPGP packets.  For instance, by definition, a [`Compressed
 //! Data`] packet contains an [OpenPGP Message].  It is possible to
 //! iterate over a container's descendants using the
-//! [`Container::descendants`] method.  (Note: `Container`s [`Deref`]
-//! to [`Container`].)
+//! [`Container::descendants`] method.  (Note: `Container`s have a
+//! `.container_ref()` and a `.container_mut()` method that return a
+//! reference to [`Container`].)
 //!
 //! # Packet Headers and Bodies
 //!
@@ -98,8 +99,8 @@
 //!
 //! Consider defining `Eq` as the equivalence of two `Packet`s'
 //! serialized forms.  If an application naively deduplicates
-//! signatures, then an attacker can potentially perform a denial of
-//! service attack by causing the application to process many
+//! signatures, then an attacker can potentially perform a
+//! denial-of-service attack by causing the application to process many
 //! cryptographically-valid `Signature`s by varying the content of one
 //! cryptographically-valid `Signature`'s unhashed area.  This attack
 //! can be prevented by only comparing data that is protected by the
@@ -117,7 +118,7 @@
 //! Instead of trying to come up with a definition of equality that is
 //! reasonable for all situations, we use a conservative definition:
 //! two packets are considered equal if the serialized forms of their
-//! packet bodies as defined by RFC 4880 are equal.  That is, two
+//! packet bodies as defined by RFC 9580 are equal.  That is, two
 //! packets are considered equal if and only if their serialized forms
 //! are equal modulo the OpenPGP framing ([`CTB`] and [length style],
 //! potential [partial body encoding]).  This definition will avoid
@@ -128,26 +129,26 @@
 //! instance, [`Key::public_cmp`] compares just the public parts of
 //! two keys.
 //!
-//! [packet based]: https://tools.ietf.org/html/rfc4880#section-5
-//! [the grammar]: https://tools.ietf.org/html/rfc4880#section-11
-//! [v3]: https://tools.ietf.org/html/rfc4880#section-5.2.2
-//! [v4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
+//! [packet based]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
+//! [the grammar]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10
+//! [v3]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.2
+//! [v4]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3
 //! [parsing a message]: crate::parse
 //! [creating a message]: crate::serialize::stream
 //! [`SignatureBuilder`]: signature::SignatureBuilder
-//! [`SED`]: https://tools.ietf.org/html/rfc4880#section-5.7
-//! [private extensions]: https://tools.ietf.org/html/rfc4880#section-4.3
+//! [`SED`]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.7
+//! [private extensions]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
 //! [`Compressed Data`]: CompressedData
 //! [parses]: crate::parse
-//! [OpenPGP Message]: https://tools.ietf.org/html/rfc4880#section-11.3
+//! [OpenPGP Message]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.3
 //! [`Container::descendants`]: Container::descendants()
 //! [`Deref`]: std::ops::Deref
 //! [`SubpacketArea`]: signature::subpacket::SubpacketArea
 //! [`Eq`]: std::cmp::Eq
 //! [`Key`s]: Key
 //! [`CTB`]: header::CTB
-//! [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
-//! [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
+//! [length style]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
+//! [partial body encoding]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.1.4
 //! [`Key::public_cmp`]: Key::public_cmp()
 use std::fmt;
 use std::hash::Hasher;
@@ -158,7 +159,6 @@ use std::iter::IntoIterator;
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
-use crate::Error;
 use crate::Result;
 
 #[macro_use]
@@ -168,10 +168,8 @@ pub use container::Body;
 
 pub mod prelude;
 
-use crate::crypto::{
-    KeyPair,
-    Password,
-};
+mod any;
+pub use self::any::Any;
 
 mod tag;
 pub use self::tag::Tag;
@@ -182,11 +180,9 @@ mod unknown;
 pub use self::unknown::Unknown;
 pub mod signature;
 pub mod one_pass_sig;
+pub use one_pass_sig::OnePassSig;
 pub mod key;
-use key::{
-    Key4,
-    SecretKeyMaterial
-};
+pub use key::Key;
 mod marker;
 pub use self::marker::Marker;
 mod trust;
@@ -201,39 +197,39 @@ mod compressed_data;
 pub use self::compressed_data::CompressedData;
 pub mod seip;
 pub mod skesk;
+pub use skesk::SKESK;
 pub mod pkesk;
+pub use pkesk::PKESK;
 mod mdc;
 pub use self::mdc::MDC;
-pub mod aed;
+mod padding;
+pub use self::padding::Padding;
 
 /// Enumeration of packet types.
 ///
-/// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
+/// The different OpenPGP packets are detailed in [Section 5 of RFC 9580].
 ///
-///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+///   [Section 5 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
 ///
 /// The [`Unknown`] packet allows Sequoia to deal with packets that it
 /// doesn't understand.  It is basically a binary blob that includes
 /// the packet's [tag].  See the [module-level documentation] for
 /// details.
 ///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
-///
 /// # A note on equality
 ///
 /// We define equality on `Packet` as the equality of the serialized
-/// form of their packet bodies as defined by RFC 4880.  That is, two
+/// form of their packet bodies as defined by RFC 9580.  That is, two
 /// packets are considered equal if and only if their serialized forms
 /// are equal, modulo the OpenPGP framing ([`CTB`] and [length style],
 /// potential [partial body encoding]).
 ///
 /// [`Unknown`]: crate::packet::Unknown
-/// [tag]: https://tools.ietf.org/html/rfc4880#section-4.3
+/// [tag]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
 /// [module-level documentation]: crate::packet#unknown-packets
 /// [`CTB`]: crate::packet::header::CTB
-/// [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
-/// [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
+/// [length style]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2
+/// [partial body encoding]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.2.1.4
 #[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
@@ -270,9 +266,10 @@ pub enum Packet {
     /// Symmetric key encrypted, integrity protected data packet.
     SEIP(SEIP),
     /// Modification detection code packet.
+    #[deprecated]
     MDC(MDC),
-    /// AEAD Encrypted Data Packet.
-    AED(AED),
+    /// Padding packet.
+    Padding(Padding),
 }
 assert_send_and_sync!(Packet);
 
@@ -310,7 +307,6 @@ impl_into_iterator!(PKESK);
 impl_into_iterator!(SKESK);
 impl_into_iterator!(SEIP);
 impl_into_iterator!(MDC);
-impl_into_iterator!(AED);
 impl_into_iterator!(Key<P, R> where P: key::KeyParts, R: key::KeyRole);
 
 // Make it easy to pass an iterator of Packets to something expecting
@@ -325,9 +321,9 @@ impl From<Packet> for Result<Packet> {
 impl Packet {
     /// Returns the `Packet's` corresponding OpenPGP tag.
     ///
-    /// Tags are explained in [Section 4.3 of RFC 4880].
+    /// Tags are explained in [Section 5 of RFC 9580].
     ///
-    ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+    ///   [Section 5 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5
     pub fn tag(&self) -> Tag {
         match self {
             Packet::Unknown(ref packet) => packet.tag(),
@@ -346,8 +342,9 @@ impl Packet {
             Packet::PKESK(_) => Tag::PKESK,
             Packet::SKESK(_) => Tag::SKESK,
             Packet::SEIP(_) => Tag::SEIP,
+            #[allow(deprecated)]
             Packet::MDC(_) => Tag::MDC,
-            Packet::AED(_) => Tag::AED,
+            Packet::Padding(_) => Tag::Padding,
         }
     }
 
@@ -362,6 +359,47 @@ impl Packet {
         match self {
             Packet::Unknown(_) => None,
             _ => Some(self.tag()),
+        }
+    }
+
+    /// Returns whether this is a critical packet.
+    ///
+    /// Upon encountering an unknown critical packet, implementations
+    /// MUST reject the whole packet sequence.  On the other hand,
+    /// unknown non-critical packets MUST be ignored.  See [Section
+    /// 4.3 of RFC 9580].
+    ///
+    /// [Section 4.3 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-4.3
+    pub fn is_critical(&self) -> bool {
+        self.tag().is_critical()
+    }
+
+    /// Returns the `Packet's` version, if the packet is versioned and
+    /// recognized.
+    ///
+    /// If the packet is not versioned, or we couldn't parse the
+    /// packet, this function returns `None`.
+    pub fn version(&self) -> Option<u8> {
+        match self {
+            Packet::Unknown(_) => None,
+            Packet::Signature(p) => Some(p.version()),
+            Packet::OnePassSig(p) => Some(p.version()),
+            Packet::PublicKey(p) => Some(p.version()),
+            Packet::PublicSubkey(p) => Some(p.version()),
+            Packet::SecretKey(p) => Some(p.version()),
+            Packet::SecretSubkey(p) => Some(p.version()),
+            Packet::Marker(_) => None,
+            Packet::Trust(_) => None,
+            Packet::UserID(_) => None,
+            Packet::UserAttribute(_) => None,
+            Packet::Literal(_) => None,
+            Packet::CompressedData(_) => None,
+            Packet::PKESK(p) => Some(p.version()),
+            Packet::SKESK(p) => Some(p.version()),
+            Packet::SEIP(p) => Some(p.version()),
+            #[allow(deprecated)]
+            Packet::MDC(_) => None,
+            Packet::Padding(_) => None,
         }
     }
 
@@ -400,64 +438,46 @@ impl Packet {
             Packet::PKESK(x) => Hash::hash(&x, state),
             Packet::SKESK(x) => Hash::hash(&x, state),
             Packet::SEIP(x) => Hash::hash(&x, state),
+            #[allow(deprecated)]
             Packet::MDC(x) => Hash::hash(&x, state),
-            Packet::AED(x) => Hash::hash(&x, state),
             Packet::Unknown(x) => Hash::hash(&x, state),
+            Packet::Padding(x) => Padding::hash(x, state),
         }
     }
 }
 
 // Allow transparent access of common fields.
-impl Deref for Packet {
-    type Target = Common;
-
-    fn deref(&self) -> &Self::Target {
+impl Packet {
+    /// Returns a reference to the packet's `Common` struct.
+    fn common(&self) -> &Common {
         match self {
             Packet::Unknown(ref packet) => &packet.common,
             Packet::Signature(ref packet) => &packet.common,
-            Packet::OnePassSig(ref packet) => &packet.common,
-            Packet::PublicKey(ref packet) => &packet.common,
-            Packet::PublicSubkey(ref packet) => &packet.common,
-            Packet::SecretKey(ref packet) => &packet.common,
-            Packet::SecretSubkey(ref packet) => &packet.common,
+            Packet::OnePassSig(OnePassSig::V3(packet)) => &packet.common,
+            Packet::OnePassSig(OnePassSig::V6(packet)) => &packet.common.common,
+            Packet::PublicKey(Key::V4(packet)) => &packet.common,
+            Packet::PublicKey(Key::V6(packet)) => &packet.common.common,
+            Packet::PublicSubkey(Key::V4(packet)) => &packet.common,
+            Packet::PublicSubkey(Key::V6(packet)) => &packet.common.common,
+            Packet::SecretKey(Key::V4(packet)) => &packet.common,
+            Packet::SecretKey(Key::V6(packet)) => &packet.common.common,
+            Packet::SecretSubkey(Key::V4(packet)) => &packet.common,
+            Packet::SecretSubkey(Key::V6(packet)) => &packet.common.common,
             Packet::Marker(ref packet) => &packet.common,
             Packet::Trust(ref packet) => &packet.common,
             Packet::UserID(ref packet) => &packet.common,
             Packet::UserAttribute(ref packet) => &packet.common,
             Packet::Literal(ref packet) => &packet.common,
             Packet::CompressedData(ref packet) => &packet.common,
-            Packet::PKESK(ref packet) => &packet.common,
+            Packet::PKESK(PKESK::V3(packet)) => &packet.common,
+            Packet::PKESK(PKESK::V6(packet)) => &packet.common,
             Packet::SKESK(SKESK::V4(ref packet)) => &packet.common,
-            Packet::SKESK(SKESK::V5(ref packet)) => &packet.skesk4.common,
-            Packet::SEIP(ref packet) => &packet.common,
+            Packet::SKESK(SKESK::V6(ref packet)) => &packet.skesk4.common,
+            Packet::SEIP(SEIP::V1(packet)) => &packet.common,
+            Packet::SEIP(SEIP::V2(packet)) => &packet.common,
+            #[allow(deprecated)]
             Packet::MDC(ref packet) => &packet.common,
-            Packet::AED(ref packet) => &packet.common,
-        }
-    }
-}
-
-impl DerefMut for Packet {
-    fn deref_mut(&mut self) -> &mut Common {
-        match self {
-            Packet::Unknown(ref mut packet) => &mut packet.common,
-            Packet::Signature(ref mut packet) => &mut packet.common,
-            Packet::OnePassSig(ref mut packet) => &mut packet.common,
-            Packet::PublicKey(ref mut packet) => &mut packet.common,
-            Packet::PublicSubkey(ref mut packet) => &mut packet.common,
-            Packet::SecretKey(ref mut packet) => &mut packet.common,
-            Packet::SecretSubkey(ref mut packet) => &mut packet.common,
-            Packet::Marker(ref mut packet) => &mut packet.common,
-            Packet::Trust(ref mut packet) => &mut packet.common,
-            Packet::UserID(ref mut packet) => &mut packet.common,
-            Packet::UserAttribute(ref mut packet) => &mut packet.common,
-            Packet::Literal(ref mut packet) => &mut packet.common,
-            Packet::CompressedData(ref mut packet) => &mut packet.common,
-            Packet::PKESK(ref mut packet) => &mut packet.common,
-            Packet::SKESK(SKESK::V4(ref mut packet)) => &mut packet.common,
-            Packet::SKESK(SKESK::V5(ref mut packet)) => &mut packet.skesk4.common,
-            Packet::SEIP(ref mut packet) => &mut packet.common,
-            Packet::MDC(ref mut packet) => &mut packet.common,
-            Packet::AED(ref mut packet) => &mut packet.common,
+            Packet::Padding(packet) => &packet.common,
         }
     }
 }
@@ -465,26 +485,26 @@ impl DerefMut for Packet {
 impl fmt::Debug for Packet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fn debug_fmt(p: &Packet, f: &mut fmt::Formatter) -> fmt::Result {
-            use Packet::*;
             match p {
-                Unknown(v) => write!(f, "Unknown({:?})", v),
-                Signature(v) => write!(f, "Signature({:?})", v),
-                OnePassSig(v) => write!(f, "OnePassSig({:?})", v),
-                PublicKey(v) => write!(f, "PublicKey({:?})", v),
-                PublicSubkey(v) => write!(f, "PublicSubkey({:?})", v),
-                SecretKey(v) => write!(f, "SecretKey({:?})", v),
-                SecretSubkey(v) => write!(f, "SecretSubkey({:?})", v),
-                Marker(v) => write!(f, "Marker({:?})", v),
-                Trust(v) => write!(f, "Trust({:?})", v),
-                UserID(v) => write!(f, "UserID({:?})", v),
-                UserAttribute(v) => write!(f, "UserAttribute({:?})", v),
-                Literal(v) => write!(f, "Literal({:?})", v),
-                CompressedData(v) => write!(f, "CompressedData({:?})", v),
-                PKESK(v) => write!(f, "PKESK({:?})", v),
-                SKESK(v) => write!(f, "SKESK({:?})", v),
-                SEIP(v) => write!(f, "SEIP({:?})", v),
-                MDC(v) => write!(f, "MDC({:?})", v),
-                AED(v) => write!(f, "AED({:?})", v),
+                Packet::Unknown(v) => write!(f, "Unknown({:?})", v),
+                Packet::Signature(v) => write!(f, "Signature({:?})", v),
+                Packet::OnePassSig(v) => write!(f, "OnePassSig({:?})", v),
+                Packet::PublicKey(v) => write!(f, "PublicKey({:?})", v),
+                Packet::PublicSubkey(v) => write!(f, "PublicSubkey({:?})", v),
+                Packet::SecretKey(v) => write!(f, "SecretKey({:?})", v),
+                Packet::SecretSubkey(v) => write!(f, "SecretSubkey({:?})", v),
+                Packet::Marker(v) => write!(f, "Marker({:?})", v),
+                Packet::Trust(v) => write!(f, "Trust({:?})", v),
+                Packet::UserID(v) => write!(f, "UserID({:?})", v),
+                Packet::UserAttribute(v) => write!(f, "UserAttribute({:?})", v),
+                Packet::Literal(v) => write!(f, "Literal({:?})", v),
+                Packet::CompressedData(v) => write!(f, "CompressedData({:?})", v),
+                Packet::PKESK(v) => write!(f, "PKESK({:?})", v),
+                Packet::SKESK(v) => write!(f, "SKESK({:?})", v),
+                Packet::SEIP(v) => write!(f, "SEIP({:?})", v),
+                #[allow(deprecated)]
+                Packet::MDC(v) => write!(f, "MDC({:?})", v),
+                Packet::Padding(v) => write!(f, "Padding({:?})", v),
             }
         }
 
@@ -511,17 +531,17 @@ impl Arbitrary for Packet {
     fn arbitrary(g: &mut Gen) -> Self {
         use crate::arbitrary_helper::gen_arbitrary_from_range;
 
-        match gen_arbitrary_from_range(0..15, g) {
+        match gen_arbitrary_from_range(0..16, g) {
             0 => Signature::arbitrary(g).into(),
             1 => OnePassSig::arbitrary(g).into(),
-            2 => Key::<key::PublicParts, key::UnspecifiedRole>::arbitrary(g)
-                .role_into_primary().into(),
-            3 => Key::<key::PublicParts, key::UnspecifiedRole>::arbitrary(g)
-                .role_into_subordinate().into(),
-            4 => Key::<key::SecretParts, key::UnspecifiedRole>::arbitrary(g)
-                .role_into_primary().into(),
-            5 => Key::<key::SecretParts, key::UnspecifiedRole>::arbitrary(g)
-                .role_into_subordinate().into(),
+            2 => Key::<key::PublicParts, key::PrimaryRole>::arbitrary(g)
+                .into(),
+            3 => Key::<key::PublicParts, key::SubordinateRole>::arbitrary(g)
+                .into(),
+            4 => Key::<key::SecretParts, key::PrimaryRole>::arbitrary(g)
+                .into(),
+            5 => Key::<key::SecretParts, key::SubordinateRole>::arbitrary(g)
+                .into(),
             6 => Marker::arbitrary(g).into(),
             7 => Trust::arbitrary(g).into(),
             8 => UserID::arbitrary(g).into(),
@@ -530,7 +550,8 @@ impl Arbitrary for Packet {
             11 => CompressedData::arbitrary(g).into(),
             12 => PKESK::arbitrary(g).into(),
             13 => SKESK::arbitrary(g).into(),
-            14 => loop {
+            14 => Padding::arbitrary(g).into(),
+            15 => loop {
                 let mut u = Unknown::new(
                     Tag::arbitrary(g), anyhow::anyhow!("Arbitrary::arbitrary"));
                 u.set_body(Arbitrary::arbitrary(g));
@@ -552,10 +573,10 @@ impl Arbitrary for Packet {
         }
     }
 }
-
+
 /// Fields used by multiple packet types.
 #[derive(Default, Debug, Clone)]
-pub struct Common {
+pub(crate) struct Common {
     // In the future, this structure will hold the parsed CTB, packet
     // length, and lengths of chunks of partial body encoded packets.
     // This will allow for bit-perfect roundtripping of parsed
@@ -571,6 +592,18 @@ pub struct Common {
     dummy: std::marker::PhantomData<()>,
 }
 assert_send_and_sync!(Common);
+
+impl Common {
+    /// Returns a default version of `Common`.
+    ///
+    /// This is equivalent to using `Common::from`, but the function
+    /// is constant.
+    pub(crate) const fn new() -> Self {
+        Common {
+            dummy: std::marker::PhantomData
+        }
+    }
+}
 
 #[cfg(test)]
 impl Arbitrary for Common {
@@ -590,8 +623,8 @@ impl PartialEq for Common {
 impl Eq for Common {}
 
 impl PartialOrd for Common {
-    fn partial_cmp(&self, _: &Self) -> Option<std::cmp::Ordering> {
-        Some(std::cmp::Ordering::Equal)
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -607,13 +640,13 @@ impl std::hash::Hash for Common {
     }
 }
 
-
+
 /// An iterator over the *contents* of a packet in depth-first order.
 ///
 /// Given a [`Packet`], an `Iter` iterates over the `Packet` and any
 /// `Packet`s that it contains.  For non-container `Packet`s, this
 /// just returns a reference to the `Packet` itself.  For [container
-/// `Packet`s] like [`CompressedData`], [`SEIP`], and [`AED`], this
+/// `Packet`s] like [`CompressedData`], and [`SEIP`], this
 /// walks the `Packet` hierarchy in depth-first order, and returns the
 /// `Packet`s the first time they are visited.  (Thus, the packet
 /// itself is always returned first.)
@@ -630,7 +663,7 @@ pub struct Iter<'a> {
     // The current child (i.e., the last value returned by
     // children.next()).
     child: Option<&'a Packet>,
-    // The an iterator over the current child's children.
+    // The iterator over the current child's children.
     grandchildren: Option<Box<Iter<'a>>>,
 
     // The depth of the last returned packet.  This is used by the
@@ -709,7 +742,7 @@ impl<'a> Iter<'a> {
     /// #     use openpgp::parse::Parse;
     /// #     use openpgp::types::DataFormat;
     /// #
-    /// #     let mut lit = Literal::new(DataFormat::Text);
+    /// #     let mut lit = Literal::new(DataFormat::Unicode);
     /// #     lit.set_body(b"test".to_vec());
     /// #     let lit = Packet::from(lit);
     /// #
@@ -833,7 +866,7 @@ fn packet_path_iter() {
 
     for i in 1..5 {
         let pile = PacketPile::from_bytes(
-            crate::tests::message(&format!("recursive-{}.gpg", i)[..])).unwrap();
+            crate::tests::message(&format!("recursive-{}.pgp", i)[..])).unwrap();
 
         let mut paths1 : Vec<Vec<usize>> = Vec::new();
         for path in paths(pile.children()).iter() {
@@ -869,9 +902,9 @@ fn packet_path_iter() {
 ///
 /// Signature packets are used to hold all kinds of signatures
 /// including certifications, and signatures over documents.  See
-/// [Section 5.2 of RFC 4880] for details.
+/// [Section 5.2 of RFC 9580] for details.
 ///
-///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
+///   [Section 5.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2
 ///
 /// When signing a document, a `Signature` packet is typically created
 /// indirectly by the [streaming `Signer`].  Similarly, a `Signature`
@@ -893,9 +926,6 @@ fn packet_path_iter() {
 /// [certifications of User IDs]: UserID::certify()
 /// [certifications of User Attributes]: user_attribute::UserAttribute::certify()
 /// [`SignatureBuilder`]: signature::SignatureBuilder
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
 ///
 /// # A note on equality
 ///
@@ -949,15 +979,21 @@ fn packet_path_iter() {
 ///     .set_signature_creation_time(t2)?;
 /// let sig = userid.bind(&mut signer, &cert, sig)?;
 ///
-/// let cert = cert.insert_packets(vec![Packet::from(userid), sig.into()])?;
+/// let cert = cert.insert_packets(vec![Packet::from(userid), sig.into()])?.0;
 /// # assert_eq!(cert.with_policy(p, t2)?.userids().count(), 2);
 /// # Ok(()) }
 /// ```
 #[non_exhaustive]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Debug)]
 pub enum Signature {
+    /// Signature packet version 3.
+    V3(self::signature::Signature3),
+
     /// Signature packet version 4.
     V4(self::signature::Signature4),
+
+    /// Signature packet version 6.
+    V6(self::signature::Signature6),
 }
 assert_send_and_sync!(Signature);
 
@@ -965,7 +1001,9 @@ impl Signature {
     /// Gets the version.
     pub fn version(&self) -> u8 {
         match self {
+            Signature::V3(_) => 3,
             Signature::V4(_) => 4,
+            Signature::V6(_) => 6,
         }
     }
 }
@@ -976,13 +1014,27 @@ impl From<Signature> for Packet {
     }
 }
 
+impl Signature {
+    /// Gets the salt, if any.
+    pub fn salt(&self) -> Option<&[u8]> {
+        match self {
+            Signature::V3(_) => None,
+            Signature::V4(_) => None,
+            Signature::V6(s) => Some(s.salt()),
+        }
+    }
+
+}
+
 // Trivial forwarder for singleton enum.
 impl Deref for Signature {
     type Target = signature::Signature4;
 
     fn deref(&self) -> &Self::Target {
         match self {
+            Signature::V3(sig) => &sig.intern,
             Signature::V4(sig) => sig,
+            Signature::V6(sig) => &sig.common,
         }
     }
 }
@@ -991,863 +1043,9 @@ impl Deref for Signature {
 impl DerefMut for Signature {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
+            Signature::V3(ref mut sig) => &mut sig.intern,
             Signature::V4(ref mut sig) => sig,
-        }
-    }
-}
-
-/// Holds a one-pass signature packet.
-///
-/// See [Section 5.4 of RFC 4880] for details.
-///
-/// A `OnePassSig` packet is not normally instantiated directly.  In
-/// most cases, you'll create one as a side-effect of signing a
-/// message using the [streaming serializer], or parsing a signed
-/// message using the [`PacketParser`].
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
-///
-/// [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
-/// [`PacketParser`]: crate::parse::PacketParser
-/// [streaming serializer]: crate::serialize::stream
-#[non_exhaustive]
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum OnePassSig {
-    /// OnePassSig packet version 3.
-    V3(self::one_pass_sig::OnePassSig3),
-}
-assert_send_and_sync!(OnePassSig);
-
-impl OnePassSig {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        match self {
-            OnePassSig::V3(_) => 3,
-        }
-    }
-}
-
-impl From<OnePassSig> for Packet {
-    fn from(s: OnePassSig) -> Self {
-        Packet::OnePassSig(s)
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl Deref for OnePassSig {
-    type Target = one_pass_sig::OnePassSig3;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            OnePassSig::V3(ops) => ops,
-        }
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl DerefMut for OnePassSig {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            OnePassSig::V3(ref mut ops) => ops,
-        }
-    }
-}
-
-/// Holds an asymmetrically encrypted session key.
-///
-/// The session key is used to decrypt the actual ciphertext, which is
-/// typically stored in a [SEIP] or [AED] packet.  See [Section 5.1 of
-/// RFC 4880] for details.
-///
-/// A PKESK packet is not normally instantiated directly.  In most
-/// cases, you'll create one as a side-effect of encrypting a message
-/// using the [streaming serializer], or parsing an encrypted message
-/// using the [`PacketParser`].
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
-///
-/// [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
-/// [streaming serializer]: crate::serialize::stream
-/// [`PacketParser`]: crate::parse::PacketParser
-#[non_exhaustive]
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum PKESK {
-    /// PKESK packet version 3.
-    V3(self::pkesk::PKESK3),
-}
-assert_send_and_sync!(PKESK);
-
-impl PKESK {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        match self {
-            PKESK::V3(_) => 3,
-        }
-    }
-}
-
-impl From<PKESK> for Packet {
-    fn from(p: PKESK) -> Self {
-        Packet::PKESK(p)
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl Deref for PKESK {
-    type Target = self::pkesk::PKESK3;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            PKESK::V3(ref p) => p,
-        }
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl DerefMut for PKESK {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            PKESK::V3(ref mut p) => p,
-        }
-    }
-}
-
-/// Holds a symmetrically encrypted session key.
-///
-/// The session key is used to decrypt the actual ciphertext, which is
-/// typically stored in a [SEIP] or [AED] packet.  See [Section 5.3 of
-/// RFC 4880] for details.
-///
-/// An SKESK packet is not normally instantiated directly.  In most
-/// cases, you'll create one as a side-effect of encrypting a message
-/// using the [streaming serializer], or parsing an encrypted message
-/// using the [`PacketParser`].
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
-///
-/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-/// [streaming serializer]: crate::serialize::stream
-/// [`PacketParser`]: crate::parse::PacketParser
-#[non_exhaustive]
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum SKESK {
-    /// SKESK packet version 4.
-    V4(self::skesk::SKESK4),
-    /// SKESK packet version 5.
-    ///
-    /// This feature is [experimental](super#experimental-features).
-    V5(self::skesk::SKESK5),
-}
-assert_send_and_sync!(SKESK);
-
-impl SKESK {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        match self {
-            SKESK::V4(_) => 4,
-            SKESK::V5(_) => 5,
-        }
-    }
-}
-
-impl From<SKESK> for Packet {
-    fn from(p: SKESK) -> Self {
-        Packet::SKESK(p)
-    }
-}
-
-/// Holds a public key, public subkey, private key or private subkey packet.
-///
-/// The different `Key` packets are described in [Section 5.5 of RFC 4880].
-///
-///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
-///
-/// # Key Variants
-///
-/// There are four different types of keys in OpenPGP: [public keys],
-/// [secret keys], [public subkeys], and [secret subkeys].  Although
-/// the semantics of each type of key are slightly different, the
-/// underlying representation is identical (even a public key and a
-/// secret key are the same: the public key variant just contains 0
-/// bits of secret key material).
-///
-/// In Sequoia, we use a single type, `Key`, for all four variants.
-/// To improve type safety, we use marker traits rather than an `enum`
-/// to distinguish them.  Specifically, we `Key` is generic over two
-/// type variables, `P` and `R`.
-///
-/// `P` and `R` take marker traits, which describe how any secret key
-/// material should be treated, and the key's role (primary or
-/// subordinate).  The markers also determine the `Key`'s behavior and
-/// the exposed functionality.  `P` can be [`key::PublicParts`],
-/// [`key::SecretParts`], or [`key::UnspecifiedParts`].  And, `R` can
-/// be [`key::PrimaryRole`], [`key::SubordinateRole`], or
-/// [`key::UnspecifiedRole`].
-///
-/// If `P` is `key::PublicParts`, any secret key material that is
-/// present is ignored.  For instance, when serializing a key with
-/// this marker, any secret key material will be skipped.  This is
-/// illutrated in the following example.  If `P` is
-/// `key::SecretParts`, then the key definitely contains secret key
-/// material (although it is not guaranteed that the secret key
-/// material is valid), and methods that require secret key material
-/// are available.
-///
-/// Unlike `P`, `R` does not say anything about the `Key`'s content.
-/// But, a key's role does influence's the key's semantics.  For
-/// instance, some of a primary key's meta-data is located on the
-/// primary User ID whereas a subordinate key's meta-data is located
-/// on its binding signature.
-///
-/// The unspecified variants [`key::UnspecifiedParts`] and
-/// [`key::UnspecifiedRole`] exist to simplify type erasure, which is
-/// needed to mix different types of keys in a single collection.  For
-/// instance, [`Cert::keys`] returns an iterator over the keys in a
-/// certificate.  Since the keys have different roles (a primary key
-/// and zero or more subkeys), but the `Iterator` has to be over a
-/// single, fixed type, the returned keys use the
-/// `key::UnspecifiedRole` marker.
-///
-/// [public keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.1
-/// [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
-/// [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2
-/// [secret subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.4
-/// [`Cert::keys`]: super::Cert::keys()
-///
-/// ## Examples
-///
-/// Serializing a public key with secret key material drops the secret
-/// key material:
-///
-/// ```
-/// use sequoia_openpgp as openpgp;
-/// use openpgp::cert::prelude::*;
-/// use openpgp::packet::prelude::*;
-/// use sequoia_openpgp::parse::Parse;
-/// use openpgp::serialize::Serialize;
-///
-/// # fn main() -> openpgp::Result<()> {
-/// // Generate a new certificate.  It has secret key material.
-/// let (cert, _) = CertBuilder::new()
-///     .generate()?;
-///
-/// let pk = cert.primary_key().key();
-/// assert!(pk.has_secret());
-///
-/// // Serializing a `Key<key::PublicParts, _>` drops the secret key
-/// // material.
-/// let mut bytes = Vec::new();
-/// Packet::from(pk.clone()).serialize(&mut bytes);
-/// let p : Packet = Packet::from_bytes(&bytes)?;
-///
-/// if let Packet::PublicKey(key) = p {
-///     assert!(! key.has_secret());
-/// } else {
-///     unreachable!();
-/// }
-/// # Ok(())
-/// # }
-/// ```
-///
-/// # Conversions
-///
-/// Sometimes it is necessary to change a marker.  For instance, to
-/// help prevent a user from inadvertently leaking secret key
-/// material, the [`Cert`] data structure never returns keys with the
-/// [`key::SecretParts`] marker.  This means, to use any secret key
-/// material, e.g., when creating a [`Signer`], the user needs to
-/// explicitly opt-in by changing the marker using
-/// [`Key::parts_into_secret`] or [`Key::parts_as_secret`].
-///
-/// For `P`, the conversion functions are: [`Key::parts_into_public`],
-/// [`Key::parts_as_public`], [`Key::parts_into_secret`],
-/// [`Key::parts_as_secret`], [`Key::parts_into_unspecified`], and
-/// [`Key::parts_as_unspecified`].  With the exception of converting
-/// `P` to `key::SecretParts`, these functions are infallible.
-/// Converting `P` to `key::SecretParts` may fail if the key doesn't
-/// have any secret key material.  (Note: although the secret key
-/// material is required, it not checked for validity.)
-///
-/// For `R`, the conversion functions are [`Key::role_into_primary`],
-/// [`Key::role_as_primary`], [`Key::role_into_subordinate`],
-/// [`Key::role_as_subordinate`], [`Key::role_into_unspecified`], and
-/// [`Key::role_as_unspecified`].
-///
-/// It is also possible to use `From`.
-///
-/// [`Signer`]: super::crypto::Signer
-/// [`Key::parts_as_secret`]: Key::parts_as_secret()
-/// [`Key::parts_into_public`]: Key::parts_into_public()
-/// [`Key::parts_as_public`]: Key::parts_as_public()
-/// [`Key::parts_into_secret`]: Key::parts_into_secret()
-/// [`Key::parts_as_secret`]: Key::parts_as_secret()
-/// [`Key::parts_into_unspecified`]: Key::parts_into_unspecified()
-/// [`Key::parts_as_unspecified`]: Key::parts_as_unspecified()
-/// [`Key::role_into_primary`]: Key::role_into_primary()
-/// [`Key::role_as_primary`]: Key::role_as_primary()
-/// [`Key::role_into_subordinate`]: Key::role_into_subordinate()
-/// [`Key::role_as_subordinate`]: Key::role_as_subordinate()
-/// [`Key::role_into_unspecified`]: Key::role_into_unspecified()
-/// [`Key::role_as_unspecified`]: Key::role_as_unspecified()
-///
-/// ## Examples
-///
-/// Changing a marker:
-///
-/// ```
-/// use sequoia_openpgp as openpgp;
-/// use openpgp::cert::prelude::*;
-/// use openpgp::packet::prelude::*;
-///
-/// # fn main() -> openpgp::Result<()> {
-/// // Generate a new certificate.  It has secret key material.
-/// let (cert, _) = CertBuilder::new()
-///     .generate()?;
-///
-/// let pk: &Key<key::PublicParts, key::PrimaryRole>
-///     = cert.primary_key().key();
-/// // `has_secret`s is one of the few methods that ignores the
-/// // parts type.
-/// assert!(pk.has_secret());
-///
-/// // Treat it like a secret key.  This only works if `pk` really
-/// // has secret key material (which it does in this case, see above).
-/// let sk = pk.parts_as_secret()?;
-/// assert!(sk.has_secret());
-///
-/// // And back.
-/// let pk = sk.parts_as_public();
-/// // Yes, the secret key material is still there.
-/// assert!(pk.has_secret());
-/// # Ok(())
-/// # }
-/// ```
-///
-/// The [`Cert`] data structure only returns public keys.  To work
-/// with any secret key material, the `Key` first needs to be
-/// converted to a secret key.  This is necessary, for instance, when
-/// creating a [`Signer`]:
-///
-/// [`Cert`]: super::Cert
-///
-/// ```rust
-/// use std::time;
-/// use sequoia_openpgp as openpgp;
-/// # use openpgp::Result;
-/// use openpgp::cert::prelude::*;
-/// use openpgp::crypto::KeyPair;
-/// use openpgp::policy::StandardPolicy;
-///
-/// # fn main() -> Result<()> {
-/// let p = &StandardPolicy::new();
-///
-/// let the_past = time::SystemTime::now() - time::Duration::from_secs(1);
-/// let (cert, _) = CertBuilder::new()
-///     .set_creation_time(the_past)
-///     .generate()?;
-///
-/// // Set the certificate to expire now.  To do this, we need
-/// // to create a new self-signature, and sign it using a
-/// // certification-capable key.  The primary key is always
-/// // certification capable.
-/// let mut keypair = cert.primary_key()
-///     .key().clone().parts_into_secret()?.into_keypair()?;
-/// let sigs = cert.set_expiration_time(p, None, &mut keypair,
-///                                     Some(time::SystemTime::now()))?;
-///
-/// let cert = cert.insert_packets(sigs)?;
-/// // It's expired now.
-/// assert!(cert.with_policy(p, None)?.alive().is_err());
-/// # Ok(())
-/// # }
-/// ```
-///
-/// # Key Generation
-///
-/// `Key` is a wrapper around [the different key formats].
-/// (Currently, Sequoia only supports version 4 keys, however, future
-/// versions may add limited support for version 3 keys to facilitate
-/// working with achieved messages, and RFC 4880bis includes [a
-/// proposal for a new key format].)  As such, it doesn't provide a
-/// mechanism to generate keys or import existing key material.
-/// Instead, use the format-specific functions (e.g.,
-/// [`Key4::generate_ecc`]) and then convert the result into a `Key`
-/// packet, as the following example demonstrates.
-///
-/// [the different key formats]: https://tools.ietf.org/html/rfc4880#section-5.5.2
-/// [a proposal for a new key format]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.5.2
-/// [`Key4::generate_ecc`]: key::Key4::generate_ecc()
-///
-///
-/// ## Examples
-///
-/// ```
-/// use sequoia_openpgp as openpgp;
-/// use openpgp::packet::prelude::*;
-/// use openpgp::types::Curve;
-///
-/// # fn main() -> openpgp::Result<()> {
-/// let key: Key<key::SecretParts, key::PrimaryRole>
-///     = Key::from(Key4::generate_ecc(true, Curve::Ed25519)?);
-/// # Ok(())
-/// # }
-/// ```
-///
-/// # Password Protection
-///
-/// OpenPGP provides a mechanism to [password protect keys].  If a key
-/// is password protected, you need to decrypt the password using
-/// [`Key::decrypt_secret`] before using its secret key material
-/// (e.g., to decrypt a message, or to generate a signature).
-///
-/// [password protect keys]: https://tools.ietf.org/html/rfc4880#section-3.7
-/// [`Key::decrypt_secret`]: Key::decrypt_secret()
-///
-/// # A note on equality
-///
-/// The implementation of `Eq` for `Key` compares the serialized form
-/// of `Key`s.  Comparing or serializing values of `Key<PublicParts,
-/// _>` ignore secret key material, whereas the secret key material is
-/// considered and serialized for `Key<SecretParts, _>`, and for
-/// `Key<UnspecifiedParts, _>` if present.  To explicitly exclude the
-/// secret key material from the comparison, use [`Key::public_cmp`]
-/// or [`Key::public_eq`].
-///
-/// When merging in secret key material from untrusted sources, you
-/// need to be very careful: secret key material is not
-/// cryptographically protected by the key's self signature.  Thus, an
-/// attacker can provide a valid key with a valid self signature, but
-/// invalid secret key material.  If naively merged, this could
-/// overwrite valid secret key material, and thereby render the key
-/// useless.  Unfortunately, the only way to find out that the secret
-/// key material is bad is to actually try using it.  But, because the
-/// secret key material is usually encrypted, this can't always be
-/// done automatically.
-///
-/// [`Key::public_cmp`]: Key::public_cmp()
-/// [`Key::public_eq`]: Key::public_eq()
-///
-/// Compare:
-///
-/// ```
-/// use sequoia_openpgp as openpgp;
-/// use openpgp::cert::prelude::*;
-/// use openpgp::packet::prelude::*;
-/// use openpgp::packet::key::*;
-///
-/// # fn main() -> openpgp::Result<()> {
-/// // Generate a new certificate.  It has secret key material.
-/// let (cert, _) = CertBuilder::new()
-///     .generate()?;
-///
-/// let sk: &Key<PublicParts, _> = cert.primary_key().key();
-/// assert!(sk.has_secret());
-///
-/// // Strip the secret key material.
-/// let cert = cert.clone().strip_secret_key_material();
-/// let pk: &Key<PublicParts, _> = cert.primary_key().key();
-/// assert!(! pk.has_secret());
-///
-/// // Eq on Key<PublicParts, _> compares only the public bits, so it
-/// // considers pk and sk to be equal.
-/// assert_eq!(pk, sk);
-///
-/// // Convert to Key<UnspecifiedParts, _>.
-/// let sk: &Key<UnspecifiedParts, _> = sk.parts_as_unspecified();
-/// let pk: &Key<UnspecifiedParts, _> = pk.parts_as_unspecified();
-///
-/// // Eq on Key<UnspecifiedParts, _> compares both the public and the
-/// // secret bits, so it considers pk and sk to be different.
-/// assert_ne!(pk, sk);
-///
-/// // In any case, Key::public_eq only compares the public bits,
-/// // so it considers them to be equal.
-/// assert!(Key::public_eq(pk, sk));
-/// # Ok(())
-/// # }
-/// ```
-#[non_exhaustive]
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum Key<P: key::KeyParts, R: key::KeyRole> {
-    /// A version 4 `Key` packet.
-    V4(Key4<P, R>),
-}
-assert_send_and_sync!(Key<P, R> where P: key::KeyParts, R: key::KeyRole);
-
-impl<P: key::KeyParts, R: key::KeyRole> fmt::Display for Key<P, R> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Key::V4(k) => k.fmt(f),
-        }
-    }
-}
-
-impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        match self {
-            Key::V4(_) => 4,
-        }
-    }
-
-    /// Compares the public bits of two keys.
-    ///
-    /// This returns `Ordering::Equal` if the public MPIs, version,
-    /// creation time and algorithm of the two `Key`s match.  This
-    /// does not consider the packet's encoding, packet's tag or the
-    /// secret key material.
-    pub fn public_cmp<PB, RB>(&self, b: &Key<PB, RB>) -> std::cmp::Ordering
-        where PB: key::KeyParts,
-              RB: key::KeyRole,
-    {
-        match (self, b) {
-            (Key::V4(a), Key::V4(b)) => a.public_cmp(b),
-        }
-    }
-
-    /// This method tests for self and other values to be equal modulo
-    /// the secret key material.
-    ///
-    /// This returns true if the public MPIs, creation time and
-    /// algorithm of the two `Key`s match.  This does not consider
-    /// the packet's encoding, packet's tag or the secret key
-    /// material.
-    pub fn public_eq<PB, RB>(&self, b: &Key<PB, RB>) -> bool
-        where PB: key::KeyParts,
-              RB: key::KeyRole,
-    {
-        self.public_cmp(b) == std::cmp::Ordering::Equal
-    }
-}
-
-impl From<Key<key::PublicParts, key::PrimaryRole>> for Packet {
-    /// Convert the `Key` struct to a `Packet`.
-    fn from(k: Key<key::PublicParts, key::PrimaryRole>) -> Self {
-        Packet::PublicKey(k)
-    }
-}
-
-impl From<Key<key::PublicParts, key::SubordinateRole>> for Packet {
-    /// Convert the `Key` struct to a `Packet`.
-    fn from(k: Key<key::PublicParts, key::SubordinateRole>) -> Self {
-        Packet::PublicSubkey(k)
-    }
-}
-
-impl From<Key<key::SecretParts, key::PrimaryRole>> for Packet {
-    /// Convert the `Key` struct to a `Packet`.
-    fn from(k: Key<key::SecretParts, key::PrimaryRole>) -> Self {
-        Packet::SecretKey(k)
-    }
-}
-
-impl From<Key<key::SecretParts, key::SubordinateRole>> for Packet {
-    /// Convert the `Key` struct to a `Packet`.
-    fn from(k: Key<key::SecretParts, key::SubordinateRole>) -> Self {
-        Packet::SecretSubkey(k)
-    }
-}
-
-impl<R: key::KeyRole> Key<key::SecretParts, R> {
-    /// Creates a new key pair from a `Key` with an unencrypted
-    /// secret key.
-    ///
-    /// If the `Key` is password protected, you first need to decrypt
-    /// it using [`Key::decrypt_secret`].
-    ///
-    /// [`Key::decrypt_secret`]: Key::decrypt_secret()
-    ///
-    /// # Errors
-    ///
-    /// Fails if the secret key is encrypted.
-    ///
-    /// # Examples
-    ///
-    /// Revoke a certificate by signing a new revocation certificate:
-    ///
-    /// ```rust
-    /// use std::time;
-    /// use sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// use openpgp::cert::prelude::*;
-    /// use openpgp::crypto::KeyPair;
-    /// use openpgp::types::ReasonForRevocation;
-    ///
-    /// # fn main() -> Result<()> {
-    /// // Generate a certificate.
-    /// let (cert, _) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
-    ///         .generate()?;
-    ///
-    /// // Use the secret key material to sign a revocation certificate.
-    /// let mut keypair = cert.primary_key()
-    ///     .key().clone().parts_into_secret()?
-    ///     .into_keypair()?;
-    /// let rev = cert.revoke(&mut keypair,
-    ///                       ReasonForRevocation::KeyCompromised,
-    ///                       b"It was the maid :/")?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn into_keypair(self) -> Result<KeyPair> {
-        match self {
-            Key::V4(k) => k.into_keypair(),
-        }
-    }
-
-    /// Decrypts the secret key material.
-    ///
-    /// In OpenPGP, secret key material can be [protected with a
-    /// password].  The password is usually hardened using a [KDF].
-    ///
-    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
-    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
-    ///
-    /// This function takes ownership of the `Key`, decrypts the
-    /// secret key material using the password, and returns a new key
-    /// whose secret key material is not password protected.
-    ///
-    /// If the secret key material is not password protected or if the
-    /// password is wrong, this function returns an error.
-    ///
-    /// # Examples
-    ///
-    /// Sign a new revocation certificate using a password-protected
-    /// key:
-    ///
-    /// ```rust
-    /// use sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// use openpgp::cert::prelude::*;
-    /// use openpgp::types::ReasonForRevocation;
-    ///
-    /// # fn main() -> Result<()> {
-    /// // Generate a certificate whose secret key material is
-    /// // password protected.
-    /// let (cert, _) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
-    ///         .set_password(Some("1234".into()))
-    ///         .generate()?;
-    ///
-    /// // Use the secret key material to sign a revocation certificate.
-    /// let key = cert.primary_key().key().clone().parts_into_secret()?;
-    ///
-    /// // We can't turn it into a keypair without decrypting it.
-    /// assert!(key.clone().into_keypair().is_err());
-    ///
-    /// // And, we need to use the right password.
-    /// assert!(key.clone()
-    ///     .decrypt_secret(&"correct horse battery staple".into())
-    ///     .is_err());
-    ///
-    /// // Let's do it right:
-    /// let mut keypair = key.decrypt_secret(&"1234".into())?.into_keypair()?;
-    /// let rev = cert.revoke(&mut keypair,
-    ///                       ReasonForRevocation::KeyCompromised,
-    ///                       b"It was the maid :/")?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn decrypt_secret(self, password: &Password) -> Result<Self>
-    {
-        match self {
-            Key::V4(k) => Ok(Key::V4(k.decrypt_secret(password)?)),
-        }
-    }
-
-    /// Encrypts the secret key material.
-    ///
-    /// In OpenPGP, secret key material can be [protected with a
-    /// password].  The password is usually hardened using a [KDF].
-    ///
-    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
-    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
-    ///
-    /// This function takes ownership of the `Key`, encrypts the
-    /// secret key material using the password, and returns a new key
-    /// whose secret key material is protected with the password.
-    ///
-    /// If the secret key material is already password protected, this
-    /// function returns an error.
-    ///
-    /// # Examples
-    ///
-    /// This example demonstrates how to encrypt the secret key
-    /// material of every key in a certificate.  Decryption can be
-    /// done the same way with [`Key::decrypt_secret`].
-    ///
-    /// ```rust
-    /// use sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// use openpgp::cert::prelude::*;
-    /// use openpgp::packet::Packet;
-    ///
-    /// # fn main() -> Result<()> {
-    /// // Generate a certificate whose secret key material is
-    /// // not password protected.
-    /// let (cert, _) =
-    ///     CertBuilder::general_purpose(None,
-    ///                                  Some("Alice Lovelace <alice@example.org>"))
-    ///         .generate()?;
-    ///
-    /// // Encrypt every key.
-    /// let mut encrypted_keys: Vec<Packet> = Vec::new();
-    /// for ka in cert.keys().secret() {
-    ///     assert!(ka.has_unencrypted_secret());
-    ///
-    ///     // Encrypt the key's secret key material.
-    ///     let key = ka.key().clone().encrypt_secret(&"1234".into())?;
-    ///     assert!(! key.has_unencrypted_secret());
-    ///
-    ///     // We cannot merge it right now, because `cert` is borrowed.
-    ///     encrypted_keys.push(if ka.primary() {
-    ///         key.role_into_primary().into()
-    ///     } else {
-    ///         key.role_into_subordinate().into()
-    ///     });
-    /// }
-    ///
-    /// // Merge the keys into the certificate.  Note: `Cert::insert_packets`
-    /// // prefers added versions of keys.  So, the encrypted version
-    /// // will override the decrypted version.
-    /// let cert = cert.insert_packets(encrypted_keys)?;
-    ///
-    /// // Now the every key's secret key material is encrypted.  We'll
-    /// // demonstrate this using the primary key:
-    /// let key = cert.primary_key().key().parts_as_secret()?;
-    /// assert!(! key.has_unencrypted_secret());
-    ///
-    /// // We can't turn it into a keypair without decrypting it.
-    /// assert!(key.clone().into_keypair().is_err());
-    ///
-    /// // And, we need to use the right password.
-    /// assert!(key.clone()
-    ///     .decrypt_secret(&"correct horse battery staple".into())
-    ///     .is_err());
-    ///
-    /// // Let's do it right:
-    /// let mut keypair = key.clone()
-    ///     .decrypt_secret(&"1234".into())?.into_keypair()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn encrypt_secret(self, password: &Password) -> Result<Self>
-    {
-        match self {
-            Key::V4(k) => Ok(Key::V4(k.encrypt_secret(password)?)),
-        }
-    }
-}
-
-impl<R: key::KeyRole> Key4<key::SecretParts, R> {
-    /// Creates a new key pair from a secret `Key` with an unencrypted
-    /// secret key.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the secret key is encrypted.  You can use
-    /// [`Key::decrypt_secret`] to decrypt a key.
-    pub fn into_keypair(self) -> Result<KeyPair> {
-        let (key, secret) = self.take_secret();
-        let secret = match secret {
-            SecretKeyMaterial::Unencrypted(secret) => secret,
-            SecretKeyMaterial::Encrypted(_) =>
-                return Err(Error::InvalidArgument(
-                    "secret key material is encrypted".into()).into()),
-        };
-
-        KeyPair::new(key.role_into_unspecified().into(), secret)
-    }
-}
-
-macro_rules! impl_common_secret_functions {
-    ($t: path) => {
-        /// Secret key handling.
-        impl<R: key::KeyRole> Key<$t, R> {
-            /// Takes the key packet's `SecretKeyMaterial`, if any.
-            pub fn take_secret(self)
-                               -> (Key<key::PublicParts, R>,
-                                   Option<key::SecretKeyMaterial>)
-            {
-                match self {
-                    Key::V4(k) => {
-                        let (k, s) = k.take_secret();
-                        (k.into(), s)
-                    },
-                }
-            }
-
-            /// Adds `SecretKeyMaterial` to the packet, returning the old if
-            /// any.
-            pub fn add_secret(self, secret: key::SecretKeyMaterial)
-                              -> (Key<key::SecretParts, R>,
-                                  Option<key::SecretKeyMaterial>)
-            {
-                match self {
-                    Key::V4(k) => {
-                        let (k, s) = k.add_secret(secret);
-                        (k.into(), s)
-                    },
-                }
-            }
-        }
-    }
-}
-impl_common_secret_functions!(key::PublicParts);
-impl_common_secret_functions!(key::UnspecifiedParts);
-
-/// Secret key handling.
-impl<R: key::KeyRole> Key<key::SecretParts, R> {
-    /// Takes the key packet's `SecretKeyMaterial`.
-    pub fn take_secret(self)
-                       -> (Key<key::PublicParts, R>, key::SecretKeyMaterial)
-    {
-        match self {
-            Key::V4(k) => {
-                let (k, s) = k.take_secret();
-                (k.into(), s)
-            },
-        }
-    }
-
-    /// Adds `SecretKeyMaterial` to the packet, returning the old.
-    pub fn add_secret(self, secret: key::SecretKeyMaterial)
-                      -> (Key<key::SecretParts, R>, key::SecretKeyMaterial)
-    {
-        match self {
-            Key::V4(k) => {
-                let (k, s) = k.add_secret(secret);
-                (k.into(), s)
-            },
-        }
-    }
-}
-
-
-// Trivial forwarder for singleton enum.
-impl<P: key::KeyParts, R: key::KeyRole> Deref for Key<P, R> {
-    type Target = Key4<P, R>;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            Key::V4(ref p) => p,
-        }
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            Key::V4(ref mut p) => p,
+            Signature::V6(ref mut sig) => &mut sig.common,
         }
     }
 }
@@ -1855,20 +1053,24 @@ impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
 /// Holds a SEIP packet.
 ///
 /// A SEIP packet holds encrypted data.  The data contains additional
-/// OpenPGP packets.  See [Section 5.13 of RFC 4880] for details.
+/// OpenPGP packets.  See [Section 5.13 of RFC 9580] for details.
 ///
 /// A SEIP packet is not normally instantiated directly.  In most
-/// cases, you'll create one as a side-effect of encrypting a message
+/// cases, you'll create one as a side effect of encrypting a message
 /// using the [streaming serializer], or parsing an encrypted message
 /// using the [`PacketParser`].
 ///
-/// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
+/// [Section 5.13 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.13
 /// [streaming serializer]: crate::serialize::stream
 /// [`PacketParser`]: crate::parse::PacketParser
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[non_exhaustive]
 pub enum SEIP {
     /// SEIP packet version 1.
     V1(self::seip::SEIP1),
+
+    /// SEIP packet version 2.
+    V2(self::seip::SEIP2),
 }
 assert_send_and_sync!(SEIP);
 
@@ -1877,6 +1079,7 @@ impl SEIP {
     pub fn version(&self) -> u8 {
         match self {
             SEIP::V1(_) => 1,
+            SEIP::V2(_) => 2,
         }
     }
 }
@@ -1884,88 +1087,6 @@ impl SEIP {
 impl From<SEIP> for Packet {
     fn from(p: SEIP) -> Self {
         Packet::SEIP(p)
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl Deref for SEIP {
-    type Target = self::seip::SEIP1;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            SEIP::V1(ref p) => p,
-        }
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl DerefMut for SEIP {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            SEIP::V1(ref mut p) => p,
-        }
-    }
-}
-
-/// Holds an AEAD encrypted data packet.
-///
-/// An AEAD packet holds encrypted data.  It is contains additional
-/// OpenPGP packets.  See [Section 5.16 of RFC 4880bis] for details.
-///
-/// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
-///
-/// An AEAD packet is not normally instantiated directly.  In most
-/// cases, you'll create one as a side-effect of encrypting a message
-/// using the [streaming serializer], or parsing an encrypted message
-/// using the [`PacketParser`].
-///
-/// [streaming serializer]: crate::serialize::stream
-/// [`PacketParser`]: crate::parse::PacketParser
-///
-/// This feature is [experimental](super#experimental-features).
-#[non_exhaustive]
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum AED {
-    /// AED packet version 1.
-    V1(self::aed::AED1),
-}
-assert_send_and_sync!(AED);
-
-impl AED {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        match self {
-            AED::V1(_) => 1,
-        }
-    }
-}
-
-impl From<AED> for Packet {
-    fn from(p: AED) -> Self {
-        Packet::AED(p)
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl Deref for AED {
-    type Target = self::aed::AED1;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            AED::V1(ref p) => p,
-        }
-    }
-}
-
-// Trivial forwarder for singleton enum.
-impl DerefMut for AED {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            AED::V1(ref mut p) => p,
-        }
     }
 }
 
@@ -1998,16 +1119,30 @@ mod test {
             }
 
             let mut buf = p.to_vec().unwrap();
-            let bit =
-                // Avoid first two bytes so that we don't change the
-                // type and reduce the chance of changing the length.
-                i.saturating_add(16)
-                % (buf.len() * 8);
+            // Avoid first two bytes so that we don't change the
+            // type and reduce the chance of changing the length.
+            if buf.len() < 3 { return true; }
+            let bit = i % ((buf.len() - 2) * 8) + 16;
             buf[bit / 8] ^= 1 << (bit % 8);
             match Packet::from_bytes(&buf) {
                 Ok(q) => p != q,
                 Err(_) => true, // Packet failed to parse.
             }
         }
+    }
+
+    /// Problem on systems with 32-bit time_t.
+    #[test]
+    fn issue_802() -> Result<()> {
+        let pp = crate::PacketPile::from_bytes(b"-----BEGIN PGP ARMORED FILE-----
+
+xiEE/////xIJKyQDAwIIAQENAFYp8M2JngCfc04tIwMBCuU=
+-----END PGP ARMORED FILE-----
+")?;
+        let p = pp.path_ref(&[0]).unwrap();
+        let buf = p.to_vec().expect("Failed to serialize packet");
+        let q = Packet::from_bytes(&buf).unwrap();
+        assert_eq!(p, &q);
+        Ok(())
     }
 }

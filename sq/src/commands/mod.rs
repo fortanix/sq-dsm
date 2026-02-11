@@ -13,7 +13,6 @@ use crate::openpgp::{
 use crate::openpgp::types::{
     CompressionAlgorithm,
 };
-use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto;
 use crate::openpgp::{Cert, KeyID, Result};
 use crate::openpgp::packet::prelude::*;
@@ -81,7 +80,8 @@ fn get_signing_keys(presecrets: &[PreSecret], p: &dyn Policy,
                                                 &format!("Please enter password to decrypt {}/{}: ",
                                                     tsk, key)))
                                             .context("Reading password from tty")?;
-                                        e.decrypt(key.pk_algo(), &password.into())
+                                        // key::Encrypted::decrypt now takes a &Key.
+                                        e.decrypt(key, &password.into())
                                             .expect("decryption failed")
                                     },
                                     SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
@@ -150,8 +150,9 @@ pub fn encrypt(opts: EncryptOpts) -> Result<()> {
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();
     for cert in opts.recipients.iter() {
         let mut count = 0;
+        // serialize::stream::Recipient now only implements From<ValidSubordinateKeyAmalgamation> and From<ValidErasedKeyAmalgamation>
         for key in cert.keys().with_policy(opts.policy, None).alive().revoked(false)
-            .key_flags(&opts.mode).supported().map(|ka| ka.key())
+            .key_flags(&opts.mode).supported()
         {
             recipient_subkeys.push(key.into());
             count += 1;
@@ -161,17 +162,17 @@ pub fn encrypt(opts: EncryptOpts) -> Result<()> {
             for ka in cert.keys().with_policy(opts.policy, None).revoked(false)
                 .key_flags(&opts.mode).supported()
             {
-                let key = ka.key();
                 expired_keys.push(
-                    (ka.binding_signature().key_expiration_time(key)
+                    (ka.binding_signature().key_expiration_time(ka.key())
                          .expect("Key must have an expiration time"),
-                     key));
+                     ka));
             }
             expired_keys.sort_by_key(|(expiration_time, _)| *expiration_time);
 
-            if let Some((expiration_time, key)) = expired_keys.last() {
+            if let Some((expiration_time, ka)) = expired_keys.last() {
                 if opts.use_expired_subkey {
-                    recipient_subkeys.push((*key).into());
+                    // serialize::stream::Recipient now only implements From<ValidSubordinateKeyAmalgamation> and From<ValidErasedKeyAmalgamation>
+                    recipient_subkeys.push(ka.clone().into());
                 } else {
                     use chrono::{DateTime, offset::Utc};
                     return Err(anyhow::anyhow!(
@@ -210,9 +211,11 @@ pub fn encrypt(opts: EncryptOpts) -> Result<()> {
 
     // Optionally sign message.
     if ! signers.is_empty() {
-        let mut signer = Signer::new(sink, signers.pop().unwrap());
+        // stream::Signer::new and stream::Signer::add_signer are now fallible.
+        let mut signer = Signer::new(sink, signers.pop().unwrap())?;
         for s in signers {
-            signer = signer.add_signer(s);
+            // stream::Signer::new and stream::Signer::add_signer are now fallible.
+            signer = signer.add_signer(s)?;
             if let Some(time) = opts.time {
                 signer = signer.creation_time(time);
             }
@@ -302,7 +305,14 @@ impl<'a> VHelper<'a> {
                     (ka.key().keyid(), sig.level()),
                 Err(MalformedSignature { error, .. }) => {
                     eprintln!("Malformed signature:");
-                    print_error_chain(error);
+                    print_error_chain(&error);
+                    self.broken_signatures += 1;
+                    continue;
+                },
+                // ** New functionality - parse::stream::VerificationError::UnknownSignature
+                Err(UnknownSignature { sig, .. }) => {
+                    eprintln!("Malformed signature:");
+                    print_error_chain(sig.error());
                     self.broken_signatures += 1;
                     continue;
                 },
@@ -333,7 +343,7 @@ impl<'a> VHelper<'a> {
                     continue;
                 },
                 Err(BadSignature { sig, ka, error }) => {
-                    let issuer = ka.fingerprint().to_string();
+                    let issuer = ka.key().fingerprint().to_string();
                     let what = match sig.level() {
                         0 => "checksum".into(),
                         n => format!("level {} notarizing checksum", n),
@@ -341,6 +351,12 @@ impl<'a> VHelper<'a> {
                     eprintln!("Error verifying {} from {}:",
                               what, issuer);
                     print_error_chain(error);
+                    self.bad_checksums += 1;
+                    continue;
+                },
+                // parse::stream::VerificationError is now marked non-exhaustive
+                Err(_) => {
+                    eprintln!("Unknown error");
                     self.bad_checksums += 1;
                     continue;
                 }

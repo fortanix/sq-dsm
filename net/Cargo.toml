@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-net"
 description = "Network services for OpenPGP"
-version = "0.24.0"
+version = "0.30.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
@@ -14,42 +14,51 @@ readme = "README.md"
 keywords = ["cryptography", "openpgp", "pgp", "hkp", "keyserver"]
 categories = ["cryptography", "authentication", "email"]
 license = "LGPL-2.0-or-later"
-edition = "2018"
+edition = "2021"
+rust-version = "1.85"
 
 [badges]
 gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "1", default-features = false }
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false }
 
 anyhow = "1.0.18"
 futures-util = "0.3.5"
-http = "0.2"
-hyper = { version = "0.14.10", features = [ "http1", "http2" ] }
-hyper-tls = "0.5"
+http = "1"
+hyper = { version = "1", features = [ "http1", "http2" ] }
+hyper-tls = "0.6"
 libc = "0.2.66"
-native-tls = "0.2.0"
 percent-encoding = "2.1"
-tempfile = "3.1"
-thiserror = "1.0.2"
+reqwest = "0.12"
+thiserror = ">=1, <3"
 url = "2.1"
-zbase32 = "0.1.2"
+z-base-32 = "0.1.2"
 tokio = { version = "1.13.1", features = [ "macros" ] }
-base64 = ">=0.12"
+base64 = ">= 0.21, < 0.23"
+hickory-client = "0.24"
+hickory-resolver = { version = "0.24", features = ["dnssec-openssl"]}
+bytes = "1"
+http-body-util = "0.1"
+hyper-util = { version = "0.1", features = ["full"] }
 
 [dev-dependencies]
-rand = { version = "0.7", default-features = false, features = [ "getrandom" ] }
-hyper = { version = "0.14", features = [ "server" ] }
+hyper = { version = "1", features = [ "server" ] }
+reqwest = { version = "0.12", features = ["socks"] }
+tempfile = "3.1"
 
 [lib]
 bench = false
 
-[features]
-default = ["sequoia-openpgp/default"]
-crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
-crypto-cng = ["sequoia-openpgp/crypto-cng"]
-compression = ["sequoia-openpgp/compression"]
-compression-deflate = ["sequoia-openpgp/compression-deflate"]
-compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
+# Enables a crypto backend for the tests:
+[target.'cfg(not(windows))'.dev-dependencies]
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false, features = ["crypto-nettle", "__implicit-crypto-backend-for-tests"] }
 
+# Enables a crypto backend for the tests:
+[target.'cfg(windows)'.dev-dependencies]
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false, features = ["crypto-cng", "__implicit-crypto-backend-for-tests"] }
+
+# Enables a crypto backend for the docs.rs generation:
+[package.metadata.docs.rs]
+features = ["sequoia-openpgp/default"]

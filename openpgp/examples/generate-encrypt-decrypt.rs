@@ -115,13 +115,12 @@ impl<'a> VerificationHelper for Helper<'a> {
 }
 
 impl<'a> DecryptionHelper for Helper<'a> {
-    fn decrypt<D>(&mut self,
-                  pkesks: &[openpgp::packet::PKESK],
-                  _skesks: &[openpgp::packet::SKESK],
-                  sym_algo: Option<SymmetricAlgorithm>,
-                  mut decrypt: D)
-                  -> openpgp::Result<Option<openpgp::Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+    fn decrypt(&mut self,
+               pkesks: &[openpgp::packet::PKESK],
+               _skesks: &[openpgp::packet::SKESK],
+               sym_algo: Option<SymmetricAlgorithm>,
+               decrypt: &mut dyn FnMut(Option<SymmetricAlgorithm>, &SessionKey) -> bool)
+               -> openpgp::Result<Option<Cert>>
     {
         let key = self.secret.keys().unencrypted_secret()
             .with_policy(self.policy, None)

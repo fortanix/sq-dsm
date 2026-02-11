@@ -16,7 +16,7 @@ use openpgp::{
     parse::Parse,
     serialize::Serialize,
 };
-use sequoia_net as net;
+use sequoia_net::{self as net, reqwest};
 use net::{
     KeyServer,
     wkd,
@@ -40,12 +40,12 @@ fn parse_network_policy(m: &clap::ArgMatches) -> net::Policy {
 }
 
 pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
-    let network_policy = parse_network_policy(m);
-    let mut ks = if let Some(uri) = m.value_of("server") {
-        KeyServer::new(network_policy, uri)
-    } else {
-        KeyServer::keys_openpgp_org(network_policy)
-    }.context("Malformed keyserver URI")?;
+   // let network_policy = parse_network_policy(m);
+    let ks= if let Some(uri) = m.value_of("server") {
+        KeyServer::new(uri).context("Malformed keyserver URI")?
+    }else{
+        KeyServer::default()
+    };
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_io()
@@ -59,23 +59,31 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
             let handle = query.parse::<KeyHandle>();
 
             if let Ok(handle) = handle {
-                let cert = rt.block_on(ks.get(handle))
-                    .context("Failed to retrieve cert")?;
-
-                let mut output =
-                    config.create_or_stdout_safe(m.value_of("output"))?;
-                if ! m.is_present("binary") {
-                    cert.armored().serialize(&mut output)
-                } else {
-                    cert.serialize(&mut output)
-                }.context("Failed to serialize cert")?;
-            } else if let Ok(Some(addr)) = UserID::from(query).email() {
-                let certs = rt.block_on(ks.search(addr))
+                let certs = rt.block_on(ks.get(handle))
                     .context("Failed to retrieve certs")?;
 
                 let mut output =
                     config.create_or_stdout_safe(m.value_of("output"))?;
-                serialize_keyring(&mut output, &certs,
+
+                for cert in certs {
+                    if ! m.is_present("binary") {
+                        cert?.armored().serialize(&mut output)
+                    } else {
+                        cert?.serialize(&mut output)
+                    }.context("Failed to serialize cert")?;
+                }
+            } else if let Ok(Some(addr)) = UserID::from(query).email() {
+                let certs = rt.block_on(ks.search(addr))
+                    .context("Failed to retrieve certs")?;
+
+                let valid_certs: Vec<openpgp::Cert> = certs
+                    .into_iter()
+                    .filter_map(Result::ok)
+                    .collect();
+
+                let mut output =
+                    config.create_or_stdout_safe(m.value_of("output"))?;
+                serialize_keyring(&mut output, &valid_certs,
                                   m.is_present("binary"))?;
             } else {
                 return Err(anyhow::anyhow!(
@@ -124,7 +132,7 @@ pub fn dispatch_wkd(config: Config, m: &clap::ArgMatches) -> Result<()> {
             // stderr and exit.
             // Because it might be created a WkdServer struct, not
             // doing it for now.
-            let certs = rt.block_on(wkd::get(&email_address))?;
+            let certs = rt.block_on(wkd::get(&reqwest::Client::new(), &email_address))?;
             // ```text
             //     The HTTP GET method MUST return the binary representation of the
             //     OpenPGP key for the given mail address.
@@ -134,7 +142,13 @@ pub fn dispatch_wkd(config: Config, m: &clap::ArgMatches) -> Result<()> {
             // The output is armored if not `--binary` option is given.
             let mut output =
                 config.create_or_stdout_safe(m.value_of("output"))?;
-            serialize_keyring(&mut output, &certs,
+
+            let valid_certs: Vec<openpgp::Cert> = certs
+                .into_iter()
+                .filter_map(Result::ok)
+                .collect();
+            
+            serialize_keyring(&mut output, &valid_certs,
                               m.is_present("binary"))?;
         },
         ("generate", Some(m)) => {

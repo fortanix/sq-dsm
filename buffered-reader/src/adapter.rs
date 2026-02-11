@@ -37,10 +37,10 @@ impl<T: BufferedReader<B>, B: fmt::Debug + Sync + Send> Adapter<T, B, ()> {
 }
 
 impl<T: BufferedReader<B>, B: fmt::Debug + Send + Sync, C: fmt::Debug + Sync + Send> Adapter<T, B, C> {
-    /// Like `new()`, but sets a cookie.
+    /// Like [`Self::new`], but sets a cookie.
     ///
-    /// The cookie can be retrieved using the `cookie_ref` and
-    /// `cookie_mut` methods, and set using the `cookie_set` method.
+    /// The cookie can be retrieved using the [`BufferedReader::cookie_ref`] and
+    /// [`BufferedReader::cookie_mut`] methods, and set using the [`BufferedReader::cookie_set`] method.
     pub fn with_cookie(reader: T, cookie: C)
             -> Adapter<T, B, C> {
         Adapter {

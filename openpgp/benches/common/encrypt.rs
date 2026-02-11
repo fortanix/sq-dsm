@@ -1,8 +1,11 @@
+use std::sync::OnceLock;
+
 use sequoia_openpgp as openpgp;
 use openpgp::cert::Cert;
+use openpgp::parse::Parse;
 use openpgp::policy::StandardPolicy;
 use openpgp::serialize::stream::{
-    padding::Padder, Armorer, Encryptor, LiteralWriter, Message, Signer,
+    Armorer, Encryptor, LiteralWriter, Message, Signer,
 };
 
 use std::io::Write;
@@ -62,7 +65,7 @@ pub fn sign(bytes: &[u8], sender: &Cert) -> openpgp::Result<Vec<u8>> {
         .into_keypair()?;
 
     let message = Message::new(&mut sink);
-    let message = Signer::new(message, signing_keypair).build()?;
+    let message = Signer::new(message, signing_keypair)?.build()?;
     let mut w = LiteralWriter::new(message).build()?;
     w.write_all(bytes)?;
     w.finalize()?;
@@ -100,12 +103,47 @@ pub fn encrypt_to_cert_and_sign(
     let message = Message::new(&mut sink);
     let message = Armorer::new(message).build()?;
     let message = Encryptor::for_recipients(message, recipients).build()?;
-    let message = Padder::new(message).build()?;
-    let message = Signer::new(message, signing_keypair)
+    let message = Signer::new(message, signing_keypair)?
         //.add_intended_recipient(&recipient)
         .build()?;
     let mut w = LiteralWriter::new(message).build()?;
     w.write_all(bytes)?;
     w.finalize()?;
     Ok(sink)
+}
+
+fn zeros_1_mb() -> &'static [u8] {
+    static ZEROS_1_MB: OnceLock<Vec<u8>> = OnceLock::new();
+    ZEROS_1_MB.get_or_init(|| vec![0; 1024 * 1024])
+}
+
+fn zeros_10_mb() -> &'static [u8] {
+    static ZEROS_10_MB: OnceLock<Vec<u8>> = OnceLock::new();
+    ZEROS_10_MB.get_or_init(|| vec![0; 10 * 1024 * 1024])
+}
+
+/// Encrypt a very short, medium and very long message.
+pub fn messages() -> impl Iterator<Item = &'static [u8]> {
+    [b"Hello world.", zeros_1_mb(), zeros_10_mb()]
+        .into_iter()
+}
+
+/// Returns the sender key.
+pub fn sender() -> &'static Cert {
+    static CERT: OnceLock<Cert> = OnceLock::new();
+    CERT.get_or_init(|| {
+        Cert::from_bytes(
+            &include_bytes!("../../tests/data/keys/sender.pgp")[..])
+            .unwrap()
+    })
+}
+
+/// Returns the recipient key.
+pub fn recipient() -> &'static Cert {
+    static CERT: OnceLock<Cert> = OnceLock::new();
+    CERT.get_or_init(|| {
+        Cert::from_bytes(
+            &include_bytes!("../../tests/data/keys/recipient.pgp")[..])
+            .unwrap()
+    })
 }

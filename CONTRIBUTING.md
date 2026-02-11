@@ -1,36 +1,44 @@
-Sequoia PGP is owned by the [p≡p foundation] and licensed under the
-terms of the LGPLv2+.
+Sequoia PGP is licensed under the terms of the LGPLv2+.
 
-  [p≡p foundation]: https://pep.foundation/
+Contributions are governed by the Developer Certificate of Origin,
+which can be obtained from [https://developercertificate.org/].  A
+copy is reproduced below, for your convenience.
 
-To finance its mission, privacy by default, the [p≡p foundation]
-allows third parties (currently only [p≡p security]) to relicense its
-software.  Consistent with the rules of a foundation, the money
-collected by the foundation in this manner is fully reinvested in the
-foundation's mission, which includes further development of Sequoia
-PGP.
+# Developer Certificate of Origin
 
-  [p≡p security]: https://www.pep.security/
+```text
+Developer Certificate of Origin
+Version 1.1
 
-To do this, the [p≡p foundation] needs permission from all
-contributors to relicense their changes.  In return, the
-[p≡p foundation] guarantees that *all* releases of Sequoia PGP (and
-any other software it owns) will also be released under a GNU-approved
-license.  That is, even if Foo Corp is granted a license to use
-Sequoia PGP in a proprietary product, the exact code that Foo Corp
-uses will also be licensed under a GNU-approved license.
+Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
 
-If you want to contribute to Sequoia PGP, and you agree to the above,
-please sign the [p≡p foundation]'s [CLA].  This is an electronic
-assignment; no paper work is required.  You'll need to provide a valid
-email address.  After clicking on a link to verify your email address,
-you'll receive a second email, which contains the contract between you
-and the [p≡p foundation].  Be sure to keep it for future reference.
-The maintainers of Sequoia PGP will also receive a notification.  At
-that point, we can merge patches from you into Sequoia PGP.
+Everyone is permitted to copy and distribute verbatim copies of this
+license document, but changing it is not allowed.
 
-  [CLA]: https://contribution.pep.foundation/contribute/
 
-Please direct questions regarding the CLA to [contribution@pep.foundation].
+Developer's Certificate of Origin 1.1
 
-  [contribution@pep.foundation]: mailto:contribution@pep.foundation
+By making a contribution to this project, I certify that:
+
+(a) The contribution was created in whole or in part by me and I
+    have the right to submit it under the open source license
+    indicated in the file; or
+
+(b) The contribution is based upon previous work that, to the best
+    of my knowledge, is covered under an appropriate open source
+    license and I have the right under that license to submit that
+    work with modifications, whether created in whole or in part
+    by me, under the same open source license (unless I am
+    permitted to submit under a different license), as indicated
+    in the file; or
+
+(c) The contribution was provided directly to me by some other
+    person who certified (a), (b) or (c) and I have not modified
+    it.
+
+(d) I understand and agree that this project and the contribution
+    are public and that a record of the contribution (including all
+    personal information I submit with it, including my sign-off) is
+    maintained indefinitely and may be redistributed consistent with
+    this project or the open source license(s) involved.
+```

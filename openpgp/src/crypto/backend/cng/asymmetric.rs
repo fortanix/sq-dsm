@@ -6,27 +6,441 @@ use std::convert::TryInto;
 
 use crate::{Error, Result};
 
-use crate::crypto::asymmetric::{Decryptor, KeyPair, Signer};
+use crate::crypto::asymmetric::KeyPair;
+use crate::crypto::backend::interface::Asymmetric;
 use crate::crypto::mem::Protected;
-use crate::crypto::mpi;
+use crate::crypto::mpi::{self, MPI, ProtectedMPI};
 use crate::crypto::SessionKey;
 use crate::crypto::{pad, pad_at_least, pad_truncating};
 use crate::packet::key::{Key4, SecretParts};
 use crate::packet::{key, Key};
-use crate::types::{PublicKeyAlgorithm, SymmetricAlgorithm};
+use crate::types::PublicKeyAlgorithm;
 use crate::types::{Curve, HashAlgorithm};
 
 use num_bigint_dig::{traits::ModInverse, BigInt, BigUint};
 use win_crypto_ng as cng;
 
-const CURVE25519_SIZE: usize = 32;
+impl TryFrom<&Protected> for Box<ed25519_dalek::SigningKey> {
+    type Error = anyhow::Error;
 
-impl Signer for KeyPair {
-    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
-        KeyPair::public(self)
+    fn try_from(value: &Protected) -> Result<Self> {
+        if value.len() != ed25519_dalek::SECRET_KEY_LENGTH {
+            return Err(crate::Error::InvalidArgument(
+                "Bad Ed25519 secret length".into()).into());
+        }
+        Ok(Box::new(ed25519_dalek::SigningKey::from_bytes(
+            value.as_ref().try_into().map_err(
+                |e: std::array::TryFromSliceError| {
+                    Error::InvalidKey(e.to_string())
+                })?)))
+    }
+}
+
+impl Asymmetric for super::Backend {
+    fn supports_algo(algo: PublicKeyAlgorithm) -> bool {
+        use PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
+        match algo {
+            X25519 | Ed25519 |
+            RSAEncryptSign | RSAEncrypt | RSASign | DSA | ECDH | ECDSA | EdDSA
+                => true,
+            X448 | Ed448 |
+            ElGamalEncrypt | ElGamalEncryptSign | Private(_) | Unknown(_)
+                => false,
+        }
     }
 
-    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8]) -> Result<mpi::Signature> {
+    fn supports_curve(curve: &Curve) -> bool {
+        use Curve::*;
+        match curve {
+            NistP256 | NistP384 | NistP521 | Ed25519 | Cv25519
+                => true,
+            BrainpoolP256 | BrainpoolP384 | BrainpoolP512 | Unknown(_)
+                => false,
+        }
+    }
+
+    fn x25519_generate_key() -> Result<(Protected, [u8; 32])> {
+        use cng::asymmetric::{Ecdh, AsymmetricKey, Export};
+        use cng::asymmetric::ecc::Curve25519;
+
+        let pair =
+            AsymmetricKey::builder(Ecdh(Curve25519)).build()?.export()?;
+
+        let mut public = [0u8; 32];
+        public.copy_from_slice(pair.x());
+
+        let mut clamped_secret = pair.d().into();
+        Self::x25519_clamp_secret(&mut clamped_secret);
+
+        Ok((clamped_secret, public))
+    }
+
+    fn x25519_derive_public(secret: &Protected) -> Result<[u8; 32]> {
+        use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId, Ecdh,
+                              Private, AsymmetricKey, Export};
+        use cng::asymmetric::ecc::{Curve25519, NamedCurve};
+
+        let provider = AsymmetricAlgorithm::open(
+            AsymmetricAlgorithmId::Ecdh(NamedCurve::Curve25519)
+        )?;
+
+        let mut clamped_secret = secret.clone();
+        Self::x25519_clamp_secret(&mut clamped_secret);
+        let key = AsymmetricKey::<Ecdh<Curve25519>, Private>::import_from_parts(
+            &provider,
+            &clamped_secret,
+        )?;
+        Ok(<[u8; 32]>::try_from(&key.export()?.x()[..])?)
+    }
+
+    fn x25519_shared_point(secret: &Protected, public: &[u8; 32])
+                           -> Result<Protected> {
+        use cng::asymmetric::{Ecdh, AsymmetricKey, Public, Private,
+                              AsymmetricAlgorithm, AsymmetricAlgorithmId};
+        use cng::asymmetric::agreement::secret_agreement;
+        use cng::asymmetric::ecc::{NamedCurve, Curve25519};
+
+        let provider =
+            AsymmetricAlgorithm::open(
+                AsymmetricAlgorithmId::Ecdh(NamedCurve::Curve25519))?;
+        let public =
+            AsymmetricKey::<Ecdh<Curve25519>, Public>::import_from_parts(
+                &provider,
+                public,
+            )?;
+
+        let mut clamped_secret = secret.clone();
+        Self::x25519_clamp_secret(&mut clamped_secret);
+        let secret =
+            AsymmetricKey::<Ecdh<Curve25519>, Private>::import_from_parts(
+                &provider,
+                &clamped_secret,
+            )?;
+
+        let shared = secret_agreement(&secret, &public)?;
+        let mut shared = Protected::from(shared.derive_raw()?);
+        // Returned secret is little-endian, flip it to big-endian
+        shared.reverse();
+        Ok(shared)
+    }
+
+    fn ed25519_generate_key() -> Result<(Protected, [u8; 32])> {
+        let mut rng = cng::random::RandomNumberGenerator::system_preferred();
+        let pair = ed25519_dalek::SigningKey::generate(&mut rng);
+        Ok((pair.to_bytes().into(), pair.verifying_key().to_bytes()))
+    }
+
+    fn ed25519_derive_public(secret: &Protected) -> Result<[u8; 32]> {
+        use ed25519_dalek::SigningKey;
+        let secret: Box<SigningKey> = secret.try_into()?;
+        let public = secret.verifying_key();
+        Ok(public.to_bytes())
+    }
+
+    fn ed25519_sign(secret: &Protected, _public: &[u8; 32], digest: &[u8])
+                    -> Result<[u8; 64]> {
+        use ed25519_dalek::{SigningKey, Signer};
+        let secret: Box<SigningKey> = secret.try_into()?;
+        Ok(secret.sign(digest).to_bytes().try_into()?)
+    }
+
+    fn ed25519_verify(public: &[u8; 32], digest: &[u8], signature: &[u8; 64])
+                      -> Result<bool> {
+        use ed25519_dalek::{VerifyingKey, Verifier, Signature};
+
+        let public = VerifyingKey::from_bytes(public).map_err(|e| {
+            Error::InvalidKey(e.to_string())
+        })?;
+        let signature = signature.as_ref().try_into().map_err(|e: std::array::TryFromSliceError| {
+            Error::InvalidArgument(e.to_string())
+        })?;
+
+        let signature = Signature::from_bytes(signature);
+        Ok(public.verify(digest, &signature).is_ok())
+    }
+
+    fn dsa_generate_key(p_bits: usize)
+                        -> Result<(MPI, MPI, MPI, MPI, ProtectedMPI)>
+    {
+        // XXX: DSA key generation needs fixes upstream, or at least I
+        // didn't figure out how to do that properly, see
+        // https://github.com/emgre/win-crypto-ng/issues/47
+        let _ = p_bits;
+        #[allow(deprecated)]
+        Err(Error::UnsupportedPublicKeyAlgorithm(
+            PublicKeyAlgorithm::DSA).into())
+    }
+
+    fn dsa_sign(x: &ProtectedMPI,
+                p: &MPI, q: &MPI, g: &MPI, y: &MPI,
+                digest: &[u8])
+                -> Result<(MPI, MPI)>
+    {
+        use cng::key_blob::{DsaKeyPrivateV2Payload, DsaKeyPrivateV2Blob};
+        use cng::key_blob::{DsaKeyPrivatePayload, DsaKeyPrivateBlob};
+        use cng::asymmetric::{
+            AsymmetricAlgorithm,
+            AsymmetricAlgorithmId,
+            AsymmetricKey,
+            Dsa,
+            DsaPrivateBlob,
+            Private,
+            signature::Signer,
+        };
+        use cng::helpers::Blob;
+
+        let y = y.value_padded(p.value().len())
+            .map_err(|e| Error::InvalidKey(e.to_string()))?;
+
+        if y.len() > 3072 / 8 {
+            return Err(Error::InvalidOperation(
+                "DSA keys are supported up to 3072-bits".to_string()).into()
+            );
+        }
+
+        enum Version { V1, V2 }
+        // 1024-bit DSA keys are handled differently
+        let version = if y.len() <= 128 { Version::V1 } else { Version::V2 };
+
+        let blob: DsaPrivateBlob = match version {
+            Version::V1 => {
+                let mut group = [0; 20];
+                if let Ok(v) = q.value_padded(group.len()) {
+                    group[..].copy_from_slice(&v);
+                } else {
+                    return Err(Error::InvalidOperation(
+                        "DSA keys' group parameter exceeds 160 bits"
+                            .to_string()).into());
+                }
+
+                DsaPrivateBlob::V1(Blob::<DsaKeyPrivateBlob>::clone_from_parts(
+                    &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
+                        dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC,
+                        cbKey: y.len() as u32,
+                        Count: [0; 4], // unused
+                        Seed: [0; 20], // unused
+                        q: group,
+                    },
+                    &DsaKeyPrivatePayload {
+                        modulus: p.value(),
+                        generator: g.value(),
+                        public: &y,
+                        priv_exp: x.value(),
+                    },
+                ))
+            },
+            Version::V2 => {
+                // https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.ImportExport.cs#L276-L282
+                let hash = match q.value().len() {
+                    20 => 0,
+                    32 => 1,
+                    64 => 2,
+                    _ => return Err(Error::InvalidOperation(
+                        "CNG accepts DSA q with length of either length of 20, 32 or 64".into())
+                                    .into()),
+                };
+
+                // We don't use counter/seed values so set them to 0.
+                // CNG pre-checks that the seed is at least |Q| long,
+                // so we can't use an empty buffer here.
+                let (count, seed) = ([0x0; 4], vec![0x0; q.value().len()]);
+
+                let group_size = std::cmp::min(q.value().len(), 32);
+                let key_size = y.len();
+
+                DsaPrivateBlob::V2(Blob::<DsaKeyPrivateV2Blob>::clone_from_parts(
+                    &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB_V2 {
+                        dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PRIVATE_MAGIC_V2,
+                        Count: count,
+                        // Size of the prime number q.
+                        // Currently, if the key is less than 128
+                        // bits, q is 20 bytes long.
+                        // If the key exceeds 256 bits, q is 32 bytes long.
+                        cbGroupSize: group_size as u32,
+                        cbKey: key_size as u32,
+                        cbSeedLength: seed.len() as u32,
+                        hashAlgorithm: hash,
+                        standardVersion: 1, // FIPS 186-3
+
+                    },
+                    &DsaKeyPrivateV2Payload {
+                        seed: &seed,
+                        group: &q.value_padded(group_size)?,
+                        modulus: &p.value_padded(key_size)?,
+                        generator: &g.value_padded(key_size)?,
+                        public: &y,
+                        priv_exp: &x.value_padded(group_size),
+                    },
+                ))
+            },
+        };
+
+        use win_crypto_ng::asymmetric::{Import};
+
+        let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Dsa)?;
+        let pair = AsymmetricKey::<Dsa, Private>::import(
+            Dsa,
+            &provider,
+            blob
+        )?;
+
+        // CNG accepts only hash and Q of equal length. Either trim the
+        // digest or pad it with zeroes (since it's treated as a
+        // big-endian number).
+        // See https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.SignVerify.cs#L148.
+        let digest = pad_truncating(&digest, q.value().len());
+        assert_eq!(q.value().len(), digest.len());
+
+        let sig = pair.sign(&digest, None)?;
+
+        // https://tools.ietf.org/html/rfc8032#section-5.1.6
+        let (r, s) = sig.split_at(sig.len() / 2);
+        Ok((mpi::MPI::new(r), mpi::MPI::new(s)))
+    }
+
+    fn dsa_verify(p: &MPI, q: &MPI, g: &MPI, y: &MPI,
+                  digest: &[u8],
+                  r: &MPI, s: &MPI)
+                  -> Result<bool>
+    {
+        use cng::key_blob::{DsaKeyPublicPayload, DsaKeyPublicBlob};
+        use cng::key_blob::{DsaKeyPublicV2Payload, DsaKeyPublicV2Blob};
+        use cng::asymmetric::{
+            AsymmetricAlgorithm,
+            AsymmetricAlgorithmId,
+            AsymmetricKey,
+            Dsa,
+            DsaPublicBlob,
+            Public,
+            signature::Verifier,
+        };
+        use cng::helpers::Blob;
+
+        let y = y.value_padded(p.value().len())
+            .map_err(|e| Error::InvalidKey(e.to_string()))?;
+
+        if y.len() > 3072 / 8 {
+            return Err(Error::InvalidOperation(
+                "DSA keys are supported up to 3072-bits".to_string()).into()
+            );
+        }
+
+        // CNG expects full-sized signatures
+        let field_sz = q.value().len();
+        let mut signature = vec![0u8; 2 * field_sz];
+
+        // We need to zero-pad them at the front, because
+        // the MPI encoding drops leading zero bytes.
+        fn bad(e: impl ToString) -> anyhow::Error {
+            Error::BadSignature(e.to_string()).into()
+        }
+        signature[..field_sz].copy_from_slice(
+            &r.value_padded(field_sz).map_err(bad)?);
+        signature[field_sz..].copy_from_slice(
+            &s.value_padded(field_sz).map_err(bad)?);
+
+        enum Version { V1, V2 }
+        // 1024-bit DSA keys are handled differently
+        let version = if y.len() <= 128 { Version::V1 } else { Version::V2 };
+
+        let blob: DsaPublicBlob = match version {
+            Version::V1 => {
+                let mut group = [0; 20];
+                if let Ok(v) = q.value_padded(group.len()) {
+                    group[..].copy_from_slice(&v);
+                } else {
+                    return Err(Error::InvalidOperation(
+                        "DSA keys' group parameter exceeds 160 bits"
+                            .to_string()).into());
+                }
+
+                DsaPublicBlob::V1(Blob::<DsaKeyPublicBlob>::clone_from_parts(
+                    &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
+                        dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC,
+                        cbKey: y.len() as u32,
+                        Count: [0; 4], // unused
+                        Seed: [0; 20], // unused
+                        q: group,
+                    },
+                    &DsaKeyPublicPayload {
+                        modulus: p.value(),
+                        generator: g.value(),
+                        public: &y,
+                    },
+                ))
+            },
+            Version::V2 => {
+                // https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.ImportExport.cs#L276-L282
+                let hash = match q.value().len() {
+                    20 => 0,
+                    32 => 1,
+                    64 => 2,
+                    _ => return Err(Error::InvalidOperation(
+                        "CNG accepts DSA q with length of either length of 20, 32 or 64".into())
+                                    .into()),
+                };
+
+                // We don't use counter/seed values so set them to 0.
+                // CNG pre-checks that the seed is at least |Q| long,
+                // so we can't use an empty buffer here.
+                let (count, seed) = ([0x0; 4], vec![0x0; q.value().len()]);
+
+                DsaPublicBlob::V2(Blob::<DsaKeyPublicV2Blob>::clone_from_parts(
+                    &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB_V2 {
+                        dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC_V2,
+                        Count: count,
+                        // Size of the prime number q .
+                        // Currently, if the key is less than 128
+                        // bits, q is 20 bytes long.
+                        // If the key exceeds 256 bits, q is 32 bytes long.
+                        cbGroupSize: q.value().len() as u32,
+                        cbKey: y.len() as u32,
+                        // https://csrc.nist.gov/csrc/media/publications/fips/186/3/archive/2009-06-25/documents/fips_186-3.pdf
+                        // Length of the seed used to generate the
+                        // prime number q.
+                        cbSeedLength: seed.len() as u32,
+                        hashAlgorithm: hash,
+                        standardVersion: 1, // FIPS 186-3
+
+                    },
+                    &DsaKeyPublicV2Payload {
+                        seed: &seed,
+                        group: q.value(),
+                        modulus: p.value(),
+                        generator: g.value(),
+                        public: &y,
+                    },
+                ))
+            },
+        };
+
+        use win_crypto_ng::asymmetric::Import;
+        let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Dsa)?;
+        let key = AsymmetricKey::<Dsa, Public>::import(
+            Dsa,
+            &provider,
+            blob
+        )?;
+
+        // CNG accepts only hash and Q of equal length. Either trim the
+        // digest or pad it with zeroes (since it's treated as a
+        // big-endian number).
+        // See https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.SignVerify.cs#L148.
+        let digest = pad_truncating(&digest, q.value().len());
+        assert_eq!(q.value().len(), digest.len());
+
+        Ok(key.verify(&digest, &signature, None).map(|_| true)?)
+    }
+}
+
+impl KeyPair {
+    pub(crate) fn sign_backend(&self,
+                               secret: &mpi::SecretKeyMaterial,
+                               hash_algo: HashAlgorithm,
+                               digest: &[u8])
+                               -> Result<mpi::Signature>
+    {
         use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
         use cng::asymmetric::{AsymmetricKey, Private, Rsa};
         use cng::asymmetric::signature::{Signer, SignaturePadding};
@@ -35,8 +449,7 @@ impl Signer for KeyPair {
         use cng::asymmetric::ecc::NamedCurve;
 
         #[allow(deprecated)]
-        self.secret().map(|secret| {
-            Ok(match (self.public().pk_algo(), self.public().mpis(), secret) {
+        Ok(match (self.public().pk_algo(), self.public().mpis(), secret) {
                 (PublicKeyAlgorithm::RSAEncryptSign,
                     &mpi::PublicKey::RSA { ref e, ref n },
                     &mpi::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) |
@@ -54,12 +467,12 @@ impl Signer for KeyPair {
                         }
                     )?;
 
-                    // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+                    // As described in [Section 5.2.2 and 5.2.3 of RFC 9580],
                     // to verify the signature, we need to encode the
                     // signature data in a PKCS1-v1.5 packet.
                     //
-                    //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
-                    //   https://tools.ietf.org/html/rfc4880#section-5.2.2
+                    //   [Section 5.2.2 and 5.2.3 of RFC 9580]:
+                    //   https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.2
                     let hash = hash_algo.try_into()?;
                     let padding = SignaturePadding::pkcs1(hash);
                     let sig = key.sign(digest, Some(padding))?;
@@ -77,10 +490,7 @@ impl Signer for KeyPair {
                     // allows leading zeros to be stripped.
                     // Padding has to be unconditional; otherwise we have a
                     // secret-dependent branch.
-                    let curve_bits = curve.bits().ok_or_else(||
-                        Error::UnsupportedEllipticCurve(curve.clone())
-                    )?;
-                    let curve_bytes = (curve_bits + 7) / 8;
+                    let curve_bytes = curve.field_size()?;
                     let secret = scalar.value_padded(curve_bytes);
 
                     use cng::asymmetric::{ecc::{NistP256, NistP384, NistP521}, Ecdsa};
@@ -128,189 +538,26 @@ impl Signer for KeyPair {
                         s: mpi::MPI::new(s),
                     }
                 },
-                (
-                    PublicKeyAlgorithm::EdDSA,
-                    mpi::PublicKey::EdDSA { curve, q },
-                    mpi::SecretKeyMaterial::EdDSA { scalar },
-                ) => match curve {
-                    Curve::Ed25519 => {
-                        // CNG doesn't support EdDSA, use ed25519-dalek instead
-                        use ed25519_dalek::{Keypair, Signer};
-                        use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 
-                        let (public, ..) = q.decode_point(&Curve::Ed25519)?;
-                        // MPI::decode_point ensures we got the right length.
-                        assert_eq!(public.len(), PUBLIC_KEY_LENGTH);
-
-                        // It's expected for the private key to be exactly
-                        // SECRET_KEY_LENGTH bytes long but OpenPGP allows leading
-                        // zeros to be stripped.
-                        // Padding has to be unconditional; otherwise we have a
-                        // secret-dependent branch.
-                        let mut keypair = Protected::from(
-                            vec![0u8; SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH]
-                        );
-                        keypair[..SECRET_KEY_LENGTH]
-                            .copy_from_slice(
-                                &scalar.value_padded(SECRET_KEY_LENGTH));
-                        keypair[SECRET_KEY_LENGTH..]
-                            .copy_from_slice(&public);
-                        let pair = Keypair::from_bytes(&keypair).unwrap();
-
-                        let sig = pair.sign(digest).to_bytes();
-
-                        // https://tools.ietf.org/html/rfc8032#section-5.1.6
-                        let (r, s) = sig.split_at(sig.len() / 2);
-                        mpi::Signature::EdDSA {
-                            r: mpi::MPI::new(r),
-                            s: mpi::MPI::new(s),
-                        }
-                    },
-                    _ => return Err(
-                        Error::UnsupportedEllipticCurve(curve.clone()).into()),
-                },
-                (PublicKeyAlgorithm::DSA,
-                    mpi:: PublicKey::DSA { y, p, q, g },
-                    mpi::SecretKeyMaterial::DSA { x },
-                ) => {
-                    use win_crypto_ng::key_blob::{DsaKeyPrivateV2Payload, DsaKeyPrivateV2Blob};
-                    use win_crypto_ng::key_blob::{DsaKeyPrivatePayload, DsaKeyPrivateBlob};
-                    use win_crypto_ng::asymmetric::{Dsa, DsaPrivateBlob};
-                    use win_crypto_ng::helpers::Blob;
-
-                    let y = y.value_padded(p.value().len())
-                        .map_err(|e| Error::InvalidKey(e.to_string()))?;
-
-                    if y.len() > 3072 / 8 {
-                        return Err(Error::InvalidOperation(
-                            "DSA keys are supported up to 3072-bits".to_string()).into()
-                        );
-                    }
-
-                    enum Version { V1, V2 }
-                    // 1024-bit DSA keys are handled differently
-                    let version = if y.len() <= 128 { Version::V1 } else { Version::V2 };
-
-                    let blob: DsaPrivateBlob = match version {
-                        Version::V1 => {
-                            let mut group = [0; 20];
-                            if let Ok(v) = q.value_padded(group.len()) {
-                                group[..].copy_from_slice(&v);
-                            } else {
-                                return Err(Error::InvalidOperation(
-                                    "DSA keys' group parameter exceeds 160 bits"
-                                        .to_string()).into());
-                            }
-
-                            DsaPrivateBlob::V1(Blob::<DsaKeyPrivateBlob>::clone_from_parts(
-                                &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
-                                    dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC,
-                                    cbKey: y.len() as u32,
-                                    Count: [0; 4], // unused
-                                    Seed: [0; 20], // unused
-                                    q: group,
-                                },
-                                &DsaKeyPrivatePayload {
-                                    modulus: p.value(),
-                                    generator: g.value(),
-                                    public: &y,
-                                    priv_exp: x.value(),
-                                },
-                            ))
-                        },
-                        Version::V2 => {
-                            // https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.ImportExport.cs#L276-L282
-                            let hash = match q.value().len() {
-                                20 => 0,
-                                32 => 1,
-                                64 => 2,
-                                _ => return Err(Error::InvalidOperation(
-                                    "CNG accepts DSA q with length of either length of 20, 32 or 64".into())
-                                    .into()),
-                            };
-
-                            // We don't use counter/seed values so set them to 0.
-                            // CNG pre-checks that the seed is at least |Q| long,
-                            // so we can't use an empty buffer here.
-                            let (count, seed) = ([0x0; 4], vec![0x0; q.value().len()]);
-
-                            DsaPrivateBlob::V2(Blob::<DsaKeyPrivateV2Blob>::clone_from_parts(
-                                &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB_V2 {
-                                    dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PRIVATE_MAGIC_V2,
-                                    Count: count,
-                                    // Size of the prime number q.
-                                    // Currently, if the key is less than 128
-                                    // bits, q is 20 bytes long.
-                                    // If the key exceeds 256 bits, q is 32 bytes long.
-                                    cbGroupSize: std::cmp::min(q.value().len(), 32) as u32,
-                                    cbKey: y.len() as u32,
-                                    cbSeedLength: seed.len() as u32,
-                                    hashAlgorithm: hash,
-                                    standardVersion: 1, // FIPS 186-3
-
-                                },
-                                &DsaKeyPrivateV2Payload {
-                                    seed: &seed,
-                                    group: q.value(),
-                                    modulus: p.value(),
-                                    generator: g.value(),
-                                    public: &y,
-                                    priv_exp: x.value(),
-                                },
-                            ))
-                        },
-                    };
-
-                    use win_crypto_ng::asymmetric::{Import};
-
-                    let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Dsa)?;
-                    let pair = AsymmetricKey::<Dsa, Private>::import(
-                        Dsa,
-                        &provider,
-                        blob
-                    )?;
-
-                    // CNG accepts only hash and Q of equal length. Either trim the
-                    // digest or pad it with zeroes (since it's treated as a
-                    // big-endian number).
-                    // See https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.SignVerify.cs#L148.
-                    let digest = pad_truncating(&digest, q.value().len());
-                    assert_eq!(q.value().len(), digest.len());
-
-                    let sig = pair.sign(&digest, None)?;
-
-                    // https://tools.ietf.org/html/rfc8032#section-5.1.6
-                    let (r, s) = sig.split_at(sig.len() / 2);
-                    mpi::Signature::DSA {
-                        r: mpi::MPI::new(r),
-                        s: mpi::MPI::new(s),
-                    }
-                },
                 (pk_algo, _, _) => Err(Error::InvalidOperation(format!(
                     "unsupported combination of algorithm {:?}, key {:?}, \
                      and secret key {:?}",
                     pk_algo, self.public(), self.secret())))?,
-            })
         })
     }
 }
 
-impl Decryptor for KeyPair {
-    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
-        KeyPair::public(self)
-    }
-
-    /// Creates a signature over the `digest` produced by `hash_algo`.
-    fn decrypt(
-        &mut self,
+impl KeyPair {
+    pub(crate) fn decrypt_backend(
+        &self,
+        secret: &mpi::SecretKeyMaterial,
         ciphertext: &mpi::Ciphertext,
         plaintext_len: Option<usize>,
     ) -> Result<SessionKey> {
         use crate::PublicKeyAlgorithm::*;
 
-        self.secret().map(
-            |secret| Ok(match (self.public().mpis(), secret, ciphertext)
-        {
+        #[allow(deprecated)]
+        Ok(match (self.public().mpis(), secret, ciphertext) {
             (mpi::PublicKey::RSA { ref e, ref n },
              mpi::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. },
              mpi::Ciphertext::RSA { ref c }) => {
@@ -351,20 +598,21 @@ impl Decryptor for KeyPair {
             (mpi::PublicKey::ECDH{ .. },
              mpi::SecretKeyMaterial::ECDH { .. },
              mpi::Ciphertext::ECDH { .. }) =>
-                crate::crypto::ecdh::decrypt(self.public(), secret, ciphertext)?,
+                crate::crypto::ecdh::decrypt(self.public(), secret, ciphertext,
+                                             plaintext_len)?,
 
             (public, secret, ciphertext) =>
                 return Err(Error::InvalidOperation(format!(
                     "unsupported combination of key pair {:?}/{:?} \
                      and ciphertext {:?}",
                     public, secret, ciphertext)).into()),
-        }))
+        })
     }
 }
 
 impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     /// Encrypts the given data with this key.
-    pub fn encrypt(&self, data: &SessionKey) -> Result<mpi::Ciphertext> {
+    pub(crate) fn encrypt_backend(&self, data: &SessionKey) -> Result<mpi::Ciphertext> {
         use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
         use cng::asymmetric::{AsymmetricKey, Public, Rsa};
         use cng::key_blob::RsaKeyPublicPayload;
@@ -408,13 +656,23 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     },
                 }
             },
+
             ECDH => crate::crypto::ecdh::encrypt(self.parts_as_public(), data),
-            algo => Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
+
+            RSASign | DSA | ECDSA | EdDSA | Ed25519 | Ed448 =>
+                Err(Error::InvalidOperation(
+                    format!("{} is not an encryption algorithm", self.pk_algo())
+                ).into()),
+
+            ElGamalEncrypt | ElGamalEncryptSign |
+            X25519 | X448 |
+            Private(_) | Unknown(_) =>
+                Err(Error::UnsupportedPublicKeyAlgorithm(self.pk_algo()).into()),
         }
     }
 
     /// Verifies the given signature.
-    pub fn verify(&self, sig: &mpi::Signature, hash_algo: HashAlgorithm,
+    pub(crate) fn verify_backend(&self, sig: &mpi::Signature, hash_algo: HashAlgorithm,
                   digest: &[u8]) -> Result<()> {
         use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
         use cng::asymmetric::{AsymmetricKey, Public, Rsa};
@@ -446,135 +704,18 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     }
                 )?;
 
-                // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+                // As described in [Section 5.2.2 and 5.2.3 of RFC 9580],
                 // to verify the signature, we need to encode the
                 // signature data in a PKCS1-v1.5 packet.
                 //
-                //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
-                //   https://tools.ietf.org/html/rfc4880#section-5.2.2
+                //   [Section 5.2.2 and 5.2.3 of RFC 9580]:
+                //   https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.2
                 let hash = hash_algo.try_into()?;
                 let padding = SignaturePadding::pkcs1(hash);
 
                 key.verify(digest, &s, Some(padding)).map(|_| true)?
             },
-            (mpi::PublicKey::DSA { y, p, q, g }, mpi::Signature::DSA { r, s }) => {
-                use win_crypto_ng::key_blob::{DsaKeyPublicPayload, DsaKeyPublicBlob};
-                use win_crypto_ng::key_blob::{DsaKeyPublicV2Payload, DsaKeyPublicV2Blob};
-                use win_crypto_ng::asymmetric::{Dsa, DsaPublicBlob};
-                use win_crypto_ng::helpers::Blob;
 
-                let y = y.value_padded(p.value().len())
-                    .map_err(|e| Error::InvalidKey(e.to_string()))?;
-
-                if y.len() > 3072 / 8 {
-                    return Err(Error::InvalidOperation(
-                        "DSA keys are supported up to 3072-bits".to_string()).into()
-                    );
-                }
-
-                // CNG expects full-sized signatures
-                let field_sz = q.value().len();
-                let mut signature = vec![0u8; 2 * field_sz];
-
-                // We need to zero-pad them at the front, because
-                // the MPI encoding drops leading zero bytes.
-                signature[..field_sz].copy_from_slice(
-                    &r.value_padded(field_sz).map_err(bad)?);
-                signature[field_sz..].copy_from_slice(
-                    &s.value_padded(field_sz).map_err(bad)?);
-
-                enum Version { V1, V2 }
-                // 1024-bit DSA keys are handled differently
-                let version = if y.len() <= 128 { Version::V1 } else { Version::V2 };
-
-                let blob: DsaPublicBlob = match version {
-                    Version::V1 => {
-                        let mut group = [0; 20];
-                        if let Ok(v) = q.value_padded(group.len()) {
-                            group[..].copy_from_slice(&v);
-                        } else {
-                            return Err(Error::InvalidOperation(
-                                "DSA keys' group parameter exceeds 160 bits"
-                                    .to_string()).into());
-                        }
-
-                        DsaPublicBlob::V1(Blob::<DsaKeyPublicBlob>::clone_from_parts(
-                            &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB {
-                                dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC,
-                                cbKey: y.len() as u32,
-                                Count: [0; 4], // unused
-                                Seed: [0; 20], // unused
-                                q: group,
-                            },
-                            &DsaKeyPublicPayload {
-                                modulus: p.value(),
-                                generator: g.value(),
-                                public: &y,
-                            },
-                        ))
-                    },
-                    Version::V2 => {
-                        // https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.ImportExport.cs#L276-L282
-                        let hash = match q.value().len() {
-                            20 => 0,
-                            32 => 1,
-                            64 => 2,
-                            _ => return Err(Error::InvalidOperation(
-                                "CNG accepts DSA q with length of either length of 20, 32 or 64".into())
-                                .into()),
-                        };
-
-                        // We don't use counter/seed values so set them to 0.
-                        // CNG pre-checks that the seed is at least |Q| long,
-                        // so we can't use an empty buffer here.
-                        let (count, seed) = ([0x0; 4], vec![0x0; q.value().len()]);
-
-                        DsaPublicBlob::V2(Blob::<DsaKeyPublicV2Blob>::clone_from_parts(
-                            &winapi::shared::bcrypt::BCRYPT_DSA_KEY_BLOB_V2 {
-                                dwMagic: winapi::shared::bcrypt::BCRYPT_DSA_PUBLIC_MAGIC_V2,
-                                Count: count,
-                                // Size of the prime number q .
-                                // Currently, if the key is less than 128
-                                // bits, q is 20 bytes long.
-                                // If the key exceeds 256 bits, q is 32 bytes long.
-                                cbGroupSize: q.value().len() as u32,
-                                cbKey: y.len() as u32,
-                                // https://csrc.nist.gov/csrc/media/publications/fips/186/3/archive/2009-06-25/documents/fips_186-3.pdf
-                                // Length of the seed used to generate the
-                                // prime number q.
-                                cbSeedLength: seed.len() as u32,
-                                hashAlgorithm: hash,
-                                standardVersion: 1, // FIPS 186-3
-
-                            },
-                            &DsaKeyPublicV2Payload {
-                                seed: &seed,
-                                group: q.value(),
-                                modulus: p.value(),
-                                generator: g.value(),
-                                public: &y,
-                            },
-                        ))
-                    },
-                };
-
-                use win_crypto_ng::asymmetric::Import;
-                let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Dsa)?;
-                let key = AsymmetricKey::<Dsa, Public>::import(
-                    Dsa,
-                    &provider,
-                    blob
-                )?;
-
-                // CNG accepts only hash and Q of equal length. Either trim the
-                // digest or pad it with zeroes (since it's treated as a
-                // big-endian number).
-                // See https://github.com/dotnet/runtime/blob/67d74fca70d4670ad503e23dba9d6bc8a1b5909e/src/libraries/Common/src/System/Security/Cryptography/DSACng.SignVerify.cs#L148.
-                let digest = pad_truncating(&digest, q.value().len());
-                assert_eq!(q.value().len(), digest.len());
-
-                key.verify(&digest, &signature, None).map(|_| true)?
-            },
             (mpi::PublicKey::ECDSA { curve, q }, mpi::Signature::ECDSA { s, r }) =>
             {
                 let (x, y) = q.decode_point(curve)?;
@@ -628,42 +769,6 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                         Error::UnsupportedEllipticCurve(curve.clone()).into()),
                 }
             },
-            (mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s })
-                => match curve
-            {
-                Curve::Ed25519 => {
-                    // CNG doesn't support EdDSA, use ed25519-dalek instead
-                    use ed25519_dalek::{PublicKey, Signature, SIGNATURE_LENGTH};
-                    use ed25519_dalek::{Verifier};
-
-                    let (public, ..) = q.decode_point(&Curve::Ed25519)?;
-                    assert_eq!(public.len(), 32);
-
-                    let key = PublicKey::from_bytes(public).map_err(|e| {
-                        Error::InvalidKey(e.to_string())
-                    })?;
-
-                    // ed25519 expects full-sized signatures but OpenPGP allows
-                    // for stripped leading zeroes, pad each part with zeroes.
-                    let mut sig_bytes = [0u8; SIGNATURE_LENGTH];
-
-                    // We need to zero-pad them at the front, because
-                    // the MPI encoding drops leading zero bytes.
-                    let half = SIGNATURE_LENGTH / 2;
-                    sig_bytes[..half].copy_from_slice(
-                        &r.value_padded(half).map_err(bad)?);
-                    sig_bytes[half..].copy_from_slice(
-                        &s.value_padded(half).map_err(bad)?);
-
-                    let signature = Signature::from(sig_bytes);
-
-                    key.verify(digest, &signature)
-                        .map(|_| true)
-                        .map_err(|e| Error::BadSignature(e.to_string()))?
-                },
-                _ => return Err(
-                    Error::UnsupportedEllipticCurve(curve.clone()).into()),
-            },
             _ => return Err(Error::MalformedPacket(format!(
                 "unsupported combination of key {} and signature {:?}.",
                 self.pk_algo(), sig)).into()),
@@ -681,7 +786,7 @@ impl<R> Key4<SecretParts, R>
 where
     R: key::KeyRole,
 {
-    /// Creates a new OpenPGP secret key packet for an existing X25519 key.
+    /// Creates a new OpenPGP secret key packet for an existing RSA key.
     ///
     /// The ECDH key will use hash algorithm `hash` and symmetric
     /// algorithm `sym`.  If one or both are `None` secure defaults
@@ -820,7 +925,7 @@ where
         T: Into<Option<SystemTime>>,
     {
         // RFC 4880: `p < q`
-        let (p, q) = if p < q { (p, q) } else { (q, p) };
+        let (p, q) = crate::crypto::rsa_sort_raw_pq(p, q);
 
         // CNG can't compute the public key from the private one, so do it ourselves
         let big_p = BigUint::from_bytes_be(p);
@@ -845,15 +950,15 @@ where
                 n: mpi::MPI::new(&n.to_bytes_be()),
             },
             mpi::SecretKeyMaterial::RSA {
-                d: mpi::MPI::new(d).into(),
-                p: mpi::MPI::new(p).into(),
-                q: mpi::MPI::new(q).into(),
-                u: mpi::MPI::new(&u.to_bytes_be()).into(),
+                d: d.into(),
+                p: p.into(),
+                q: q.into(),
+                u: u.to_bytes_be().into(),
             }.into()
         )
     }
 
-    /// Generates a new RSA key with a public modulos of size `bits`.
+    /// Generates a new RSA key with a public modulus of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
         use win_crypto_ng::asymmetric::{AsymmetricKey, Rsa};
 
@@ -867,11 +972,11 @@ where
             n: mpi::MPI::new(blob.modulus()).into(),
         };
 
-        let p = mpi::MPI::new(blob.prime1());
-        let q = mpi::MPI::new(blob.prime2());
+        let p = mpi::ProtectedMPI::from(blob.prime1());
+        let q = mpi::ProtectedMPI::from(blob.prime2());
         // RSA prime generation in CNG returns them in arbitrary order but
         // RFC 4880 expects `p < q`
-        let (p, q) = if p < q { (p, q) } else { (q, p) };
+        let (p, q) = rsa_sort_pq(p, q);
         // CNG `coeff` is `prime1`^-1 mod `prime2` so adjust for possible p,q reorder
         let big_p = BigUint::from_bytes_be(p.value());
         let big_q = BigUint::from_bytes_be(q.value());
@@ -880,10 +985,10 @@ where
             .expect("CNG to generate a valid RSA key (where p, q are coprime)");
 
         let private = mpi::SecretKeyMaterial::RSA {
-            p: p.into(),
-            q: q.into(),
-            d: mpi::MPI::new(blob.priv_exp()).into(),
-            u: mpi::MPI::new(&u.to_bytes_be()).into(),
+            p: p,
+            q: q,
+            d: blob.priv_exp().into(),
+            u: u.to_bytes_be().into(),
         };
 
         Self::with_secret(
@@ -901,18 +1006,26 @@ where
     /// and `curve == Cv25519` will produce an error.  Similar for
     /// `for_signing == false` and `curve == Ed25519`.
     /// signing/encryption
-    pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
-        use crate::PublicKeyAlgorithm::*;
-
+    pub(crate) fn generate_ecc_backend(for_signing: bool, curve: Curve)
+                                       -> Result<(PublicKeyAlgorithm,
+                                                  mpi::PublicKey,
+                                                  mpi::SecretKeyMaterial)>
+    {
         use cng::asymmetric::{ecc, Export};
-        use cng::asymmetric::{AsymmetricKey, AsymmetricAlgorithmId, Ecdh};
+        use cng::asymmetric::{AsymmetricKey, AsymmetricAlgorithmId};
 
-        let (algo, public, private) = match (curve.clone(), for_signing) {
+        match (curve.clone(), for_signing) {
+            (Curve::Ed25519, true) =>
+                unreachable!("handled in Key4::generate_ecc"),
+
+            (Curve::Cv25519, false) =>
+                unreachable!("handled in Key4::generate_ecc"),
+
             (Curve::NistP256, ..) | (Curve::NistP384, ..) | (Curve::NistP521, ..) => {
-                let (cng_curve, hash) = match curve {
-                    Curve::NistP256 => (ecc::NamedCurve::NistP256, HashAlgorithm::SHA256),
-                    Curve::NistP384 => (ecc::NamedCurve::NistP384, HashAlgorithm::SHA384),
-                    Curve::NistP521 => (ecc::NamedCurve::NistP521, HashAlgorithm::SHA512),
+                let cng_curve = match curve {
+                    Curve::NistP256 => ecc::NamedCurve::NistP256,
+                    Curve::NistP384 => ecc::NamedCurve::NistP384,
+                    Curve::NistP521 => ecc::NamedCurve::NistP521,
                     _ => unreachable!()
                 };
 
@@ -932,76 +1045,30 @@ where
                 let field_sz = cng_curve.key_bits() as usize;
 
                 let q = mpi::MPI::new_point(blob.x(), blob.y(), field_sz);
-                let scalar = mpi::MPI::new(blob.d());
+                let scalar = mpi::ProtectedMPI::from(blob.d());
 
                 if for_signing {
-                    (
-                        ECDSA,
+                    Ok((
+                        PublicKeyAlgorithm::ECDSA,
                         mpi::PublicKey::ECDSA { curve, q },
-                        mpi::SecretKeyMaterial::ECDSA { scalar: scalar.into() },
-                    )
+                        mpi::SecretKeyMaterial::ECDSA { scalar },
+                    ))
                 } else {
-                    let sym = SymmetricAlgorithm::AES256;
-                    (
-                        ECDH,
+                    let hash =
+                        crate::crypto::ecdh::default_ecdh_kdf_hash(&curve);
+                    let sym =
+                        crate::crypto::ecdh::default_ecdh_kek_cipher(&curve);
+
+                    Ok((
+                        PublicKeyAlgorithm::ECDH,
                         mpi::PublicKey::ECDH { curve, q, hash, sym },
-                        mpi::SecretKeyMaterial::ECDH { scalar: scalar.into() },
-                    )
+                        mpi::SecretKeyMaterial::ECDH { scalar },
+                    ))
                 }
             },
-            (Curve::Cv25519, false) => {
-                let blob = AsymmetricKey::builder(Ecdh(ecc::Curve25519)).build()?.export()?;
 
-                // Mark MPI as compressed point with 0x40 prefix. See
-                // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
-                let mut public = [0u8; 1 + CURVE25519_SIZE];
-                public[0] = 0x40;
-                public[1..].copy_from_slice(blob.x());
-
-                // Reverse the scalar.  See
-                // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
-                let mut private: Protected = blob.d().into();
-                private.reverse();
-
-                (
-                    ECDH,
-                    mpi::PublicKey::ECDH {
-                        curve,
-                        q: mpi::MPI::new(&public),
-                        hash: HashAlgorithm::SHA256,
-                        sym: SymmetricAlgorithm::AES256,
-                    },
-                    mpi::SecretKeyMaterial::ECDH { scalar: private.into() }
-                )
-            },
-            (Curve::Ed25519, true) => {
-                // CNG doesn't support EdDSA, use ed25519-dalek instead
-                use ed25519_dalek::Keypair;
-
-                let mut rng = cng::random::RandomNumberGenerator::system_preferred();
-                let Keypair { public, secret } = Keypair::generate(&mut rng);
-
-                let secret: Protected = secret.as_bytes().as_ref().into();
-
-                // Mark MPI as compressed point with 0x40 prefix. See
-                // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
-                let mut compressed_public = [0u8; 1 + CURVE25519_SIZE];
-                compressed_public[0] = 0x40;
-                compressed_public[1..].copy_from_slice(public.as_bytes());
-
-                (
-                    EdDSA,
-                    mpi::PublicKey::EdDSA { curve, q: mpi::MPI::new(&compressed_public) },
-                    mpi::SecretKeyMaterial::EdDSA { scalar: secret.into() },
-                )
-            },
-            // TODO: Support Brainpool curves
-            (curve, ..) => {
-                return Err(Error::UnsupportedEllipticCurve(curve).into());
-            }
-        };
-
-        Self::with_secret(crate::now(), algo, public, private.into())
+            _ => Err(Error::UnsupportedEllipticCurve(curve).into()),
+        }
     }
 }
 
@@ -1010,6 +1077,25 @@ fn round_up_to_multiple_of(n: usize, m: usize) -> usize {
     ((n + m - 1) / m) * m
 }
 
+/// Given the secret prime values `p` and `q`, returns the pair of
+/// primes so that the smaller one comes first.
+///
+/// Section 5.5.3 of RFC4880 demands that `p < q`.  This function can
+/// be used to order `p` and `q` accordingly.
+///
+/// Note: even though this function seems trivial, we introduce it as
+/// explicit abstraction.  The reason is that the function's
+/// expression also "works" (as in it compiles) for byte slices, but
+/// does the wrong thing, see [`crate::crypto::rsa_sort_raw_pq`].
+fn rsa_sort_pq(p: mpi::ProtectedMPI, q: mpi::ProtectedMPI)
+               -> (mpi::ProtectedMPI, mpi::ProtectedMPI)
+{
+    if p < q {
+        (p, q)
+    } else {
+        (q, p)
+    }
+}
 
 #[cfg(test)]
 mod tests {

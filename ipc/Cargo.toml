@@ -1,62 +1,66 @@
 [package]
 name = "sequoia-ipc"
 description = "Interprocess communication infrastructure for Sequoia"
-version = "0.27.0"
+version = "0.36.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.25.0/sequoia_ipc"
+documentation = "https://docs.sequoia-pgp.org/sequoia_ipc/index.html"
 build = "build.rs"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"
 license = "LGPL-2.0-or-later"
-edition = "2018"
+edition = "2021"
+rust-version = "1.79"
 
 [badges]
 gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false }
 
 anyhow = "1.0.18"
-buffered-reader = { path = "../buffered-reader", version = "1.0.0", default-features = false }
-capnp-rpc = "0.13"
+capnp-rpc = "0.19"
 fs2 = "0.4.2"
-futures = "0.3.5"
-lalrpop-util = ">=0.17"
-lazy_static = "1.4.0"
+lalrpop-util = ">=0.17, <0.21"
 libc = "0.2.66"
 memsec = { version = ">=0.5", default-features = false }
-rand = { version = "0.7" }
+rand = { version = "0.8" }
 tempfile = "3.1"
-thiserror = "1.0.2"
-tokio = { version = "1.13.1", features = [ "rt-multi-thread", "io-util", "net" ] }
-tokio-util = { version = "0.6", features = ["compat"] }
-socket2 = "0.3.16"
-dirs = "2.0"
+thiserror = ">=1, <3"
+tokio = { version = "1.19", features = [ "rt-multi-thread", "io-util", "net" ] }
+tokio-util = { version = "0.7", features = ["compat"] }
+socket2 = "0.5"
+dirs = "5"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.8", default-features = false, features = ["winsock2"] }
-ctor = "0.1"
+ctor = "0.2"
 
 [build-dependencies]
-lalrpop = ">=0.17"
+lalrpop = { version = ">=0.17, <0.21", default-features = false }
+capnpc = "0.19"
 
 [dev-dependencies]
-clap = "2.33"
 quickcheck = { version = "1", default-features = false }
+capnp = "0.19"
+clap = { version = "4", features = ["derive"] }
 
 [lib]
 bench = false
 
-[features]
-default = ["sequoia-openpgp/default"]
-crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
-crypto-cng = ["sequoia-openpgp/crypto-cng"]
-compression = ["sequoia-openpgp/compression"]
-compression-deflate = ["sequoia-openpgp/compression-deflate"]
-compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
+# Enables a crypto backend for the tests:
+[target.'cfg(not(windows))'.dev-dependencies]
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false, features = ["crypto-nettle", "__implicit-crypto-backend-for-tests"] }
+
+# Enables a crypto backend for the tests:
+[target.'cfg(windows)'.dev-dependencies]
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false, features = ["crypto-cng", "__implicit-crypto-backend-for-tests"] }
+
+# Enables a crypto backend for the docs.rs generation:
+[package.metadata.docs.rs]
+features = ["sequoia-openpgp/default"]

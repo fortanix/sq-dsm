@@ -3,18 +3,16 @@
 //! # Data Types
 //!
 //! The main data type is the [`Key`] enum.  This enum abstracts away
-//! the differences between the key formats (the deprecated [version
-//! 3], the current [version 4], and the proposed [version 5]
-//! formats).  Nevertheless, some functionality remains format
-//! specific.  For instance, the `Key` enum doesn't provide a
-//! mechanism to generate keys.  This functionality depends on the
-//! format.
+//! the differences between the key formats (the current [version 6],
+//! the deprecated [version 4], and the legacy [version 3]).
+//! Nevertheless, some functionality remains format specific.  For
+//! instance, the `Key` enum doesn't provide a mechanism to generate
+//! keys.  This functionality depends on the format.
 //!
-//! This version of Sequoia only supports version 4 keys ([`Key4`]).
-//! However, future versions may include limited support for version 3
-//! keys to allow working with archived messages, and we intend to add
-//! support for version 5 keys once the new version of the
-//! specification has been finalized.
+//! This version of Sequoia only supports version 6 and version 4 keys
+//! ([`Key6`], and [`Key4`]).  However, future versions may include
+//! limited support for version 3 keys to allow working with archived
+//! messages.
 //!
 //! OpenPGP specifies four different types of keys: [public keys],
 //! [secret keys], [public subkeys], and [secret subkeys].  These are
@@ -34,36 +32,31 @@
 //!
 //! [`Key`]: super::Key
 //! [version 3]: https://tools.ietf.org/html/rfc1991#section-6.6
-//! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.5.2
-//! [version 5]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-public-key-packet-formats
-//! [public keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.1
-//! [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
-//! [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2
-//! [secret subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.4
+//! [version 4]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.2
+//! [version 6]: https://www.rfc-editor.org/rfc/rfc9580.html#name-version-6-public-keys
+//! [public keys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.1
+//! [secret keys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.3
+//! [public subkeys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.2
+//! [secret subkeys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.5
 //! [`Key::decrypt_secret`]: super::Key::decrypt_secret()
 //!
 //! # Key Creation
 //!
-//! Use [`Key4::generate_rsa`] or [`Key4::generate_ecc`] to create a
-//! new key.
+//! Use [`Key6::generate_x25519`], [`Key6::generate_ed25519`],
+//! [`Key6::generate_x448`], [`Key6::generate_ed448`],
+//! [`Key6::generate_ecc`], or [`Key6::generate_rsa`] to create a new
+//! key.
 //!
 //! Existing key material can be turned into an OpenPGP key using
-//! [`Key4::import_public_cv25519`], [`Key4::import_public_ed25519`],
-//! [`Key4::import_public_rsa`], [`Key4::import_secret_cv25519`],
-//! [`Key4::import_secret_ed25519`], and [`Key4::import_secret_rsa`].
+//! [`Key6::import_public_x25519`], [`Key6::import_public_ed25519`],
+//! [`Key6::import_public_x448`], [`Key6::import_public_ed448`],
+//! [`Key6::import_public_rsa`], [`Key6::import_secret_x25519`],
+//! [`Key6::import_secret_ed25519`], [`Key6::import_secret_x448`],
+//! [`Key6::import_secret_ed448`], and [`Key6::import_secret_rsa`].
 //!
 //! Whether you create a new key or import existing key material, you
 //! still need to create a binding signature, and, for signing keys, a
 //! back signature for the key to be usable.
-//!
-//! [`Key4::generate_rsa`]: Key4::generate_rsa()
-//! [`Key4::generate_ecc`]: Key4::generate_ecc()
-//! [`Key4::import_public_cv25519`]: Key4::import_public_cv25519()
-//! [`Key4::import_public_ed25519`]: Key4::import_public_ed25519()
-//! [`Key4::import_public_rsa`]: Key4::import_public_rsa()
-//! [`Key4::import_secret_cv25519`]: Key4::import_secret_cv25519()
-//! [`Key4::import_secret_ed25519`]: Key4::import_secret_ed25519()
-//! [`Key4::import_secret_rsa`]: Key4::import_secret_rsa()
 //!
 //! # In-Memory Protection of Secret Key Material
 //!
@@ -81,33 +74,977 @@
 //! [`crypto::mem::Encrypted`]: super::super::crypto::mem::Encrypted
 
 use std::fmt;
-use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::hash::Hasher;
-use std::time;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
 use crate::cert::prelude::*;
-use crate::crypto::{self, mem, mpi, hash::{Hash, Digest}};
-use crate::packet;
+use crate::crypto::{self, mem, mpi, KeyPair};
 use crate::packet::prelude::*;
+use crate::policy::HashAlgoSecurity;
 use crate::PublicKeyAlgorithm;
 use crate::seal;
 use crate::SymmetricAlgorithm;
 use crate::HashAlgorithm;
-use crate::types::{Curve, Timestamp};
+use crate::types::{
+    AEADAlgorithm,
+    Curve,
+};
 use crate::crypto::S2K;
 use crate::Result;
 use crate::crypto::Password;
-use crate::KeyID;
-use crate::Fingerprint;
-use crate::KeyHandle;
-use crate::policy::HashAlgoSecurity;
+use crate::crypto::SessionKey;
 
 mod conversions;
+mod v6;
+pub use v6::Key6;
+mod v4;
+pub use v4::Key4;
+
+/// Holds a public key, public subkey, private key or private subkey packet.
+///
+/// The different `Key` packets are described in [Section 5.5 of RFC 9580].
+///
+///   [Section 5.5 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5
+///
+/// # Key Variants
+///
+/// There are four different types of keys in OpenPGP: [public keys],
+/// [secret keys], [public subkeys], and [secret subkeys].  Although
+/// the semantics of each type of key are slightly different, the
+/// underlying representation is identical (even a public key and a
+/// secret key are the same: the public key variant just contains 0
+/// bits of secret key material).
+///
+/// In Sequoia, we use a single type, `Key`, for all four variants.
+/// To improve type safety, we use marker traits rather than an `enum`
+/// to distinguish them.  Specifically, we `Key` is generic over two
+/// type variables, `P` and `R`.
+///
+/// `P` and `R` take marker traits, which describe how any secret key
+/// material should be treated, and the key's role (primary or
+/// subordinate).  The markers also determine the `Key`'s behavior and
+/// the exposed functionality.  `P` can be [`key::PublicParts`],
+/// [`key::SecretParts`], or [`key::UnspecifiedParts`].  And, `R` can
+/// be [`key::PrimaryRole`], [`key::SubordinateRole`], or
+/// [`key::UnspecifiedRole`].
+///
+/// If `P` is `key::PublicParts`, any secret key material that is
+/// present is ignored.  For instance, when serializing a key with
+/// this marker, any secret key material will be skipped.  This is
+/// illutrated in the following example.  If `P` is
+/// `key::SecretParts`, then the key definitely contains secret key
+/// material (although it is not guaranteed that the secret key
+/// material is valid), and methods that require secret key material
+/// are available.
+///
+/// Unlike `P`, `R` does not say anything about the `Key`'s content.
+/// But, a key's role does influence's the key's semantics.  For
+/// instance, some of a primary key's meta-data is located on the
+/// primary User ID whereas a subordinate key's meta-data is located
+/// on its binding signature.
+///
+/// The unspecified variants [`key::UnspecifiedParts`] and
+/// [`key::UnspecifiedRole`] exist to simplify type erasure, which is
+/// needed to mix different types of keys in a single collection.  For
+/// instance, [`Cert::keys`] returns an iterator over the keys in a
+/// certificate.  Since the keys have different roles (a primary key
+/// and zero or more subkeys), but the `Iterator` has to be over a
+/// single, fixed type, the returned keys use the
+/// `key::UnspecifiedRole` marker.
+///
+/// [public keys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.1
+/// [secret keys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.3
+/// [public subkeys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.2
+/// [secret subkeys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.1.5
+/// [`Cert::keys`]: crate::Cert::keys
+///
+/// ## Examples
+///
+/// Serializing a public key with secret key material drops the secret
+/// key material:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+/// use sequoia_openpgp::parse::Parse;
+/// use openpgp::serialize::Serialize;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// // Generate a new certificate.  It has secret key material.
+/// let (cert, _) = CertBuilder::new()
+///     .generate()?;
+///
+/// let pk = cert.primary_key().key();
+/// assert!(pk.has_secret());
+///
+/// // Serializing a `Key<key::PublicParts, _>` drops the secret key
+/// // material.
+/// let mut bytes = Vec::new();
+/// Packet::from(pk.clone()).serialize(&mut bytes);
+/// let p : Packet = Packet::from_bytes(&bytes)?;
+///
+/// if let Packet::PublicKey(key) = p {
+///     assert!(! key.has_secret());
+/// } else {
+///     unreachable!();
+/// }
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Conversions
+///
+/// Sometimes it is necessary to change a marker.  For instance, to
+/// help prevent a user from inadvertently leaking secret key
+/// material, the [`Cert`] data structure never returns keys with the
+/// [`key::SecretParts`] marker.  This means, to use any secret key
+/// material, e.g., when creating a [`Signer`], the user needs to
+/// explicitly opt-in by changing the marker using
+/// [`Key::parts_into_secret`] or [`Key::parts_as_secret`].
+///
+/// For `P`, the conversion functions are: [`Key::parts_into_public`],
+/// [`Key::parts_as_public`], [`Key::parts_into_secret`],
+/// [`Key::parts_as_secret`], [`Key::parts_into_unspecified`], and
+/// [`Key::parts_as_unspecified`].  With the exception of converting
+/// `P` to `key::SecretParts`, these functions are infallible.
+/// Converting `P` to `key::SecretParts` may fail if the key doesn't
+/// have any secret key material.  (Note: although the secret key
+/// material is required, it is not checked for validity.)
+///
+/// For `R`, the conversion functions are [`Key::role_into_primary`],
+/// [`Key::role_as_primary`], [`Key::role_into_subordinate`],
+/// [`Key::role_as_subordinate`], [`Key::role_into_unspecified`], and
+/// [`Key::role_as_unspecified`].
+///
+/// It is also possible to use `From`.
+///
+/// [`Signer`]: crate::crypto::Signer
+/// [`Key::parts_as_secret`]: Key::parts_as_secret()
+/// [`Key::parts_into_public`]: Key::parts_into_public()
+/// [`Key::parts_as_public`]: Key::parts_as_public()
+/// [`Key::parts_into_secret`]: Key::parts_into_secret()
+/// [`Key::parts_as_secret`]: Key::parts_as_secret()
+/// [`Key::parts_into_unspecified`]: Key::parts_into_unspecified()
+/// [`Key::parts_as_unspecified`]: Key::parts_as_unspecified()
+/// [`Key::role_into_primary`]: Key::role_into_primary()
+/// [`Key::role_as_primary`]: Key::role_as_primary()
+/// [`Key::role_into_subordinate`]: Key::role_into_subordinate()
+/// [`Key::role_as_subordinate`]: Key::role_as_subordinate()
+/// [`Key::role_into_unspecified`]: Key::role_into_unspecified()
+/// [`Key::role_as_unspecified`]: Key::role_as_unspecified()
+///
+/// ## Examples
+///
+/// Changing a marker:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// // Generate a new certificate.  It has secret key material.
+/// let (cert, _) = CertBuilder::new()
+///     .generate()?;
+///
+/// let pk: &Key<key::PublicParts, key::PrimaryRole>
+///     = cert.primary_key().key();
+/// // `has_secret`s is one of the few methods that ignores the
+/// // parts type.
+/// assert!(pk.has_secret());
+///
+/// // Treat it like a secret key.  This only works if `pk` really
+/// // has secret key material (which it does in this case, see above).
+/// let sk = pk.parts_as_secret()?;
+/// assert!(sk.has_secret());
+///
+/// // And back.
+/// let pk = sk.parts_as_public();
+/// // Yes, the secret key material is still there.
+/// assert!(pk.has_secret());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// The [`Cert`] data structure only returns public keys.  To work
+/// with any secret key material, the `Key` first needs to be
+/// converted to a secret key.  This is necessary, for instance, when
+/// creating a [`Signer`]:
+///
+/// [`Cert`]: crate::Cert
+///
+/// ```rust
+/// use std::time;
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::crypto::KeyPair;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let the_past = time::SystemTime::now() - time::Duration::from_secs(1);
+/// let (cert, _) = CertBuilder::new()
+///     .set_creation_time(the_past)
+///     .generate()?;
+///
+/// // Set the certificate to expire now.  To do this, we need
+/// // to create a new self-signature, and sign it using a
+/// // certification-capable key.  The primary key is always
+/// // certification capable.
+/// let mut keypair = cert.primary_key()
+///     .key().clone().parts_into_secret()?.into_keypair()?;
+/// let sigs = cert.set_expiration_time(p, None, &mut keypair,
+///                                     Some(time::SystemTime::now()))?;
+///
+/// let cert = cert.insert_packets(sigs)?.0;
+/// // It's expired now.
+/// assert!(cert.with_policy(p, None)?.alive().is_err());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Key Generation
+///
+/// `Key` is a wrapper around [the different key formats].
+/// (Currently, Sequoia only supports version 6 and version 4 keys,
+/// however, future versions may add limited support for version 3
+/// keys to facilitate working with achieved messages.)  As such, it
+/// doesn't provide a mechanism to generate keys or import existing
+/// key material.  Instead, use the format-specific functions (e.g.,
+/// [`Key6::generate_ecc`]) and then convert the result into a `Key`
+/// packet, as the following example demonstrates.
+///
+/// [the different key formats]: https://www.rfc-editor.org/rfc/rfc9580.html#name-public-key-packet-formats
+///
+/// ## Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::packet::prelude::*;
+/// use openpgp::types::Curve;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let key: Key<key::SecretParts, key::PrimaryRole>
+///     = Key::from(Key6::generate_ecc(true, Curve::Ed25519)?);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Password Protection
+///
+/// OpenPGP provides a mechanism to [password protect keys].  If a key
+/// is password protected, you need to decrypt the password using
+/// [`Key::decrypt_secret`] before using its secret key material
+/// (e.g., to decrypt a message, or to generate a signature).
+///
+/// [password protect keys]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.7
+/// [`Key::decrypt_secret`]: Key::decrypt_secret()
+///
+/// # A note on equality
+///
+/// The implementation of `Eq` for `Key` compares the serialized form
+/// of `Key`s.  Comparing or serializing values of `Key<PublicParts,
+/// _>` ignore secret key material, whereas the secret key material is
+/// considered and serialized for `Key<SecretParts, _>`, and for
+/// `Key<UnspecifiedParts, _>` if present.  To explicitly exclude the
+/// secret key material from the comparison, use [`Key::public_cmp`]
+/// or [`Key::public_eq`].
+///
+/// When merging in secret key material from untrusted sources, you
+/// need to be very careful: secret key material is not
+/// cryptographically protected by the key's self signature.  Thus, an
+/// attacker can provide a valid key with a valid self signature, but
+/// invalid secret key material.  If naively merged, this could
+/// overwrite valid secret key material, and thereby render the key
+/// useless.  Unfortunately, the only way to find out that the secret
+/// key material is bad is to actually try using it.  But, because the
+/// secret key material is usually encrypted, this can't always be
+/// done automatically.
+///
+/// [`Key::public_cmp`]: Key::public_cmp()
+/// [`Key::public_eq`]: Key::public_eq()
+///
+/// Compare:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+/// use openpgp::packet::key::*;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// // Generate a new certificate.  It has secret key material.
+/// let (cert, _) = CertBuilder::new()
+///     .generate()?;
+///
+/// let sk: &Key<PublicParts, _> = cert.primary_key().key();
+/// assert!(sk.has_secret());
+///
+/// // Strip the secret key material.
+/// let cert = cert.clone().strip_secret_key_material();
+/// let pk: &Key<PublicParts, _> = cert.primary_key().key();
+/// assert!(! pk.has_secret());
+///
+/// // Eq on Key<PublicParts, _> compares only the public bits, so it
+/// // considers pk and sk to be equal.
+/// assert_eq!(pk, sk);
+///
+/// // Convert to Key<UnspecifiedParts, _>.
+/// let sk: &Key<UnspecifiedParts, _> = sk.parts_as_unspecified();
+/// let pk: &Key<UnspecifiedParts, _> = pk.parts_as_unspecified();
+///
+/// // Eq on Key<UnspecifiedParts, _> compares both the public and the
+/// // secret bits, so it considers pk and sk to be different.
+/// assert_ne!(pk, sk);
+///
+/// // In any case, Key::public_eq only compares the public bits,
+/// // so it considers them to be equal.
+/// assert!(Key::public_eq(pk, sk));
+/// # Ok(())
+/// # }
+/// ```
+#[non_exhaustive]
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub enum Key<P: key::KeyParts, R: key::KeyRole> {
+    /// A version 4 `Key` packet.
+    V4(Key4<P, R>),
+
+    /// A version 6 `Key` packet.
+    V6(Key6<P, R>),
+}
+assert_send_and_sync!(Key<P, R> where P: key::KeyParts, R: key::KeyRole);
+
+// derive(Clone) doesn't work as expected with generic type parameters
+// that don't implement clone: it adds a trait bound on Clone to P and
+// R in the Clone implementation.  Happily, we don't need P or R to
+// implement Clone: they are just marker traits, which we can clone
+// manually.
+//
+// See: https://github.com/rust-lang/rust/issues/26925
+impl<P, R> Clone for Key<P, R>
+    where P: key::KeyParts, R: key::KeyRole
+{
+    fn clone(&self) -> Self {
+        match self {
+            Key::V4(key) => Key::V4(key.clone()),
+            Key::V6(key) => Key::V6(key.clone()),
+        }
+    }
+}
+
+impl<P: key::KeyParts, R: key::KeyRole> fmt::Display for Key<P, R> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Key::V4(k) => k.fmt(f),
+            Key::V6(k) => k.fmt(f),
+        }
+    }
+}
+
+impl From<Key<key::PublicParts, key::PrimaryRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::PublicParts, key::PrimaryRole>) -> Self {
+        Packet::PublicKey(k)
+    }
+}
+
+impl From<Key<key::PublicParts, key::SubordinateRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::PublicParts, key::SubordinateRole>) -> Self {
+        Packet::PublicSubkey(k)
+    }
+}
+
+impl From<Key<key::SecretParts, key::PrimaryRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::SecretParts, key::PrimaryRole>) -> Self {
+        Packet::SecretKey(k)
+    }
+}
+
+impl From<Key<key::SecretParts, key::SubordinateRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::SecretParts, key::SubordinateRole>) -> Self {
+        Packet::SecretSubkey(k)
+    }
+}
+
+impl<R: key::KeyRole> Key<key::SecretParts, R> {
+    /// Gets the `Key`'s `SecretKeyMaterial`.
+    pub fn secret(&self) -> &SecretKeyMaterial {
+        match self {
+            Key::V4(k) => k.secret(),
+            Key::V6(k) => k.secret(),
+        }
+    }
+
+    /// Gets a mutable reference to the `Key`'s `SecretKeyMaterial`.
+    pub fn secret_mut(&mut self) -> &mut SecretKeyMaterial {
+        match self {
+            Key::V4(k) => k.secret_mut(),
+            Key::V6(k) => k.secret_mut(),
+        }
+    }
+
+    /// Creates a new key pair from a `Key` with an unencrypted
+    /// secret key.
+    ///
+    /// If the `Key` is password protected, you first need to decrypt
+    /// it using [`Key::decrypt_secret`].
+    ///
+    /// [`Key::decrypt_secret`]: Key::decrypt_secret()
+    ///
+    /// # Errors
+    ///
+    /// Fails if the secret key is encrypted.
+    ///
+    /// # Examples
+    ///
+    /// Revoke a certificate by signing a new revocation certificate:
+    ///
+    /// ```rust
+    /// use std::time;
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::crypto::KeyPair;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// // Generate a certificate.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(Some("Alice Lovelace <alice@example.org>"))
+    ///         .generate()?;
+    ///
+    /// // Use the secret key material to sign a revocation certificate.
+    /// let mut keypair = cert.primary_key()
+    ///     .key().clone().parts_into_secret()?
+    ///     .into_keypair()?;
+    /// let rev = cert.revoke(&mut keypair,
+    ///                       ReasonForRevocation::KeyCompromised,
+    ///                       b"It was the maid :/")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn into_keypair(self) -> Result<KeyPair> {
+        match self {
+            Key::V4(k) => k.into_keypair(),
+            Key::V6(k) => k.into_keypair(),
+        }
+    }
+
+    /// Decrypts the secret key material.
+    ///
+    /// In OpenPGP, secret key material can be [protected with a
+    /// password].  The password is usually hardened using a [KDF].
+    ///
+    /// [protected with a password]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.3
+    /// [KDF]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.7
+    ///
+    /// This function takes ownership of the `Key`, decrypts the
+    /// secret key material using the password, and returns a new key
+    /// whose secret key material is not password protected.
+    ///
+    /// If the secret key material is not password protected or if the
+    /// password is wrong, this function returns an error.
+    ///
+    /// # Examples
+    ///
+    /// Sign a new revocation certificate using a password-protected
+    /// key:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// // Generate a certificate whose secret key material is
+    /// // password protected.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(Some("Alice Lovelace <alice@example.org>"))
+    ///         .set_password(Some("1234".into()))
+    ///         .generate()?;
+    ///
+    /// // Use the secret key material to sign a revocation certificate.
+    /// let key = cert.primary_key().key().clone().parts_into_secret()?;
+    ///
+    /// // We can't turn it into a keypair without decrypting it.
+    /// assert!(key.clone().into_keypair().is_err());
+    ///
+    /// // And, we need to use the right password.
+    /// assert!(key.clone()
+    ///     .decrypt_secret(&"correct horse battery staple".into())
+    ///     .is_err());
+    ///
+    /// // Let's do it right:
+    /// let mut keypair = key.decrypt_secret(&"1234".into())?.into_keypair()?;
+    /// let rev = cert.revoke(&mut keypair,
+    ///                       ReasonForRevocation::KeyCompromised,
+    ///                       b"It was the maid :/")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn decrypt_secret(self, password: &Password) -> Result<Self>
+    {
+        match self {
+            Key::V4(k) => Ok(Key::V4(k.decrypt_secret(password)?)),
+            Key::V6(k) => Ok(Key::V6(k.decrypt_secret(password)?)),
+        }
+    }
+
+    /// Encrypts the secret key material.
+    ///
+    /// In OpenPGP, secret key material can be [protected with a
+    /// password].  The password is usually hardened using a [KDF].
+    ///
+    /// [protected with a password]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.3
+    /// [KDF]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.7
+    ///
+    /// This function takes ownership of the `Key`, encrypts the
+    /// secret key material using the password, and returns a new key
+    /// whose secret key material is protected with the password.
+    ///
+    /// If the secret key material is already password protected, this
+    /// function returns an error.
+    ///
+    /// # Examples
+    ///
+    /// This example demonstrates how to encrypt the secret key
+    /// material of every key in a certificate.  Decryption can be
+    /// done the same way with [`Key::decrypt_secret`].
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::Packet;
+    ///
+    /// # fn main() -> Result<()> {
+    /// // Generate a certificate whose secret key material is
+    /// // not password protected.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(Some("Alice Lovelace <alice@example.org>"))
+    ///         .generate()?;
+    ///
+    /// // Encrypt every key.
+    /// let mut encrypted_keys: Vec<Packet> = Vec::new();
+    /// for ka in cert.keys().secret() {
+    ///     assert!(ka.key().has_unencrypted_secret());
+    ///
+    ///     // Encrypt the key's secret key material.
+    ///     let key = ka.key().clone().encrypt_secret(&"1234".into())?;
+    ///     assert!(! key.has_unencrypted_secret());
+    ///
+    ///     // We cannot merge it right now, because `cert` is borrowed.
+    ///     encrypted_keys.push(if ka.primary() {
+    ///         key.role_into_primary().into()
+    ///     } else {
+    ///         key.role_into_subordinate().into()
+    ///     });
+    /// }
+    ///
+    /// // Merge the keys into the certificate.  Note: `Cert::insert_packets`
+    /// // prefers added versions of keys.  So, the encrypted version
+    /// // will override the decrypted version.
+    /// let cert = cert.insert_packets(encrypted_keys)?.0;
+    ///
+    /// // Now the every key's secret key material is encrypted.  We'll
+    /// // demonstrate this using the primary key:
+    /// let key = cert.primary_key().key().parts_as_secret()?;
+    /// assert!(! key.has_unencrypted_secret());
+    ///
+    /// // We can't turn it into a keypair without decrypting it.
+    /// assert!(key.clone().into_keypair().is_err());
+    ///
+    /// // And, we need to use the right password.
+    /// assert!(key.clone()
+    ///     .decrypt_secret(&"correct horse battery staple".into())
+    ///     .is_err());
+    ///
+    /// // Let's do it right:
+    /// let mut keypair = key.clone()
+    ///     .decrypt_secret(&"1234".into())?.into_keypair()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn encrypt_secret(self, password: &Password) -> Result<Self>
+    {
+        match self {
+            Key::V4(k) => Ok(Key::V4(k.encrypt_secret(password)?)),
+            Key::V6(k) => Ok(Key::V6(k.encrypt_secret(password)?)),
+        }
+    }
+}
+
+macro_rules! impl_common_secret_functions {
+    ($t: path) => {
+        /// Secret key handling.
+        impl<R: key::KeyRole> Key<$t, R> {
+            /// Takes the key packet's `SecretKeyMaterial`, if any.
+            pub fn take_secret(self)
+                               -> (Key<key::PublicParts, R>,
+                                   Option<key::SecretKeyMaterial>)
+            {
+                match self {
+                    Key::V4(k) => {
+                        let (k, s) = k.take_secret();
+                        (k.into(), s)
+                    },
+                    Key::V6(k) => {
+                        let (k, s) = k.take_secret();
+                        (k.into(), s)
+                    },
+                }
+            }
+
+            /// Adds `SecretKeyMaterial` to the packet, returning the old if
+            /// any.
+            pub fn add_secret(self, secret: key::SecretKeyMaterial)
+                              -> (Key<key::SecretParts, R>,
+                                  Option<key::SecretKeyMaterial>)
+            {
+                match self {
+                    Key::V4(k) => {
+                        let (k, s) = k.add_secret(secret);
+                        (k.into(), s)
+                    },
+                    Key::V6(k) => {
+                        let (k, s) = k.add_secret(secret);
+                        (k.into(), s)
+                    },
+                }
+            }
+
+            /// Takes the key packet's `SecretKeyMaterial`, if any.
+            pub fn steal_secret(&mut self) -> Option<key::SecretKeyMaterial>
+            {
+                match self {
+                    Key::V4(k) => k.steal_secret(),
+                    Key::V6(k) => k.steal_secret(),
+                }
+            }
+        }
+    }
+}
+impl_common_secret_functions!(key::PublicParts);
+impl_common_secret_functions!(key::UnspecifiedParts);
+
+/// Secret key handling.
+impl<R: key::KeyRole> Key<key::SecretParts, R> {
+    /// Takes the key packet's `SecretKeyMaterial`.
+    pub fn take_secret(self)
+                       -> (Key<key::PublicParts, R>, key::SecretKeyMaterial)
+    {
+        match self {
+            Key::V4(k) => {
+                let (k, s) = k.take_secret();
+                (k.into(), s)
+            },
+            Key::V6(k) => {
+                let (k, s) = k.take_secret();
+                (k.into(), s)
+            },
+        }
+    }
+
+    /// Adds `SecretKeyMaterial` to the packet, returning the old.
+    pub fn add_secret(self, secret: key::SecretKeyMaterial)
+                      -> (Key<key::SecretParts, R>, key::SecretKeyMaterial)
+    {
+        match self {
+            Key::V4(k) => {
+                let (k, s) = k.add_secret(secret);
+                (k.into(), s)
+            },
+            Key::V6(k) => {
+                let (k, s) = k.add_secret(secret);
+                (k.into(), s)
+            },
+        }
+    }
+}
+
+/// Ordering, equality, and hashing on the public parts only.
+impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
+    /// Compares the public bits of two keys.
+    ///
+    /// This returns `Ordering::Equal` if the public MPIs, creation
+    /// time, and algorithm of the two `Key4`s match.  This does not
+    /// consider the packets' encodings, packets' tags or their secret
+    /// key material.
+    pub fn public_cmp<PB, RB>(&self, b: &Key<PB, RB>)
+                              -> std::cmp::Ordering
+    where
+        PB: key::KeyParts,
+        RB: key::KeyRole,
+    {
+        match (self, b) {
+            (Key::V4(a), Key::V4(b)) => a.public_cmp(b),
+            (Key::V6(a), Key::V6(b)) => a.public_cmp(b),
+            // XXX: is that okay?
+            (Key::V4(_), Key::V6(_)) => std::cmp::Ordering::Less,
+            (Key::V6(_), Key::V4(_)) => std::cmp::Ordering::Greater,
+        }
+    }
+
+    /// Tests whether two keys are equal modulo their secret key
+    /// material.
+    ///
+    /// This returns true if the public MPIs, creation time and
+    /// algorithm of the two `Key4`s match.  This does not consider
+    /// the packets' encodings, packets' tags or their secret key
+    /// material.
+    pub fn public_eq<PB, RB>(&self, b: &Key<PB, RB>)
+                             -> bool
+    where
+        PB: key::KeyParts,
+        RB: key::KeyRole,
+    {
+        self.public_cmp(b) == std::cmp::Ordering::Equal
+    }
+
+    /// Hashes everything but any secret key material into state.
+    ///
+    /// This is an alternate implementation of [`Hash`], which never
+    /// hashes the secret key material.
+    ///
+    ///   [`Hash`]: std::hash::Hash
+    pub fn public_hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        use std::hash::Hash;
+
+        match self {
+            Key::V4(k) => k.common.hash(state),
+            Key::V6(k) => k.common.common.hash(state),
+        }
+        self.creation_time().hash(state);
+        self.pk_algo().hash(state);
+        Hash::hash(&self.mpis(), state);
+    }
+}
+
+/// Immutable key interface.
+impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            Key::V4(_) => 4,
+            Key::V6(_) => 6,
+        }
+    }
+
+    /// Gets the `Key`'s creation time.
+    pub fn creation_time(&self) -> std::time::SystemTime {
+        match self {
+            Key::V4(k) => k.creation_time(),
+            Key::V6(k) => k.creation_time(),
+        }
+    }
+
+    /// Sets the `Key`'s creation time.
+    ///
+    /// `timestamp` is converted to OpenPGP's internal format,
+    /// [`Timestamp`]: a 32-bit quantity containing the number of
+    /// seconds since the Unix epoch.
+    ///
+    /// `timestamp` is silently rounded to match the internal
+    /// resolution.  An error is returned if `timestamp` is out of
+    /// range.
+    ///
+    /// [`Timestamp`]: crate::types::Timestamp
+    pub fn set_creation_time<T>(&mut self, timestamp: T)
+                                -> Result<std::time::SystemTime>
+    where
+        T: Into<std::time::SystemTime>,
+    {
+        match self {
+            Key::V4(k) => k.set_creation_time(timestamp.into()),
+            Key::V6(k) => k.set_creation_time(timestamp.into()),
+        }
+    }
+
+    /// Gets the public key algorithm.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        match self {
+            Key::V4(k) => k.pk_algo(),
+            Key::V6(k) => k.pk_algo(),
+        }
+    }
+
+    /// Sets the public key algorithm.
+    ///
+    /// Returns the old public key algorithm.
+    pub fn set_pk_algo(&mut self, pk_algo: PublicKeyAlgorithm)
+                       -> PublicKeyAlgorithm
+    {
+        match self {
+            Key::V4(k) => k.set_pk_algo(pk_algo),
+            Key::V6(k) => k.set_pk_algo(pk_algo),
+        }
+    }
+
+    /// Returns a reference to the `Key`'s MPIs.
+    pub fn mpis(&self) -> &mpi::PublicKey {
+        match self {
+            Key::V4(k) => k.mpis(),
+            Key::V6(k) => k.mpis(),
+        }
+    }
+
+    /// Returns a mutable reference to the `Key`'s MPIs.
+    pub fn mpis_mut(&mut self) -> &mut mpi::PublicKey {
+        match self {
+            Key::V4(k) => k.mpis_mut(),
+            Key::V6(k) => k.mpis_mut(),
+        }
+    }
+
+    /// Sets the `Key`'s MPIs.
+    ///
+    /// This function returns the old MPIs, if any.
+    pub fn set_mpis(&mut self, mpis: mpi::PublicKey) -> mpi::PublicKey {
+        match self {
+            Key::V4(k) => k.set_mpis(mpis),
+            Key::V6(k) => k.set_mpis(mpis),
+        }
+    }
+
+    /// Returns whether the `Key` contains secret key material.
+    pub fn has_secret(&self) -> bool {
+        match self {
+            Key::V4(k) => k.has_secret(),
+            Key::V6(k) => k.has_secret(),
+        }
+    }
+
+    /// Returns whether the `Key` contains unencrypted secret key
+    /// material.
+    ///
+    /// This returns false if the `Key` doesn't contain any secret key
+    /// material.
+    pub fn has_unencrypted_secret(&self) -> bool {
+        match self {
+            Key::V4(k) => k.has_unencrypted_secret(),
+            Key::V6(k) => k.has_unencrypted_secret(),
+        }
+    }
+
+    /// Returns `Key`'s secret key material, if any.
+    pub fn optional_secret(&self) -> Option<&SecretKeyMaterial> {
+        match self {
+            Key::V4(k) => k.optional_secret(),
+            Key::V6(k) => k.optional_secret(),
+        }
+    }
+
+    /// Computes and returns the `Key`'s `Fingerprint` and returns it as
+    /// a `KeyHandle`.
+    ///
+    /// See [Section 5.5.4 of RFC 9580].
+    ///
+    /// [Section 5.5.4 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.4
+    pub fn key_handle(&self) -> crate::KeyHandle {
+        match self {
+            Key::V4(k) => k.key_handle(),
+            Key::V6(k) => k.key_handle(),
+        }
+    }
+
+    /// Computes and returns the `Key`'s `Fingerprint`.
+    ///
+    /// See [Section 5.5.4 of RFC 9580].
+    ///
+    /// [Section 5.5.4 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.4
+    pub fn fingerprint(&self) -> crate::Fingerprint {
+        match self {
+            Key::V4(k) => k.fingerprint(),
+            Key::V6(k) => k.fingerprint(),
+        }
+    }
+
+    /// Computes and returns the `Key`'s `Key ID`.
+    ///
+    /// See [Section 5.5.4 of RFC 9580].
+    ///
+    /// [Section 5.5.4 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.5.4
+    pub fn keyid(&self) -> crate::KeyID {
+        match self {
+            Key::V4(k) => k.keyid(),
+            Key::V6(k) => k.keyid(),
+        }
+    }
+
+    /// The security requirements of the hash algorithm for
+    /// self-signatures.
+    ///
+    /// A cryptographic hash algorithm usually has [three security
+    /// properties]: pre-image resistance, second pre-image
+    /// resistance, and collision resistance.  If an attacker can
+    /// influence the signed data, then the hash algorithm needs to
+    /// have both second pre-image resistance, and collision
+    /// resistance.  If not, second pre-image resistance is
+    /// sufficient.
+    ///
+    ///   [three security properties]: https://en.wikipedia.org/wiki/Cryptographic_hash_function#Properties
+    ///
+    /// In general, an attacker may be able to influence third-party
+    /// signatures.  But direct key signatures, and binding signatures
+    /// are only over data fully determined by signer.  And, an
+    /// attacker's control over self signatures over User IDs is
+    /// limited due to their structure.
+    ///
+    /// These observations can be used to extend the life of a hash
+    /// algorithm after its collision resistance has been partially
+    /// compromised, but not completely broken.  For more details,
+    /// please refer to the documentation for [HashAlgoSecurity].
+    ///
+    ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
+    pub fn hash_algo_security(&self) -> HashAlgoSecurity {
+        HashAlgoSecurity::SecondPreImageResistance
+    }
+
+    pub(crate) fn role(&self) -> key::KeyRoleRT {
+        match self {
+            Key::V4(k) => k.role(),
+            Key::V6(k) => k.role(),
+        }
+    }
+
+    pub(crate) fn set_role(&mut self, role: key::KeyRoleRT) {
+        match self {
+            Key::V4(k) => k.set_role(role),
+            Key::V6(k) => k.set_role(role),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<P, R> Arbitrary for Key<P, R>
+where
+    P: KeyParts,
+    R: KeyRole,
+    Key4<P, R>: Arbitrary,
+    Key6<P, R>: Arbitrary,
+{
+    fn arbitrary(g: &mut Gen) -> Self {
+        if <bool>::arbitrary(g) {
+            Key4::arbitrary(g).into()
+        } else {
+            Key6::arbitrary(g).into()
+        }
+    }
+}
 
 /// A marker trait that captures whether a `Key` definitely contains
 /// secret key material.
@@ -195,7 +1132,7 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// }
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
-    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
     /// #     .generate()?;
     /// # f(&cert, cert.primary_key().key().clone().role_into_unspecified())?;
     /// # Ok(())
@@ -381,7 +1318,7 @@ pub trait KeyRole: fmt::Debug + seal::Sealed {
     /// }
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
-    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     CertBuilder::general_purpose(Some("alice@example.org"))
     /// #     .generate()?;
     /// # f(&cert, cert.primary_key().key().clone().parts_into_unspecified())?;
     /// # Ok(())
@@ -423,6 +1360,9 @@ pub trait KeyRole: fmt::Debug + seal::Sealed {
     fn convert_bundle_ref<P: KeyParts>(bundle: &KeyBundle<P, UnspecifiedRole>)
                                        -> &KeyBundle<P, Self>
         where Self: Sized;
+
+    /// Returns the role as a runtime value.
+    fn role() -> KeyRoleRT;
 }
 
 /// A marker that indicates that a `Key` should be treated like a
@@ -631,10 +1571,13 @@ impl KeyRole for PrimaryRole {
                                        -> &KeyBundle<P, Self> {
         bundle.into()
     }
+
+    fn role() -> KeyRoleRT {
+        KeyRoleRT::Primary
+    }
 }
 
-
-/// A marker that indicates the `Key` should treated like a subkey.
+/// A marker that indicates the `Key` should be treated like a subkey.
 ///
 /// Refer to [`KeyRole`] for details.
 ///
@@ -663,6 +1606,10 @@ impl KeyRole for SubordinateRole {
     fn convert_bundle_ref<P: KeyParts>(bundle: &KeyBundle<P, UnspecifiedRole>)
                                        -> &KeyBundle<P, Self> {
         bundle.into()
+    }
+
+    fn role() -> KeyRoleRT {
+        KeyRoleRT::Subordinate
     }
 }
 
@@ -703,6 +1650,42 @@ impl KeyRole for UnspecifiedRole {
                                        -> &KeyBundle<P, Self> {
         bundle
     }
+
+    fn role() -> KeyRoleRT {
+        KeyRoleRT::Unspecified
+    }
+}
+
+/// Encodes the key role at run time.
+///
+/// While `KeyRole` tracks the key's role in the type system,
+/// `KeyRoleRT` tracks the key role at run time.
+///
+/// When we are doing a reference conversion (e.g. by using
+/// [`Key::role_as_primary`]), we do not change the key's role.  But,
+/// when we are doing an owned conversion (e.g. by using
+/// [`Key::role_into_primary`]), we do change the key's role.  The
+/// rationale here is that the former conversion is done to allow a
+/// reference to be given to a function expecting a certain shape of
+/// key (e.g. to prevent excessive monomorphization), while the latter
+/// conversion signals intent (e.g. to put a key into a
+/// `Packet::PublicKey`).
+///
+/// This is similar to how we have `KeyParts` that track the presence
+/// or absence of secret key material in the type system, yet at run
+/// time a key may or may not actually have secret key material (with
+/// the constraint that a key with `SecretParts` MUST have secret key
+/// material).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyRoleRT {
+    /// The key is a primary key.
+    Primary,
+
+    /// The key is a subkey.
+    Subordinate,
+
+    /// The key's role is unspecified.
+    Unspecified,
 }
 
 /// A Public Key.
@@ -734,522 +1717,176 @@ pub(crate) type UnspecifiedSecondary = Key<UnspecifiedParts, SubordinateRole>;
 #[allow(dead_code)]
 pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 
-
-/// Holds a public key, public subkey, private key or private subkey
-/// packet.
-///
-/// Use [`Key4::generate_rsa`] or [`Key4::generate_ecc`] to create a
-/// new key.
-///
-/// Existing key material can be turned into an OpenPGP key using
-/// [`Key4::new`], [`Key4::with_secret`], [`Key4::import_public_cv25519`],
-/// [`Key4::import_public_ed25519`], [`Key4::import_public_rsa`],
-/// [`Key4::import_secret_cv25519`], [`Key4::import_secret_ed25519`],
-/// and [`Key4::import_secret_rsa`].
-///
-/// Whether you create a new key or import existing key material, you
-/// still need to create a binding signature, and, for signing keys, a
-/// back signature before integrating the key into a certificate.
-///
-/// Normally, you won't directly use `Key4`, but [`Key`], which is a
-/// relatively thin wrapper around `Key4`.
-///
-/// See [Section 5.5 of RFC 4880] and [the documentation for `Key`]
-/// for more details.
-///
-/// [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-/// [the documentation for `Key`]: super::Key
-/// [`Key`]: super::Key
-#[derive(Clone)]
-pub struct Key4<P, R>
-    where P: KeyParts, R: KeyRole
-{
-    /// CTB packet header fields.
-    pub(crate) common: packet::Common,
-    /// When the key was created.
-    creation_time: Timestamp,
-    /// Public key algorithm of this signature.
-    pk_algo: PublicKeyAlgorithm,
-    /// Public key MPIs.
-    mpis: mpi::PublicKey,
-    /// Optional secret part of the key.
-    secret: Option<SecretKeyMaterial>,
-
-    p: std::marker::PhantomData<P>,
-    r: std::marker::PhantomData<R>,
-}
-
-assert_send_and_sync!(Key4<P, R> where P: KeyParts, R: KeyRole);
-
-impl<P: KeyParts, R: KeyRole> PartialEq for Key4<P, R> {
-    fn eq(&self, other: &Key4<P, R>) -> bool {
-        self.creation_time == other.creation_time
-            && self.pk_algo == other.pk_algo
-            && self.mpis == other.mpis
-            && (! P::significant_secrets() || self.secret == other.secret)
-    }
-}
-
-impl<P: KeyParts, R: KeyRole> Eq for Key4<P, R> {}
-
-impl<P: KeyParts, R: KeyRole> std::hash::Hash for Key4<P, R> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::hash::Hash::hash(&self.creation_time, state);
-        std::hash::Hash::hash(&self.pk_algo, state);
-        std::hash::Hash::hash(&self.mpis, state);
-        if P::significant_secrets() {
-            std::hash::Hash::hash(&self.secret, state);
-        }
-    }
-}
-
-impl<P, R> fmt::Debug for Key4<P, R>
-    where P: key::KeyParts,
-          R: key::KeyRole,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Key4")
-            .field("fingerprint", &self.fingerprint())
-            .field("creation_time", &self.creation_time)
-            .field("pk_algo", &self.pk_algo)
-            .field("mpis", &self.mpis)
-            .field("secret", &self.secret)
-            .finish()
-    }
-}
-
-impl<P, R> fmt::Display for Key4<P, R>
-    where P: key::KeyParts,
-          R: key::KeyRole,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.fingerprint())
-    }
-}
-
-impl<P, R> Key4<P, R>
-    where P: key::KeyParts,
-          R: key::KeyRole,
-{
-    /// The security requirements of the hash algorithm for
-    /// self-signatures.
-    ///
-    /// A cryptographic hash algorithm usually has [three security
-    /// properties]: pre-image resistance, second pre-image
-    /// resistance, and collision resistance.  If an attacker can
-    /// influence the signed data, then the hash algorithm needs to
-    /// have both second pre-image resistance, and collision
-    /// resistance.  If not, second pre-image resistance is
-    /// sufficient.
-    ///
-    ///   [three security properties]: https://en.wikipedia.org/wiki/Cryptographic_hash_function#Properties
-    ///
-    /// In general, an attacker may be able to influence third-party
-    /// signatures.  But direct key signatures, and binding signatures
-    /// are only over data fully determined by signer.  And, an
-    /// attacker's control over self signatures over User IDs is
-    /// limited due to their structure.
-    ///
-    /// These observations can be used to extend the life of a hash
-    /// algorithm after its collision resistance has been partially
-    /// compromised, but not completely broken.  For more details,
-    /// please refer to the documentation for [HashAlgoSecurity].
-    ///
-    ///   [HashAlgoSecurity]: crate::policy::HashAlgoSecurity
-    pub fn hash_algo_security(&self) -> HashAlgoSecurity {
-        HashAlgoSecurity::SecondPreImageResistance
-    }
-
-    /// Compares the public bits of two keys.
-    ///
-    /// This returns `Ordering::Equal` if the public MPIs, creation
-    /// time, and algorithm of the two `Key4`s match.  This does not
-    /// consider the packets' encodings, packets' tags or their secret
-    /// key material.
-    pub fn public_cmp<PB, RB>(&self, b: &Key4<PB, RB>) -> Ordering
-        where PB: key::KeyParts,
-              RB: key::KeyRole,
-    {
-        match self.mpis.cmp(&b.mpis) {
-            Ordering::Equal => (),
-            o => return o,
-        }
-
-        match self.creation_time.cmp(&b.creation_time) {
-            Ordering::Equal => (),
-            o => return o,
-        }
-
-        self.pk_algo.cmp(&b.pk_algo)
-    }
-
-    /// Tests whether two keys are equal modulo their secret key
-    /// material.
-    ///
-    /// This returns true if the public MPIs, creation time and
-    /// algorithm of the two `Key4`s match.  This does not consider
-    /// the packets' encodings, packets' tags or their secret key
-    /// material.
-    pub fn public_eq<PB, RB>(&self, b: &Key4<PB, RB>) -> bool
-        where PB: key::KeyParts,
-              RB: key::KeyRole,
-    {
-        self.public_cmp(b) == Ordering::Equal
-    }
-
-    /// Hashes everything but any secret key material into state.
-    ///
-    /// This is an alternate implementation of [`Hash`], which never
-    /// hashes the secret key material.
-    ///
-    ///   [`Hash`]: std::hash::Hash
-    pub fn public_hash<H>(&self, state: &mut H)
-        where H: Hasher
-    {
-        use std::hash::Hash;
-
-        self.common.hash(state);
-        self.creation_time.hash(state);
-        self.pk_algo.hash(state);
-        Hash::hash(&self.mpis(), state);
-    }
-}
-
-impl<R> Key4<key::PublicParts, R>
-    where R: key::KeyRole,
-{
-    /// Creates an OpenPGP public key from the specified key material.
-    pub fn new<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
-                  mpis: mpi::PublicKey)
-                  -> Result<Self>
-        where T: Into<time::SystemTime>
-    {
-        Ok(Key4 {
-            common: Default::default(),
-            creation_time: creation_time.into().try_into()?,
-            pk_algo,
-            mpis,
-            secret: None,
-            p: std::marker::PhantomData,
-            r: std::marker::PhantomData,
-        })
-    }
-
-    /// Creates an OpenPGP public key packet from existing X25519 key
-    /// material.
-    ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric
-    /// algorithm `sym`.  If one or both are `None` secure defaults
-    /// will be used.  The key will have its creation date set to
-    /// `ctime` or the current time if `None` is given.
-    pub fn import_public_cv25519<H, S, T>(public_key: &[u8],
-                                          hash: H, sym: S, ctime: T)
-        -> Result<Self> where H: Into<Option<HashAlgorithm>>,
-                              S: Into<Option<SymmetricAlgorithm>>,
-                              T: Into<Option<time::SystemTime>>
-    {
-        let mut point = Vec::from(public_key);
-        point.insert(0, 0x40);
-
-        Self::new(
-            ctime.into().unwrap_or_else(crate::now),
-            PublicKeyAlgorithm::ECDH,
-            mpi::PublicKey::ECDH {
-                curve: Curve::Cv25519,
-                hash: hash.into().unwrap_or(HashAlgorithm::SHA512),
-                sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
-                q: mpi::MPI::new(&point),
-            })
-    }
-
-    /// Creates an OpenPGP public key packet from existing Ed25519 key
-    /// material.
-    ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric
-    /// algorithm `sym`.  If one or both are `None` secure defaults
-    /// will be used.  The key will have its creation date set to
-    /// `ctime` or the current time if `None` is given.
-    pub fn import_public_ed25519<T>(public_key: &[u8], ctime: T) -> Result<Self>
-        where  T: Into<Option<time::SystemTime>>
-    {
-        let mut point = Vec::from(public_key);
-        point.insert(0, 0x40);
-
-        Self::new(
-            ctime.into().unwrap_or_else(crate::now),
-            PublicKeyAlgorithm::EdDSA,
-            mpi::PublicKey::EdDSA {
-                curve: Curve::Ed25519,
-                q: mpi::MPI::new(&point),
-            })
-    }
-
-    /// Creates an OpenPGP public key packet from existing RSA key
-    /// material.
-    ///
-    /// The RSA key will use the public exponent `e` and the modulo
-    /// `n`. The key will have its creation date set to `ctime` or the
-    /// current time if `None` is given.
-    pub fn import_public_rsa<T>(e: &[u8], n: &[u8], ctime: T)
-        -> Result<Self> where T: Into<Option<time::SystemTime>>
-    {
-        Self::new(
-            ctime.into().unwrap_or_else(crate::now),
-            PublicKeyAlgorithm::RSAEncryptSign,
-            mpi::PublicKey::RSA {
-                e: mpi::MPI::new(e),
-                n: mpi::MPI::new(n),
-            })
-    }
-}
-
-impl<R> Key4<SecretParts, R>
-    where R: key::KeyRole,
-{
-    /// Creates an OpenPGP key packet from the specified secret key
-    /// material.
-    pub fn with_secret<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
-                          mpis: mpi::PublicKey,
-                          secret: SecretKeyMaterial)
-                          -> Result<Self>
-        where T: Into<time::SystemTime>
-    {
-        Ok(Key4 {
-            common: Default::default(),
-            creation_time: creation_time.into().try_into()?,
-            pk_algo,
-            mpis,
-            secret: Some(secret),
-            p: std::marker::PhantomData,
-            r: std::marker::PhantomData,
-        })
-    }
-}
-
-impl<P, R> Key4<P, R>
+/// Cryptographic operations using the key material.
+impl<P, R> Key<P, R>
      where P: key::KeyParts,
            R: key::KeyRole,
 {
-    /// Gets the `Key`'s creation time.
-    pub fn creation_time(&self) -> time::SystemTime {
-        self.creation_time.into()
-    }
+    /// Encrypts the given data with this key.
+    pub fn encrypt(&self, data: &SessionKey) -> Result<mpi::Ciphertext> {
+        use crate::crypto::ecdh::aes_key_wrap;
+        use crate::crypto::backend::{Backend, interface::{Asymmetric, Kdf}};
+        use crate::crypto::mpi::PublicKey;
+        use PublicKeyAlgorithm::*;
 
-    /// Sets the `Key`'s creation time.
-    ///
-    /// `timestamp` is converted to OpenPGP's internal format,
-    /// [`Timestamp`]: a 32-bit quantity containing the number of
-    /// seconds since the Unix epoch.
-    ///
-    /// `timestamp` is silently rounded to match the internal
-    /// resolution.  An error is returned if `timestamp` is out of
-    /// range.
-    ///
-    /// [`Timestamp`]: crate::types::Timestamp
-    pub fn set_creation_time<T>(&mut self, timestamp: T)
-                                -> Result<time::SystemTime>
-        where T: Into<time::SystemTime>
-    {
-        Ok(std::mem::replace(&mut self.creation_time,
-                             timestamp.into().try_into()?)
-           .into())
-    }
-
-    /// Gets the public key algorithm.
-    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
-        self.pk_algo
-    }
-
-    /// Sets the public key algorithm.
-    ///
-    /// Returns the old public key algorithm.
-    pub fn set_pk_algo(&mut self, pk_algo: PublicKeyAlgorithm)
-        -> PublicKeyAlgorithm
-    {
-        ::std::mem::replace(&mut self.pk_algo, pk_algo)
-    }
-
-    /// Returns a reference to the `Key`'s MPIs.
-    pub fn mpis(&self) -> &mpi::PublicKey {
-        &self.mpis
-    }
-
-    /// Returns a mutable reference to the `Key`'s MPIs.
-    pub fn mpis_mut(&mut self) -> &mut mpi::PublicKey {
-        &mut self.mpis
-    }
-
-    /// Sets the `Key`'s MPIs.
-    ///
-    /// This function returns the old MPIs, if any.
-    pub fn set_mpis(&mut self, mpis: mpi::PublicKey) -> mpi::PublicKey {
-        ::std::mem::replace(&mut self.mpis, mpis)
-    }
-
-    /// Returns whether the `Key` contains secret key material.
-    pub fn has_secret(&self) -> bool {
-        self.secret.is_some()
-    }
-
-    /// Returns whether the `Key` contains unencrypted secret key
-    /// material.
-    ///
-    /// This returns false if the `Key` doesn't contain any secret key
-    /// material.
-    pub fn has_unencrypted_secret(&self) -> bool {
-        matches!(self.secret, Some(SecretKeyMaterial::Unencrypted { .. }))
-    }
-
-    /// Returns `Key`'s secret key material, if any.
-    pub fn optional_secret(&self) -> Option<&SecretKeyMaterial> {
-        self.secret.as_ref()
-    }
-
-    /// Computes and returns the `Key`'s `Fingerprint` and returns it as
-    /// a `KeyHandle`.
-    ///
-    /// See [Section 12.2 of RFC 4880].
-    ///
-    /// [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-    pub fn key_handle(&self) -> KeyHandle {
-        self.fingerprint().into()
-    }
-
-    /// Computes and returns the `Key`'s `Fingerprint`.
-    ///
-    /// See [Section 12.2 of RFC 4880].
-    ///
-    /// [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-    pub fn fingerprint(&self) -> Fingerprint {
-        let mut h = HashAlgorithm::SHA1.context().unwrap();
-
-        self.hash(&mut h);
-
-        let mut digest = vec![0u8; h.digest_size()];
-        let _ = h.digest(&mut digest);
-        Fingerprint::from_bytes(digest.as_slice())
-    }
-
-    /// Computes and returns the `Key`'s `Key ID`.
-    ///
-    /// See [Section 12.2 of RFC 4880].
-    ///
-    /// [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-    pub fn keyid(&self) -> KeyID {
-        self.fingerprint().into()
-    }
-}
-
-macro_rules! impl_common_secret_functions {
-    ($t: ident) => {
-        /// Secret key material handling.
-        impl<R> Key4<$t, R>
-            where R: key::KeyRole,
-        {
-            /// Takes the `Key`'s `SecretKeyMaterial`, if any.
-            pub fn take_secret(mut self)
-                               -> (Key4<PublicParts, R>, Option<SecretKeyMaterial>)
+        #[allow(deprecated, non_snake_case)]
+        #[allow(clippy::erasing_op, clippy::identity_op)]
+        match self.pk_algo() {
+            X25519 =>
+                if let mpi::PublicKey::X25519 { u: U } = self.mpis()
             {
-                let old = std::mem::replace(&mut self.secret, None);
-                (self.parts_into_public(), old)
-            }
+                // Generate an ephemeral key pair {v, V=vG}
+                let (v, V) = Backend::x25519_generate_key()?;
 
-            /// Adds the secret key material to the `Key`, returning
-            /// the old secret key material, if any.
-            pub fn add_secret(mut self, secret: SecretKeyMaterial)
-                              -> (Key4<SecretParts, R>, Option<SecretKeyMaterial>)
+                // Compute the shared point S = vU;
+                let S = Backend::x25519_shared_point(&v, U)?;
+
+                // Compute the wrap key.
+                let wrap_algo = SymmetricAlgorithm::AES128;
+                let mut ikm: SessionKey = vec![0; 32 + 32 + 32].into();
+                ikm[0 * 32..1 * 32].copy_from_slice(&V[..]);
+                ikm[1 * 32..2 * 32].copy_from_slice(&U[..]);
+                ikm[2 * 32..3 * 32].copy_from_slice(&S[..]);
+                let mut kek = vec![0; wrap_algo.key_size()?].into();
+                Backend::hkdf_sha256(&ikm, None, b"OpenPGP X25519", &mut kek)?;
+
+                let esk = aes_key_wrap(wrap_algo, kek.as_protected(),
+                                       data.as_protected())?;
+                Ok(mpi::Ciphertext::X25519 {
+                    e: Box::new(V),
+                    key: esk.into(),
+                })
+            } else {
+                Err(Error::MalformedPacket(format!(
+                    "Key: Expected X25519 public key, got {:?}", self.mpis())).into())
+            },
+
+            X448 =>
+                if let mpi::PublicKey::X448 { u: U } = self.mpis()
             {
-                let old = std::mem::replace(&mut self.secret, Some(secret));
-                (self.parts_into_secret().expect("secret just set"), old)
-            }
+                let (v, V) = Backend::x448_generate_key()?;
+
+                // Compute the shared point S = vU;
+                let S = Backend::x448_shared_point(&v, U)?;
+
+                // Compute the wrap key.
+                let wrap_algo = SymmetricAlgorithm::AES256;
+                let mut ikm: SessionKey = vec![0; 56 + 56 + 56].into();
+                ikm[0 * 56..1 * 56].copy_from_slice(&V[..]);
+                ikm[1 * 56..2 * 56].copy_from_slice(&U[..]);
+                ikm[2 * 56..3 * 56].copy_from_slice(&S[..]);
+                let mut kek = vec![0; wrap_algo.key_size()?].into();
+                Backend::hkdf_sha512(&ikm, None, b"OpenPGP X448", &mut kek)?;
+
+                let esk = aes_key_wrap(wrap_algo, kek.as_protected(),
+                                       data.as_protected())?;
+                Ok(mpi::Ciphertext::X448 {
+                    e: Box::new(V),
+                    key: esk.into(),
+                })
+            } else {
+                Err(Error::MalformedPacket(format!(
+                    "Key: Expected X448 public key, got {:?}", self.mpis())).into())
+            },
+
+            RSASign | DSA | ECDSA | EdDSA | Ed25519 | Ed448 =>
+                Err(Error::InvalidOperation(
+                    format!("{} is not an encryption algorithm", self.pk_algo())
+                ).into()),
+
+            ECDH if matches!(self.mpis(),
+                             PublicKey::ECDH { curve: Curve::Cv25519, ..}) =>
+            {
+                let q = match self.mpis() {
+                    PublicKey::ECDH { q, .. } => q,
+                    _ => unreachable!(),
+                };
+
+                // Obtain the authenticated recipient public key R
+                let R = q.decode_point(&Curve::Cv25519)?.0;
+
+                // Generate an ephemeral key pair {v, V=vG}
+                // Compute the public key.
+                let (v, VB) = Backend::x25519_generate_key()?;
+                let VB = mpi::MPI::new_compressed_point(&VB);
+
+                // Compute the shared point S = vR;
+                let S = Backend::x25519_shared_point(&v, R.try_into()?)?;
+
+                crate::crypto::ecdh::encrypt_wrap(
+                    self.parts_as_public().role_as_subordinate(), data, VB, &S)
+            },
+
+            RSAEncryptSign | RSAEncrypt |
+            ElGamalEncrypt | ElGamalEncryptSign |
+            ECDH |
+            Private(_) | Unknown(_) => self.encrypt_backend(data),
         }
     }
-}
-impl_common_secret_functions!(PublicParts);
-impl_common_secret_functions!(UnspecifiedParts);
 
-/// Secret key handling.
-impl<R> Key4<SecretParts, R>
-    where R: key::KeyRole,
-{
-    /// Gets the `Key`'s `SecretKeyMaterial`.
-    pub fn secret(&self) -> &SecretKeyMaterial {
-        self.secret.as_ref().expect("has secret")
-    }
+    /// Verifies the given signature.
+    pub fn verify(&self, sig: &mpi::Signature, hash_algo: HashAlgorithm,
+                  digest: &[u8]) -> Result<()> {
+        use crate::crypto::backend::{Backend, interface::Asymmetric};
+        use crate::crypto::mpi::{PublicKey, Signature};
 
-    /// Gets a mutable reference to the `Key`'s `SecretKeyMaterial`.
-    pub fn secret_mut(&mut self) -> &mut SecretKeyMaterial {
-        self.secret.as_mut().expect("has secret")
-    }
+        fn bad(e: impl ToString) -> anyhow::Error {
+            Error::BadSignature(e.to_string()).into()
+        }
 
-    /// Takes the `Key`'s `SecretKeyMaterial`.
-    pub fn take_secret(mut self)
-                       -> (Key4<PublicParts, R>, SecretKeyMaterial)
-    {
-        let old = std::mem::replace(&mut self.secret, None);
-        (self.parts_into_public(),
-         old.expect("Key<SecretParts, _> has a secret key material"))
-    }
+        let ok = match (self.mpis(), sig) {
+            (PublicKey::Ed25519 { a }, Signature::Ed25519 { s }) =>
+                Backend::ed25519_verify(a, digest, s)?,
 
-    /// Adds `SecretKeyMaterial` to the `Key`.
-    ///
-    /// This function returns the old secret key material, if any.
-    pub fn add_secret(mut self, secret: SecretKeyMaterial)
-                      -> (Key4<SecretParts, R>, SecretKeyMaterial)
-    {
-        let old = std::mem::replace(&mut self.secret, Some(secret));
-        (self.parts_into_secret().expect("secret just set"),
-         old.expect("Key<SecretParts, _> has a secret key material"))
-    }
+            (PublicKey::Ed448 { a }, Signature::Ed448 { s }) =>
+                Backend::ed448_verify(a, digest, s)?,
 
-    /// Decrypts the secret key material using `password`.
-    ///
-    /// In OpenPGP, secret key material can be [protected with a
-    /// password].  The password is usually hardened using a [KDF].
-    ///
-    /// Refer to the documentation of [`Key::decrypt_secret`] for
-    /// details.
-    ///
-    /// This function returns an error if the secret key material is
-    /// not encrypted or the password is incorrect.
-    ///
-    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
-    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
-    /// [`Key::decrypt_secret`]: super::Key::decrypt_secret()
-    pub fn decrypt_secret(mut self, password: &Password) -> Result<Self> {
-        let pk_algo = self.pk_algo;
-        self.secret_mut().decrypt_in_place(pk_algo, password)?;
-        Ok(self)
-    }
+            (PublicKey::EdDSA { curve, q }, Signature::EdDSA { r, s }) =>
+              match curve {
+                Curve::Ed25519 => {
+                    let (public, ..) = q.decode_point(&Curve::Ed25519)?;
+                    assert_eq!(public.len(), 32);
 
-    /// Encrypts the secret key material using `password`.
-    ///
-    /// In OpenPGP, secret key material can be [protected with a
-    /// password].  The password is usually hardened using a [KDF].
-    ///
-    /// Refer to the documentation of [`Key::encrypt_secret`] for
-    /// details.
-    ///
-    /// This returns an error if the secret key material is already
-    /// encrypted.
-    ///
-    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
-    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
-    /// [`Key::encrypt_secret`]: super::Key::encrypt_secret()
-    pub fn encrypt_secret(mut self, password: &Password)
-        -> Result<Key4<SecretParts, R>>
-    {
-        self.secret_mut().encrypt_in_place(password)?;
-        Ok(self)
-    }
-}
+                    // OpenPGP encodes R and S separately, but our
+                    // cryptographic backends expect them to be
+                    // concatenated.
+                    let mut signature = Vec::with_capacity(64);
 
-impl<P, R> From<Key4<P, R>> for super::Key<P, R>
-    where P: key::KeyParts,
-          R: key::KeyRole,
-{
-    fn from(p: Key4<P, R>) -> Self {
-        super::Key::V4(p)
+                    // We need to zero-pad them at the front, because
+                    // the MPI encoding drops leading zero bytes.
+                    signature.extend_from_slice(
+                        &r.value_padded(32).map_err(bad)?);
+                    signature.extend_from_slice(
+                        &s.value_padded(32).map_err(bad)?);
+
+                    // Let's see if we got it right.
+                    debug_assert_eq!(signature.len(), 64);
+
+                    Backend::ed25519_verify(public.try_into()?,
+                                            digest,
+                                            &signature.as_slice().try_into()?)?
+                },
+                _ => return
+                    Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+            },
+
+            (PublicKey::DSA { p, q, g, y }, Signature::DSA { r, s }) =>
+                Backend::dsa_verify(p, q, g, y, digest, r, s)?,
+
+            (PublicKey::RSA { .. }, Signature::RSA { .. }) |
+            (PublicKey::ECDSA { .. }, Signature::ECDSA { .. }) =>
+                return self.verify_backend(sig, hash_algo, digest),
+
+            _ => return Err(Error::MalformedPacket(format!(
+                "unsupported combination of key {} and signature {:?}.",
+                self.pk_algo(), sig)).into()),
+        };
+
+        if ok {
+            Ok(())
+        } else {
+            Err(Error::ManipulatedMessage.into())
+        }
     }
 }
 
@@ -1306,11 +1943,15 @@ impl SecretKeyMaterial {
     ///
     /// This returns an error if the secret key material is not
     /// encrypted or the password is incorrect.
-    pub fn decrypt(mut self, pk_algo: PublicKeyAlgorithm,
-                   password: &Password)
-        -> Result<Self>
+    pub fn decrypt<P, R>(mut self,
+                         key: &Key<P, R>,
+                         password: &Password)
+                         -> Result<Self>
+    where
+        P: KeyParts,
+        R: KeyRole,
     {
-        self.decrypt_in_place(pk_algo, password)?;
+        self.decrypt_in_place(key, password)?;
         Ok(self)
     }
 
@@ -1322,13 +1963,17 @@ impl SecretKeyMaterial {
     ///
     /// This returns an error if the secret key material is not
     /// encrypted or the password is incorrect.
-    pub fn decrypt_in_place(&mut self, pk_algo: PublicKeyAlgorithm,
-                            password: &Password)
-        -> Result<()>
+    pub fn decrypt_in_place<P, R>(&mut self,
+                                  key: &Key<P, R>,
+                                  password: &Password)
+                                  -> Result<()>
+    where
+        P: KeyParts,
+        R: KeyRole,
     {
         match self {
             SecretKeyMaterial::Encrypted(e) => {
-                *self = e.decrypt(pk_algo, password)?.into();
+                *self = e.decrypt(key, password)?.into();
                 Ok(())
             }
             SecretKeyMaterial::Unencrypted(_) =>
@@ -1342,8 +1987,36 @@ impl SecretKeyMaterial {
     /// This returns an error if the secret key material is encrypted.
     ///
     /// See [`Unencrypted::encrypt`] for details.
-    pub fn encrypt(mut self, password: &Password) -> Result<Self> {
-        self.encrypt_in_place(password)?;
+    pub fn encrypt<P, R>(mut self,
+                         key: &Key<P, R>,
+                         password: &Password)
+                         -> Result<Self>
+    where
+        P: KeyParts,
+        R: KeyRole,
+    {
+        self.encrypt_in_place(key, password)?;
+        Ok(self)
+    }
+
+    /// Encrypts the secret key material using `password` with the
+    /// given parameters.
+    ///
+    /// This returns an error if the secret key material is encrypted.
+    ///
+    /// See [`Unencrypted::encrypt_with`] for details.
+    pub fn encrypt_with<P, R>(mut self,
+                              key: &Key<P, R>,
+                              s2k: S2K,
+                              symm: SymmetricAlgorithm,
+                              aead: Option<AEADAlgorithm>,
+                              password: &Password)
+                              -> Result<Self>
+    where
+        P: KeyParts,
+        R: KeyRole,
+    {
+        self.encrypt_in_place_with(key, s2k, symm, aead, password)?;
         Ok(self)
     }
 
@@ -1352,11 +2025,47 @@ impl SecretKeyMaterial {
     /// This returns an error if the secret key material is encrypted.
     ///
     /// See [`Unencrypted::encrypt`] for details.
-    pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
+    pub fn encrypt_in_place<P, R>(&mut self,
+                                  key: &Key<P, R>,
+                                  password: &Password)
+                                  -> Result<()>
+    where
+        P: KeyParts,
+        R: KeyRole,
+    {
         match self {
             SecretKeyMaterial::Unencrypted(ref u) => {
                 *self = SecretKeyMaterial::Encrypted(
-                    u.encrypt(password)?);
+                    u.encrypt(key, password)?);
+                Ok(())
+            }
+            SecretKeyMaterial::Encrypted(_) =>
+                Err(Error::InvalidArgument(
+                    "secret key is encrypted".into()).into()),
+        }
+    }
+
+    /// Encrypts the secret key material using `password` and the
+    /// given parameters.
+    ///
+    /// This returns an error if the secret key material is encrypted.
+    ///
+    /// See [`Unencrypted::encrypt`] for details.
+    pub fn encrypt_in_place_with<P, R>(&mut self,
+                                       key: &Key<P, R>,
+                                       s2k: S2K,
+                                       symm: SymmetricAlgorithm,
+                                       aead: Option<AEADAlgorithm>,
+                                       password: &Password)
+                                       -> Result<()>
+    where
+        P: KeyParts,
+        R: KeyRole,
+    {
+        match self {
+            SecretKeyMaterial::Unencrypted(ref u) => {
+                *self = SecretKeyMaterial::Encrypted(
+                    u.encrypt_with(key, s2k, symm, aead, password)?);
                 Ok(())
             }
             SecretKeyMaterial::Encrypted(_) =>
@@ -1378,7 +2087,7 @@ impl SecretKeyMaterial {
 ///
 /// This data structure is used by the [`SecretKeyMaterial`] enum.
 ///
-/// Unlike an [`Encrypted`] key, this key an be used as-is.
+/// Unlike an [`Encrypted`] key, this key can be used as-is.
 ///
 /// The secret key is encrypted in memory and only decrypted on
 /// demand.  This helps protect against [heartbleed]-style
@@ -1403,13 +2112,18 @@ assert_send_and_sync!(Unencrypted);
 
 impl From<mpi::SecretKeyMaterial> for Unencrypted {
     fn from(mpis: mpi::SecretKeyMaterial) -> Self {
-        use crate::serialize::Marshal;
+        use crate::serialize::MarshalInto;
         // We need to store the type.
-        let mut plaintext =
-            vec![mpis.algo().unwrap_or(PublicKeyAlgorithm::Unknown(0)).into()];
-        mpis.serialize(&mut plaintext)
+        let mut plaintext = mem::Protected::new(1 + mpis.serialized_len());
+        plaintext[0] =
+            mpis.algo().unwrap_or(PublicKeyAlgorithm::Unknown(0)).into();
+
+        mpis.serialize_into(&mut plaintext[1..])
             .expect("MPI serialization to vec failed");
-        Unencrypted { mpis: mem::Encrypted::new(plaintext.into()), }
+        Unencrypted {
+            mpis: mem::Encrypted::new(plaintext)
+                .expect("encrypting memory failed"),
+        }
     }
 }
 
@@ -1420,7 +2134,7 @@ impl Unencrypted {
     {
         self.mpis.map(|plaintext| {
             let algo: PublicKeyAlgorithm = plaintext[0].into();
-            let mpis = mpi::SecretKeyMaterial::parse(algo, &plaintext[1..])
+            let mpis = mpi::SecretKeyMaterial::from_bytes(algo, &plaintext[1..])
                 .expect("Decrypted secret key is malformed");
             fun(&mpis)
         })
@@ -1428,35 +2142,111 @@ impl Unencrypted {
 
     /// Encrypts the secret key material using `password`.
     ///
-    /// This encrypts the secret key material using an [AES 256] key
-    /// derived from the `password` using the default [`S2K`] scheme.
-    ///
-    /// [AES 256]: crate::types::SymmetricAlgorithm::AES256
-    /// [`S2K`]: super::super::crypto::S2K
-    pub fn encrypt(&self, password: &Password)
-        -> Result<Encrypted>
+    /// This encrypts the secret key material using AES-128/OCB and a
+    /// key derived from the `password` using the default [`S2K`]
+    /// scheme.
+    pub fn encrypt<P, R>(&self,
+                         key: &Key<P, R>,
+                         password: &Password)
+                         -> Result<Encrypted>
+    where
+        P: KeyParts,
+        R: KeyRole,
+    {
+        // Pick sensible parameters according to the key version.
+        let (s2k, symm, aead) = match key.version() {
+            6 => (
+                S2K::default(),
+                SymmetricAlgorithm::AES128,
+                Some(AEADAlgorithm::OCB),
+            ),
+
+            _ => (
+                S2K::default(),
+                SymmetricAlgorithm::default(),
+                None,
+            ),
+        };
+
+        self.encrypt_with(key, s2k, symm, aead, password)
+    }
+
+    /// Encrypts the secret key material using `password` and the
+    /// given parameters.
+    pub fn encrypt_with<P, R>(&self,
+                              key: &Key<P, R>,
+                              s2k: S2K,
+                              symm: SymmetricAlgorithm,
+                              aead: Option<AEADAlgorithm>,
+                              password: &Password)
+                              -> Result<Encrypted>
+    where
+        P: KeyParts,
+        R: KeyRole,
     {
         use std::io::Write;
         use crate::crypto::symmetric::Encryptor;
 
-        let s2k = S2K::default();
-        let algo = SymmetricAlgorithm::AES256;
-        let key = s2k.derive_key(password, algo.key_size()?)?;
-
-        // Ciphertext is preceded by a random block.
-        let mut trash = vec![0u8; algo.block_size()?];
-        crypto::random(&mut trash);
-
+        let derived_key = s2k.derive_key(password, symm.key_size()?)?;
         let checksum = Default::default();
-        let mut esk = Vec::new();
-        {
-            let mut encryptor = Encryptor::new(algo, &key, &mut esk)?;
+
+        constrain_encryption_methods(key, &s2k, symm, aead, Some(checksum))?;
+
+        if matches!(s2k, S2K::Argon2 { .. }) && aead.is_none() {
+            return Err(Error::InvalidOperation(
+                "Argon2 MUST be used with an AEAD mode".into()).into());
+        }
+
+        if let Some(aead) = aead {
+            use crate::serialize::MarshalInto;
+
+            let mut iv = vec![0; aead.nonce_size()?];
+            crypto::random(&mut iv)?;
+
+            let schedule = Key253Schedule::new(
+                match key.role() {
+                    KeyRoleRT::Primary => Tag::SecretKey,
+                    KeyRoleRT::Subordinate => Tag::SecretSubkey,
+                    KeyRoleRT::Unspecified =>
+                        return Err(Error::InvalidOperation(
+                            "cannot encrypt key with unspecified role".into()).into()),
+                },
+                key.parts_as_public(), derived_key, symm, aead, &iv)?;
+            let mut enc = schedule.encryptor()?;
+
+            // Encrypt the secret key.
+            let esk = self.map(|mpis| -> Result<Vec<u8>> {
+                let mut esk =
+                    vec![0; mpis.serialized_len() + aead.digest_size()?];
+                let secret = mpis.to_vec()?;
+                enc.encrypt_seal(&mut esk, &secret)?;
+                Ok(esk)
+            })?;
+
+            Ok(Encrypted::new_aead(s2k, symm, aead, iv.into_boxed_slice(),
+                                   esk.into_boxed_slice()))
+        } else {
+            use crypto::symmetric::{
+                BlockCipherMode,
+                PaddingMode,
+            };
+
+            // Ciphertext is preceded by a random block.
+            let mut trash = vec![0u8; symm.block_size()?];
+            crypto::random(&mut trash)?;
+
+            let mut esk = Vec::new();
+            let mut encryptor =
+                Encryptor::new(symm, BlockCipherMode::CFB, PaddingMode::None,
+                               &derived_key, None, &mut esk)?;
             encryptor.write_all(&trash)?;
             self.map(|mpis| mpis.serialize_with_checksum(&mut encryptor,
                                                          checksum))?;
-        }
+            drop(encryptor);
 
-        Ok(Encrypted::new(s2k, algo, Some(checksum), esk.into_boxed_slice()))
+            Ok(Encrypted::new(s2k, symm, Some(checksum),
+                              esk.into_boxed_slice()))
+        }
     }
 }
 
@@ -1470,6 +2260,8 @@ pub struct Encrypted {
     s2k: S2K,
     /// Symmetric algorithm used to encrypt the secret key material.
     algo: SymmetricAlgorithm,
+    /// AEAD algorithm and IV used to encrypt the secret key material.
+    aead: Option<(AEADAlgorithm, Box<[u8]>)>,
     /// Checksum method.
     checksum: Option<mpi::SecretKeyChecksum>,
     /// Encrypted MPIs prefixed with the IV.
@@ -1480,7 +2272,8 @@ pub struct Encrypted {
     /// how large its parameters are, so we cannot cleanly parse it,
     /// and have to accept that the S2K's body bleeds into the rest of
     /// the data.
-    ciphertext: std::result::Result<Box<[u8]>,  // IV + ciphertext.
+    ciphertext: std::result::Result<(usize, // IV length
+                                     Box<[u8]>),    // IV + ciphertext.
                                     Box<[u8]>>, // S2K body + IV + ciphertext.
 }
 
@@ -1492,16 +2285,22 @@ assert_send_and_sync!(Encrypted);
 impl PartialEq for Encrypted {
     fn eq(&self, other: &Encrypted) -> bool {
         self.algo == other.algo
+            && self.aead == other.aead
             && self.checksum == other.checksum
-            // Treat S2K and ciphertext as opaque blob.
-            && {
-                // XXX: This would be nicer without the allocations.
-                use crate::serialize::MarshalInto;
-                let mut a = self.s2k.to_vec().unwrap();
-                let mut b = other.s2k.to_vec().unwrap();
-                a.extend_from_slice(self.raw_ciphertext());
-                b.extend_from_slice(other.raw_ciphertext());
-                a == b
+            && match (&self.ciphertext, &other.ciphertext) {
+                (Ok(a), Ok(b)) =>
+                    self.s2k == other.s2k && a == b,
+                (Err(a_raw), Err(b_raw)) => {
+                    // Treat S2K and ciphertext as opaque blob.
+                    // XXX: This would be nicer without the allocations.
+                    use crate::serialize::MarshalInto;
+                    let mut a = self.s2k.to_vec().unwrap();
+                    let mut b = other.s2k.to_vec().unwrap();
+                    a.extend_from_slice(a_raw);
+                    b.extend_from_slice(b_raw);
+                    a == b
+                },
+                _ => false,
             }
     }
 }
@@ -1511,13 +2310,22 @@ impl Eq for Encrypted {}
 impl std::hash::Hash for Encrypted {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.algo.hash(state);
+        self.aead.hash(state);
         self.checksum.hash(state);
-        // Treat S2K and ciphertext as opaque blob.
-        // XXX: This would be nicer without the allocations.
-        use crate::serialize::MarshalInto;
-        let mut a = self.s2k.to_vec().unwrap();
-        a.extend_from_slice(self.raw_ciphertext());
-        a.hash(state);
+        match &self.ciphertext {
+            Ok(c) => {
+                self.s2k.hash(state);
+                c.hash(state);
+            },
+            Err(c) => {
+                // Treat S2K and ciphertext as opaque blob.
+                // XXX: This would be nicer without the allocations.
+                use crate::serialize::MarshalInto;
+                let mut a = self.s2k.to_vec().unwrap();
+                a.extend_from_slice(c);
+                a.hash(state);
+            },
+        }
     }
 }
 
@@ -1527,17 +2335,34 @@ impl Encrypted {
                checksum: Option<mpi::SecretKeyChecksum>, ciphertext: Box<[u8]>)
         -> Self
     {
-        Self::new_raw(s2k, algo, checksum, Ok(ciphertext))
+        Self::new_raw(s2k, algo, checksum, Ok((0, ciphertext)))
+    }
+
+    /// Creates a new encrypted key object.
+    pub fn new_aead(s2k: S2K,
+                    sym_algo: SymmetricAlgorithm,
+                    aead_algo: AEADAlgorithm,
+                    aead_iv: Box<[u8]>,
+                    ciphertext: Box<[u8]>)
+                    -> Self
+    {
+        Encrypted {
+            s2k,
+            algo: sym_algo,
+            aead: Some((aead_algo, aead_iv)),
+            checksum: None,
+            ciphertext: Ok((0, ciphertext)),
+        }
     }
 
     /// Creates a new encrypted key object.
     pub(crate) fn new_raw(s2k: S2K, algo: SymmetricAlgorithm,
                           checksum: Option<mpi::SecretKeyChecksum>,
-                          ciphertext: std::result::Result<Box<[u8]>,
+                          ciphertext: std::result::Result<(usize, Box<[u8]>),
                                                           Box<[u8]>>)
         -> Self
     {
-        Encrypted { s2k, algo, checksum, ciphertext }
+        Encrypted { s2k, algo, aead: None, checksum, ciphertext }
     }
 
     /// Returns the key derivation mechanism.
@@ -1549,6 +2374,17 @@ impl Encrypted {
     /// key material.
     pub fn algo(&self) -> SymmetricAlgorithm {
         self.algo
+    }
+
+    /// Returns the AEAD algorithm used to encrypt the secret key
+    /// material.
+    pub fn aead_algo(&self) -> Option<AEADAlgorithm> {
+        self.aead.as_ref().map(|(a, _iv)| *a)
+    }
+
+    /// Returns the AEAD IV used to encrypt the secret key material.
+    pub fn aead_iv(&self) -> Option<&[u8]> {
+        self.aead.as_ref().map(|(_a, iv)| &iv[..])
     }
 
     /// Returns the checksum method used to protect the encrypted
@@ -1568,7 +2404,7 @@ impl Encrypted {
     pub fn ciphertext(&self) -> Result<&[u8]> {
         self.ciphertext
             .as_ref()
-            .map(|ciphertext| &ciphertext[..])
+            .map(|(_cfb_iv_len, ciphertext)| &ciphertext[..])
             .map_err(|_| Error::MalformedPacket(
                 format!("Unknown S2K: {:?}", self.s2k)).into())
     }
@@ -1577,9 +2413,23 @@ impl Encrypted {
     /// the body of the S2K object.
     pub(crate) fn raw_ciphertext(&self) -> &[u8] {
         match self.ciphertext.as_ref() {
-            Ok(ciphertext) => &ciphertext[..],
+            Ok((_cfb_iv_len, ciphertext)) => &ciphertext[..],
             Err(s2k_ciphertext) => &s2k_ciphertext[..],
         }
+    }
+
+    /// Returns the length of the CFB IV, if used.
+    ///
+    /// In v6 key packets, we explicitly model the length of the IV,
+    /// but in Sequoia we store the IV and the ciphertext as one
+    /// block, due to how bad this was modeled in v4 key packets.
+    /// However, now that our in-core representation is less precise
+    /// to support v4, we need to track this length to uphold our
+    /// equality guarantee.
+    pub(crate) fn cfb_iv_len(&self) -> usize {
+        self.ciphertext.as_ref().ok()
+            .map(|(cfb_iv_len, _)| *cfb_iv_len)
+            .unwrap_or(0)
     }
 
     /// Decrypts the secret key material using `password`.
@@ -1587,126 +2437,166 @@ impl Encrypted {
     /// The `Encrypted` key does not know what kind of key it is, so
     /// the public key algorithm is needed to parse the correct number
     /// of MPIs.
-    pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &Password)
-        -> Result<Unencrypted>
+    pub fn decrypt<P, R>(&self, key: &Key<P, R>, password: &Password)
+                         -> Result<Unencrypted>
+    where
+        P: KeyParts,
+        R: KeyRole,
     {
-        use std::io::{Cursor, Read};
-        use crate::crypto::symmetric::Decryptor;
+        use std::io::Read;
+        use crate::crypto;
 
-        let key = self.s2k.derive_key(password, self.algo.key_size()?)?;
-        let cur = Cursor::new(self.ciphertext()?);
-        let mut dec = Decryptor::new(self.algo, &key, cur)?;
+        constrain_encryption_methods(
+            key, &self.s2k, self.algo,self.aead.as_ref().map(|(a, _)| *a),
+            self.checksum)?;
 
-        // Consume the first block.
-        let mut trash = vec![0u8; self.algo.block_size()?];
-        dec.read_exact(&mut trash)?;
+        let derived_key = self.s2k.derive_key(password, self.algo.key_size()?)?;
+        let ciphertext = self.ciphertext()?;
 
-        mpi::SecretKeyMaterial::parse_with_checksum(
-            pk_algo, &mut dec, self.checksum.unwrap_or_default())
-            .map(|m| m.into())
+        if let Some((aead, iv)) = &self.aead {
+            let schedule = Key253Schedule::new(
+                match key.role() {
+                    KeyRoleRT::Primary => Tag::SecretKey,
+                    KeyRoleRT::Subordinate => Tag::SecretSubkey,
+                    KeyRoleRT::Unspecified =>
+                        return Err(Error::InvalidOperation(
+                            "cannot decrypt key with unspecified role".into()).into()),
+                },
+                key.parts_as_public(), derived_key, self.algo, *aead, iv)?;
+            let mut dec = schedule.decryptor()?;
+
+            // Read the secret key.
+            let mut secret = mem::Protected::new(
+                ciphertext.len().saturating_sub(aead.digest_size()?));
+            dec.decrypt_verify(&mut secret, ciphertext)?;
+
+            mpi::SecretKeyMaterial::from_bytes(
+                key.pk_algo(), &secret).map(|m| m.into())
+        } else {
+            use crypto::symmetric::{
+                BlockCipherMode,
+                UnpaddingMode,
+            };
+
+            let cur = buffered_reader::Memory::with_cookie(
+                ciphertext, Default::default());
+            let mut dec =
+                crypto::symmetric::InternalDecryptor::new(
+                    self.algo,
+                    BlockCipherMode::CFB,
+                    UnpaddingMode::None,
+                    &derived_key,
+                    None,
+                    cur)?;
+
+            // Consume the first block.
+            let block_size = self.algo.block_size()?;
+            let mut trash = mem::Protected::new(block_size);
+            dec.read_exact(&mut trash)?;
+
+            // Read the secret key.
+            let mut secret = mem::Protected::new(ciphertext.len() - block_size);
+            dec.read_exact(&mut secret)?;
+
+            mpi::SecretKeyMaterial::from_bytes_with_checksum(
+                key.pk_algo(), &secret, self.checksum.unwrap_or_default())
+                .map(|m| m.into())
+        }
     }
 }
 
-#[cfg(test)]
-impl<P, R> Arbitrary for super::Key<P, R>
-    where P: KeyParts, P: Clone,
-          R: KeyRole, R: Clone,
-          Key4<P, R>: Arbitrary,
+/// Constrains the secret key material encryption methods according to
+/// [Section 3.7.2.1. of RFC 9580].
+///
+/// [Section 3.7.2.1. of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.7.2.1
+fn constrain_encryption_methods<P, R>(key: &Key<P, R>,
+                                      s2k: &S2K,
+                                      _symm: SymmetricAlgorithm,
+                                      aead: Option<AEADAlgorithm>,
+                                      checksum: Option<mpi::SecretKeyChecksum>)
+                                      -> Result<()>
+where
+    P: KeyParts,
+    R: KeyRole,
 {
-    fn arbitrary(g: &mut Gen) -> Self {
-        Key4::arbitrary(g).into()
+    #[allow(deprecated)]
+    match s2k {
+        S2K::Argon2 { .. } if aead.is_none() =>
+            Err(Error::InvalidOperation(
+                "Argon2 MUST be used with an AEAD mode".into()).into()),
+
+        S2K::Implicit if key.version() == 6 =>
+            Err(Error::InvalidOperation(
+                "Implicit S2K MUST NOT be used with v6 keys".into()).into()),
+
+        // Technically not forbidden, but this is a terrible idea and
+        // I doubt that anyone depends on it.  Let's see whether we
+        // can get away with being strict here.
+        S2K::Simple { .. } if key.version() == 6 =>
+            Err(Error::InvalidOperation(
+                "Simple S2K SHOULD NOT be used with v6 keys".into()).into()),
+
+        _ if key.version() == 6 && aead.is_none()
+            && checksum != Some(mpi::SecretKeyChecksum::SHA1) =>
+            Err(Error::InvalidOperation(
+                "Malleable CFB MUST NOT be used with v6 keys".into()).into()),
+
+        _ => Ok(()),
     }
 }
 
-#[cfg(test)]
-impl Arbitrary for Key4<PublicParts, PrimaryRole> {
-    fn arbitrary(g: &mut Gen) -> Self {
-        Key4::<PublicParts, UnspecifiedRole>::arbitrary(g).into()
-    }
+pub(crate) struct Key253Schedule<'a> {
+    symm: SymmetricAlgorithm,
+    aead: AEADAlgorithm,
+    nonce: &'a [u8],
+    kek: SessionKey,
+    ad: Vec<u8>
 }
 
-#[cfg(test)]
-impl Arbitrary for Key4<PublicParts, SubordinateRole> {
-    fn arbitrary(g: &mut Gen) -> Self {
-        Key4::<PublicParts, UnspecifiedRole>::arbitrary(g).into()
+impl<'a> Key253Schedule<'a> {
+    fn new<R>(tag: Tag,
+              key: &Key<PublicParts, R>,
+              derived_key: SessionKey,
+              symm: SymmetricAlgorithm,
+              aead: AEADAlgorithm,
+              nonce: &'a [u8])
+              -> Result<Self>
+    where
+        R: KeyRole,
+    {
+        use crate::serialize::{Marshal, MarshalInto};
+        use crate::crypto::backend::{Backend, interface::Kdf};
+
+        let info = [
+            0b1100_0000 | u8::from(tag), // Canonicalized packet type.
+            key.version(),
+            symm.into(),
+            aead.into(),
+        ];
+        let mut kek = vec![0; symm.key_size()?].into();
+        Backend::hkdf_sha256(&derived_key, None, &info, &mut kek)?;
+
+        let mut ad = Vec::with_capacity(key.serialized_len());
+        ad.push(0b1100_0000 | u8::from(tag)); // Canonicalized packet type.
+        key.serialize(&mut ad)?;
+
+        Ok(Self {
+            symm,
+            aead,
+            nonce,
+            kek,
+            ad,
+        })
     }
-}
 
-#[cfg(test)]
-impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
-    fn arbitrary(g: &mut Gen) -> Self {
-        let mpis = mpi::PublicKey::arbitrary(g);
-        Key4 {
-            common: Arbitrary::arbitrary(g),
-            creation_time: Arbitrary::arbitrary(g),
-            pk_algo: mpis.algo()
-                .expect("mpi::PublicKey::arbitrary only uses known algos"),
-            mpis,
-            secret: None,
-            p: std::marker::PhantomData,
-            r: std::marker::PhantomData,
-        }
+    fn decryptor(&self) -> Result<crypto::aead::DecryptionContext> {
+        self.aead.context(self.symm, &self.kek, &self.ad, self.nonce)?
+            .for_decryption()
     }
-}
 
-#[cfg(test)]
-impl Arbitrary for Key4<SecretParts, PrimaryRole> {
-    fn arbitrary(g: &mut Gen) -> Self {
-        Key4::<SecretParts, UnspecifiedRole>::arbitrary(g).into()
-    }
-}
-
-#[cfg(test)]
-impl Arbitrary for Key4<SecretParts, SubordinateRole> {
-    fn arbitrary(g: &mut Gen) -> Self {
-        Key4::<SecretParts, UnspecifiedRole>::arbitrary(g).into()
-    }
-}
-
-#[cfg(test)]
-impl Arbitrary for Key4<SecretParts, UnspecifiedRole> {
-    fn arbitrary(g: &mut Gen) -> Self {
-        use PublicKeyAlgorithm::*;
-        use mpi::MPI;
-
-        let key = Key4::arbitrary(g);
-        let mut secret: SecretKeyMaterial = match key.pk_algo() {
-            RSAEncryptSign => mpi::SecretKeyMaterial::RSA {
-                d: MPI::arbitrary(g).into(),
-                p: MPI::arbitrary(g).into(),
-                q: MPI::arbitrary(g).into(),
-                u: MPI::arbitrary(g).into(),
-            },
-
-            DSA => mpi::SecretKeyMaterial::DSA {
-                x: MPI::arbitrary(g).into(),
-            },
-
-            ElGamalEncrypt => mpi::SecretKeyMaterial::ElGamal {
-                x: MPI::arbitrary(g).into(),
-            },
-
-            EdDSA => mpi::SecretKeyMaterial::EdDSA {
-                scalar: MPI::arbitrary(g).into(),
-            },
-
-            ECDSA => mpi::SecretKeyMaterial::ECDSA {
-                scalar: MPI::arbitrary(g).into(),
-            },
-
-            ECDH => mpi::SecretKeyMaterial::ECDH {
-                scalar: MPI::arbitrary(g).into(),
-            },
-
-            _ => unreachable!("only valid algos, normalizes to these values"),
-        }.into();
-
-        if <bool>::arbitrary(g) {
-            secret.encrypt_in_place(&Password::from(Vec::arbitrary(g)))
-                .unwrap();
-        }
-
-        Key4::<PublicParts, UnspecifiedRole>::add_secret(key, secret).0
+    fn encryptor(&self) -> Result<crypto::aead::EncryptionContext> {
+        self.aead.context(self.symm, &self.kek, &self.ad, self.nonce)?
+            .for_encryption()
     }
 }
 
@@ -1714,28 +2604,28 @@ impl Arbitrary for Key4<SecretParts, UnspecifiedRole> {
 mod tests {
     use crate::packet::Key;
     use crate::Cert;
-    use crate::packet::pkesk::PKESK3;
-    use crate::packet::key;
     use crate::packet::key::SecretKeyMaterial;
     use crate::packet::Packet;
     use super::*;
-    use crate::PacketPile;
-    use crate::serialize::Serialize;
     use crate::parse::Parse;
+    use crate::SignatureType;
+    use crate::crypto::mpi::PublicKey;
 
     #[test]
     fn encrypted_rsa_key() {
         let cert = Cert::from_bytes(
             crate::tests::key("testy-new-encrypted-with-123.pgp")).unwrap();
-        let mut pair = cert.primary_key().key().clone();
-        let pk_algo = pair.pk_algo();
-        let secret = pair.secret.as_mut().unwrap();
+        let key = cert.primary_key().key().clone();
+        let (key, secret) = key.take_secret();
+        let mut secret = secret.unwrap();
 
         assert!(secret.is_encrypted());
-        secret.decrypt_in_place(pk_algo, &"123".into()).unwrap();
+        secret.decrypt_in_place(&key, &"123".into()).unwrap();
         assert!(!secret.is_encrypted());
+        let (pair, _) = key.add_secret(secret);
+        assert!(pair.has_unencrypted_secret());
 
-        match secret {
+        match pair.secret() {
             SecretKeyMaterial::Unencrypted(ref u) => u.map(|mpis| match mpis {
                 mpi::SecretKeyMaterial::RSA { .. } => (),
                 _ => panic!(),
@@ -1745,12 +2635,209 @@ mod tests {
     }
 
     #[test]
-    fn key_encrypt_decrypt() -> Result<()> {
+    fn signature_roundtrip() {
+        let gen_v4_rsa = |bits: usize| -> Key<key::SecretParts, key::PrimaryRole> {
+            Key4::generate_rsa(bits)
+                .expect("Can generate a v4 RSA key")
+                .into()
+        };
+        let gen_v6_rsa = |bits: usize| -> Key<_, _> {
+            Key6::generate_rsa(bits)
+                .expect("Can generate a v6 RSA key")
+                .into()
+        };
+        // Disabled: see below.
+        //let gen_v4_dsa = |bits: usize| -> Key<_, _> {
+        //    Key4::generate_dsa(bits)
+        //        .expect("Can generate a v4 DSA key")
+        //        .into()
+        //};
+        let gen_v4_curve = |curve: Curve| -> Key<_, _> {
+            Key4::generate_ecc(true, curve.clone())
+                .expect(&format!("Can generate a v4 {:?}", curve))
+                .into()
+        };
+        let gen_v6_curve = |curve: Curve| -> Key<_, _> {
+            Key6::generate_ecc(true, curve.clone())
+                .expect(&format!("Can generate a v6 {:?}", curve))
+                .into()
+        };
+        let gen_v4_ed25519 = || -> Key<_, _> {
+            Key4::generate_ed25519()
+                .expect("Can generate a v4 Ed25519 key")
+                .into()
+        };
+        let gen_v6_ed25519 = || -> Key<_, _> {
+            Key6::generate_ed25519()
+                .expect("Can generate a v6 Ed25519 key")
+                .into()
+        };
+        let gen_v4_ed448 = || -> Key<_, _> {
+            Key4::generate_ed448()
+                .expect("Can generate a v4 Ed448 key")
+                .into()
+        };
+        let gen_v6_ed448 = || -> Key<_, _> {
+            Key6::generate_ed448()
+                .expect("Can generate a v6 Ed448 key")
+                .into()
+        };
+
+        #[allow(deprecated)]
+        for (algo, curve, profile, gen) in [
+            // RSA
+            (PublicKeyAlgorithm::RSAEncryptSign, None, 4,
+             Box::new(|| gen_v4_rsa(2048)) as Box<dyn Fn () -> _>),
+            (PublicKeyAlgorithm::RSAEncryptSign, None, 4,
+             Box::new(|| gen_v4_rsa(3072)) as Box<dyn Fn () -> _>),
+            (PublicKeyAlgorithm::RSAEncryptSign, None, 4,
+             Box::new(|| gen_v4_rsa(4096)) as Box<dyn Fn () -> _>),
+            (PublicKeyAlgorithm::RSAEncryptSign, None, 6,
+             Box::new(|| gen_v6_rsa(2048))),
+            (PublicKeyAlgorithm::RSAEncryptSign, None, 6,
+             Box::new(|| gen_v6_rsa(3072))),
+            (PublicKeyAlgorithm::RSAEncryptSign, None, 6,
+             Box::new(|| gen_v6_rsa(4096))),
+
+            // DSA
+            //
+            // DSA is deprecated.
+            //
+            // Disabled, because DSA generation doesn't work on
+            // Windows, but PublicKeyAlgorithm::DSA.is_supported()
+            // returns true.  This is because CNG does support signing
+            // and verification.
+            //(PublicKeyAlgorithm::DSA, None, 4,
+            // Box::new(|| gen_v4_dsa(2048)) as Box<dyn Fn () -> _>),
+            //(PublicKeyAlgorithm::DSA, None, 4,
+            // Box::new(|| gen_v4_dsa(3072)) as Box<dyn Fn () -> _>),
+
+            // EdDSA 25519.
+            //
+            // Note: EdDSA Ed25519 is deprecated for v6.
+            (PublicKeyAlgorithm::EdDSA, Some(Curve::Ed25519), 4,
+             Box::new(|| gen_v4_curve(Curve::Ed25519))),
+
+            // Modern Ed25519.
+            (PublicKeyAlgorithm::Ed25519, None, 4,
+             Box::new(gen_v4_ed25519)),
+            (PublicKeyAlgorithm::Ed25519, None, 6,
+             Box::new(gen_v6_ed25519)),
+
+            // Ed448.
+            (PublicKeyAlgorithm::Ed448, None, 4,
+             Box::new(gen_v4_ed448)),
+            (PublicKeyAlgorithm::Ed448, None, 6,
+             Box::new(gen_v6_ed448)),
+
+            // Nist.
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::NistP256), 4,
+             Box::new(|| gen_v4_curve(Curve::NistP256))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::NistP256), 6,
+             Box::new(|| gen_v6_curve(Curve::NistP256))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::NistP384), 4,
+             Box::new(|| gen_v4_curve(Curve::NistP384))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::NistP384), 6,
+             Box::new(|| gen_v6_curve(Curve::NistP384))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::NistP521), 4,
+             Box::new(|| gen_v4_curve(Curve::NistP521))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::NistP521), 6,
+             Box::new(|| gen_v6_curve(Curve::NistP521))),
+
+            // Brainpool.
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::BrainpoolP256), 4,
+             Box::new(|| gen_v4_curve(Curve::BrainpoolP256))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::BrainpoolP256), 6,
+             Box::new(|| gen_v6_curve(Curve::BrainpoolP256))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::BrainpoolP384), 4,
+             Box::new(|| gen_v4_curve(Curve::BrainpoolP384))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::BrainpoolP384), 6,
+             Box::new(|| gen_v6_curve(Curve::BrainpoolP384))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::BrainpoolP512), 4,
+             Box::new(|| gen_v4_curve(Curve::BrainpoolP512))),
+            (PublicKeyAlgorithm::ECDSA, Some(Curve::BrainpoolP512), 6,
+             Box::new(|| gen_v6_curve(Curve::BrainpoolP512))),
+        ]
+        {
+            eprintln!("Checking algo: {}, curve: {:?}, profile: {}.",
+                      algo, curve, profile);
+            if ! algo.is_supported() {
+                eprintln!("Algorithm {} not supported, skipping test.",
+                          algo);
+                continue;
+            }
+
+            if let Some(curve) = curve.as_ref() {
+                if ! curve.is_supported() {
+                    eprintln!("Curve {:?} not supported, skipping test.",
+                              curve);
+                    continue;
+                }
+            }
+
+            let key = gen();
+
+            // Make sure we got the right type of key.
+            assert_eq!(algo, key.pk_algo(),
+                       "\n\
+                        algo expected: {:?} ({})\n\
+                        algo got:      {:?} ({})",
+                       algo, u8::from(algo),
+                       key.pk_algo(), u8::from(key.pk_algo()));
+
+            let got_curve = match key.mpis() {
+                PublicKey::EdDSA { curve, .. }
+                | PublicKey::ECDSA { curve, .. }
+                | PublicKey::ECDH { curve, .. } =>
+                {
+                    Some(curve.clone())
+                }
+                _ => None,
+            };
+            assert_eq!(curve, got_curve,
+                       "\n\
+                        curve expected: {:?}\n\
+                        curve got:      {:?}",
+                       curve, got_curve);
+
+            assert_eq!(profile, key.version(),
+                       "\n\
+                        profile expected: {:?}\n\
+                        profile got:      {:?}",
+                       profile, key.version());
+
+            let mut pair = key.clone().into_keypair().unwrap();
+            let hash = HashAlgorithm::default();
+
+            // Sign.
+            let ctx = hash.context().unwrap().for_signature(profile);
+            let sig = SignatureBuilder::new(SignatureType::Binary)
+                .sign_hash(&mut pair, ctx).unwrap();
+
+            // Verify.
+            let ctx = hash.context().unwrap().for_signature(profile);
+            sig.verify_hash(&key, ctx).unwrap();
+        }
+    }
+
+    #[test]
+    fn primary_key_encrypt_decrypt() -> Result<()> {
+        key_encrypt_decrypt::<PrimaryRole>()
+    }
+
+    #[test]
+    fn subkey_encrypt_decrypt() -> Result<()> {
+        key_encrypt_decrypt::<SubordinateRole>()
+    }
+
+    fn key_encrypt_decrypt<R>() -> Result<()>
+    where
+        R: KeyRole + PartialEq,
+    {
         let mut g = quickcheck::Gen::new(256);
         let p: Password = Vec::<u8>::arbitrary(&mut g).into();
 
-        let check = |key: Key4<SecretParts, UnspecifiedRole>| -> Result<()> {
-            let key: Key<_, _> = key.into();
+        let check = |key: Key<SecretParts, R>| -> Result<()> {
             let encrypted = key.clone().encrypt_secret(&p)?;
             let decrypted = encrypted.decrypt_secret(&p)?;
             assert_eq!(key, decrypted);
@@ -1764,9 +2851,13 @@ mod tests {
                 continue;
             }
 
-            let key: Key4<_, key::UnspecifiedRole>
+            let key: Key4<_, R>
                 = Key4::generate_ecc(true, curve.clone())?;
-            check(key)?;
+            check(key.into())?;
+
+            let key: Key6<_, R>
+                = Key6::generate_ecc(true, curve.clone())?;
+            check(key.into())?;
         }
 
         for bits in vec![2048, 3072] {
@@ -1775,406 +2866,40 @@ mod tests {
                 continue;
             }
 
-            let key: Key4<_, key::UnspecifiedRole>
+            let key: Key4<_, R>
                 = Key4::generate_rsa(bits)?;
-            check(key)?;
+            check(key.into())?;
+
+            let key: Key6<_, R>
+                = Key6::generate_rsa(bits)?;
+            check(key.into())?;
         }
 
         Ok(())
     }
 
-    #[test]
-    fn eq() {
-        use crate::types::Curve::*;
-
-        for curve in vec![NistP256, NistP384, NistP521] {
-            if ! curve.is_supported() {
-                eprintln!("Skipping unsupported {}", curve);
-                continue;
-            }
-
-            let sign_key : Key4<_, key::UnspecifiedRole>
-                = Key4::generate_ecc(true, curve.clone()).unwrap();
-            let enc_key : Key4<_, key::UnspecifiedRole>
-                = Key4::generate_ecc(false, curve).unwrap();
-            let sign_clone = sign_key.clone();
-            let enc_clone = enc_key.clone();
-
-            assert_eq!(sign_key, sign_clone);
-            assert_eq!(enc_key, enc_clone);
-        }
-
-        for bits in vec![1024, 2048, 3072, 4096] {
-            if ! PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
-                eprintln!("Skipping unsupported RSA");
-                continue;
-            }
-
-            let key : Key4<_, key::UnspecifiedRole>
-                = Key4::generate_rsa(bits).unwrap();
-            let clone = key.clone();
-            assert_eq!(key, clone);
+    quickcheck! {
+        fn roundtrip_public(p: Key<PublicParts, UnspecifiedRole>) -> bool {
+            use crate::parse::Parse;
+            use crate::serialize::MarshalInto;
+            let buf = p.to_vec().expect("Failed to serialize key");
+            let q = Key::from_bytes(&buf).expect("Failed to parse key").into();
+            assert_eq!(p, q);
+            true
         }
     }
 
-    #[test]
-    fn roundtrip() {
-        use crate::types::Curve::*;
-
-        let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv|
-        {
-            if ! cv.is_supported() {
-                eprintln!("Skipping unsupported {}", cv);
-                return Vec::new();
-            }
-
-            let sign_key : Key4<key::SecretParts, key::PrimaryRole>
-                = Key4::generate_ecc(true, cv.clone()).unwrap();
-            let enc_key = Key4::generate_ecc(false, cv).unwrap();
-
-            vec![sign_key, enc_key]
-        }).chain(vec![1024, 2048, 3072, 4096].into_iter().filter_map(|b| {
-            Key4::generate_rsa(b).ok()
-        }));
-
-        for key in keys {
-            let mut b = Vec::new();
-            Packet::SecretKey(key.clone().into()).serialize(&mut b).unwrap();
-
-            let pp = PacketPile::from_bytes(&b).unwrap();
-            if let Some(Packet::SecretKey(Key::V4(ref parsed_key))) =
-                pp.path_ref(&[0])
-            {
-                assert_eq!(key.creation_time, parsed_key.creation_time);
-                assert_eq!(key.pk_algo, parsed_key.pk_algo);
-                assert_eq!(key.mpis, parsed_key.mpis);
-                assert_eq!(key.secret, parsed_key.secret);
-
-                assert_eq!(&key, parsed_key);
-            } else {
-                panic!("bad packet: {:?}", pp.path_ref(&[0]));
-            }
-
-            let mut b = Vec::new();
-            let pk4 : Key4<PublicParts, PrimaryRole> = key.clone().into();
-            Packet::PublicKey(pk4.into()).serialize(&mut b).unwrap();
-
-            let pp = PacketPile::from_bytes(&b).unwrap();
-            if let Some(Packet::PublicKey(Key::V4(ref parsed_key))) =
-                pp.path_ref(&[0])
-            {
-                assert!(! parsed_key.has_secret());
-
-                let key = key.take_secret().0;
-                assert_eq!(&key, parsed_key);
-            } else {
-                panic!("bad packet: {:?}", pp.path_ref(&[0]));
-            }
+    quickcheck! {
+        fn roundtrip_secret(p: Key<SecretParts, PrimaryRole>) -> bool {
+            use crate::parse::Parse;
+            use crate::serialize::MarshalInto;
+            let buf = p.to_vec().expect("Failed to serialize key");
+            let q = Key::from_bytes(&buf).expect("Failed to parse key")
+                .parts_into_secret().expect("No secret material")
+                .role_into_primary();
+            assert_eq!(p, q);
+            true
         }
-    }
-
-    #[test]
-    fn encryption_roundtrip() {
-        use crate::crypto::SessionKey;
-        use crate::types::Curve::*;
-
-        let keys = vec![NistP256, NistP384, NistP521].into_iter()
-            .filter_map(|cv| {
-                Key4::generate_ecc(false, cv).ok()
-            }).chain(vec![1024, 2048, 3072, 4096].into_iter().filter_map(|b| {
-                Key4::generate_rsa(b).ok()
-            }));
-
-        for key in keys.into_iter() {
-            let key: Key<key::SecretParts, key::UnspecifiedRole> = key.into();
-            let mut keypair = key.clone().into_keypair().unwrap();
-            let cipher = SymmetricAlgorithm::AES256;
-            let sk = SessionKey::new(cipher.key_size().unwrap());
-
-            let pkesk = PKESK3::for_recipient(cipher, &sk, &key).unwrap();
-            let (cipher_, sk_) = pkesk.decrypt(&mut keypair, None).unwrap();
-
-            assert_eq!(cipher, cipher_);
-            assert_eq!(sk, sk_);
-
-            let (cipher_, sk_) =
-                pkesk.decrypt(&mut keypair, Some(cipher)).unwrap();
-
-            assert_eq!(cipher, cipher_);
-            assert_eq!(sk, sk_);
-        }
-    }
-
-    #[test]
-    fn secret_encryption_roundtrip() {
-        use crate::types::Curve::*;
-
-        let keys = vec![NistP256, NistP384, NistP521].into_iter()
-            .filter_map(|cv| -> Option<Key4<key::SecretParts, key::PrimaryRole>> {
-                Key4::generate_ecc(false, cv).ok()
-            }).chain(vec![1024, 2048, 3072, 4096].into_iter().filter_map(|b| {
-                Key4::generate_rsa(b).ok()
-            }));
-
-        for key in keys {
-            assert!(! key.secret().is_encrypted());
-
-            let password = Password::from("foobarbaz");
-            let mut encrypted_key = key.clone();
-
-            encrypted_key.secret_mut().encrypt_in_place(&password).unwrap();
-            assert!(encrypted_key.secret().is_encrypted());
-
-            encrypted_key.secret_mut()
-                .decrypt_in_place(key.pk_algo, &password).unwrap();
-            assert!(! key.secret().is_encrypted());
-            assert_eq!(key, encrypted_key);
-            assert_eq!(key.secret(), encrypted_key.secret());
-        }
-    }
-
-    #[test]
-    fn import_cv25519() {
-        use crate::crypto::{ecdh, mem, SessionKey};
-        use self::mpi::{MPI, Ciphertext};
-
-        // X25519 key
-        let ctime =
-            time::UNIX_EPOCH + time::Duration::new(0x5c487129, 0);
-        let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
-        let key : Key<_, key::UnspecifiedRole>
-            = Key4::import_public_cv25519(&public[..],
-                                          HashAlgorithm::SHA256,
-                                          SymmetricAlgorithm::AES128,
-                                          ctime).unwrap().into();
-
-        // PKESK
-        let eph_pubkey = MPI::new(&b"\x40\xda\x1c\x69\xc4\xe3\xb6\x9c\x6e\xd4\xc6\x69\x6c\x89\xc7\x09\xe9\xf8\x6a\xf1\xe3\x8d\xb6\xaa\xb5\xf7\x29\xae\xa6\xe7\xdd\xfe\x38"[..]);
-        let ciphertext = Ciphertext::ECDH{
-            e: eph_pubkey.clone(),
-            key: Vec::from(&b"\x45\x8b\xd8\x4d\x88\xb3\xd2\x16\xb6\xc2\x3b\x99\x33\xd1\x23\x4b\x10\x15\x8e\x04\x16\xc5\x7c\x94\x88\xf6\x63\xf2\x68\x37\x08\x66\xfd\x5a\x7b\x40\x58\x21\x6b\x2c\xc0\xf4\xdc\x91\xd3\x48\xed\xc1"[..]).into_boxed_slice()
-        };
-        let shared_sec: mem::Protected = b"\x44\x0C\x99\x27\xF7\xD6\x1E\xAD\xD1\x1E\x9E\xC8\x22\x2C\x5D\x43\xCE\xB0\xE5\x45\x94\xEC\xAF\x67\xD9\x35\x1D\xA1\xA3\xA8\x10\x0B"[..].into();
-
-        // Session key
-        let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
-        let sk = SessionKey::from(Vec::from(&dek[..]));
-
-        // Expected
-        let got_enc = ecdh::encrypt_wrap(&key.parts_into_public(),
-                                           &sk, eph_pubkey, &shared_sec)
-            .unwrap();
-
-        assert_eq!(ciphertext, got_enc);
-    }
-
-    #[test]
-    fn import_cv25519_sec() {
-        use crate::crypto::ecdh;
-        use self::mpi::{MPI, Ciphertext};
-
-        // X25519 key
-        let ctime =
-            time::UNIX_EPOCH + time::Duration::new(0x5c487129, 0);
-        let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
-        let secret = b"\xa0\x27\x13\x99\xc9\xe3\x2e\xd2\x47\xf6\xd6\x63\x9d\xe6\xec\xcb\x57\x0b\x92\xbb\x17\xfe\xb8\xf1\xc4\x1f\x06\x7c\x55\xfc\xdd\x58";
-        let key: Key<_, UnspecifiedRole>
-            = Key4::import_secret_cv25519(&secret[..],
-                                          HashAlgorithm::SHA256,
-                                          SymmetricAlgorithm::AES128,
-                                          ctime).unwrap().into();
-        match key.mpis {
-            self::mpi::PublicKey::ECDH{ ref q,.. } =>
-                assert_eq!(&q.value()[1..], &public[..]),
-            _ => unreachable!(),
-        }
-
-        // PKESK
-        let eph_pubkey: &[u8; 33] = b"\x40\xda\x1c\x69\xc4\xe3\xb6\x9c\x6e\xd4\xc6\x69\x6c\x89\xc7\x09\xe9\xf8\x6a\xf1\xe3\x8d\xb6\xaa\xb5\xf7\x29\xae\xa6\xe7\xdd\xfe\x38";
-        let ciphertext = Ciphertext::ECDH{
-            e: MPI::new(&eph_pubkey[..]),
-            key: Vec::from(&b"\x45\x8b\xd8\x4d\x88\xb3\xd2\x16\xb6\xc2\x3b\x99\x33\xd1\x23\x4b\x10\x15\x8e\x04\x16\xc5\x7c\x94\x88\xf6\x63\xf2\x68\x37\x08\x66\xfd\x5a\x7b\x40\x58\x21\x6b\x2c\xc0\xf4\xdc\x91\xd3\x48\xed\xc1"[..]).into_boxed_slice()
-        };
-
-        // Session key
-        let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
-
-        let key = key.parts_into_public();
-        let got_dek = match key.optional_secret() {
-            Some(SecretKeyMaterial::Unencrypted(ref u)) => u.map(|mpis| {
-                ecdh::decrypt(&key, mpis, &ciphertext)
-                    .unwrap()
-            }),
-            _ => unreachable!(),
-        };
-
-        assert_eq!(&dek[..], &got_dek[..]);
-    }
-
-    #[test]
-    fn import_rsa() {
-        use crate::crypto::SessionKey;
-        use self::mpi::{MPI, Ciphertext};
-
-        // RSA key
-        let ctime =
-            time::UNIX_EPOCH + time::Duration::new(1548950502, 0);
-        let d = b"\x14\xC4\x3A\x0C\x3A\x79\xA4\xF7\x63\x0D\x89\x93\x63\x8B\x56\x9C\x29\x2E\xCD\xCF\xBF\xB0\xEC\x66\x52\xC3\x70\x1B\x19\x21\x73\xDE\x8B\xAC\x0E\xF2\xE1\x28\x42\x66\x56\x55\x00\x3B\xFD\x50\xC4\x7C\xBC\x9D\xEB\x7D\xF4\x81\xFC\xC3\xBF\xF7\xFF\xD0\x41\x3E\x50\x3B\x5F\x5D\x5F\x56\x67\x5E\x00\xCE\xA4\x53\xB8\x59\xA0\x40\xC8\x96\x6D\x12\x09\x27\xBE\x1D\xF1\xC2\x68\xFC\xF0\x14\xD6\x52\x77\x07\xC8\x12\x36\x9C\x9A\x5C\xAF\x43\xCC\x95\x20\xBB\x0A\x44\x94\xDD\xB4\x4F\x45\x4E\x3A\x1A\x30\x0D\x66\x40\xAC\x68\xE8\xB0\xFD\xCD\x6C\x6B\x6C\xB5\xF7\xE4\x36\x95\xC2\x96\x98\xFD\xCA\x39\x6C\x1A\x2E\x55\xAD\xB6\xE0\xF8\x2C\xFF\xBC\xD3\x32\x15\x52\x39\xB3\x92\x35\xDB\x8B\x68\xAF\x2D\x4A\x6E\x64\xB8\x28\x63\xC4\x24\x94\x2D\xA9\xDB\x93\x56\xE3\xBC\xD0\xB6\x38\x84\x04\xA4\xC6\x18\x48\xFE\xB2\xF8\xE1\x60\x37\x52\x96\x41\xA5\x79\xF6\x3D\xB7\x2A\x71\x5B\x7A\x75\xBF\x7F\xA2\x5A\xC8\xA1\x38\xF2\x5A\xBD\x14\xFC\xAF\xB4\x54\x83\xA4\xBD\x49\xA2\x8B\x91\xB0\xE0\x4A\x1B\x21\x54\x07\x19\x70\x64\x7C\x3E\x9F\x8D\x8B\xE4\x70\xD1\xE7\xBE\x4E\x5C\xCE\xF1";
-        let p = b"\xC8\x32\xD1\x17\x41\x4D\x8F\x37\x09\x18\x32\x4C\x4C\xF4\xA2\x15\x27\x43\x3D\xBB\xB5\xF6\x1F\xCF\xD2\xE4\x43\x61\x07\x0E\x9E\x35\x1F\x0A\x5D\xFB\x3A\x45\x74\x61\x73\x73\x7B\x5F\x1F\x87\xFB\x54\x8D\xA8\x85\x3E\xB0\xB7\xC7\xF5\xC9\x13\x99\x8D\x40\xE6\xA6\xD0\x71\x3A\xE3\x2D\x4A\xC3\xA3\xFF\xF7\x72\x82\x14\x52\xA4\xBA\x63\x0E\x17\xCA\xCA\x18\xC4\x3A\x40\x79\xF1\x86\xB3\x10\x4B\x9F\xB2\xAE\x2E\x13\x38\x8D\x2C\xF9\x88\x4C\x25\x53\xEF\xF9\xD1\x8B\x1A\x7C\xE7\xF6\x4B\x73\x51\x31\xFA\x44\x1D\x36\x65\x71\xDA\xFC\x6F";
-        let q = b"\xCC\x30\xE9\xCC\xCB\x31\x28\xB5\x90\xFF\x06\x62\x42\x5B\x24\x0E\x00\xFE\xE2\x37\xC4\xAC\xBB\x3B\x8F\xF2\x0E\x3F\x78\xCF\x6B\x7C\xE8\x75\x57\x7C\x15\x9D\x1A\x66\xF2\x0A\xE5\xD3\x0B\xE7\x40\xF7\xE7\x00\xB6\x86\xB5\xD9\x20\x67\xE0\x4A\xC0\x90\xA4\x13\x4D\xC9\xB0\x12\xC5\xCD\x4C\xEB\xA1\x91\x2D\x43\x58\x6E\xB6\x75\xA0\x93\xF0\x5B\xC5\x31\xCA\xB7\xC6\x22\x0C\xD3\xEC\x84\xC5\x91\xA1\x5F\x2C\x8E\x07\x5D\xA1\x98\x67\xC5\x7A\x58\x16\x71\x3D\xED\x91\x03\x0D\xD4\x25\x07\x89\x9B\x33\x98\xA3\x70\xD9\xE7\xC8\x17\xA3\xD9";
-        let key: key::SecretKey
-            = Key4::import_secret_rsa(&d[..], &p[..], &q[..], ctime)
-            .unwrap().into();
-
-        // PKESK
-        let c = b"\x8A\x1A\xD4\x82\x91\x6B\xBF\xA1\x65\xD3\x82\x8C\x97\xAB\xD0\x91\xE4\xB4\xC4\x9D\x08\xD8\x8B\xB7\xE6\x13\x3F\x6F\x52\x14\xED\xC4\x77\xB7\x31\x00\xC1\x43\xF9\x62\x53\xBF\x21\x21\x52\x74\x35\xD8\xC7\xA2\x11\x89\xA5\xD5\x21\x98\x6D\x3C\x9F\xF0\xED\xDB\xD7\x0F\xAC\x3C\x15\x25\x34\x52\xC7\x7C\x82\x07\x5A\x99\xC1\xC6\xF6\xF2\x6D\x46\xC8\x56\x59\xE7\xC6\x34\x0C\xCA\x37\x70\xB4\x97\xDA\x18\x14\xC4\x03\x0A\xCB\xE5\x0C\x41\x43\x61\xBA\x32\xB6\x9A\xF3\xDF\x0C\xB0\xCE\xBD\xFE\x72\x6C\xCC\xC1\xE8\xF0\x05\x97\x61\xEA\x30\x10\xB9\x43\xC4\x9A\x41\xED\x72\x27\xA4\xD5\xE7\x08\x41\x6C\x57\x80\xF3\x64\xF0\x45\x70\x27\x36\xBD\x64\x59\x74\xCF\xCD\x39\xE6\xEB\x7C\x62\xC8\x38\x23\xF8\x4C\xB7\x30\x9F\xF1\x40\x4A\xE9\x72\x66\x99\xF7\x2A\x47\x1C\xE7\x12\x20\x58\xBA\x87\x00\xB8\xFC\x54\xBC\xA5\x1D\x7D\x8B\x50\xA4\x4B\xB3\xD7\x44\xC7\x68\x5E\x2D\xBB\xE9\x6E\xC4\xD0\x31\xB0\xD0\xB6\x02\xD1\x74\x6B\xC9\x3D\x19\x32\x3B\xF1\x0E\x74\xF6\x12\x13\xE6\x40\x8F\xA6\x97\xAD\x83\xB0\x84\xD6\xD9\xE5\x25\x8E\x57\x0B\x7A\x7B\xD0\x5C\x29\x96\xED\x29\xED";
-        let ciphertext = Ciphertext::RSA{
-            c: MPI::new(&c[..]),
-        };
-        let pkesk = PKESK3::new(key.keyid(), PublicKeyAlgorithm::RSAEncryptSign,
-                                ciphertext).unwrap();
-
-        // Session key
-        let dek = b"\xA5\x58\x3A\x04\x35\x8B\xC7\x3F\x4A\xEF\x0C\x5A\xEB\xED\x59\xCA\xFD\x96\xB5\x32\x23\x26\x0C\x91\x78\xD1\x31\x12\xF0\x41\x42\x9D";
-        let sk = SessionKey::from(Vec::from(&dek[..]));
-
-        // Expected
-        let mut decryptor = key.into_keypair().unwrap();
-        let got_sk = pkesk.decrypt(&mut decryptor, None).unwrap();
-        assert_eq!(got_sk.1, sk);
-    }
-
-    #[test]
-    fn import_ed25519() {
-        use crate::types::SignatureType;
-        use crate::packet::signature::Signature4;
-        use crate::packet::signature::subpacket::{
-            Subpacket, SubpacketValue, SubpacketArea};
-
-        // Ed25519 key
-        let ctime =
-            time::UNIX_EPOCH + time::Duration::new(1548249630, 0);
-        let q = b"\x57\x15\x45\x1B\x68\xA5\x13\xA2\x20\x0F\x71\x9D\xE3\x05\x3B\xED\xA2\x21\xDE\x61\x5A\xF5\x67\x45\xBB\x97\x99\x43\x53\x59\x7C\x3F";
-        let key: key::PublicKey
-            = Key4::import_public_ed25519(q, ctime).unwrap().into();
-
-        let mut hashed = SubpacketArea::default();
-        let mut unhashed = SubpacketArea::default();
-        let fpr = "D81A 5DC0 DEBF EE5F 9AC8  20EB 6769 5DB9 920D 4FAC"
-            .parse().unwrap();
-        let kid = "6769 5DB9 920D 4FAC".parse().unwrap();
-        let ctime = 1549460479.into();
-        let r = b"\x5A\xF9\xC7\x42\x70\x24\x73\xFF\x7F\x27\xF9\x20\x9D\x20\x0F\xE3\x8F\x71\x3C\x5F\x97\xFD\x60\x80\x39\x29\xC2\x14\xFD\xC2\x4D\x70";
-        let s = b"\x6E\x68\x74\x11\x72\xF4\x9C\xE1\x99\x99\x1F\x67\xFC\x3A\x68\x33\xF9\x3F\x3A\xB9\x1A\xA5\x72\x4E\x78\xD4\x81\xCB\x7B\xA5\xE5\x0A";
-
-        hashed.add(Subpacket::new(SubpacketValue::IssuerFingerprint(fpr), false).unwrap()).unwrap();
-        hashed.add(Subpacket::new(SubpacketValue::SignatureCreationTime(ctime), false).unwrap()).unwrap();
-        unhashed.add(Subpacket::new(SubpacketValue::Issuer(kid), false).unwrap()).unwrap();
-
-        eprintln!("fpr: {}", key.fingerprint());
-        let sig = Signature4::new(SignatureType::Binary, PublicKeyAlgorithm::EdDSA,
-                                  HashAlgorithm::SHA256, hashed, unhashed,
-                                  [0xa7,0x19],
-                                  mpi::Signature::EdDSA{
-                                      r: mpi::MPI::new(r), s: mpi::MPI::new(s)
-                                  });
-        let mut sig: Signature = sig.into();
-        sig.verify_message(&key, b"Hello, World\n").unwrap();
-    }
-
-    #[test]
-    fn fingerprint_test() {
-        let pile =
-            PacketPile::from_bytes(crate::tests::key("public-key.gpg")).unwrap();
-
-        // The blob contains a public key and a three subkeys.
-        let mut pki = 0;
-        let mut ski = 0;
-
-        let pks = [ "8F17777118A33DDA9BA48E62AACB3243630052D9" ];
-        let sks = [ "C03FA6411B03AE12576461187223B56678E02528",
-                    "50E6D924308DBF223CFB510AC2B819056C652598",
-                    "2DC50AB55BE2F3B04C2D2CF8A3506AFB820ABD08"];
-
-        for p in pile.descendants() {
-            if let &Packet::PublicKey(ref p) = p {
-                let fp = p.fingerprint().to_hex();
-                // eprintln!("PK: {:?}", fp);
-
-                assert!(pki < pks.len());
-                assert_eq!(fp, pks[pki]);
-                pki += 1;
-            }
-
-            if let &Packet::PublicSubkey(ref p) = p {
-                let fp = p.fingerprint().to_hex();
-                // eprintln!("SK: {:?}", fp);
-
-                assert!(ski < sks.len());
-                assert_eq!(fp, sks[ski]);
-                ski += 1;
-            }
-        }
-        assert!(pki == pks.len() && ski == sks.len());
-    }
-
-    #[test]
-    fn issue_617() -> Result<()> {
-        use crate::serialize::MarshalInto;
-        let p = Packet::from_bytes(&b"-----BEGIN PGP ARMORED FILE-----
-
-xcClBAAAAMUWBSuBBAAjAPDbS+Z6Ti+PouOV6c5Ypr3jn1w1Ih5GqikN5E29PGz+
-CQMIoYc7R4YRiLr/ZJB/MW5M0kuuWyUirUKRkYCotB5omVE8fGtqW5wGCGf79Tzb
-rKVmPl25CJdEabIfAOl0WwciipDx1tqNOOYEci/JWSbTEymEyCH9oQPObt2sdDxh
-wLcBgsd/CVl3kuqiXFHNYDvWVBmUHeltS/J22Kfy/n1qD3CCBFooHGdc13KwtMLk
-UPb5LTTqCk2ihQ7e+5u7EmueLUp1431HJiYa+olaPZ7caRNfQfggtHcfQOJdnWRJ
-FN2nTDgLHX0cEOiMboZrS4S9xtjyVRLcRZcCIyeQF0Q889rq0lmxHG38XUeIj/3y
-SJJNnZxmJtHNo+SZQ/gXhO9TzeeA6yQm2myQlRkXBtdQEz6mtznphWeWMkWApZpa
-FwPoSAbbsLkNS/iNN2MDGAVYvezYn2QZ
-=0cxs
------END PGP ARMORED FILE-----"[..])?;
-        let i: usize = 360;
-        let mut buf = p.to_vec().unwrap();
-        // Avoid first two bytes so that we don't change the
-        // type and reduce the chance of changing the length.
-        let bit = i.saturating_add(2 * 8) % (buf.len() * 8);
-        buf[bit / 8] ^= 1 << (bit % 8);
-        match Packet::from_bytes(&buf) {
-            Ok(q) => {
-                eprintln!("{:?}", p);
-                eprintln!("{:?}", q);
-                assert!(p != q);
-            },
-            Err(_) => unreachable!(),
-        };
-        Ok(())
-    }
-
-    #[test]
-    fn encrypt_huge_plaintext() -> Result<()> {
-        let sk = crate::crypto::SessionKey::new(256);
-
-        if PublicKeyAlgorithm::RSAEncryptSign.is_supported() {
-            let rsa2k: Key<SecretParts, UnspecifiedRole> =
-                Key4::generate_rsa(2048)?.into();
-            assert!(matches!(
-                rsa2k.encrypt(&sk).unwrap_err().downcast().unwrap(),
-                crate::Error::InvalidArgument(_)
-            ));
-        }
-
-        if PublicKeyAlgorithm::ECDH.is_supported()
-            && Curve::Cv25519.is_supported()
-        {
-            let cv25519: Key<SecretParts, UnspecifiedRole> =
-                Key4::generate_ecc(false, Curve::Cv25519)?.into();
-            assert!(matches!(
-                cv25519.encrypt(&sk).unwrap_err().downcast().unwrap(),
-                crate::Error::InvalidArgument(_)
-            ));
-        }
-
-        Ok(())
     }
 
     fn mutate_eq_discriminates_key<P, R>(key: Key<P, R>, i: usize) -> bool
@@ -2187,7 +2912,8 @@ FwPoSAbbsLkNS/iNN2MDGAVYvezYn2QZ
         let mut buf = p.to_vec().unwrap();
         // Avoid first two bytes so that we don't change the
         // type and reduce the chance of changing the length.
-        let bit = i.saturating_add(2 * 8) % (buf.len() * 8);
+        if buf.len() < 3 { return true; }
+        let bit = i % ((buf.len() - 2) * 8) + 16;
         buf[bit / 8] ^= 1 << (bit % 8);
         let ok = match Packet::from_bytes(&buf) {
             Ok(q) => p != q,

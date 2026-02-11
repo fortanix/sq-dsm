@@ -3,10 +3,10 @@
 //! OpenPGP defines a [regular expression language].  It is used with
 //! [trust signatures] to scope the trust that they extend.
 //!
-//!   [regular expression language]: https://tools.ietf.org/html/rfc4880#section-8
-//!   [trust signatures]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+//!   [regular expression language]: https://www.rfc-editor.org/rfc/rfc9580.html#section-8
+//!   [trust signatures]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.21
 //!
-//! Compared with most regular expression lanugages, OpenPGP's is
+//! Compared with most regular expression languages, OpenPGP's is
 //! quite simple.  In particular, it only includes the following
 //! features:
 //!
@@ -54,12 +54,12 @@
 //! [Trust Signature] subpacket using, for instance, the
 //! [`SignatureBuilder::set_trust_signature`] method.
 //!
-//!   [type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+//!   [type]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.1
 //!   [GenericCertification]: crate::types::SignatureType::GenericCertification
 //!   [PersonaCertification]: crate::types::SignatureType::PersonaCertification
 //!   [CasualCertification]: crate::types::SignatureType::CasualCertification
 //!   [PositiveCertification]: crate::types::SignatureType::PositiveCertification
-//!   [Trust Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+//!   [Trust Signature]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.21
 //!   [`SignatureBuilder::set_trust_signature`]: crate::packet::signature::SignatureBuilder::set_trust_signature()
 //!
 //! To scope a trust signature, you add a [Regular Expression
@@ -70,7 +70,7 @@
 //! To extract any regular expressions, you can use
 //! [`SubpacketAreas::regular_expressions`].
 //!
-//!   [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
+//!   [Regular Expression subpacket]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.22
 //!   [`SignatureBuilder::set_regular_expression`]: crate::packet::signature::SignatureBuilder::set_regular_expression()
 //!   [`SignatureBuilder::add_regular_expression`]: crate::packet::signature::SignatureBuilder::add_regular_expression()
 //!   [`SubpacketAreas::regular_expressions`]: crate::packet::signature::subpacket::SubpacketAreas::regular_expressions()
@@ -119,7 +119,7 @@
 //! let p = &StandardPolicy::new();
 //!
 //! let (ca, _)
-//!     = CertBuilder::general_purpose(None, Some("OpenPGP CA <openpgp-ca@example.com>"))
+//!     = CertBuilder::general_purpose(Some("OpenPGP CA <openpgp-ca@example.com>"))
 //!         .generate()?;
 //! let mut ca_signer = ca.primary_key().key().clone()
 //!     .parts_into_secret()?.into_keypair()?;
@@ -128,7 +128,7 @@
 //!
 //! // The CA certifies "Alice <alice@example.com>".
 //! let (alice, _)
-//!     = CertBuilder::general_purpose(None, Some("Alice <alice@example.com>"))
+//!     = CertBuilder::general_purpose(Some("Alice <alice@example.com>"))
 //!         .generate()?;
 //! let alice_userid = alice.with_policy(p, None)?
 //!     .userids().nth(0).expect("Added a User ID").userid();
@@ -137,7 +137,7 @@
 //!         &mut ca_signer,
 //!         alice.primary_key().component(),
 //!         alice_userid)?;
-//! let alice = alice.insert_packets(alice_certification.clone())?;
+//! let alice = alice.insert_packets(alice_certification.clone())?.0;
 //! # assert!(alice.clone().into_packets().any(|p| {
 //! #   match p {
 //! #       Packet::Signature(sig) => sig == alice_certification,
@@ -147,7 +147,7 @@
 //!
 //! // The CA certifies "Bob <bob@some.org>".
 //! let (bob, _)
-//!     = CertBuilder::general_purpose(None, Some("Bob <bob@some.org>"))
+//!     = CertBuilder::general_purpose(Some("Bob <bob@some.org>"))
 //!         .generate()?;
 //! let bob_userid = bob.with_policy(p, None)?
 //!     .userids().nth(0).expect("Added a User ID").userid();
@@ -156,7 +156,7 @@
 //!         &mut ca_signer,
 //!         bob.primary_key().component(),
 //!         bob_userid)?;
-//! let bob = bob.insert_packets(bob_certification.clone())?;
+//! let bob = bob.insert_packets(bob_certification.clone())?.0;
 //! # assert!(bob.clone().into_packets().any(|p| {
 //! #   match p {
 //! #       Packet::Signature(sig) => sig == bob_certification,
@@ -167,7 +167,7 @@
 //!
 //! // Carol tsigns the CA's certificate.
 //! let (carol, _)
-//!     = CertBuilder::general_purpose(None, Some("Carol <carol@another.net>"))
+//!     = CertBuilder::general_purpose(Some("Carol <carol@another.net>"))
 //!         .generate()?;
 //! let mut carol_signer = carol.primary_key().key().clone()
 //!     .parts_into_secret()?.into_keypair()?;
@@ -180,7 +180,7 @@
 //!         &mut carol_signer,
 //!         ca.primary_key().component(),
 //!         ca_userid)?;
-//! let ca = ca.insert_packets(ca_tsig.clone())?;
+//! let ca = ca.insert_packets(ca_tsig.clone())?.0;
 //! # assert!(ca.clone().into_packets().any(|p| {
 //! #   match p {
 //! #       Packet::Signature(sig) => sig == ca_tsig,
@@ -193,10 +193,10 @@
 //! // using the CA as a trusted introducer based on `ca_tsig`.
 //! let res = RegexSet::from_signature(&ca_tsig)?;
 //!
-//! // Should should be able to authenticate Alice.
+//! // Should be able to authenticate Alice.
 //! let alice_ua = alice.with_policy(p, None)?
 //!     .userids().nth(0).expect("Added a User ID");
-//! # assert!(res.matches_userid(&alice_ua));
+//! # assert!(res.matches_userid(alice_ua.userid()));
 //! let mut authenticated = false;
 //! for c in alice_ua.certifications() {
 //!     if c.get_issuers().into_iter().any(|h| h.aliases(ca.key_handle())) {
@@ -205,7 +205,7 @@
 //!             alice.primary_key().key(),
 //!             alice_ua.userid()).is_ok()
 //!         {
-//!             authenticated |= res.matches_userid(&alice_ua);
+//!             authenticated |= res.matches_userid(alice_ua.userid());
 //!         }
 //!     }
 //! }
@@ -216,7 +216,7 @@
 //! // scope (some.org, not example.com).
 //! let bob_ua = bob.with_policy(p, None)?
 //!     .userids().nth(0).expect("Added a User ID");
-//! # assert!(! res.matches_userid(&bob_ua));
+//! # assert!(! res.matches_userid(bob_ua.userid()));
 //! let mut have_certification = false;
 //! let mut authenticated = false;
 //! for c in bob_ua.certifications() {
@@ -227,7 +227,7 @@
 //!             bob_ua.userid()).is_ok()
 //!         {
 //!             have_certification = true;
-//!             authenticated |= res.matches_userid(&bob_ua);
+//!             authenticated |= res.matches_userid(bob_ua.userid());
 //!         }
 //!     }
 //! }
@@ -288,8 +288,8 @@ pub(crate) fn parse_error_downcast(e: ParseError<usize, Token, LexicalError>)
         ParseError::User { error }
         => ParseError::User { error },
 
-        ParseError::UnrecognizedEOF { location, expected }
-        => ParseError::UnrecognizedEOF { location, expected },
+        ParseError::UnrecognizedEof { location, expected }
+        => ParseError::UnrecognizedEof { location, expected },
     }
 }
 
@@ -355,7 +355,7 @@ fn generate_class(caret: bool, chars: impl Iterator<Item=char>) -> Hir
 /// strings.
 ///
 /// A `Regex` contains a regular expression compiled according to the
-/// rules defined in [Section 8 of RFC 4880] modulo two differences.
+/// rules defined in [Section 8 of RFC 9580] modulo two differences.
 /// First, the compiler only works on UTF-8 strings (not bytes).
 /// Second, ranges in character classes are between UTF-8 characters,
 /// not just ASCII characters.  Further, by default, strings that
@@ -363,8 +363,8 @@ fn generate_class(caret: bool, chars: impl Iterator<Item=char>) -> Hir
 /// characters) never match.  This behavior can be customized using
 /// [`Regex::disable_sanitizations`].
 ///
-///   [Section 8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-8
-///   [trust signatures]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+///   [Section 8 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-8
+///   [trust signatures]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.21
 ///   [`Regex::disable_sanitizations`]: Regex::disable_sanitizations()
 ///
 /// Regular expressions are used to scope the trust that [trust
@@ -378,12 +378,31 @@ fn generate_class(caret: bool, chars: impl Iterator<Item=char>) -> Hir
 /// See the [module-level documentation] for more details.
 ///
 ///   [module-level documentation]: self
+///
+/// # A note on equality
+///
+/// We define equality on `Regex` as the equality of the uncompiled
+/// regular expression given to the constructor and whether
+/// sanitizations are enabled.
 #[derive(Clone, Debug)]
 pub struct Regex {
+    /// The original regular expression.
+    ///
+    /// Equality is defined using this and `disable_sanitizations`.
+    re: String,
     regex: regex::Regex,
     disable_sanitizations: bool,
 }
 assert_send_and_sync!(Regex);
+
+impl PartialEq for Regex {
+    fn eq(&self, other: &Self) -> bool {
+        self.re == other.re
+            && self.disable_sanitizations == other.disable_sanitizations
+    }
+}
+
+impl Eq for Regex {}
 
 impl Regex {
     /// Parses and compiles the regular expression.
@@ -404,13 +423,14 @@ impl Regex {
 
         // Converting the Hir to a string and the compiling that is
         // apparently the canonical way to convert a Hir to a Regex
-        // (at least it is what rip-grep does, which the author of
+        // (at least it is what rip-grep does), which the author of
         // regex also wrote.  See
         // ripgrep/crates/regex/src/config.rs:ConfiguredHir::regex.
         let regex = regex::RegexBuilder::new(&hir.to_string())
             .build()?;
 
         Ok(Self {
+            re: re.into(),
             regex,
             disable_sanitizations: false,
         })
@@ -428,6 +448,11 @@ impl Regex {
     ///   [`Regex::disable_sanitizations`]: Regex::disable_sanitizations()
     pub fn from_bytes(re: &[u8]) -> Result<Self> {
         Self::new(std::str::from_utf8(re)?)
+    }
+
+    /// Returns the string-representation of the regular expression.
+    pub fn as_str(&self) -> &str {
+        &self.re
     }
 
     /// Controls whether matched strings must pass a sanity check.
@@ -498,7 +523,7 @@ assert_send_and_sync!(RegexSet_);
 ///
 /// A `RegexSet` encapsulates a set of regular expressions.  The
 /// regular expressions are compiled according to the rules defined in
-/// [Section 8 of RFC 4880] modulo two differences.  First, the
+/// [Section 8 of RFC 9580] modulo two differences.  First, the
 /// compiler only works on UTF-8 strings (not bytes).  Second, ranges
 /// in character classes are between UTF-8 characters, not just ASCII
 /// characters.  Further, by default, strings that don't pass a sanity
@@ -506,7 +531,7 @@ assert_send_and_sync!(RegexSet_);
 /// match.  This behavior can be customized using
 /// [`RegexSet::disable_sanitizations`].
 ///
-///   [Section 8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-8
+///   [Section 8 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-8
 ///   [`RegexSet::disable_sanitizations`]: RegexSet::disable_sanitizations()
 ///
 /// `RegexSet` implements the semantics of [regular expression]s used
@@ -517,8 +542,8 @@ assert_send_and_sync!(RegexSet_);
 ///   - Have no Regular Expression subpackets, and/or
 ///   - Include one or more Regular Expression subpackets that are invalid.
 ///
-///   [regular expressions]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
-///   [Trust Signatures]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+///   [regular expressions]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.22
+///   [Trust Signatures]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.21
 ///
 /// `RegexSet` compiles each regular expression individually.  If
 /// there are no regular expressions, the `RegexSet` matches
@@ -530,12 +555,31 @@ assert_send_and_sync!(RegexSet_);
 /// See the [module-level documentation] for more details.
 ///
 ///   [module-level documentation]: self
+///
+/// # A note on equality
+///
+/// We define equality on `RegexSet` as the equality of the uncompiled
+/// regular expressions given to the constructor and whether
+/// sanitizations are enabled.
 #[derive(Clone)]
 pub struct RegexSet {
+    /// The original regular expressions.
+    ///
+    /// Equality is defined using this and `disable_sanitizations`.
+    re_bytes: Vec<Vec<u8>>,
     re_set: RegexSet_,
     disable_sanitizations: bool,
 }
 assert_send_and_sync!(RegexSet);
+
+impl PartialEq for RegexSet {
+    fn eq(&self, other: &Self) -> bool {
+        self.re_bytes == other.re_bytes
+            && self.disable_sanitizations == other.disable_sanitizations
+    }
+}
+
+impl Eq for RegexSet {}
 
 impl fmt::Debug for RegexSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -600,16 +644,15 @@ impl RegexSet {
         let mut had_good = false;
         let mut had_bad = false;
 
+        let mut re_bytes = Vec::new();
         for re in res {
             let re = re.borrow();
+            re_bytes.push(re.as_bytes().into());
+
             let lexer = Lexer::new(re);
             match grammar::RegexParser::new().parse(re, lexer) {
                 Ok(hir) => {
                     had_good = true;
-                    let hir = hir::Hir::group(hir::Group {
-                        kind: hir::GroupKind::NonCapturing,
-                        hir: Box::new(hir),
-                    });
                     regexes.push(hir);
                 }
                 Err(err) => {
@@ -622,6 +665,7 @@ impl RegexSet {
         if had_bad && ! had_good {
             t!("All regular expressions were invalid.");
             Ok(RegexSet {
+                re_bytes,
                 re_set: RegexSet_::Invalid,
                 disable_sanitizations: false,
             })
@@ -629,14 +673,17 @@ impl RegexSet {
             // Match everything.
             t!("No regular expressions provided.");
             Ok(RegexSet {
+                re_bytes,
                 re_set: RegexSet_::Everything,
                 disable_sanitizations: false,
             })
         } else {
             // Match any of the regular expressions.
             Ok(RegexSet {
+                re_bytes,
                 re_set: RegexSet_::Regex(
                     Regex {
+                        re: String::new(),
                         regex: regex::RegexBuilder::new(
                             &Hir::alternation(regexes).to_string())
                             .build()?,
@@ -714,12 +761,14 @@ impl RegexSet {
     {
         let mut have_valid_utf8 = false;
         let mut have_invalid_utf8 = false;
+        let mut re_bytes = Vec::new();
         let re_set = Self::new(
             res
                 .into_iter()
                 .scan((&mut have_valid_utf8, &mut have_invalid_utf8),
                       |(valid, invalid), re|
                       {
+                          re_bytes.push(re.borrow().to_vec());
                           if let Ok(re) = std::str::from_utf8(re.borrow()) {
                               **valid = true;
                               Some(Some(re))
@@ -734,14 +783,20 @@ impl RegexSet {
             // None of the strings were valid UTF-8.  Reject
             // everything.
             Ok(RegexSet {
+                re_bytes,
                 re_set: RegexSet_::Invalid,
                 disable_sanitizations: false,
             })
         } else {
             // We had nothing or at least one string was valid UTF-8.
             // RegexSet::new did the right thing.
-            re_set
+            re_set.map(|mut r| { r.re_bytes = re_bytes; r })
         }
+    }
+
+    /// Returns the bytes-representation of the regular expressions.
+    pub fn as_bytes(&self) -> &[Vec<u8>] {
+        &self.re_bytes
     }
 
     /// Creates a `RegexSet` from the regular expressions stored in a
@@ -751,7 +806,7 @@ impl RegexSet {
     /// regular expressions from a [Trust Signature] and wraps them in a
     /// `RegexSet`.
     ///
-    ///   [Trust Signature]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+    ///   [Trust Signature]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.21
     ///
     /// If the signature is not a valid trust signature (its [type] is
     /// [GenericCertification], [PersonaCertification],
@@ -759,7 +814,7 @@ impl RegexSet {
     /// [Trust Signature] subpacket is present), this returns an
     /// error.
     ///
-    ///   [type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    ///   [type]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.1
     ///   [GenericCertification]: crate::types::SignatureType::GenericCertification
     ///   [PersonaCertification]: crate::types::SignatureType::PersonaCertification
     ///   [CasualCertification]: crate::types::SignatureType::CasualCertification
@@ -786,13 +841,13 @@ impl RegexSet {
     /// # let p = &StandardPolicy::new();
     /// #
     /// # let (alice, _)
-    /// #     = CertBuilder::general_purpose(None, Some("Alice <alice@example.org>"))
+    /// #     = CertBuilder::general_purpose(Some("Alice <alice@example.org>"))
     /// #         .generate()?;
     /// # let mut alices_signer = alice.primary_key().key().clone()
     /// #     .parts_into_secret()?.into_keypair()?;
     /// #
     /// # let (example_com, _)
-    /// #     = CertBuilder::general_purpose(None, Some("OpenPGP CA <openpgp-ca@example.com>"))
+    /// #     = CertBuilder::general_purpose(Some("OpenPGP CA <openpgp-ca@example.com>"))
     /// #         .generate()?;
     /// # let example_com_userid = example_com.with_policy(p, None)?
     /// #     .userids().nth(0).expect("Added a User ID").userid();
@@ -826,7 +881,7 @@ impl RegexSet {
     /// // email addresses wrapped in <>.
     /// assert!(! res.is_match("dave@example.com"));
     ///
-    /// // And, it is case sensitive.
+    /// // And, it is case-sensitive.
     /// assert!(res.is_match("Ellen <ellen@example.com>"));
     /// assert!(! res.is_match("Ellen <ellen@EXAMPLE.COM>"));
     /// # Ok(()) }
@@ -869,13 +924,14 @@ impl RegexSet {
     ///
     /// This can be used to optimize the evaluation of scoping rules
     /// along a path: if a `RegexSet` matches everything, then it
-    /// doesn't further contrain the path.
-    pub fn everything() -> Result<Self>
+    /// doesn't further constrain the path.
+    pub fn everything() -> Self
     {
-        Ok(Self {
+        Self {
+            re_bytes: vec![vec![]],
             re_set: RegexSet_::Everything,
             disable_sanitizations: false,
-        })
+        }
     }
 
     /// Returns whether a `RegexSet` matches everything.
@@ -901,7 +957,7 @@ impl RegexSet {
     /// use openpgp::regex::RegexSet;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// assert!(RegexSet::everything()?.matches_everything());
+    /// assert!(RegexSet::everything().matches_everything());
     /// let empty: &[ &str ] = &[];
     /// assert!(RegexSet::new(empty)?.matches_everything());
     ///
@@ -1036,7 +1092,6 @@ impl RegexSet {
     /// ```
     pub fn matches_userid(&self, u: &UserID) -> bool
     {
-        let u = u.borrow();
         if let Ok(u) = std::str::from_utf8(u.value()) {
             self.is_match(u)
         } else {
@@ -1410,6 +1465,65 @@ mod tests {
             (true, "abcde"),
             (true, "xabcdey"),
             (false, "xa(b(c)d)ey"),
+        ]);
+        a("x(a|b)y", &[
+            (false, "xy"),
+            (true, "xay"),
+            (true, "xby"),
+            (false, "xaay"),
+            (false, "xbby"),
+            (false, "xaby"),
+            (false, "xaaby"),
+            (false, "xabby"),
+            (false, "xaabby"),
+            (false, "xcy"),
+        ]);
+        a("x(a|bc)y", &[
+            (false, "xy"),
+            (true, "xay"),
+            (false, "xby"),
+            (true, "xbcy"),
+            (false, "xaay"),
+            (false, "xbby"),
+            (false, "xaby"),
+            (false, "xabcy"),
+            (false, "xabby"),
+            (false, "xaabby"),
+            (false, "xcy"),
+            (false, "xacy"),
+        ]);
+        a("x(a|b|c)y", &[
+            (false, "xy"),
+            (true, "xay"),
+            (true, "xby"),
+            (true, "xcy"),
+            (false, "xaay"),
+            (false, "xbby"),
+            (false, "xaby"),
+            (false, "xabcy"),
+            (false, "xabby"),
+            (false, "xaabby"),
+            (false, "xacy"),
+        ]);
+        a("x(a|b)(c|d)y", &[
+            (false, "xy"),
+            (false, "xay"),
+            (false, "xby"),
+            (false, "xcy"),
+            (false, "xdy"),
+            (false, "xaay"),
+            (false, "xbby"),
+            (false, "xccy"),
+            (false, "xddy"),
+            (false, "xaby"),
+            (false, "xcdy"),
+            (true, "xacy"),
+            (true, "xady"),
+            (true, "xbcy"),
+            (true, "xbdy"),
+            (false, "xabcy"),
+            (false, "xabby"),
+            (false, "xaabby"),
         ]);
         a("x(a+|b+)y", &[
             (false, "xy"),
@@ -1986,6 +2100,24 @@ mod tests {
             (true, "c"),
         ]);
 
+        // Make sure - is recognized as an atom when it is not part of
+        // a range.  That is: a-z matches a or - or z, but it doesn't
+        // match b (it's not a range).
+        a("a-z", &[
+            (true, "a-z"),
+            (false, "a"),
+            (false, "-"),
+            (false, "z"),
+            (false, "c"),
+        ]);
+
+        a("a|-|z", &[
+            (true, "a"),
+            (true, "-"),
+            (true, "z"),
+            (false, "c"),
+        ]);
+
         Ok(())
     }
 
@@ -1999,7 +2131,10 @@ mod tests {
         // Try to make sure one re does not leak into another.
         let re = RegexSet::new(&[ "cd$", "^ab" ])?;
         assert!(re.is_match("abxx"));
+        assert!(! re.is_match("xabxx"));
         assert!(re.is_match("xxcd"));
+        assert!(! re.is_match("xxcdx"));
+        assert!(re.is_match("abcdx"));
 
         // Invalid regular expressions should be ignored.
         let re = RegexSet::new(&[ "[ab", "cd]", "x" ])?;
@@ -2034,6 +2169,32 @@ mod tests {
         assert!(re.is_match("cd]"));
         assert!(re.is_match("x"));
 
+        // The empty branch of the alternation should match everything.
+        let re = RegexSet::new(&[ "ab|", "cd" ])?;
+        assert!(re.is_match("a"));
+        assert!(re.is_match("b"));
+        assert!(re.is_match("x"));
+        assert!(re.is_match("xyx"));
+        assert!(re.is_match(""));
+
+        Ok(())
+    }
+
+    #[test]
+    fn regex_set_sequoia() -> Result<()> {
+        let re = RegexSet::new(&["<[^>]+[@.]sequoia-pgp\\.org>$"])?;
+        dbg!(&re);
+        assert!(re.is_match("<justus@sequoia-pgp.org>"));
+        assert!(!re.is_match("<justus@gnupg.org>"));
+        Ok(())
+    }
+
+    #[test]
+    fn regex_set_sequoia_nodash() -> Result<()> {
+        let re = RegexSet::new(&["<[^>]+[@.]sequoiapgp\\.org>$"])?;
+        dbg!(&re);
+        assert!(re.is_match("<justus@sequoiapgp.org>"));
+        assert!(!re.is_match("<justus@gnupg.org>"));
         Ok(())
     }
 }

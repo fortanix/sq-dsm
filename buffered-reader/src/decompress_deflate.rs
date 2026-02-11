@@ -27,10 +27,10 @@ impl <R: BufferedReader<()>> Deflate<R, ()> {
 }
 
 impl <R: BufferedReader<C>, C: fmt::Debug + Sync + Send> Deflate<R, C> {
-    /// Like `new()`, but uses a cookie.
+    /// Like [`Self::new`], but uses a cookie.
     ///
-    /// The cookie can be retrieved using the `cookie_ref` and
-    /// `cookie_mut` methods, and set using the `cookie_set` method.
+    /// The cookie can be retrieved using the [`BufferedReader::cookie_ref`] and
+    /// [`BufferedReader::cookie_mut`] methods, and set using the [`BufferedReader::cookie_set`] method.
     pub fn with_cookie(reader: R, cookie: C) -> Self {
         Deflate {
             reader: Generic::with_cookie(
@@ -109,7 +109,7 @@ impl<R: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C>
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
-        Some(self.reader.into_reader().into_inner().as_boxed())
+        Some(self.reader.into_reader().into_inner().into_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -145,10 +145,10 @@ impl <R: BufferedReader<()>> Zlib<R, ()> {
 }
 
 impl <R: BufferedReader<C>, C: fmt::Debug + Sync + Send> Zlib<R, C> {
-    /// Like `new()`, but uses a cookie.
+    /// Like [`Self::new`], but uses a cookie.
     ///
-    /// The cookie can be retrieved using the `cookie_ref` and
-    /// `cookie_mut` methods, and set using the `cookie_set` method.
+    /// The cookie can be retrieved using the [`BufferedReader::cookie_ref`] and
+    /// [`BufferedReader::cookie_mut`] methods, and set using the [`BufferedReader::cookie_set`] method.
     pub fn with_cookie(reader: R, cookie: C) -> Self {
         Zlib {
             reader: Generic::with_cookie(
@@ -235,7 +235,7 @@ impl<R: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C>
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
-        Some(self.reader.into_reader().into_inner().as_boxed())
+        Some(self.reader.into_reader().into_inner().into_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -263,7 +263,7 @@ mod test {
         use std::io::prelude::*;
 
         // Test vector.
-        let size = 10 * DEFAULT_BUF_SIZE;
+        let size = 10 * default_buf_size();
         let mut input_raw = Vec::with_capacity(size);
         let mut v = 0u8;
         for _ in 0..size {
@@ -289,11 +289,11 @@ mod test {
 
         // Gather some stats to make it easier to figure out whether
         // this test is working.
-        let stats_count =  2 * DEFAULT_BUF_SIZE;
+        let stats_count =  2 * default_buf_size();
         let mut stats = vec![0usize; stats_count];
 
         for i in 0..input_raw.len() {
-            let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
+            let data = reader.data(default_buf_size() + 1).unwrap().to_vec();
             assert!(!data.is_empty());
             assert_eq!(data, reader.buffer());
             // And, we may as well check to make sure we read the

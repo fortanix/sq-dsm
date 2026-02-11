@@ -15,7 +15,7 @@ use crate::serialize::{
 use crate::policy::StandardPolicy as P;
 
 
-/// Whether or not a character is printable.
+/// Whether a character is printable.
 pub(crate) fn is_printable(c: &char) -> bool {
     // c.is_ascii_alphanumeric || c.is_whitespace || c.is_ascii_punctuation
     // would exclude any utf8 character, so it seems that to obtain all
@@ -73,7 +73,7 @@ impl Cert {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let (cert, _) =
-    ///     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+    ///     CertBuilder::general_purpose(Some("Mr. Pink ☮☮☮"))
     ///     .generate()?;
     /// let armored = String::from_utf8(cert.armored().to_vec()?)?;
     ///
@@ -105,7 +105,7 @@ impl<'a> TSK<'a> {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let (cert, _) =
-    ///     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+    ///     CertBuilder::general_purpose(Some("Mr. Pink ☮☮☮"))
     ///     .generate()?;
     /// let armored = String::from_utf8(cert.as_tsk().armored().to_vec()?)?;
     ///
@@ -121,7 +121,6 @@ impl<'a> TSK<'a> {
 }
 
 /// A `Cert` or `TSK` to be armored and serialized.
-#[allow(clippy::upper_case_acronyms)]
 enum Encoder<'a> {
     Cert(&'a Cert),
     TSK(TSK<'a>),
@@ -138,13 +137,34 @@ impl<'a> Encoder<'a> {
         Encoder::TSK(tsk)
     }
 
+    /// Returns the cert's primary key version.
+    fn primary_key_version(&self) -> u8 {
+        match self {
+            Encoder::Cert(cert) => cert.primary_key().key().version(),
+            Encoder::TSK(tsk) => tsk.cert.primary_key().key().version(),
+        }
+    }
+
     fn serialize_common(&self, o: &mut dyn io::Write, export: bool)
                         -> Result<()> {
+        if export {
+            let exportable = match self {
+                Encoder::Cert(cert) => cert.exportable(),
+                Encoder::TSK(tsk) => tsk.cert.exportable(),
+            };
+            if ! exportable {
+                return Ok(());
+            }
+        }
+
         let (prelude, headers) = match self {
             Encoder::Cert(cert) =>
                 (armor::Kind::PublicKey, cert.armor_headers()),
-            Encoder::TSK(ref tsk) =>
-                (armor::Kind::SecretKey, tsk.cert.armor_headers()),
+            Encoder::TSK(tsk) => if tsk.emits_secret_key_packets() {
+                (armor::Kind::SecretKey, tsk.cert.armor_headers())
+            } else {
+                (armor::Kind::PublicKey, tsk.cert.armor_headers())
+            },
         };
 
         // Convert the Vec<String> into Vec<(&str, &str)>
@@ -156,6 +176,13 @@ impl<'a> Encoder<'a> {
 
         let mut w =
             armor::Writer::with_headers(o, prelude, headers)?;
+
+        if self.primary_key_version() > 4 {
+            w.set_profile(crate::Profile::RFC9580)?;
+        } else {
+            w.set_profile(crate::Profile::RFC4880)?;
+        }
+
         if export {
             match self {
                 Encoder::Cert(cert) => cert.export(&mut w)?,
@@ -200,16 +227,27 @@ impl<'a> MarshalInto for Encoder<'a> {
             Self::TSK(ref tsk) => tsk.serialized_len(),
         } + 2) / 3 * 4; // base64
 
+        let crc_len = if self.primary_key_version() > 4 {
+            0
+        } else {
+            "=FUaG\n".len()
+        };
+
         let word = match self {
             Self::Cert(_) => "PUBLIC",
-            Self::TSK(_) => "PRIVATE",
+            Self::TSK(tsk) => if tsk.emits_secret_key_packets() {
+                "PRIVATE"
+            } else {
+                "PUBLIC"
+            },
         }.len();
 
         "-----BEGIN PGP ".len() + word + " KEY BLOCK-----\n\n".len()
             + headers_len
             + body_len
             + (body_len + armor::LINE_LENGTH - 1) / armor::LINE_LENGTH // NLs
-            + "=FUaG\n-----END PGP ".len() + word + " KEY BLOCK-----\n".len()
+            + crc_len
+            + "-----END PGP ".len() + word + " KEY BLOCK-----\n".len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -235,7 +273,7 @@ mod tests {
         let chars: Vec<char> = vec![
             'a', 'z', 'A', 'Z', '1', '9', '0',
             '|', '!', '#', '$', '%', '^', '&', '*', '-', '+', '/',
-            // The following unicode characters were taken from:
+            // The following Unicode characters were taken from:
             // https://doc.rust-lang.org/std/primitive.char.html
             'é', 'ß', 'ℝ', '💣', '❤', '東', '京', '𝕊', '💝', 'δ',
             'Δ', '中', '越', '٣', '7', '৬', '¾', '①', 'K',
@@ -270,7 +308,7 @@ mod tests {
 
         // Parse the armor.
         let mut cursor = io::Cursor::new(&buffer);
-        let mut reader = Reader::new(
+        let mut reader = Reader::from_reader(
             &mut cursor, ReaderMode::Tolerant(Some(Kind::PublicKey)));
 
         // Extract the headers.
@@ -329,7 +367,7 @@ mod tests {
         let userid5: String = userid5.into_iter().collect();
 
         // Create a Cert with the userids.
-        let (cert, _) = CertBuilder::general_purpose(None, Some(&userid1[..]))
+        let (cert, _) = CertBuilder::general_purpose(Some(&userid1[..]))
             .add_userid(&userid2[..])
             .add_userid(&userid3[..])
             .add_userid(&userid4[..])
@@ -345,7 +383,7 @@ mod tests {
 
         // Parse the armor.
         let mut cursor = io::Cursor::new(&buffer);
-        let mut reader = Reader::new(
+        let mut reader = Reader::from_reader(
             &mut cursor, ReaderMode::Tolerant(Some(Kind::PublicKey)));
 
         // Extract the headers.

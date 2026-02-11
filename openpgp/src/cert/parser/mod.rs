@@ -1,8 +1,8 @@
 use std::io;
 use std::mem;
 use std::vec;
-use std::path::Path;
 
+use buffered_reader::BufferedReader;
 use lalrpop_util::ParseError;
 
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
     packet::Tag,
     Packet,
     parse::{
+        Cookie,
         Parse,
         PacketParserResult,
         PacketParser
@@ -157,11 +158,19 @@ impl KeyringValidator {
             Tag::UserAttribute => Token::UserAttribute(None),
             Tag::Signature => Token::Signature(None),
             Tag::Trust => Token::Trust(None),
+            Tag::Marker => {
+                // Ignore Marker Packet.  RFC4880, section 5.8:
+                //
+                //   Such a packet MUST be ignored when received.
+                return;
+            },
+            Tag::Unknown(_) => Token::Unknown(tag, None),
+            Tag::Private(_) => Token::Unknown(tag, None),
             _ => {
                 // Unknown token.
                 self.error = Some(CertParserError::OpenPGP(
                     Error::MalformedMessage(
-                        format!("Invalid Cert: {:?} packet (at {}) not expected",
+                        format!("Invalid Cert: {:?} packet (#{}) not expected",
                                 tag, self.n_packets))));
                 self.tokens.clear();
                 return;
@@ -216,7 +225,7 @@ impl KeyringValidator {
         } else {
             match r {
                 Ok(_) => KeyringValidity::KeyringPrefix,
-                Err(ParseError::UnrecognizedEOF { .. }) =>
+                Err(ParseError::UnrecognizedEof { .. }) =>
                     KeyringValidity::KeyringPrefix,
                 Err(err) =>
                     KeyringValidity::Error(
@@ -334,7 +343,14 @@ impl CertValidator {
 /// this way, it is possible to propagate parse errors.
 ///
 /// A `CertParser` returns each [`TPK`] or [`TSK`] that it encounters.
-/// Its behavior can be modeled using a simple state machine.
+/// Note: if you don't actually need all the certificates, it is
+/// usually faster to use a [`RawCertParser`] and only fully parse and
+/// canonicalize those certificates that are relevant.
+///
+/// [`RawCertParser`]: crate::cert::raw::RawCertParser
+///
+/// A `CertParser`'s behavior can be modeled using a simple state
+/// machine.
 ///
 /// In the first and initial state, it looks for the start of a
 /// certificate, a [`Public Key`] packet or a [`Secret Key`] packet.
@@ -387,8 +403,8 @@ impl CertValidator {
 /// goal is to provide some future compatibility.
 ///
 /// [`Packet`]: crate::packet::Packet
-/// [`TPK`]: https://tools.ietf.org/html/rfc4880#section-11.1
-/// [`TSK`]: https://tools.ietf.org/html/rfc4880#section-11.2
+/// [`TPK`]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.1
+/// [`TSK`]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.2
 /// [`Public Key`]: super::Packet::PublicKey
 /// [`Secret Key`]: super::Packet::SecretKey
 /// [`Literal Data`]: super::Packet::Literal
@@ -410,10 +426,10 @@ impl CertValidator {
 ///
 /// # fn main() -> Result<()> {
 /// # let (alice, _) =
-/// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #       CertBuilder::general_purpose(Some("alice@example.org"))
 /// #       .generate()?;
 /// # let (bob, _) =
-/// #       CertBuilder::general_purpose(None, Some("bob@example.org"))
+/// #       CertBuilder::general_purpose(Some("bob@example.org"))
 /// #       .generate()?;
 /// #
 /// # let mut keyring = Vec::new();
@@ -454,21 +470,21 @@ impl CertValidator {
 /// use openpgp::types::DataFormat;
 ///
 /// # fn main() -> Result<()> {
-/// let mut lit = Literal::new(DataFormat::Text);
+/// let mut lit = Literal::new(DataFormat::Unicode);
 /// lit.set_body(b"test".to_vec());
 ///
 /// let (alice, _) =
-///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+///       CertBuilder::general_purpose(Some("alice@example.org"))
 ///       .generate()?;
 /// let (bob, _) =
-///       CertBuilder::general_purpose(None, Some("bob@example.org"))
+///       CertBuilder::general_purpose(Some("bob@example.org"))
 ///       .generate()?;
 ///
 /// let mut packets : Vec<Packet> = Vec::new();
-/// packets.extend(alice.clone());
+/// packets.extend(alice.clone().into_packets());
 /// packets.push(lit.clone().into());
 /// packets.push(lit.clone().into());
-/// packets.extend(bob.clone());
+/// packets.extend(bob.clone().into_packets());
 ///
 /// let r : Vec<Result<Cert>> = CertParser::from(packets).collect();
 /// assert_eq!(r.len(), 4);
@@ -485,7 +501,6 @@ pub struct CertParser<'a> {
     source: Option<Box<dyn Iterator<Item=Result<Packet>> + 'a + Send + Sync>>,
     packets: Vec<Packet>,
     queued_error: Option<anyhow::Error>,
-    saw_error: bool,
     filter: Vec<Box<dyn Send + Sync + Fn(&Cert, bool) -> bool + 'a>>,
 }
 assert_send_and_sync!(CertParser<'_>);
@@ -504,9 +519,10 @@ impl<'a> From<PacketParserResult<'a>> for CertParser<'a>
             let mut retry_with_reader = Box::new(None);
             parser.source = Some(
                 Box::new(std::iter::from_fn(move || {
+                    tracer!(TRACE, "PacketParserResult::next", 0);
                     if let Some(reader) = retry_with_reader.take() {
                         // Try to find the next (armored) blob.
-                        match PacketParser::from_buffered_reader(reader) {
+                        match PacketParser::from_cookie_reader(reader) {
                             Ok(PacketParserResult::Some(pp)) => {
                                 // We read at least one packet.  Try
                                 // to parse the next cert.
@@ -546,9 +562,13 @@ impl<'a> From<PacketParserResult<'a>> for CertParser<'a>
                                         *retry_with_reader =
                                             Some(eof.into_reader()),
                                 }
+                                t!("PacketParser::next yielded a {}",
+                                   packet.tag());
                                 Some(Ok(packet))
                             },
                             Err(err) => {
+                                t!("PacketParser::next returned an error: {}.",
+                                   err);
                                 Some(Err(err))
                             }
                         }
@@ -575,23 +595,17 @@ impl<'a> From<Vec<Packet>> for CertParser<'a> {
 
 impl<'a> Parse<'a, CertParser<'a>> for CertParser<'a>
 {
-    /// Initializes a `CertParser` from a `Read`er.
-    fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<Self> {
-        Ok(Self::from(PacketParser::from_reader(reader)?))
-    }
-
-    /// Initializes a `CertParser` from a `File`.
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Ok(Self::from(PacketParser::from_file(path)?))
-    }
-
-    /// Initializes a `CertParser` from a byte string.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<Self> {
-        Ok(Self::from(PacketParser::from_bytes(data)?))
+    /// Initializes a `CertParser` from a `BufferedReader`.
+    fn from_buffered_reader<R>(reader: R) -> Result<CertParser<'a>>
+    where
+        R: BufferedReader<Cookie> + 'a,
+    {
+        Ok(Self::from(PacketParser::from_buffered_reader(reader.into_boxed())?))
     }
 }
 
-#[allow(clippy::should_implement_trait)]
+impl<'a> crate::seal::Sealed for CertParser<'a> {}
+
 impl<'a> CertParser<'a> {
     /// Creates a `CertParser` from a `Result<Packet>` iterator.
     ///
@@ -614,10 +628,10 @@ impl<'a> CertParser<'a> {
     ///
     /// # fn main() -> Result<()> {
     /// # let (alice, _) =
-    /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #       CertBuilder::general_purpose(Some("alice@example.org"))
     /// #       .generate()?;
     /// # let (bob, _) =
-    /// #       CertBuilder::general_purpose(None, Some("bob@example.org"))
+    /// #       CertBuilder::general_purpose(Some("bob@example.org"))
     /// #       .generate()?;
     /// #
     /// # let mut keyring = Vec::new();
@@ -666,7 +680,7 @@ impl<'a> CertParser<'a> {
     /// certificates in a large keyring, most certificates can be
     /// immediately discarded.  That is, it is more efficient to
     /// filter, validate, and double check, than to validate and
-    /// filter.  (It is necessary to double check, because the check
+    /// filter.  (It is necessary to double-check, because the check
     /// might have been on an invalid part.  For example, if searching
     /// for a key with a particular Key ID, a matching key might not
     /// have any self signatures.)
@@ -725,8 +739,8 @@ impl<'a> CertParser<'a> {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn unvalidated_cert_filter<F: 'a>(mut self, filter: F) -> Self
-        where F: Send + Sync + Fn(&Cert, bool) -> bool
+    pub fn unvalidated_cert_filter<F>(mut self, filter: F) -> Self
+        where F: 'a + Send + Sync + Fn(&Cert, bool) -> bool
     {
         self.filter.push(Box::new(filter));
         self
@@ -738,11 +752,26 @@ impl<'a> CertParser<'a> {
     // returns None.
     fn parse(&mut self, p: Packet) -> Result<Option<Cert>> {
         tracer!(TRACE, "CertParser::parse", 0);
-        if let Packet::Marker(_) = p {
-            // Ignore Marker Packet.  RFC4880, section 5.8:
-            //
-            //   Such a packet MUST be ignored when received.
-            return Ok(None);
+        match p {
+            Packet::Marker(_) => {
+                // Ignore Marker Packet.  RFC4880, section 5.8:
+                //
+                //   Such a packet MUST be ignored when received.
+                return Ok(None);
+            },
+            Packet::Padding(_) => {
+                // "[Padding packets] MUST be ignored when received.",
+                // section 5.14 of RFC 9580.
+                return Ok(None);
+            },
+            p if Cert::valid_packet(&p).is_err()
+                && ! p.tag().is_critical() =>
+            {
+                // "Unknown, non-critical packets MUST be ignored when
+                // received.", section 4.3 of RFC 9580.
+                return Ok(None);
+            },
+            _ => {},
         }
 
         if !self.packets.is_empty() {
@@ -792,20 +821,46 @@ impl<'a> CertParser<'a> {
             self.packets.push(pk);
         }
 
-        let packets = orig.packets.len();
-        t!("Finalizing certificate with {} packets", packets);
-        let tokens = orig.packets
-            .into_iter()
-            .filter_map(|p| p.into())
-            .collect::<Vec<Token>>();
-        if tokens.len() != packets {
+        let n_packets = orig.packets.len();
+        t!("Finalizing certificate with {} packets", n_packets);
+
+        // Convert to tokens, but preserve packets if it fails.
+        let mut failed = false;
+        let mut packets: Vec<Packet> = Vec::with_capacity(0);
+        let mut tokens: Vec<Token> = Vec::with_capacity(n_packets);
+        for p in orig.packets {
+            if failed {
+                // Just stash the packet.
+                packets.push(p);
+            } else {
+                match p.try_into() {
+                    Ok(t) => tokens.push(t),
+                    Err(p) => {
+                        // Conversion failed.  Revert the whole process.
+                        packets.reserve(n_packets);
+                        for t in tokens.drain(..) {
+                            packets.push({
+                                let p: Option<Packet> = t.into();
+                                p.expect("token created with packet")
+                            });
+                        }
+                        packets.push(p);
+                        failed = true;
+                    },
+                }
+            }
+        }
+
+        if failed {
             // There was at least one packet that doesn't belong in a
             // Cert.  Fail now.
             let err = Error::UnsupportedCert(
-                "Packet sequence includes non-Cert packets.".into());
+                "Packet sequence includes non-Cert packets.".into(),
+                packets);
             t!("Invalid certificate: {}", err);
             return Err(err.into());
         }
+        t!("{} tokens: {:?}", tokens.len(), tokens);
 
         let certo = match CertLowLevelParser::new()
             .parse(Lexer::from_tokens(&tokens))
@@ -828,21 +883,20 @@ impl<'a> CertParser<'a> {
             Some(cert)
         }).and_then(|mut cert| {
             let primary_fp: KeyHandle = cert.key_handle();
-            let primary_keyid = KeyHandle::KeyID(primary_fp.clone().into());
 
-            // The parser puts all of the signatures on the
+            // The parser puts all the signatures on the
             // certifications field.  Split them now.
 
-            split_sigs(&primary_fp, &primary_keyid, &mut cert.primary);
+            split_sigs(&primary_fp, &mut cert.primary);
 
             for b in cert.userids.iter_mut() {
-                split_sigs(&primary_fp, &primary_keyid, b);
+                split_sigs(&primary_fp, b);
             }
             for b in cert.user_attributes.iter_mut() {
-                split_sigs(&primary_fp, &primary_keyid, b);
+                split_sigs(&primary_fp, b);
             }
             for b in cert.subkeys.iter_mut() {
-                split_sigs(&primary_fp, &primary_keyid, b);
+                split_sigs(&primary_fp, b);
             }
 
             let cert = cert.canonicalize();
@@ -860,7 +914,7 @@ impl<'a> CertParser<'a> {
 
         t!("Returning {:?}, constructed from {} packets",
            certo.as_ref().map(|c| c.fingerprint()),
-           packets);
+           n_packets);
 
         Ok(certo)
     }
@@ -868,44 +922,38 @@ impl<'a> CertParser<'a> {
 
 /// Splits the signatures in b.certifications into the correct
 /// vectors.
-pub(crate) fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
-                            b: &mut ComponentBundle<C>)
+fn split_sigs<C>(primary: &KeyHandle, b: &mut ComponentBundle<C>)
 {
-    let mut self_signatures = Vec::with_capacity(0);
-    let mut certifications = Vec::with_capacity(0);
-    let mut self_revs = Vec::with_capacity(0);
-    let mut other_revs = Vec::with_capacity(0);
+    debug_assert!(b.self_signatures.is_empty());
+    debug_assert!(b.self_revocations.is_empty());
+    debug_assert!(b.other_revocations.is_empty());
 
     for sig in mem::replace(&mut b.certifications, Vec::with_capacity(0)) {
         let typ = sig.typ();
 
-        let issuers =
-            sig.get_issuers();
+        let issuers = sig.get_issuers();
         let is_selfsig =
-            issuers.contains(primary)
-            || issuers.contains(primary_keyid);
+            issuers.is_empty()
+            || issuers.iter().any(|kh| kh.aliases(primary));
 
         use crate::SignatureType::*;
-        if typ == KeyRevocation
+        if typ == CertificationApproval {
+            b.attestations.push(sig);
+        } else if typ == KeyRevocation
             || typ == SubkeyRevocation
             || typ == CertificationRevocation
         {
             if is_selfsig {
-                self_revs.push(sig);
+                b.self_revocations.push(sig);
             } else {
-                other_revs.push(sig);
+                b.other_revocations.push(sig);
             }
         } else if is_selfsig {
-            self_signatures.push(sig);
+            b.self_signatures.push(sig);
         } else {
-            certifications.push(sig);
+            b.certifications.push(sig);
         }
     }
-
-    b.self_signatures = self_signatures;
-    b.certifications = certifications;
-    b.self_revocations = self_revs;
-    b.other_revocations = other_revs;
 }
 
 impl<'a> Iterator for CertParser<'a> {
@@ -913,15 +961,16 @@ impl<'a> Iterator for CertParser<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         tracer!(TRACE, "CertParser::next", 0);
+        if let Some(err) = self.queued_error.take() {
+            t!("Returning queued error: {}", err);
+            return Some(Err(err));
+        }
 
         loop {
             match self.source.take() {
                 None => {
                     t!("EOF.");
 
-                    if let Some(err) = self.queued_error.take() {
-                        return Some(Err(err));
-                    }
                     if self.packets.is_empty() {
                         return None;
                     }
@@ -959,8 +1008,9 @@ impl<'a> Iterator for CertParser<'a> {
                             self.parse(packet)
                         }
                         Some(Err(err)) => {
+                            self.source = Some(iter);
+
                             t!("Error getting packet: {}", err);
-                            self.saw_error = true;
 
                             if ! self.packets.is_empty() {
                                 // Returned any queued certificate first.
@@ -972,7 +1022,10 @@ impl<'a> Iterator for CertParser<'a> {
                                     Ok(None) => {
                                         return Some(Err(err));
                                     }
-                                    Err(err) => {
+                                    Err(err2) => {
+                                        // Return the first error,
+                                        // queue the second error.
+                                        self.queued_error = Some(err2);
                                         return Some(Err(err));
                                     }
                                 }
@@ -1022,7 +1075,7 @@ mod test {
     use crate::tests;
 
     #[test]
-    fn tokens() {
+    fn push_tokens() {
         use crate::cert::parser::low_level::lexer::{Token, Lexer};
         use crate::cert::parser::low_level::lexer::Token::*;
         use crate::cert::parser::low_level::CertParser;
@@ -1141,6 +1194,15 @@ mod test {
                 ],
                 result: false,
             },
+            TestVector {
+                s: &[ SecretKey(None), Signature(None),
+                      UserID(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      Unknown(Tag::Private(61), None),
+                ],
+                result: true,
+            },
         ];
 
         for v in &test_vectors {
@@ -1163,12 +1225,82 @@ mod test {
     }
 
     #[test]
+    fn push_tags() {
+        use Tag::*;
+
+        struct TestVector<'a> {
+            s: &'a [Tag],
+            result: bool,
+        }
+
+        let test_vectors = [
+            TestVector {
+                s: &[ PublicKey ],
+                result: true,
+            },
+            TestVector {
+                s: &[ SecretKey, Signature,
+                      UserID, Signature,
+                      SecretSubkey, Signature,
+                      SecretSubkey, Signature,
+                      Tag::Private(61),
+                ],
+                result: true,
+            },
+            TestVector {
+                s: &[ SecretKey, Signature,
+                      UserID, Signature,
+                      SecretSubkey, Signature,
+                      SecretSubkey, Signature,
+                      Tag::Unknown(61),
+                ],
+                result: true,
+            },
+            TestVector {
+                s: &[ SecretKey, Signature,
+                      UserID, Signature,
+                      SecretSubkey, Signature,
+                      SecretSubkey, Signature,
+                      Tag::Unknown(61),
+                      SecretKey, Signature,
+                      UserID, Signature,
+                      SecretSubkey, Signature,
+                      SecretSubkey, Signature,
+                ],
+                // This is a keyring, not a cert.
+                result: false,
+            },
+        ];
+
+        for v in &test_vectors {
+            if v.result {
+                let mut l = CertValidator::new();
+                for &tag in v.s.into_iter() {
+                    l.push(tag.clone());
+                    assert_match!(CertValidity::CertPrefix = l.check());
+                }
+
+                l.finish();
+                assert_match!(CertValidity::Cert = l.check());
+            }
+        }
+    }
+
+    #[test]
     fn marker_packet_ignored() {
         use crate::serialize::Serialize;
         let mut testy_with_marker = Vec::new();
         Packet::Marker(Default::default())
             .serialize(&mut testy_with_marker).unwrap();
         testy_with_marker.extend_from_slice(crate::tests::key("testy.pgp"));
+        CertParser::from(
+            PacketParser::from_bytes(&testy_with_marker).unwrap())
+            .next().unwrap().unwrap();
+
+        let mut testy_with_marker = Vec::new();
+        testy_with_marker.extend_from_slice(crate::tests::key("testy.pgp"));
+        Packet::Marker(Default::default())
+            .serialize(&mut testy_with_marker).unwrap();
         CertParser::from(
             PacketParser::from_bytes(&testy_with_marker).unwrap())
             .next().unwrap().unwrap();
@@ -1180,7 +1312,8 @@ mod test {
 
         fn cert_cmp(a: &Result<Cert>, b: &Vec<Packet>)
         {
-            let a : Vec<Packet> = a.as_ref().unwrap().clone().into();
+            let a =
+                a.as_ref().unwrap().clone().into_packets().collect::<Vec<_>>();
 
             for (i, (a, b)) in a.iter().zip(b).enumerate() {
                 if a != b {
@@ -1195,9 +1328,9 @@ mod test {
         }
 
         let (cert, _) =
-            CertBuilder::general_purpose(None, Some("alice@example.org"))
+            CertBuilder::general_purpose(Some("alice@example.org"))
             .generate()?;
-        let cert : Vec<Packet> = cert.into();
+        let cert = cert.into_packets().collect::<Vec<_>>();
 
         // A userid packet.
         let userid : Packet = cert.clone()
@@ -1213,7 +1346,7 @@ mod test {
             .into();
 
         // A literal packet.  (This is a valid OpenPGP Message.)
-        let mut lit = Literal::new(DataFormat::Text);
+        let mut lit = Literal::new(DataFormat::Unicode);
         lit.set_body(b"test".to_vec());
         let lit = Packet::from(lit);
 
@@ -1455,14 +1588,14 @@ mod test {
         for i in 0..n {
             let (cert, _) =
                 CertBuilder::general_purpose(
-                    None, Some(format!("{}@example.org", i)))
+                    Some(format!("{}@example.org", i)))
                 .generate()?;
 
             cert.as_tsk().serialize(&mut data)?;
             certs_orig.push(cert);
 
             if literal {
-                let mut lit = Literal::new(DataFormat::Text);
+                let mut lit = Literal::new(DataFormat::Unicode);
                 lit.set_body(b"data".to_vec());
 
                 Packet::from(lit).serialize(&mut data)?;
@@ -1588,18 +1721,12 @@ mod test {
             .zip(certs_parsed.into_iter())
             .enumerate()
         {
-            let ps_orig: Vec<Packet> = c_orig.into_packets().collect();
-            let ps_parsed: Vec<Packet> = c_parsed.into_packets().collect();
-            if bad > 0 && ! literal && i == n - 1 {
-                // On a parse error, we lose the last successfully
-                // parsed packet.  This is annoying.  But, the
-                // file is corrupted anyway, so...
-                assert_eq!(ps_orig.len() - 1, ps_parsed.len(),
-                           "number of packets: expected vs. got");
-            } else {
-                assert_eq!(ps_orig.len(), ps_parsed.len(),
-                           "number of packets: expected vs. got");
-            }
+            let ps_orig: Vec<Packet> =
+                c_orig.as_tsk().into_packets().collect();
+            let ps_parsed: Vec<Packet> =
+                c_parsed.as_tsk().into_packets().collect();
+            assert_eq!(ps_orig.len(), ps_parsed.len(),
+                       "number of packets: expected vs. got");
 
             for (j, (p_orig, p_parsed)) in
                 ps_orig
@@ -1685,14 +1812,14 @@ mod test {
 
         let (cert_1, _) =
             CertBuilder::general_purpose(
-                None, Some("a@example.org"))
+                Some("ea@example.org"))
             .generate()?;
         let cert_1_packets: Vec<Packet>
             = cert_1.into_packets().collect();
 
         let (cert_2, _) =
             CertBuilder::general_purpose(
-                None, Some("b@example.org"))
+                Some("eb@example.org"))
             .generate()?;
 
         for n in 1..cert_1_packets.len() {
@@ -1736,5 +1863,37 @@ mod test {
         let certs = cp.collect::<Result<Vec<Cert>>>().unwrap();
         assert_eq!(certs.len(), 1);
         assert!(certs[0].fingerprint() == fp);
+    }
+
+    #[test]
+    fn packet_source_includes_an_error() -> Result<()> {
+        let mut ppr
+            = PacketParser::from_bytes(crate::tests::key("testy.pgp"))?;
+        let mut testy = Vec::new();
+        while let PacketParserResult::Some(pp) = ppr {
+            let (packet, ppr_) = pp.next()?;
+            testy.push(packet);
+            ppr = ppr_;
+        }
+
+        // A cert, two errors, another cert.
+        let mut packets: Vec<Result<Packet>> = Vec::new();
+        for p in testy.iter() {
+            packets.push(Ok(p.clone()));
+        }
+        packets.push(Err(anyhow::anyhow!("An error")));
+        packets.push(Err(anyhow::anyhow!("Another error")));
+        for p in testy.iter() {
+            packets.push(Ok(p.clone()));
+        }
+
+        let certs = CertParser::from(packets).collect::<Vec<Result<Cert>>>();
+        assert_eq!(certs.len(), 4);
+        assert!(certs[0].is_ok());
+        assert!(certs[1].is_err());
+        assert!(certs[2].is_err());
+        assert!(certs[3].is_ok());
+
+        Ok(())
     }
 }

@@ -15,11 +15,11 @@ use crate::{
 /// A timestamp representable by OpenPGP.
 ///
 /// OpenPGP timestamps are represented as `u32` containing the number of seconds
-/// elapsed since midnight, 1 January 1970 UTC ([Section 3.5 of RFC 4880]).
+/// elapsed since midnight, 1 January 1970 UTC ([Section 3.5 of RFC 9580]).
 ///
-/// They cannot express dates further than 7th February of 2106 or earlier than
+/// They cannot express dates further than 7th February 2106 or earlier than
 /// the [UNIX epoch]. Unlike Unix's `time_t`, OpenPGP's timestamp is unsigned so
-/// it rollsover in 2106, not 2038.
+/// it rolls over in 2106, not 2038.
 ///
 /// # Examples
 ///
@@ -41,11 +41,11 @@ use crate::{
 ///
 /// # fn main() -> Result<()> {
 /// let (cert, _) =
-///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     CertBuilder::general_purpose(Some("alice@example.org"))
 ///     .generate()?;
 ///
 /// let subkey = cert.keys().subkeys().next().unwrap();
-/// let packets = subkey.bundle().self_signatures()[0].hashed_area();
+/// let packets = subkey.bundle().self_signatures().next().unwrap().hashed_area();
 ///
 /// match packets.subpacket(SubpacketTag::SignatureCreationTime).unwrap().value() {
 ///     SubpacketValue::SignatureCreationTime(ts) => assert!(u32::from(*ts) > 0),
@@ -58,7 +58,7 @@ use crate::{
 /// # Ok(()) }
 /// ```
 ///
-/// [Section 3.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.5
+/// [Section 3.5 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-3.5
 /// [UNIX epoch]: https://en.wikipedia.org/wiki/Unix_time
 /// [`Timestamp::round_down`]: crate::types::Timestamp::round_down()
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -85,7 +85,7 @@ impl TryFrom<SystemTime> for Timestamp {
             Ok(d) if d.as_secs() <= std::u32::MAX as u64 =>
                 Ok(Timestamp(d.as_secs() as u32)),
             _ => Err(Error::InvalidArgument(
-                format!("Time exceeds u32 epoch: {:?}", t))
+                format!("time {:?} is not representable in OpenPGP", t))
                      .into()),
         }
     }
@@ -226,7 +226,7 @@ impl Timestamp {
     /// };
     ///
     /// assert!(sign_with_p(21).is_ok());
-    /// assert!(sign_with_p(22).is_ok());  // Rounded to bob's cert's creation time.
+    /// assert!(sign_with_p(22).is_ok());  // Rounded to Bob's cert's creation time.
     /// assert!(sign_with_p(32).is_err()); // Invalid precision
     /// # Ok(()) }
     /// ```

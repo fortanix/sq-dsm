@@ -12,7 +12,7 @@ grammar<'input>(input: &'input str);
 // This is a straightforward translation of the regular expression
 // grammar from section 8 of RFC 4880.
 //
-// https://tools.ietf.org/html/rfc4880#section-8
+// https://www.rfc-editor.org/rfc/rfc9580.html#section-8
 pub(crate) Regex : Hir = {
     <l:LBranch> <r:RBranch*> => {
         let mut r = r;
@@ -25,7 +25,7 @@ pub(crate) Regex : Hir = {
         // This is actually required for version 1.3.7 of the regex
         // crate, which is the version that is in Debian Bullseye.
         // See issue #694 for details.
-        if r.iter().any(|b| b.kind().is_empty()) {
+        if r.iter().any(|b| *b.kind() == hir::HirKind::Empty) {
             hir::Hir::empty()
         } else {
             Hir::alternation(r)
@@ -46,14 +46,11 @@ Branch : Hir = {
         hir::Hir::empty()
     },
     <p:Piece+> => {
-        if p.iter().all(|p| p.kind().is_empty()) {
+        if p.iter().all(|p| *p.kind() == hir::HirKind::Empty) {
             // All pieces are empty.  Just return empty.
             hir::Hir::empty()
         } else {
-            hir::Hir::group(hir::Group {
-                kind: hir::GroupKind::NonCapturing,
-                hir: Box::new(hir::Hir::concat(p)),
-            })
+            hir::Hir::concat(p)
         }
     },
 }
@@ -61,41 +58,44 @@ Branch : Hir = {
 Piece : Hir = {
     <a:Atom> => a,
     <a:Atom> STAR => {
-        if a.kind().is_empty() {
+        if *a.kind() == hir::HirKind::Empty {
             // Piece is empty.  This is equivalent to empty so just
             // return it.
             a
         } else {
             hir::Hir::repetition(hir::Repetition {
-                kind: hir::RepetitionKind::ZeroOrMore,
+                min: 0,
+                max: None,
                 greedy: true,
-                hir: Box::new(a)
+                sub: Box::new(a)
             })
         }
     },
     <a:Atom> PLUS => {
-        if a.kind().is_empty() {
+        if *a.kind() == hir::HirKind::Empty {
             // Piece is empty.  This is equivalent to empty so just
             // return it.
             a
         } else {
             hir::Hir::repetition(hir::Repetition {
-                kind: hir::RepetitionKind::OneOrMore,
+                min: 1,
+                max: None,
                 greedy: true,
-                hir: Box::new(a)
+                sub: Box::new(a)
             })
         }
     },
     <a:Atom> QUESTION => {
-        if a.kind().is_empty() {
+        if *a.kind() == hir::HirKind::Empty {
             // Piece is empty.  This is equivalent to empty so just
             // return it.
             a
         } else {
             hir::Hir::repetition(hir::Repetition {
-                kind: hir::RepetitionKind::ZeroOrOne,
+                min: 0,
+                max: Some(1),
                 greedy: true,
-                hir: Box::new(a)
+                sub: Box::new(a)
             })
         }
     },
@@ -103,34 +103,44 @@ Piece : Hir = {
 
 Atom : Hir = {
     LPAREN <r:Regex> RPAREN => {
-        if r.kind().is_empty() {
-            r
-        } else {
-            hir::Hir::group(hir::Group {
-                kind: hir::GroupKind::NonCapturing,
-                hir: Box::new(r),
-            })
-        }
+        r
     },
 
     Range,
 
     DOT => {
-        hir::Hir::any(false)
+        hir::Hir::dot(hir::Dot::AnyChar)
     },
     CARET => {
-        hir::Hir::anchor(hir::Anchor::StartText)
+        hir::Hir::look(hir::Look::Start)
     },
     DOLLAR => {
-        hir::Hir::anchor(hir::Anchor::EndText)
+        hir::Hir::look(hir::Look::End)
     },
 
     BACKSLASH <t:AnyChar> => {
-        hir::Hir::literal(hir::Literal::Unicode(t.to_char()))
+        // "A buffer of length four is large enough to encode any
+        // char."
+        //
+        // https://doc.rust-lang.org/std/primitive.char.html#method.encode_utf8
+        let mut buffer = [0; 4];
+        // Convert the Unicode character t to a string.
+        let s = t.to_char().encode_utf8(&mut buffer);
+        hir::Hir::literal(s.as_bytes())
+    },
+
+    DASH => {
+        hir::Hir::literal("-".as_bytes())
     },
 
     <t:OTHER> => {
-        hir::Hir::literal(hir::Literal::Unicode(t.to_char()))
+        // "A buffer of length four is large enough to encode any
+        // char."
+        //
+        // https://doc.rust-lang.org/std/primitive.char.html#method.encode_utf8
+        let mut buffer = [0; 4];
+        let s = t.to_char().encode_utf8(&mut buffer);
+        hir::Hir::literal(s.as_bytes())
     },
 
 }

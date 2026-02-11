@@ -13,9 +13,9 @@ use crate::{
 
 /// Designates a key as a valid third-party revoker.
 ///
-/// This is described in [Section 5.2.3.15 of RFC 4880].
+/// This is described in [Section 5.2.3.23 of RFC 9580].
 ///
-/// [Section 5.2.3.15 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
+/// [Section 5.2.3.23 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.3.23
 ///
 /// Revocation keys can be retrieved using [`ValidAmalgamation::revocation_keys`]
 /// and set using [`CertBuilder::set_revocation_keys`].
@@ -36,17 +36,17 @@ use crate::{
 /// let p = &StandardPolicy::new();
 ///
 /// let (alice, _) =
-///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     CertBuilder::general_purpose(Some("alice@example.org"))
 ///     .generate()?;
 ///
 /// // Make Alice a designated revoker for Bob.
 /// let (bob, _) =
-///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+///     CertBuilder::general_purpose(Some("bob@example.org"))
 ///     .set_revocation_keys(vec![(&alice).into()])
 ///     .generate()?;
 ///
 /// // Make sure Alice is listed as a designated revoker for Bob.
-/// assert_eq!(bob.with_policy(p, None)?.revocation_keys(None)
+/// assert_eq!(bob.with_policy(p, None)?.revocation_keys()
 ///                .collect::<Vec<&RevocationKey>>(),
 ///            vec![&(&alice).into()]);
 /// # Ok(()) }
@@ -71,7 +71,7 @@ assert_send_and_sync!(RevocationKey);
 
 impl From<&Cert> for RevocationKey {
     fn from(cert: &Cert) -> Self {
-        RevocationKey::new(cert.primary_key().pk_algo(),
+        RevocationKey::new(cert.primary_key().key().pk_algo(),
                            cert.fingerprint(),
                            false)
     }
@@ -125,13 +125,13 @@ impl RevocationKey {
         (pk_algo, fp)
     }
 
-    /// Returns whether or not the relation between revoker and
+    /// Returns whether the relation between revoker and
     /// revokee is of a sensitive nature.
     pub fn sensitive(&self) -> bool {
         self.sensitive
     }
 
-    /// Sets whether or not the relation between revoker and revokee
+    /// Sets whether the relation between revoker and revokee
     /// is of a sensitive nature.
     pub fn set_sensitive(mut self, v: bool) -> Self {
         self.sensitive = v;

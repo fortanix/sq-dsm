@@ -10,13 +10,13 @@ use crate::types::CompressionAlgorithm;
 /// Holds a compressed data packet.
 ///
 /// A compressed data packet is a container.  See [Section 5.6 of RFC
-/// 4880] for details.
+/// 9580] for details.
 ///
 /// When the parser encounters a compressed data packet with an
 /// unknown compress algorithm, it returns an `Unknown` packet instead
 /// of a `CompressedData` packet.
 ///
-/// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
+/// [Section 5.6 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.6
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -30,19 +30,6 @@ pub struct CompressedData {
     container: packet::Container,
 }
 assert_send_and_sync!(CompressedData);
-
-impl std::ops::Deref for CompressedData {
-    type Target = packet::Container;
-    fn deref(&self) -> &Self::Target {
-        &self.container
-    }
-}
-
-impl std::ops::DerefMut for CompressedData {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.container
-    }
-}
 
 impl fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -90,6 +77,8 @@ impl CompressedData {
         self
     }
 }
+
+impl_processed_body_forwards!(CompressedData);
 
 impl From<CompressedData> for Packet {
     fn from(s: CompressedData) -> Self {

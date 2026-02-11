@@ -7,93 +7,43 @@ use openpgp::cert::CipherSuite;
 
 fn main() {
     println!("Cipher suites:");
-    for a in &[
-        CipherSuite::Cv25519,
-        CipherSuite::P256,
-        CipherSuite::P384,
-        CipherSuite::P521,
-        CipherSuite::RSA2k,
-        CipherSuite::RSA3k,
-        CipherSuite::RSA4k,
-    ] {
+    for a in CipherSuite::variants() {
         println!(" - {:70} {:?}", format!("{:?}", a), a.is_supported().is_ok());
     }
     println!();
 
     println!("Public-Key algorithms:");
-    for a in &[
-        PublicKeyAlgorithm::RSAEncryptSign,
-        PublicKeyAlgorithm::ElGamalEncrypt,
-        PublicKeyAlgorithm::DSA,
-        PublicKeyAlgorithm::ECDH,
-        PublicKeyAlgorithm::ECDSA,
-        PublicKeyAlgorithm::EdDSA,
-    ] {
+    for a in PublicKeyAlgorithm::variants() {
         println!(" - {:70} {:?}", a.to_string(), a.is_supported());
     }
     println!();
 
     println!("ECC algorithms:");
-    for a in &[
-        Curve::NistP256,
-        Curve::NistP384,
-        Curve::NistP521,
-        Curve::BrainpoolP256,
-        Curve::BrainpoolP512,
-        Curve::Ed25519,
-        Curve::Cv25519,
-    ] {
+    for a in Curve::variants() {
         println!(" - {:70} {:?}", a.to_string(), a.is_supported());
     }
     println!();
 
     println!("Symmetric algorithms:");
-    for a in &[
-        SymmetricAlgorithm::IDEA,
-        SymmetricAlgorithm::TripleDES,
-        SymmetricAlgorithm::CAST5,
-        SymmetricAlgorithm::Blowfish,
-        SymmetricAlgorithm::AES128,
-        SymmetricAlgorithm::AES192,
-        SymmetricAlgorithm::AES256,
-        SymmetricAlgorithm::Twofish,
-        SymmetricAlgorithm::Camellia128,
-        SymmetricAlgorithm::Camellia192,
-        SymmetricAlgorithm::Camellia256,
-    ] {
+    for a in SymmetricAlgorithm::variants() {
         println!(" - {:70} {:?}", a.to_string(), a.is_supported());
     }
     println!();
 
     println!("AEAD algorithms:");
-    for a in &[
-        AEADAlgorithm::EAX,
-        AEADAlgorithm::OCB,
-    ] {
+    for a in AEADAlgorithm::variants() {
         println!(" - {:70} {:?}", a.to_string(), a.is_supported());
     }
     println!();
 
     println!("Hash algorithms:");
-    for a in &[
-        HashAlgorithm::MD5,
-        HashAlgorithm::SHA1,
-        HashAlgorithm::RipeMD,
-        HashAlgorithm::SHA256,
-        HashAlgorithm::SHA384,
-        HashAlgorithm::SHA512,
-        HashAlgorithm::SHA224,
-    ] {
+    for a in HashAlgorithm::variants() {
         println!(" - {:70} {:?}", a.to_string(), a.is_supported());
     }
     println!();
 
     println!("Compression algorithms:");
-    for a in &[
-        CompressionAlgorithm::Zip,
-        CompressionAlgorithm::Zlib,
-        CompressionAlgorithm::BZip2,
-    ] {
+    for a in CompressionAlgorithm::variants().skip(1) {
         println!(" - {:70} {:?}", a.to_string(), a.is_supported());
     }
     println!();

@@ -1,1 +1,6 @@
 * text=auto eol=lf
+
+# Don't do line ending conversions on these files: these are reference data
+# and we really want them as-is.
+openpgp/tests/data/messages/crlf-straddles-chunks.txt binary
+openpgp/tests/data/messages/text-signature-notation-has-lf.txt binary

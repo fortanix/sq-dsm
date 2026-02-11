@@ -22,11 +22,11 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// current algorithm requirements.  Otherwise, you can create one
     /// using [`SignatureBuilder::sign_primary_key_binding`].
     ///
-    ///   [primary key binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    ///   [primary key binding signature]: https://www.rfc-editor.org/rfc/rfc9580.html#section-5.2.1
     ///   [`SignatureBuilder::sign_primary_key_binding`]: signature::SignatureBuilder::sign_primary_key_binding()
     ///
-    /// This function adds a creation time subpacket, a issuer
-    /// fingerprint subpacket, and a issuer subpacket to the
+    /// This function adds a creation time subpacket, an issuer
+    /// fingerprint subpacket, and an issuer subpacket to the
     /// signature.
     ///
     /// # Examples
@@ -54,7 +54,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///
     /// // Generate a subkey and a binding signature.
     /// let subkey: Key<_, key::SubordinateRole> =
-    ///     Key4::generate_ecc(false, Curve::Cv25519)?
+    ///     Key6::generate_ecc(false, Curve::Cv25519)?
     ///     .into();
     /// let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(flags.clone())?;
@@ -62,7 +62,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///
     /// // Now merge the key and binding signature into the Cert.
     /// let cert = cert.insert_packets(vec![Packet::from(subkey),
-    ///                                    binding.into()])?;
+    ///                                    binding.into()])?.0;
     ///
     /// // Check that we have an encryption subkey.
     /// assert_eq!(cert.keys().with_policy(p, None).alive().revoked(false)
@@ -86,8 +86,8 @@ impl UserID {
     /// The`hash_algo` defaults to SHA512, `creation_time` to the
     /// current time.
     ///
-    /// This function adds a creation time subpacket, a issuer
-    /// fingerprint subpacket, and a issuer subpacket to the
+    /// This function adds a creation time subpacket, an issuer
+    /// fingerprint subpacket, and an issuer subpacket to the
     /// signature.
     ///
     /// # Examples
@@ -113,7 +113,7 @@ impl UserID {
     ///
     /// // Now merge the User ID and binding signature into the Cert.
     /// let cert = cert.insert_packets(vec![Packet::from(userid),
-    ///                                    binding.into()])?;
+    ///                                    binding.into()])?.0;
     ///
     /// // Check that we have a User ID.
     /// assert_eq!(cert.userids().len(), 1);
@@ -134,8 +134,8 @@ impl UserID {
     /// `SignatureType::GenericCertification`, `hash_algo` to SHA512,
     /// `creation_time` to the current time.
     ///
-    /// This function adds a creation time subpacket, a issuer
-    /// fingerprint subpacket, and a issuer subpacket to the
+    /// This function adds a creation time subpacket, an issuer
+    /// fingerprint subpacket, and an issuer subpacket to the
     /// signature.
     ///
     /// # Errors
@@ -168,11 +168,12 @@ impl UserID {
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
     /// let certification =
     ///     bob.userids().nth(0).unwrap()
+    ///     .userid()
     ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
     /// // `certification` can now be used, e.g. by merging it into `bob`.
-    /// let bob = bob.insert_packets(certification)?;
+    /// let bob = bob.insert_packets(certification)?.0;
     ///
     /// // Check that we have a certification on the User ID.
     /// assert_eq!(bob.userids().nth(0).unwrap()
@@ -215,8 +216,8 @@ impl UserAttribute {
     /// builder.  The`hash_algo` defaults to SHA512, `creation_time`
     /// to the current time.
     ///
-    /// This function adds a creation time subpacket, a issuer
-    /// fingerprint subpacket, and a issuer subpacket to the
+    /// This function adds a creation time subpacket, an issuer
+    /// fingerprint subpacket, and an issuer subpacket to the
     /// signature.
     ///
     /// # Examples
@@ -247,7 +248,7 @@ impl UserAttribute {
     ///
     /// // Now merge the user attribute and binding signature into the Cert.
     /// let cert = cert.insert_packets(vec![Packet::from(user_attr),
-    ///                                    binding.into()])?;
+    ///                                    binding.into()])?.0;
     ///
     /// // Check that we have a user attribute.
     /// assert_eq!(cert.user_attributes().count(), 1);
@@ -268,8 +269,8 @@ impl UserAttribute {
     /// `SignatureType::GenericCertification`, `hash_algo` to SHA512,
     /// `creation_time` to the current time.
     ///
-    /// This function adds a creation time subpacket, a issuer
-    /// fingerprint subpacket, and a issuer subpacket to the
+    /// This function adds a creation time subpacket, an issuer
+    /// fingerprint subpacket, and an issuer subpacket to the
     /// signature.
     ///
     /// # Errors
@@ -306,11 +307,12 @@ impl UserAttribute {
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
     /// let certification =
     ///     bob.user_attributes().nth(0).unwrap()
+    ///     .user_attribute()
     ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
     /// // `certification` can now be used, e.g. by merging it into `bob`.
-    /// let bob = bob.insert_packets(certification)?;
+    /// let bob = bob.insert_packets(certification)?.0;
     ///
     /// // Check that we have a certification on the User ID.
     /// assert_eq!(bob.user_attributes().nth(0).unwrap()

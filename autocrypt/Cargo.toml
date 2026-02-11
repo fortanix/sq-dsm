@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-autocrypt"
 description = "Autocrypt support"
-version = "0.24.0"
+version = "0.26.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
@@ -14,23 +14,28 @@ readme = "README.md"
 keywords = ["autocrypt", "mua", "opportunistic", "mail", "encryption"]
 categories = ["cryptography", "authentication", "email"]
 license = "LGPL-2.0-or-later"
-edition = "2018"
+edition = "2021"
+rust-version = "1.85"
 
 [badges]
 gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "1", default-features = false }
-base64 = ">=0.12"
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false }
+base64 = ">= 0.21, < 0.23"
 
 [lib]
 bench = false
 
-[features]
-default = ["sequoia-openpgp/default"]
-crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
-crypto-cng = ["sequoia-openpgp/crypto-cng"]
-compression = ["sequoia-openpgp/compression"]
-compression-deflate = ["sequoia-openpgp/compression-deflate"]
-compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
+# Enables a crypto backend for the tests:
+[target.'cfg(not(windows))'.dev-dependencies]
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false, features = ["crypto-nettle", "__implicit-crypto-backend-for-tests"] }
+
+# Enables a crypto backend for the tests:
+[target.'cfg(windows)'.dev-dependencies]
+sequoia-openpgp = { version = "2", path = "../openpgp", default-features = false, features = ["crypto-cng", "__implicit-crypto-backend-for-tests"] }
+
+# Enables a crypto backend for the docs.rs generation:
+[package.metadata.docs.rs]
+features = ["sequoia-openpgp/default"]

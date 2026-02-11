@@ -12,10 +12,8 @@ use crate::crypto::ecdh::{encrypt_wrap, decrypt_unwrap};
 use win_crypto_ng as cng;
 use cng::asymmetric::{Ecdh, AsymmetricKey, Export};
 use cng::asymmetric::{Public, Private, AsymmetricAlgorithm, AsymmetricAlgorithmId};
-use cng::asymmetric::ecc::{NamedCurve, NistP256, NistP384, NistP521, Curve25519};
+use cng::asymmetric::ecc::{NamedCurve, NistP256, NistP384, NistP521};
 use cng::key_blob::{EccKeyPublicPayload, EccKeyPrivatePayload};
-
-const CURVE25519_SIZE: usize = 32;
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 #[allow(non_snake_case)]
@@ -32,34 +30,9 @@ where
     };
 
     match curve {
-        Curve::Cv25519 => {
-            // Obtain the authenticated recipient public key R
-            let R = q.decode_point(curve)?.0;
-            let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Ecdh(NamedCurve::Curve25519))?;
-            let recipient_key = AsymmetricKey::<Ecdh<Curve25519>, Public>::import_from_parts(
-                &provider,
-                R,
-            )?;
+        Curve::Cv25519 => return
+            Err(Error::InvalidArgument("implemented elsewhere".into()).into()),
 
-            // Generate an ephemeral key pair {v, V=vG}
-            let ephemeral = AsymmetricKey::builder(Ecdh(Curve25519)).build().unwrap();
-
-            // Compute the public key. We need to add an encoding
-            // octet in front of the key.
-            let blob = ephemeral.export().unwrap();
-            let mut VB = [0; 33];
-            VB[0] = 0x40;
-            VB[1..].copy_from_slice(blob.x());
-            let VB = MPI::new(&VB);
-
-            // Compute the shared point S = vR;
-            let secret = cng::asymmetric::agreement::secret_agreement(&ephemeral, &recipient_key)?;
-            let mut S = Protected::from(secret.derive_raw()?);
-            // Returned secret is little-endian, flip it to big-endian
-            S.reverse();
-
-            encrypt_wrap(recipient, session_key, VB, &S)
-        }
         Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
             let (Rx, Ry) = q.decode_point(curve)?;
 
@@ -134,11 +107,11 @@ where
                 _ => unreachable!(),
             };
 
-            encrypt_wrap(recipient, session_key, VB, &S)
+            encrypt_wrap(recipient.role_as_subordinate(), session_key, VB, &S)
         }
 
-        // Not implemented in Nettle
-        Curve::BrainpoolP256 | Curve::BrainpoolP512 =>
+        // Not implemented in CNG.
+        Curve::BrainpoolP256 | Curve::BrainpoolP384 | Curve::BrainpoolP512 =>
             Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
 
         // N/A
@@ -153,6 +126,7 @@ pub fn decrypt<R>(
     recipient: &Key<key::PublicParts, R>,
     recipient_sec: &SecretKeyMaterial,
     ciphertext: &Ciphertext,
+    plaintext_len: Option<usize>,
 ) -> Result<SessionKey>
 where
     R: key::KeyRole,
@@ -165,44 +139,8 @@ where
     };
 
     let S: Protected = match curve {
-        Curve::Cv25519 => {
-            // Get the public part V of the ephemeral key.
-            let V = e.decode_point(curve)?.0;
-
-            let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Ecdh(NamedCurve::Curve25519))?;
-            let V = AsymmetricKey::<Ecdh<Curve25519>, Public>::import_from_parts(
-                &provider,
-                V,
-            )?;
-
-            let mut scalar = scalar.value_padded(32);
-            // Reverse the scalar.  See
-            // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
-            scalar.reverse();
-
-            // Some bits must be clamped.  Usually, this is done
-            // during key creation.  However, if that is not done, we
-            // should do that before handing it to CNG.  See
-            // Curve25519 Paper, Sec. 3:
-            //
-            // > A user can, for example, generate 32 uniform random
-            // > bytes, clear bits 0, 1, 2 of the first byte, clear bit
-            // > 7 of the last byte, and set bit 6 of the last byte.
-            scalar[0] &= 0b1111_1000;
-            scalar[CURVE25519_SIZE - 1] &= !0b1000_0000;
-            scalar[CURVE25519_SIZE - 1] |= 0b0100_0000;
-
-            let r = AsymmetricKey::<Ecdh<Curve25519>, Private>::import_from_parts(
-                &provider,
-                &scalar,
-            )?;
-
-            let secret = cng::asymmetric::agreement::secret_agreement(&r, &V)?;
-            // Returned secret is little-endian, flip it to big-endian
-            let mut secret = secret.derive_raw()?;
-            secret.reverse();
-            secret.into()
-        }
+        Curve::Cv25519 => return
+            Err(Error::InvalidArgument("implemented elsewhere".into()).into()),
 
         Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
             // Get the public part V of the ephemeral key and
@@ -284,5 +222,6 @@ where
         }
     };
 
-    decrypt_unwrap(recipient, &S, ciphertext)
+    decrypt_unwrap(recipient.role_as_unspecified(), &S, ciphertext,
+                   plaintext_len)
 }

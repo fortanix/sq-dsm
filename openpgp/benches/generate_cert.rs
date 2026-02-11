@@ -6,11 +6,10 @@ use openpgp::cert::{CertBuilder, CipherSuite};
 fn generate_cert(cipher: CipherSuite) {
     // Parse the cert, ignore any errors
     let _ = CertBuilder::general_purpose(
-        cipher,
-        Some("Alice Lovelace <alice@example.org>"),
-    )
-    .generate()
-    .unwrap();
+        Some("Alice Lovelace <alice@example.org>"))
+        .set_cipher_suite(cipher)
+        .generate()
+        .unwrap();
 }
 
 fn bench_generate_certs(c: &mut Criterion) {

@@ -1,6 +1,6 @@
 use std::io::{self, Read};
 
-use sequoia_openpgp as openpgp;
+use sequoia_openpgp::{self as openpgp, KeyID};
 use self::openpgp::types::{Duration, Timestamp, SymmetricAlgorithm};
 use self::openpgp::fmt::hex;
 use self::openpgp::crypto::mpi;
@@ -109,30 +109,7 @@ pub fn dump<W>(input: &mut (dyn io::Read + Sync + Send),
                 }
                 Some(fields)
             },
-            Packet::AED(_) if sk.is_none() => {
-                message_encrypted = true;
-                Some(vec!["No session key supplied".into()])
-            }
-            Packet::AED(_) if sk.is_some() => {
-                message_encrypted = true;
-                let sk = sk.as_ref().unwrap();
-                let algo = if let Packet::AED(ref aed) = pp.packet {
-                    aed.symmetric_algo()
-                } else {
-                    unreachable!()
-                };
-
-                let _ = pp.decrypt(algo, sk);
-
-                let mut fields = Vec::new();
-                fields.push(format!("Session key: {}", hex::encode(sk)));
-                if pp.encrypted() {
-                    fields.push("Decryption failed".into());
-                } else {
-                    fields.push("Decryption successful".into());
-                }
-                Some(fields)
-            },
+            // Packet::AED removed
             _ => None,
         };
 
@@ -580,6 +557,8 @@ impl PacketDumper {
                                 writeln!(output,
                                          "{}    Unknown image({}): {} bytes", i,
                                          n, data.len())?,
+                            // user_attribute::Image is now marked as non-exhaustive
+                            _ => writeln!(output, "Unknown image")?,
                         },
                         Ok(Subpacket::Unknown(n, data)) =>
                             writeln!(output,
@@ -589,6 +568,8 @@ impl PacketDumper {
                             writeln!(output,
                                      "{}    Invalid subpacket encoding: {}", i,
                                      e)?,
+                        // user_attribute::Subpacket is now marked as non-exhaustive
+                        _ => writeln!(output, "Unknown subpacket")?,
                     }
                 }
             },
@@ -614,7 +595,9 @@ impl PacketDumper {
 
             PKESK(ref p) => {
                 writeln!(output, "{}  Version: {}", i, p.version())?;
-                writeln!(output, "{}  Recipient: {}", i, p.recipient())?;
+                // PKESK3::recipient() now returns Option<KeyHandle> instead of &KeyID
+                // impl From<Option<KeyHandle>> for KeyID
+                writeln!(output, "{}  Recipient: {}", i, KeyID::from(p.recipient()))?;
                 writeln!(output, "{}  Pk algo: {}", i, p.pk_algo())?;
                 if self.mpis {
                     writeln!(output, "{}", i)?;
@@ -669,24 +652,18 @@ impl PacketDumper {
                                      hex::encode(esk))?;
                         }
                     },
-
-                    self::openpgp::packet::SKESK::V5(ref s) => {
+                    // SKESK::V5 removed, SKESK::V6 added
+                    self::openpgp::packet::SKESK::V6(ref s) => {
                         writeln!(output, "{}  Symmetric algo: {}", i,
                                  s.symmetric_algo())?;
                         writeln!(output, "{}  AEAD: {}", i,
                                  s.aead_algo())?;
                         write!(output, "{}  S2K: ", i)?;
                         self.dump_s2k(output, i, s.s2k())?;
-                        if let Ok(iv) = s.aead_iv() {
-                            writeln!(output, "{}  IV: {}", i,
-                                     hex::encode(iv))?;
-                        }
-                        if let Ok(Some(esk)) = s.esk() {
-                            writeln!(output, "{}  ESK: {}", i,
-                                     hex::encode(esk))?;
-                        }
-                        writeln!(output, "{}  Digest: {}", i,
-                                 hex::encode(s.aead_digest()))?;
+                        // aead_digest removed in SKESK6
+                        // esk() & aead_iv() no longer returns Result
+                        writeln!(output, "{}  IV: {}", i, hex::encode(s.aead_iv()))?;
+                        writeln!(output, "{}  ESK: {}", i, hex::encode(s.esk()))?;
                     },
 
                     // SKESK is non-exhaustive.
@@ -704,13 +681,10 @@ impl PacketDumper {
                 writeln!(output, "{}  Computed digest: {}",
                          i, hex::encode(m.computed_digest()))?;
             },
-
-            AED(ref a) => {
-                writeln!(output, "{}  Version: {}", i, a.version())?;
-                writeln!(output, "{}  Symmetric algo: {}", i, a.symmetric_algo())?;
-                writeln!(output, "{}  AEAD: {}", i, a.aead())?;
-                writeln!(output, "{}  Chunk size: {}", i, a.chunk_size())?;
-                writeln!(output, "{}  IV: {}", i, hex::encode(a.iv()))?;
+            // Packet::AED removed, Packet::Padding Added
+            Padding(ref p) => {
+                 writeln!(output, "{}  Value: {}", i,
+                         String::from_utf8_lossy(p.value()))?;
             },
 
             // openpgp::Packet is non-exhaustive.
@@ -860,13 +834,11 @@ impl PacketDumper {
                 write!(output, "{}    Embedded signature: ", i)?,
             IssuerFingerprint(ref fp) =>
                 write!(output, "{}    Issuer Fingerprint: {}", i, fp)?,
-            PreferredAEADAlgorithms(ref c) =>
-                write!(output, "{}    AEAD preferences: {}", i,
-                       c.iter().map(|c| format!("{:?}", c))
-                       .collect::<Vec<String>>().join(", "))?,
+            // SubpacketValue::PreferredAEADAlgorithms removed
             IntendedRecipient(ref fp) =>
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
-            AttestedCertifications(digests) => {
+            // SubpacketValue::AttestedCertifications renamed to SubpacketValue::ApprovedCertificationss
+            ApprovedCertifications(digests) => {
                 write!(output, "{}    Attested Certifications:", i)?;
                 if digests.is_empty() {
                     writeln!(output, " None")?;

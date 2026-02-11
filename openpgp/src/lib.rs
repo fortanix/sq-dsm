@@ -1,9 +1,13 @@
 //! OpenPGP data types and associated machinery.
 //!
 //! This crate aims to provide a complete implementation of OpenPGP as
-//! defined by [RFC 4880] as well as some extensions (e.g., [RFC
-//! 6637], which describes ECC cryptography for OpenPGP.  This
-//! includes support for unbuffered message processing.
+//! defined by [RFC 9580] as well as the deprecated OpenPGP as defined
+//! by [RFC 4880].  OpenPGP is a standard by the IETF.  It was derived
+//! from the PGP software, which was created by Phil Zimmermann in
+//! 1991.
+//!
+//! This crate also includes support for unbuffered message
+//! processing.
 //!
 //! A few features that the OpenPGP community considers to be
 //! deprecated (e.g., version 3 compatibility) have been left out.  We
@@ -12,9 +16,9 @@
 //! missing, please file a bug report.
 //!
 //! A non-goal of this crate is support for any sort of high-level,
-//! bolted-on functionality.  For instance, [RFC 4880] does not define
+//! bolted-on functionality.  For instance, [RFC 9580] does not define
 //! trust models, such as the web of trust, direct trust, or TOFU.
-//! Neither does this crate.  [RFC 4880] does provide some mechanisms
+//! Neither does this crate.  [RFC 9580] does provide some mechanisms
 //! for creating trust models (specifically, UserID certifications),
 //! and this crate does expose those mechanisms.
 //!
@@ -32,23 +36,28 @@
 //! Despite —or maybe because of— its unopinionated nature we found
 //! it easy to develop opinionated OpenPGP software based on Sequoia.
 //!
+//! [RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
-//! [RFC 6637]: https://tools.ietf.org/html/rfc6637
 //!
 //! # Experimental Features
 //!
-//! This crate implements functionality from [RFC 4880bis], notably
-//! AEAD encryption containers.  As of this writing, this RFC is still
-//! a draft and the syntax or semantic defined in it may change or go
-//! away.  Therefore, all related functionality may change and
-//! artifacts created using this functionality may not be usable in
-//! the future.  Do not use it for things other than experiments.
-//!
-//! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-08
+//! This crate may implement extensions where the standardization
+//! effort is still ongoing.  These experimental features are marked
+//! as such in the documentation.  We invite you to experiment with
+//! them, but please do expect the semantics and possibly even the
+//! wire format to evolve.
 
 #![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
 #![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
+
+// Public re-exports.
+//
+// We should provide public re-exports for any crate defining types
+// that we use in our public API.  This allows downstream consumers to
+// name the types without explicitly depending on the third-party
+// crates, and provides the correct version of the crates.
+pub use anyhow;
 
 #[cfg(test)]
 #[macro_use]
@@ -140,7 +149,7 @@ macro_rules! assert_match {
         assert_match!($error = $expr, "")
     };
 }
-
+
 #[macro_use]
 pub mod armor;
 pub mod fmt;
@@ -183,7 +192,7 @@ pub mod policy;
 
 pub(crate) mod seal;
 pub(crate) mod utils;
-
+
 #[cfg(test)]
 mod tests;
 
@@ -195,17 +204,46 @@ mod tests;
 fn frozen_time() -> std::time::SystemTime {
     crate::types::Timestamp::from(1554542220 - 1).into()
 }
-
+
 /// The version of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
+
+/// Profiles select versions of the OpenPGP standard.
+///
+/// While this type implements [`Default`], please consider what a
+/// good default for your use case is.
+///
+/// If you are doing a greenfield implementation where you know that
+/// every client understands RFC9580, you can just explicitly pick
+/// that.
+///
+/// Otherwise, you have to consider the state of the ecosystem your
+/// client will interact with.  Maybe it is better to stick to
+/// generating RFC4880 certificates for the time being, while rolling
+/// out RFC9580 support.  Consider adding a configuration option or
+/// command line switch like `--profile`, but pick a sensible default,
+/// and remember to don't overwhelm your users.
+///
+/// For now, our default is RFC4880.  This is a safe default for every
+/// downstream consumer that has existing legacy deployments
+/// (including their own previous versions using a legacy version of
+/// Sequoia).  We will update this default once RFC9580 is more widely
+/// deployed.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum Profile {
+    /// RFC9580, published in 2024, defines "v6" OpenPGP.
+    RFC9580,
+
+    /// RFC4880, published in 2007, defines "v4" OpenPGP.
+    #[default]
+    RFC4880,
+}
+
 /// Crate result specialization.
 pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 /// Errors used in this crate.
-///
-/// Note: This enum cannot be exhaustively matched to allow future
-/// extensions.
 #[non_exhaustive]
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -296,7 +334,7 @@ pub enum Error {
     /// unsupported format.  In particular, Sequoia does not support
     /// version 3 keys.
     #[error("Unsupported Cert: {0}")]
-    UnsupportedCert(String),
+    UnsupportedCert(String, Vec<Packet>),
 
     /// Index out of range.
     #[error("Index out of range")]
@@ -318,14 +356,29 @@ pub enum Error {
     #[error("Invalid key: {0:?}")]
     InvalidKey(String),
 
+    /// No hash algorithm found that would be accepted by all signers.
+    #[error("No acceptable hash")]
+    NoAcceptableHash,
+
     /// The operation is not allowed, because it violates the policy.
     ///
     /// The optional time is the time at which the operation was
     /// determined to no longer be secure.
-    #[error("{0} is not considered secure{}",
-            .1.as_ref().map(|t| format!(" since {}", crate::fmt::time(t)))
+    #[error("{} is not considered secure{}",
+            .0,
+            .1.as_ref().map(|t| {
+                if *t == std::time::UNIX_EPOCH {
+                    "".to_string()
+                } else {
+                    format!(" since {}", crate::fmt::time(t))
+                }
+            })
             .unwrap_or_else(|| "".into()))]
     PolicyViolation(String, Option<std::time::SystemTime>),
+
+    /// Short key IDs are insecure, and not supported.
+    #[error("Short key IDs are insecure, and not supported: {0}")]
+    ShortKeyID(String),
 }
 
 assert_send_and_sync!(Error);
@@ -360,5 +413,22 @@ mod arbitrary_helper {
         } else {
             panic!()
         }
+    }
+
+    pub(crate) fn arbitrary_slice<T>(g: &mut Gen, s: &mut [T])
+    where
+        T: Arbitrary,
+    {
+        s.iter_mut().for_each(|p| *p = Arbitrary::arbitrary(g));
+    }
+
+    pub(crate) fn arbitrary_bounded_vec<T>(g: &mut Gen, limit: usize) -> Vec<T>
+    where
+        T: Arbitrary + Default,
+    {
+        let mut v = vec![Default::default();
+                         gen_arbitrary_from_range(0..limit, g)];
+        arbitrary_slice(g, &mut v[..]);
+        v
     }
 }

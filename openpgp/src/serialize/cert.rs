@@ -1,6 +1,16 @@
+use std::{
+    borrow::Cow,
+};
+
 use crate::Result;
 use crate::cert::prelude::*;
-use crate::packet::{header::BodyLength, key, Signature, Tag};
+use crate::packet::{
+    header::BodyLength,
+    key,
+    Key,
+    Signature,
+    Tag,
+};
 use crate::seal;
 use crate::serialize::{
     PacketRef,
@@ -11,6 +21,64 @@ use crate::serialize::{
 
 
 impl Cert {
+    /// Returns whether the certificate should be exported.
+    ///
+    /// A certificate should only be exported if it has at least one
+    /// exportable direct key signature, or there is at least one user
+    /// ID with at least one exportable self signature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// // By default, certificates are exportable.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
+    ///         .generate()?;
+    /// assert!(cert.exportable());
+    ///
+    /// // Setting the exportable flag to false makes them
+    /// // not-exportable.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(Some("alice@example.org"))
+    ///         .set_exportable(false)
+    ///         .generate()?;
+    /// assert!(! cert.exportable());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn exportable(&self) -> bool {
+        let pk = self.primary_key();
+
+        if pk.self_signatures().chain(pk.self_revocations())
+            .any(|sig| sig.exportable().is_ok())
+        {
+            // Exportable direct key signature.  Export it.
+            true
+        } else if self.userids().any(|userid| {
+            userid.self_signatures()
+                .chain(userid.self_revocations())
+                .any(|sig| sig.exportable().is_ok())
+        }) {
+            // User ID with exportable self signature.  Export it.
+            true
+        } else if self.user_attributes().any(|ua| {
+            ua.self_signatures()
+                .chain(ua.self_revocations())
+                .any(|sig| sig.exportable().is_ok())
+        }) {
+            // User attribute with exportable self signature.  Export
+            // it.
+            true
+        } else {
+            // Don't export it.
+            false
+        }
+    }
+
     /// Serializes or exports the Cert.
     ///
     /// If `export` is true, then non-exportable signatures are not
@@ -26,12 +94,16 @@ impl Cert {
     ///   - Self signatures.  They are authenticated.
     ///   - Other signatures.  They are not authenticated at this point.
     ///   - Other revocations.  They are not authenticated, and likely
-    ///     not well supported in other implementations, hence the
+    ///     not well-supported in other implementations, hence the
     ///     least reliable way of revoking keys and therefore least
     ///     useful and most likely to be abused.
     fn serialize_common(&self, o: &mut dyn std::io::Write, export: bool)
                         -> Result<()>
     {
+        if export && ! self.exportable() {
+            return Ok(())
+        }
+
         let primary = self.primary_key();
         PacketRef::PublicKey(primary.key())
             .serialize(o)?;
@@ -82,7 +154,7 @@ impl Cert {
             }
         }
 
-        for k in self.subkeys() {
+        for k in self.keys().subkeys() {
             if export && ! k.self_signatures().chain(k.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
@@ -160,7 +232,7 @@ impl MarshalInto for Cert {
             }
         }
 
-        for k in self.subkeys() {
+        for k in self.keys().subkeys() {
             l += PacketRef::PublicSubkey(k.key()).serialized_len();
 
             for s in k.signatures() {
@@ -201,6 +273,15 @@ impl Cert {
     pub fn as_tsk(&self) -> TSK {
         TSK::new(self)
     }
+
+    /// Derive a [`TSK`] object from this key that owns the `Cert`.
+    ///
+    /// This object writes out secret keys during serialization.
+    ///
+    /// [`TSK`]: crate::serialize::TSK
+    pub fn into_tsk(self) -> TSK<'static> {
+        TSK::from(self)
+    }
 }
 
 /// A reference to a `Cert` that allows serialization of secret keys.
@@ -230,8 +311,8 @@ impl Cert {
 /// # Ok(()) }
 /// ```
 pub struct TSK<'a> {
-    pub(crate) cert: &'a Cert,
-    filter: Box<dyn Fn(&'a key::UnspecifiedSecret) -> bool + 'a>,
+    pub(crate) cert: Cow<'a, Cert>,
+    filter: Box<dyn Fn(&key::UnspecifiedSecret) -> bool + Send + Sync + 'a>,
     emit_stubs: bool,
 }
 
@@ -253,7 +334,7 @@ impl PartialEq for TSK<'_> {
                    && (other.filter)(b.key().parts_as_secret().expect("has_secret")))
             {
                 // Both have secrets.  Compare secrets.
-                (true, true) => if a.optional_secret() != b.optional_secret() {
+                (true, true) => if a.key().optional_secret() != b.key().optional_secret() {
                     return false;
                 },
                 // No secrets.  Equal iff both or neither emit stubs.
@@ -270,14 +351,44 @@ impl PartialEq for TSK<'_> {
     }
 }
 
+impl From<Cert> for TSK<'_> {
+    fn from(c: Cert) -> Self {
+        Self {
+            cert: Cow::Owned(c),
+            filter: Box::new(|_| true),
+            emit_stubs: false,
+        }
+    }
+}
+
 impl<'a> TSK<'a> {
     /// Creates a new view for the given `Cert`.
     fn new(cert: &'a Cert) -> Self {
         Self {
-            cert,
+            cert: Cow::Borrowed(cert),
             filter: Box::new(|_| true),
             emit_stubs: false,
         }
+    }
+
+    /// Decomposes the TSK.
+    pub(crate) fn decompose(self)
+                            -> (Cow<'a, Cert>,
+                                Box<dyn Fn(&key::UnspecifiedSecret) -> bool + Send + Sync + 'a>,
+                                bool)
+    {
+        (self.cert, self.filter, self.emit_stubs)
+    }
+
+    /// Returns whether we're emitting secret (sub)key packets when
+    /// serializing.
+    ///
+    /// Computes whether we have secrets, taking the filter into
+    /// account, and whether we are emitting stubs.  This can be used
+    /// to determine the correct armor label to use.
+    pub(crate) fn emits_secret_key_packets(&self) -> bool {
+        self.emit_stubs
+            || self.cert.keys().secret().any(|skb| (self.filter)(skb.key()))
     }
 
     /// Filters which secret keys to export using the given predicate.
@@ -306,12 +417,12 @@ impl<'a> TSK<'a> {
     ///     .serialize(&mut buf)?;
     ///
     /// let cert_ = Cert::from_bytes(&buf)?;
-    /// assert!(! cert_.primary_key().has_secret());
+    /// assert!(! cert_.primary_key().key().has_secret());
     /// assert_eq!(cert_.keys().with_policy(p, None).alive().revoked(false).secret().count(), 1);
     /// # Ok(()) }
     /// ```
     pub fn set_filter<P>(mut self, predicate: P) -> Self
-        where P: 'a + Fn(&'a key::UnspecifiedSecret) -> bool
+        where P: Fn(&key::UnspecifiedSecret)-> bool + Send + Sync + 'a
     {
         self.filter = Box::new(predicate);
         self
@@ -327,7 +438,7 @@ impl<'a> TSK<'a> {
     ///
     /// The default way is to simply emit public key packets when no
     /// secret key material is available.  While straight forward,
-    /// this may be in violation of [Section 11.2 of RFC 4880].
+    /// this may be in violation of [Section 10.2 of RFC 9580].
     ///
     /// The alternative is to emit a secret key packet with a
     /// placeholder secret key value.  GnuPG uses this variant with a
@@ -337,7 +448,7 @@ impl<'a> TSK<'a> {
     /// See [this test] for support in other implementations.
     ///
     ///   [`TSK::set_filter`]: TSK::set_filter()
-    ///   [Section 11.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.2
+    ///   [Section 10.2 of RFC 9580]: https://www.rfc-editor.org/rfc/rfc9580.html#section-10.2
     ///   [`S2K`]: super::crypto::S2K
     ///   [this test]: https://tests.sequoia-pgp.org/#Detached_primary_key
     ///
@@ -372,11 +483,11 @@ impl<'a> TSK<'a> {
     /// #            Some(packet::Tag::SecretKey));
     /// let cert_ = Cert::from_bytes(&buf)?;
     /// // The primary key has an "encrypted" stub.
-    /// assert!(cert_.primary_key().has_secret());
+    /// assert!(cert_.primary_key().key().has_secret());
     /// assert_eq!(cert_.keys().with_policy(p, None)
     ///            .alive().revoked(false).unencrypted_secret().count(), 1);
     /// # if let Some(SecretKeyMaterial::Encrypted(sec)) =
-    /// #     cert_.primary_key().optional_secret()
+    /// #     cert_.primary_key().key().optional_secret()
     /// # {
     /// #     assert_eq!(sec.algo(), SymmetricAlgorithm::Unencrypted);
     /// #     if let S2K::Private { tag, .. } = sec.s2k() {
@@ -392,6 +503,43 @@ impl<'a> TSK<'a> {
     pub fn emit_secret_key_stubs(mut self, emit_stubs: bool) -> Self {
         self.emit_stubs = emit_stubs;
         self
+    }
+
+    /// Adds a GnuPG-style secret key stub to the key.
+    pub(crate) fn add_stub<P, R>(key: Key<P, R>) -> key::UnspecifiedSecret
+    where
+        P: key::KeyParts,
+        R: key::KeyRole,
+    {
+        Self::add_stub_internal(key.parts_into_unspecified()
+                                .role_into_unspecified())
+    }
+
+
+    /// Adds a GnuPG-style secret key stub to the key.
+    pub(crate) fn add_stub_internal(key: key::UnspecifiedKey) -> key::UnspecifiedSecret
+    {
+
+        // Emit a GnuPG-style secret key stub.
+        let stub = crate::crypto::S2K::Private {
+            tag: 101,
+            parameters: Some(vec![
+                0,    // "hash algo"
+                0x47, // 'G'
+                0x4e, // 'N'
+                0x55, // 'U'
+                1     // "mode"
+            ].into()),
+        };
+        key.add_secret(key::SecretKeyMaterial::Encrypted(
+            key::Encrypted::new(
+                stub, 0.into(),
+                // Mirrors more closely what GnuPG 2.1
+                // does (oddly, GnuPG 1.4 emits 0xfe
+                // here).
+                Some(crate::crypto::mpi::SecretKeyChecksum::Sum16),
+                vec![].into())))
+            .0.into()
     }
 
     /// Serializes or exports the Cert.
@@ -418,10 +566,13 @@ impl<'a> TSK<'a> {
 
         // Serializes public or secret key depending on the filter.
         let serialize_key =
-            |o: &mut dyn std::io::Write, key: &'a key::UnspecifiedSecret,
+            |o: &mut dyn std::io::Write, key: &'a key::UnspecifiedKey,
              tag_public, tag_secret|
         {
-            let tag = if key.has_secret() && (self.filter)(key) {
+            // We check for secrets here.
+            let tag = if key.has_secret()
+                && (self.filter)(key.try_into().expect("checked for secrets"))
+            {
                 tag_secret
             } else {
                 tag_public
@@ -429,26 +580,7 @@ impl<'a> TSK<'a> {
 
             if self.emit_stubs && (tag == Tag::PublicKey
                                    || tag == Tag::PublicSubkey) {
-                // Emit a GnuPG-style secret key stub.
-                let stub = crate::crypto::S2K::Private {
-                    tag: 101,
-                    parameters: Some(vec![
-                        0,    // "hash algo"
-                        0x47, // 'G'
-                        0x4e, // 'N'
-                        0x55, // 'U'
-                        1     // "mode"
-                    ].into()),
-                };
-                let key_with_stub = key.clone()
-                    .add_secret(key::SecretKeyMaterial::Encrypted(
-                        key::Encrypted::new(
-                            stub, 0.into(),
-                            // Mirrors more closely what GnuPG 2.1
-                            // does (oddly, GnuPG 1.4 emits 0xfe
-                            // here).
-                            Some(crate::crypto::mpi::SecretKeyChecksum::Sum16),
-                            vec![].into()))).0;
+                let key_with_stub = Self::add_stub(key.clone());
                 return match tag {
                     Tag::PublicKey =>
                         crate::Packet::SecretKey(key_with_stub.into())
@@ -465,13 +597,23 @@ impl<'a> TSK<'a> {
                     PacketRef::PublicKey(key.into()).serialize(o),
                 Tag::PublicSubkey =>
                     PacketRef::PublicSubkey(key.into()).serialize(o),
-                Tag::SecretKey =>
-                    PacketRef::SecretKey(key.into()).serialize(o),
-                Tag::SecretSubkey =>
-                    PacketRef::SecretSubkey(key.into()).serialize(o),
+                Tag::SecretKey => {
+                    PacketRef::SecretKey(
+                        key.try_into().expect("checked for secrets"))
+                        .serialize(o)
+                }
+                Tag::SecretSubkey => {
+                    PacketRef::SecretSubkey(
+                        key.try_into().expect("checked for secrets"))
+                    .serialize(o)
+                }
                 _ => unreachable!(),
             }
         };
+
+        if export && ! self.cert.exportable() {
+            return Ok(())
+        }
 
         let primary = self.cert.primary_key();
         serialize_key(o, primary.key().into(),
@@ -509,7 +651,7 @@ impl<'a> TSK<'a> {
             }
         }
 
-        for k in self.cert.subkeys() {
+        for k in self.cert.keys().subkeys() {
             if export && ! k.self_signatures().chain(k.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
@@ -568,9 +710,10 @@ impl<'a> MarshalInto for TSK<'a> {
 
         // Serializes public or secret key depending on the filter.
         let serialized_len_key
-            = |key: &'a key::UnspecifiedSecret, tag_public, tag_secret|
+            = |key: &'a key::UnspecifiedKey, tag_public, tag_secret|
         {
-            let tag = if key.has_secret() && (self.filter)(key) {
+            // We check for secrets here.
+            let tag = if key.has_secret() && (self.filter)(key.try_into().expect("have secrets")) {
                 tag_secret
             } else {
                 tag_public
@@ -579,8 +722,14 @@ impl<'a> MarshalInto for TSK<'a> {
             if self.emit_stubs && (tag == Tag::PublicKey
                                    || tag == Tag::PublicSubkey) {
                 // Emit a GnuPG-style secret key stub.  The stub
-                // extends the public key by 8 bytes.
-                let l = key.parts_as_public().net_len() + 8;
+                // extends the public key by 8 bytes (plus 4 secret
+                // length octets for v6).
+                let l = key.parts_as_public().net_len()
+                    + match key.version() {
+                        4 => 8,
+                        6 => 12,
+                        _ => 0, // Serialization will fail anyway.
+                    };
                 return 1 // CTB
                     + BodyLength::Full(l as u32).serialized_len()
                     + l;
@@ -589,8 +738,14 @@ impl<'a> MarshalInto for TSK<'a> {
             let packet = match tag {
                 Tag::PublicKey => PacketRef::PublicKey(key.into()),
                 Tag::PublicSubkey => PacketRef::PublicSubkey(key.into()),
-                Tag::SecretKey => PacketRef::SecretKey(key.into()),
-                Tag::SecretSubkey => PacketRef::SecretSubkey(key.into()),
+                Tag::SecretKey => {
+                    PacketRef::SecretKey(
+                        key.try_into().expect("checked for secrets"))
+                }
+                Tag::SecretSubkey => {
+                    PacketRef::SecretSubkey(
+                        key.try_into().expect("checked for secrets"))
+                }
                 _ => unreachable!(),
             };
 
@@ -621,7 +776,7 @@ impl<'a> MarshalInto for TSK<'a> {
             }
         }
 
-        for k in self.cert.subkeys() {
+        for k in self.cert.keys().subkeys() {
             l += serialized_len_key(k.key().into(),
                                     Tag::PublicSubkey, Tag::SecretSubkey);
 
@@ -740,7 +895,7 @@ mod test {
         use crate::types::{Curve, KeyFlags, SignatureType};
         use crate::packet::{
             signature, UserID, user_attribute::{UserAttribute, Subpacket},
-            key::Key4,
+            key::Key6,
         };
 
         let p = &P::new();
@@ -750,7 +905,7 @@ mod test {
             .unwrap().into_keypair().unwrap();
 
         let key: key::SecretSubkey =
-            Key4::generate_ecc(false, Curve::Cv25519).unwrap().into();
+            Key6::generate_ecc(false, Curve::Cv25519).unwrap().into();
         let key_binding = key.bind(
             &mut keypair, &cert,
             signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
@@ -785,7 +940,7 @@ mod test {
             Packet::SecretSubkey(key), key_binding.into(),
             uid.into(), uid_binding.into(),
             ua.into(), ua_binding.into(),
-        ]).unwrap();
+        ]).unwrap().0;
 
         assert_eq!(cert.subkeys().count(), 1);
         cert.subkeys().next().unwrap().binding_signature(p, None).unwrap();
@@ -887,7 +1042,7 @@ mod test {
         assert_eq!(cert_.keys().with_policy(p, None)
                    .alive().revoked(false).unencrypted_secret().count(), 1);
         if let Some(SecretKeyMaterial::Encrypted(sec)) =
-            cert_.primary_key().optional_secret()
+            cert_.primary_key().key().optional_secret()
         {
             assert_eq!(sec.algo(), SymmetricAlgorithm::Unencrypted);
             if let S2K::Private { tag, .. } = sec.s2k() {
@@ -919,9 +1074,11 @@ mod test {
             ($a: expr, $b: expr, $expectation: expr) => {{
                 let a = $a;
                 let b = $b;
-                let serialized_eq = a.to_vec()? == b.to_vec()?;
                 let eq = a == b;
+                let serialized_eq = a.to_vec()? == b.to_vec()?;
+                let armored_eq = a.armored().to_vec()? == b.armored().to_vec()?;
                 assert_eq!(serialized_eq, eq);
+                assert_eq!(armored_eq, eq);
                 assert_eq!(eq, $expectation);
             }};
         }
@@ -933,7 +1090,7 @@ mod test {
         check!(&cert_0, &tsk_0, true);
 
         // Filters out secrets.
-        let no_secrets = |_| false;
+        let no_secrets = |_: &_| false;
 
         // TSK's equality.
         check!(tsk_0.as_tsk(), tsk_1.as_tsk(), true);
@@ -964,6 +1121,62 @@ mod test {
         check!(cert_0.as_tsk(),
                tsk_0.as_tsk().set_filter(no_secrets),
                true);
+
+        Ok(())
+    }
+
+    #[test]
+    fn issue_1075() -> Result<()> {
+        let cert = Cert::from_bytes(crate::tests::key("testy.pgp"))?;
+        let tsk = Cert::from_bytes(crate::tests::key("testy-private.pgp"))?;
+
+        // Filters out secrets.
+        let no_secrets = |_: &_| false;
+
+        assert!(! cert.as_tsk().emits_secret_key_packets());
+        assert!(cert.as_tsk().emit_secret_key_stubs(true)
+                .emits_secret_key_packets());
+        assert!(tsk.as_tsk().emits_secret_key_packets());
+        assert!(! tsk.as_tsk().set_filter(no_secrets)
+                .emits_secret_key_packets());
+
+        assert!(cert.armored().to_vec()? != tsk.as_tsk().armored().to_vec()?);
+        assert_eq!(cert.armored().to_vec()?,
+                   cert.as_tsk().armored().to_vec()?);
+        assert_eq!(cert.armored().to_vec()?,
+                   tsk.as_tsk().set_filter(no_secrets).armored().to_vec()?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn into_packets() -> Result<()> {
+        let cert = Cert::from_bytes(crate::tests::key("testy-private.pgp"))?;
+
+        fn t(tsk: TSK) {
+            let a = tsk.to_vec().unwrap();
+            let b = {
+                let mut b = Vec::new();
+                tsk.into_packets().for_each(|p| p.serialize(&mut b).unwrap());
+                b
+            };
+            assert_eq!(a, b);
+        }
+
+        let tsk = cert.clone().into_tsk();
+        t(tsk);
+
+        let tsk = cert.clone().into_tsk().set_filter(|_| false);
+        t(tsk);
+
+        let tsk = cert.clone().into_tsk()
+            .set_filter(|k| k.fingerprint() == cert.fingerprint());
+        t(tsk);
+
+        let tsk = cert.clone().into_tsk()
+            .set_filter(|k| k.fingerprint() == cert.fingerprint())
+            .emit_secret_key_stubs(true);
+        t(tsk);
 
         Ok(())
     }
