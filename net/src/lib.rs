@@ -187,6 +187,7 @@ impl KeyServer {
 
         let client: Box<dyn AClient> = {
             let mut tls = TlsConnector::builder();
+            tls.disable_built_in_roots(true);
             tls.add_root_certificate(cert);
             let tls = tls.build()?;
 

@@ -343,6 +343,8 @@ impl Credentials {
                 if let Ok(ca_path) = env::var(ENV_CA_FILE).map(|s| s.trim().to_string()) {
                     let buf = std::fs::read(&ca_path).with_context(|| format!("Failed to read custom CA file at {}", ca_path))?;
                     let cert = Certificate::from_pem(&buf).with_context(|| format!("Invalid PEM in custom CA file at {}", ca_path))?;
+                    // If Custom CA cert passed, then disable built-in system certificates
+                    tls_connector.disable_built_in_roots(true);
                     tls_connector.add_root_certificate(cert);
                 }
                 let tls_conn = tls_connector.build()?;
